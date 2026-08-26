@@ -3,15 +3,20 @@ import { Redis } from "@upstash/redis";
 import type { CachePort } from "@/core/ports";
 
 function createRedis() {
-  if (
-    !process.env.UPSTASH_REDIS_REST_URL ||
-    !process.env.UPSTASH_REDIS_REST_TOKEN
-  ) {
+  const url =
+    process.env.UPSTASH_REDIS_REST_URL ??
+    process.env.UPSTASH_REDIS_REST_KV_REST_API_URL;
+  const token =
+    process.env.UPSTASH_REDIS_REST_TOKEN ??
+    process.env.UPSTASH_REDIS_REST_KV_REST_API_TOKEN;
+
+  if (!url || !token) {
     throw new Error(
-      "Upstash Redis is not configured. Provision it through the Vercel Marketplace and pull environment variables.",
+      "Upstash Redis is not configured. Provision it through the Vercel Marketplace and connect it to this project.",
     );
   }
-  return Redis.fromEnv();
+
+  return new Redis({ url, token });
 }
 
 let redis: ReturnType<typeof createRedis> | null = null;
