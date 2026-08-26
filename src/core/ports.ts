@@ -1,0 +1,156 @@
+import type {
+  Address,
+  AnalysisResult,
+  CallRequest,
+  ChainId,
+  ContractMetadata,
+  Hex,
+  ModuleTransaction,
+  Page,
+  QueueJob,
+  SafeMessage,
+  SafeRef,
+  SafeSnapshot,
+  SafeTransaction,
+  SimulationOutput,
+  StorageOverride,
+  SyncCursor,
+  TokenBalance,
+  TransferRecord,
+} from "./domain";
+
+export interface SafeDataPort {
+  /** Discovers public Safes associated with an owner on one chain. Never requests a signature. */
+  discoverSafesByOwner(
+    chainId: ChainId,
+    owner: Address,
+  ): Promise<readonly SafeRef[]>;
+  /** Returns one normalized page and an opaque cursor suitable for exact resumption. */
+  listMultisigTransactions(
+    safe: SafeRef,
+    cursor: string | null,
+    limit: number,
+  ): Promise<Page<SafeTransaction>>;
+  listModuleTransactions(
+    safe: SafeRef,
+    cursor: string | null,
+    limit: number,
+  ): Promise<Page<ModuleTransaction>>;
+  listTransfers(
+    safe: SafeRef,
+    cursor: string | null,
+    limit: number,
+  ): Promise<Page<TransferRecord>>;
+  listMessages(
+    safe: SafeRef,
+    cursor: string | null,
+    limit: number,
+  ): Promise<Page<SafeMessage>>;
+  /** Balances are an ephemeral projection and must not be used as historical truth. */
+  getBalances(safe: SafeRef): Promise<readonly TokenBalance[]>;
+}
+
+export interface ChainPort {
+  /** Returns deployed bytecode at the requested block, or 0x for an EOA/nonexistent account. */
+  getCode(
+    chainId: ChainId,
+    address: Address,
+    blockNumber?: bigint,
+  ): Promise<Hex>;
+  /** Reads the canonical Safe configuration using eth_call only. */
+  getSafeSnapshot(safe: SafeRef, blockNumber?: bigint): Promise<SafeSnapshot>;
+  /** Performs a read-only contract call. Implementations must never hold or accept signing keys. */
+  call(
+    chainId: ChainId,
+    request: CallRequest,
+    blockNumber?: bigint,
+  ): Promise<Hex>;
+  getBlockHash(chainId: ChainId, blockNumber: bigint): Promise<Hex>;
+  getTransactionBlock(
+    chainId: ChainId,
+    transactionHash: Hex,
+  ): Promise<{ blockNumber: bigint; blockHash: Hex }>;
+}
+
+export interface SimulationPort {
+  /** Simulates without broadcasting and returns normalized trace, logs, and storage differences. */
+  simulate(
+    chainId: ChainId,
+    request: CallRequest,
+    overrides: readonly StorageOverride[],
+    blockNumber?: bigint,
+  ): Promise<SimulationOutput>;
+  /** Replays an executed transaction at its original block/index for immutable ground truth. */
+  replay(chainId: ChainId, transactionHash: Hex): Promise<SimulationOutput>;
+}
+
+export interface AbiPort {
+  /** Resolves verified metadata through the configured cascade; unknown data is returned explicitly. */
+  getContractMetadata(
+    chainId: ChainId,
+    address: Address,
+  ): Promise<ContractMetadata>;
+  /** Resolves proxy and implementation chains with cycle detection. */
+  resolveImplementationChain(
+    chainId: ChainId,
+    address: Address,
+  ): Promise<readonly Address[]>;
+  /** Best-effort selector lookup. A null result means calldata must remain raw. */
+  lookupFunctionSignature(selector: Hex): Promise<string | null>;
+}
+
+export interface PersistencePort {
+  upsertSafe(snapshot: SafeSnapshot): Promise<void>;
+  findSafe(ref: SafeRef): Promise<SafeSnapshot | null>;
+  listSafesForProfile(profileId: string): Promise<readonly SafeSnapshot[]>;
+  /** Lists all persisted Safes for bounded background sweeps. The cursor is opaque to callers. */
+  listSafes(cursor: string | null, limit: number): Promise<Page<SafeSnapshot>>;
+  bookmarkSafe(profileId: string, safe: SafeRef): Promise<void>;
+  upsertTransactions(items: readonly SafeTransaction[]): Promise<void>;
+  upsertModuleTransactions(items: readonly ModuleTransaction[]): Promise<void>;
+  upsertTransfers(items: readonly TransferRecord[]): Promise<void>;
+  upsertMessages(items: readonly SafeMessage[]): Promise<void>;
+  listTransactions(
+    safe: SafeRef,
+    cursor: string | null,
+    limit: number,
+  ): Promise<Page<SafeTransaction>>;
+  findTransaction(
+    safe: SafeRef,
+    safeTxHash: Hex,
+  ): Promise<SafeTransaction | null>;
+  saveAnalysis(result: AnalysisResult): Promise<void>;
+  findAnalysis(
+    safeTxHash: Hex,
+    engineVersion: string,
+  ): Promise<AnalysisResult | null>;
+  saveSyncCursor(cursor: SyncCursor): Promise<void>;
+  findSyncCursor(
+    safe: SafeRef,
+    stream: SyncCursor["stream"],
+  ): Promise<SyncCursor | null>;
+  upsertContract(metadata: ContractMetadata): Promise<void>;
+  setAddressBookEntry(
+    safe: SafeRef,
+    address: Address,
+    label: string,
+    trust: "trusted" | "flagged",
+  ): Promise<void>;
+  removeAddressBookEntry(safe: SafeRef, address: Address): Promise<void>;
+}
+
+export interface CachePort {
+  get<T>(key: string): Promise<T | null>;
+  /** A null TTL means the value is immutable and may be retained indefinitely. */
+  set<T>(key: string, value: T, ttlSeconds: number | null): Promise<void>;
+  delete(key: string): Promise<void>;
+  deleteByPrefix(prefix: string): Promise<number>;
+}
+
+export interface QueuePort {
+  /** Enqueues an idempotent job. Reusing idempotencyKey must not create duplicate work. */
+  enqueue(
+    job: QueueJob,
+    options: { idempotencyKey: string; delaySeconds?: number },
+  ): Promise<{ jobId: string }>;
+}

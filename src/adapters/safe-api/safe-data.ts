@@ -1,0 +1,257 @@
+import SafeApiKit from "@safe-global/api-kit";
+
+import type {
+  Address,
+  ChainId,
+  Confirmation,
+  Hex,
+  ModuleTransaction,
+  Operation,
+  Page,
+  SafeMessage,
+  SafeRef,
+  SafeTransaction,
+  TokenBalance,
+  TransferRecord,
+} from "@/core/domain";
+import type { SafeDataPort } from "@/core/ports";
+
+const MAINNET_SERVICE_URL = "https://api.safe.global/tx-service/eth";
+
+const asAddress = (value: string) => value.toLowerCase() as Address;
+const asHex = (value: string | null | undefined) => (value ?? "0x") as Hex;
+const asUnixTime = (value: string) =>
+  Math.floor(new Date(value).getTime() / 1_000);
+const operation = (value: number): Operation =>
+  value === 1 ? "delegatecall" : "call";
+const offsetFromCursor = (cursor: string | null) =>
+  cursor ? Number.parseInt(cursor, 10) : 0;
+
+interface BalanceResponse {
+  readonly tokenAddress: string | null;
+  readonly balance: string;
+  readonly token: {
+    readonly decimals?: number;
+    readonly symbol?: string;
+  } | null;
+}
+
+export class SafeApiAdapter implements SafeDataPort {
+  private readonly clients = new Map<ChainId, SafeApiKit>();
+
+  private getClient(chainId: ChainId) {
+    const existing = this.clients.get(chainId);
+    if (existing) return existing;
+
+    const customUrl = process.env[`SAFE_TX_SERVICE_URL_${chainId}`];
+    const apiKey = process.env.SAFE_API_KEY;
+    if (!customUrl && chainId !== 1) {
+      throw new Error(
+        `SAFE_TX_SERVICE_URL_${chainId} is required for this chain.`,
+      );
+    }
+    if (!customUrl && !apiKey) {
+      throw new Error(
+        "SAFE_API_KEY is required for the hosted Safe Transaction Service.",
+      );
+    }
+
+    const client = new SafeApiKit({
+      chainId: BigInt(chainId),
+      ...(customUrl ? { txServiceUrl: customUrl } : {}),
+      ...(apiKey ? { apiKey } : {}),
+    });
+    this.clients.set(chainId, client);
+    return client;
+  }
+
+  async discoverSafesByOwner(
+    chainId: ChainId,
+    owner: Address,
+  ): Promise<readonly SafeRef[]> {
+    const response = await this.getClient(chainId).getSafesByOwner(owner);
+    return response.safes.map((address) => ({
+      chainId,
+      address: asAddress(address),
+    }));
+  }
+
+  async listMultisigTransactions(
+    safe: SafeRef,
+    cursor: string | null,
+    limit: number,
+  ): Promise<Page<SafeTransaction>> {
+    const offset = offsetFromCursor(cursor);
+    const response = await this.getClient(safe.chainId).getMultisigTransactions(
+      safe.address,
+      {
+        limit,
+        offset,
+        ordering: "-created",
+      },
+    );
+
+    return {
+      items: response.results.map((item) => ({
+        safe,
+        safeTxHash: item.safeTxHash as Hex,
+        nonce: BigInt(item.nonce),
+        to: asAddress(item.to),
+        value: BigInt(item.value),
+        data: asHex(item.data),
+        operation: operation(item.operation),
+        status: item.isExecuted
+          ? item.isSuccessful === false
+            ? "failed"
+            : "executed"
+          : "pending",
+        confirmations: (item.confirmations ?? []).map<Confirmation>(
+          (confirmation) => ({
+            owner: asAddress(confirmation.owner),
+            signature: confirmation.signature as Hex,
+            signedAt: asUnixTime(confirmation.submissionDate),
+          }),
+        ),
+        proposedAt: asUnixTime(item.submissionDate),
+        executedAt: item.executionDate ? asUnixTime(item.executionDate) : null,
+        executedTxHash: item.transactionHash as Hex | null,
+        blockNumber:
+          item.blockNumber === null ? null : BigInt(item.blockNumber),
+        blockHash: null,
+      })),
+      nextCursor: response.next
+        ? String(offset + response.results.length)
+        : null,
+      total: response.count,
+    };
+  }
+
+  async listModuleTransactions(
+    safe: SafeRef,
+    cursor: string | null,
+    limit: number,
+  ): Promise<Page<ModuleTransaction>> {
+    const offset = offsetFromCursor(cursor);
+    const response = await this.getClient(safe.chainId).getModuleTransactions(
+      safe.address,
+      { limit, offset },
+    );
+    const items = response.results.flatMap<ModuleTransaction>((item) => {
+      if (!item.transactionHash || item.blockNumber === undefined) return [];
+      return [
+        {
+          safe,
+          module: asAddress(item.module),
+          transactionHash: item.transactionHash as Hex,
+          to: asAddress(item.to),
+          value: BigInt(item.value),
+          data: asHex(item.data),
+          operation: operation(item.operation),
+          blockNumber: BigInt(item.blockNumber),
+          executedAt: asUnixTime(item.executionDate),
+        },
+      ];
+    });
+
+    return {
+      items,
+      nextCursor: response.next
+        ? String(offset + response.results.length)
+        : null,
+      total: response.count,
+    };
+  }
+
+  async listTransfers(
+    safe: SafeRef,
+    cursor: string | null,
+    limit: number,
+  ): Promise<Page<TransferRecord>> {
+    const offset = offsetFromCursor(cursor);
+    const response = await this.getClient(safe.chainId).getIncomingTransactions(
+      safe.address,
+      { limit, offset },
+    );
+
+    return {
+      items: response.results.map((item) => ({
+        safe,
+        transactionHash: item.transactionHash as Hex,
+        token: item.tokenAddress ? asAddress(item.tokenAddress) : null,
+        from: asAddress(item.from),
+        to: asAddress(item.to),
+        amount: BigInt(item.value ?? "1"),
+        blockNumber: BigInt(item.blockNumber),
+        timestamp: asUnixTime(item.executionDate),
+      })),
+      nextCursor: response.next
+        ? String(offset + response.results.length)
+        : null,
+      total: response.count,
+    };
+  }
+
+  async listMessages(
+    safe: SafeRef,
+    cursor: string | null,
+    limit: number,
+  ): Promise<Page<SafeMessage>> {
+    const offset = offsetFromCursor(cursor);
+    const response = await this.getClient(safe.chainId).getMessages(
+      safe.address,
+      { limit, offset, ordering: "-created" },
+    );
+
+    return {
+      items: response.results.map((item) => ({
+        safe,
+        messageHash: item.messageHash as Hex,
+        payload:
+          typeof item.message === "string"
+            ? item.message
+            : JSON.stringify(item.message),
+        confirmations: item.confirmations.map((confirmation) => ({
+          owner: asAddress(confirmation.owner),
+          signature: confirmation.signature as Hex,
+          signedAt: asUnixTime(confirmation.created),
+        })),
+        createdAt: asUnixTime(item.created),
+      })),
+      nextCursor: response.next
+        ? String(offset + response.results.length)
+        : null,
+      total: response.count,
+    };
+  }
+
+  async getBalances(safe: SafeRef): Promise<readonly TokenBalance[]> {
+    const serviceUrl =
+      process.env[`SAFE_TX_SERVICE_URL_${safe.chainId}`] ??
+      (safe.chainId === 1 ? MAINNET_SERVICE_URL : null);
+    if (!serviceUrl)
+      throw new Error(
+        `SAFE_TX_SERVICE_URL_${safe.chainId} is required for balance reads.`,
+      );
+
+    const response = await fetch(
+      `${serviceUrl.replace(/\/$/, "")}/api/v1/safes/${safe.address}/balances/`,
+      {
+        ...(process.env.SAFE_API_KEY
+          ? { headers: { "X-API-Key": process.env.SAFE_API_KEY } }
+          : {}),
+        signal: AbortSignal.timeout(12_000),
+      },
+    );
+    if (!response.ok)
+      throw new Error(
+        `Safe balance request failed with status ${response.status}.`,
+      );
+    const balances = (await response.json()) as BalanceResponse[];
+    return balances.map((item) => ({
+      token: item.tokenAddress ? asAddress(item.tokenAddress) : null,
+      amount: BigInt(item.balance),
+      decimals: item.token?.decimals ?? 18,
+      symbol: item.token?.symbol ?? "Native",
+    }));
+  }
+}
