@@ -50,3 +50,4 @@ This runs formatting, linting, TypeScript, unit tests, and a production build.
 ## Hosted environments
 
 Runtime credentials and imported Safe data are stored only in hosted services; local environment files are not used.
+Preview deployments are built from pull request branches.
