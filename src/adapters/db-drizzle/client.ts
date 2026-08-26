@@ -1,5 +1,5 @@
-import { neon } from "@neondatabase/serverless";
-import { drizzle } from "drizzle-orm/neon-http";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
 
 import * as schema from "./schema";
 
@@ -8,11 +8,17 @@ function createDatabase() {
 
   if (!connectionString) {
     throw new Error(
-      "DATABASE_URL is not configured. Provision Neon and pull the Vercel environment variables.",
+      "DATABASE_URL is not configured. Connect a PostgreSQL database to this project.",
     );
   }
 
-  return drizzle(neon(connectionString), { schema });
+  const client = postgres(connectionString, {
+    max: 5,
+    idle_timeout: 20,
+    connect_timeout: 10,
+  });
+
+  return drizzle(client, { schema });
 }
 
 let database: ReturnType<typeof createDatabase> | null = null;
