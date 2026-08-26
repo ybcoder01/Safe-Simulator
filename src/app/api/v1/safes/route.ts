@@ -1,0 +1,108 @@
+import { NextRequest, NextResponse } from "next/server";
+import { z, ZodError } from "zod";
+
+import { supportedChainSummaries } from "@/adapters/chain-viem/config";
+import { getImportSafeService, getPersistencePort } from "@/container";
+import { SafeImportError } from "@/core/safes/import-safe";
+import { importSafeInputSchema, toSafeView } from "@/lib/api/safes";
+
+const PROFILE_COOKIE = "safe-inspector-profile";
+const PROFILE_MAX_AGE = 60 * 60 * 24 * 365;
+const profileIdSchema = z.string().uuid();
+
+function errorResponse(
+  message: string,
+  status: number,
+  code: string,
+  details?: unknown,
+) {
+  return NextResponse.json({ error: { code, message, details } }, { status });
+}
+
+function infrastructureError(error: unknown) {
+  const message =
+    error instanceof Error ? error.message : "Infrastructure is unavailable.";
+  const missingConfiguration =
+    message.includes("not configured") || message.includes("DATABASE_URL");
+  return errorResponse(
+    missingConfiguration
+      ? message
+      : "The Safe could not be read or persisted right now.",
+    missingConfiguration ? 503 : 502,
+    missingConfiguration
+      ? "infrastructure_not_configured"
+      : "upstream_unavailable",
+  );
+}
+
+export async function GET(request: NextRequest) {
+  const parsedProfileId = profileIdSchema.safeParse(
+    request.cookies.get(PROFILE_COOKIE)?.value,
+  );
+  if (!parsedProfileId.success)
+    return NextResponse.json({ data: [], chains: supportedChainSummaries });
+
+  try {
+    const persistence = getPersistencePort();
+    const items = await persistence.listSafesForProfile(parsedProfileId.data);
+    const data = await Promise.all(
+      items.map(async (safe) => {
+        const cursors = await Promise.all(
+          (["multisig", "module", "transfer", "message"] as const).map(
+            (stream) => persistence.findSyncCursor(safe, stream),
+          ),
+        );
+        const syncStatus = cursors.some((cursor) => cursor?.status === "failed")
+          ? "failed"
+          : cursors.every((cursor) => cursor?.status === "complete")
+            ? "complete"
+            : cursors.some((cursor) => cursor?.status === "running")
+              ? "syncing"
+              : "queued";
+        return toSafeView(safe, syncStatus);
+      }),
+    );
+    return NextResponse.json({ data, chains: supportedChainSummaries });
+  } catch (error) {
+    return infrastructureError(error);
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const input = importSafeInputSchema.parse(await request.json());
+    const existingProfileId = profileIdSchema.safeParse(
+      request.cookies.get(PROFILE_COOKIE)?.value,
+    );
+    const profileId = existingProfileId.success
+      ? existingProfileId.data
+      : crypto.randomUUID();
+    const safe = await getImportSafeService().execute({ ...input, profileId });
+    const response = NextResponse.json(
+      { data: toSafeView(safe) },
+      { status: 201 },
+    );
+
+    response.cookies.set(PROFILE_COOKIE, profileId, {
+      httpOnly: true,
+      maxAge: PROFILE_MAX_AGE,
+      path: "/",
+      sameSite: "lax",
+      secure: request.nextUrl.protocol === "https:",
+    });
+    return response;
+  } catch (error) {
+    if (error instanceof ZodError) {
+      return errorResponse(
+        "The import request is invalid.",
+        400,
+        "invalid_request",
+        error.flatten(),
+      );
+    }
+    if (error instanceof SafeImportError) {
+      return errorResponse(error.message, 422, error.code);
+    }
+    return infrastructureError(error);
+  }
+}
