@@ -46,3 +46,7 @@ This runs formatting, linting, TypeScript, unit tests, and a production build.
 2. Transaction decoding, history, and confirmation views.
 3. Trace-based simulation/replay, state diffs, token and approval analysis.
 4. Trust rules, address books, WalletConnect discovery, and multi-chain hardening.
+
+## Hosted environments
+
+Runtime credentials and imported Safe data are stored only in hosted services; local environment files are not used.
