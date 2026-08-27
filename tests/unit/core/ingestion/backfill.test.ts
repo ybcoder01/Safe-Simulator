@@ -62,6 +62,7 @@ function makePorts(
     listTransfers: vi.fn(),
     listMessages: vi.fn(),
     getBalances: vi.fn(),
+    decodeTransactionData: vi.fn(),
   };
   const queue = { enqueue: vi.fn().mockResolvedValue({ jobId: "job_test" }) };
 

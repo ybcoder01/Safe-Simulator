@@ -5,6 +5,7 @@ import type {
   Address,
   ChainId,
   Confirmation,
+  DecodedCall,
   Hex,
   ModuleTransaction,
   Operation,
@@ -74,6 +75,62 @@ interface BalanceResponse {
     readonly decimals?: number;
     readonly symbol?: string;
   } | null;
+}
+
+interface SafeDecodedData {
+  readonly method: string;
+  readonly parameters: readonly SafeDecodedParameter[];
+}
+
+interface SafeDecodedParameter {
+  readonly name: string;
+  readonly type: string;
+  readonly value: string;
+  readonly valueDecoded?: readonly SafeDecodedValue[];
+}
+
+interface SafeDecodedValue {
+  readonly to: string;
+  readonly value: string;
+  readonly data: string;
+  readonly operation?: number;
+  readonly dataDecoded?: SafeDecodedData;
+}
+
+interface DecodedCallContext {
+  readonly to?: Address | null;
+  readonly value?: string | null;
+  readonly data?: Hex | null;
+  readonly operation?: Operation | null;
+}
+
+export function normalizeDecodedData(
+  decoded: SafeDecodedData,
+  context: DecodedCallContext = {},
+): DecodedCall {
+  return {
+    method: decoded.method,
+    parameters: decoded.parameters.map((parameter) => ({
+      name: parameter.name,
+      type: parameter.type,
+      value: parameter.value,
+      nestedCalls: (parameter.valueDecoded ?? []).map((item) =>
+        normalizeDecodedData(
+          item.dataDecoded ?? { method: "Unknown call", parameters: [] },
+          {
+            to: /^0x[0-9a-fA-F]{40}$/.test(item.to) ? asAddress(item.to) : null,
+            value: item.value,
+            data: asHex(item.data),
+            operation: operation(item.operation ?? 0),
+          },
+        ),
+      ),
+    })),
+    to: context.to ?? null,
+    value: context.value ?? null,
+    data: context.data ?? null,
+    operation: context.operation ?? null,
+  };
 }
 
 export interface BalanceRequestConfig {
@@ -270,6 +327,20 @@ export class SafeApiAdapter implements SafeDataPort {
         : null,
       total: response.count,
     };
+  }
+
+  async decodeTransactionData(
+    safe: SafeRef,
+    to: Address,
+    data: Hex,
+  ): Promise<DecodedCall | null> {
+    if (data === "0x") return null;
+
+    const decoded = await this.getClient(safe.chainId).decodeData(
+      data,
+      getAddress(to),
+    );
+    return normalizeDecodedData(decoded, { to, data });
   }
 
   async getBalances(safe: SafeRef): Promise<readonly TokenBalance[]> {

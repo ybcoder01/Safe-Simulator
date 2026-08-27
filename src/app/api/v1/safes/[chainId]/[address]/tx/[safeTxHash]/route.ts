@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 
-import { getPersistencePort } from "@/container";
+import { getPersistencePort, getSafeDataPort } from "@/container";
 import {
+  resolveDecodedCall,
   safeRouteParamsSchema,
   safeTransactionHashSchema,
   toTransactionView,
@@ -48,5 +49,9 @@ export async function GET(_request: Request, context: RouteContext) {
     );
   }
 
-  return NextResponse.json({ data: toTransactionView(transaction) });
+  const decoded = await resolveDecodedCall(getSafeDataPort(), transaction);
+
+  return NextResponse.json({
+    data: { ...toTransactionView(transaction), decoded },
+  });
 }

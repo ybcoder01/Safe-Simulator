@@ -114,9 +114,10 @@ export function TransactionHistory({
               <div>
                 <strong>
                   Nonce {transaction.nonce} ·{" "}
-                  {transaction.operation === "delegatecall"
-                    ? "Delegate call"
-                    : "Contract call"}
+                  {transaction.summary ??
+                    (transaction.operation === "delegatecall"
+                      ? "Delegate call"
+                      : "Contract call")}
                 </strong>
                 <span>
                   To {shorten(transaction.to)} ·{" "}

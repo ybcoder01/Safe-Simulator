@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { Address, ChainId, SafeRef } from "../../../../src/core/domain";
 import {
   balanceRequestConfig,
+  normalizeDecodedData,
   transactionServiceConfig,
 } from "../../../../src/adapters/safe-api/safe-data";
 
@@ -67,6 +68,57 @@ describe("balanceRequestConfig", () => {
       ),
     ).toEqual({
       url: "https://safe.example/api/v1/safes/0x000000000000000000000000000000000000dEaD/balances/",
+    });
+  });
+});
+
+describe("normalizeDecodedData", () => {
+  it("preserves parameters and recursively normalizes decoded batch calls", () => {
+    expect(
+      normalizeDecodedData({
+        method: "multiSend",
+        parameters: [
+          {
+            name: "transactions",
+            type: "bytes",
+            value: "0x1234",
+            valueDecoded: [
+              {
+                to: "0x1111111111111111111111111111111111111111",
+                value: "0",
+                data: "0x095ea7b3",
+                operation: 1,
+                dataDecoded: {
+                  method: "approve",
+                  parameters: [
+                    {
+                      name: "spender",
+                      type: "address",
+                      value: "0x2222222222222222222222222222222222222222",
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+      })
+        .parameters.at(0)
+        ?.nestedCalls.at(0),
+    ).toMatchObject({
+      method: "approve",
+      to: "0x1111111111111111111111111111111111111111",
+      value: "0",
+      data: "0x095ea7b3",
+      operation: "delegatecall",
+      parameters: [
+        {
+          name: "spender",
+          type: "address",
+          value: "0x2222222222222222222222222222222222222222",
+          nestedCalls: [],
+        },
+      ],
     });
   });
 });

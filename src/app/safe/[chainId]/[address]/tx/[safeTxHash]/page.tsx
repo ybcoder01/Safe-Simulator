@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { getPersistencePort } from "@/container";
+import { getPersistencePort, getSafeDataPort } from "@/container";
+import { decodedCallSummary } from "@/core/analysis/decoding/calldata";
 import {
+  resolveDecodedCall,
   safeRouteParamsSchema,
   safeTransactionHashSchema,
   toTransactionView,
@@ -41,7 +43,12 @@ export default async function TransactionDetailPage({ params }: PageProps) {
   );
   if (!persisted) notFound();
 
-  const transaction = toTransactionView(persisted);
+  const [transaction, decoded] = await Promise.all([
+    Promise.resolve(toTransactionView(persisted)),
+    resolveDecodedCall(getSafeDataPort(), persisted),
+  ]);
+  const nestedCalls =
+    decoded?.parameters.flatMap((parameter) => parameter.nestedCalls) ?? [];
   const safePath = `/safe/${safe.data.chainId}/${safe.data.address}`;
 
   return (
@@ -95,6 +102,65 @@ export default async function TransactionDetailPage({ params }: PageProps) {
             <span>Executed</span>
             <strong>{formatDate(transaction.executedAt)}</strong>
           </div>
+        </section>
+
+        <section className="detail-panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Decoded action</p>
+              <h2>Human-readable call</h2>
+            </div>
+            <span>
+              {decoded?.method ??
+                (transaction.summary ? "Known selector" : "Unknown selector")}
+            </span>
+          </div>
+          {decoded ? (
+            <>
+              <div className="calldata">
+                <span>Summary</span>
+                <strong>{decodedCallSummary(decoded)}</strong>
+              </div>
+              {decoded.parameters.length > 0 ? (
+                <dl className="detail-list">
+                  {decoded.parameters.map((parameter, index) => (
+                    <div key={`${parameter.name}-${index}`}>
+                      <dt>
+                        {parameter.name || `Parameter ${index + 1}`} ·{" "}
+                        {parameter.type}
+                      </dt>
+                      <dd>
+                        {parameter.nestedCalls.length > 0 ? (
+                          `${parameter.nestedCalls.length} decoded calls`
+                        ) : (
+                          <code>{parameter.value}</code>
+                        )}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              ) : null}
+              {nestedCalls.map((call, index) => (
+                <div className="calldata" key={`${call.to}-${index}`}>
+                  <span>Nested call {index + 1}</span>
+                  <strong>{decodedCallSummary(call)}</strong>
+                  <code>
+                    {call.to ?? "Unknown target"} ·{" "}
+                    {call.operation ?? "Unknown operation"}
+                  </code>
+                </div>
+              ))}
+            </>
+          ) : transaction.summary ? (
+            <div className="calldata">
+              <span>Selector summary · ABI unverified</span>
+              <strong>{transaction.summary}</strong>
+            </div>
+          ) : (
+            <div className="panel-empty">
+              No verified decode is available. Review the raw calldata below.
+            </div>
+          )}
         </section>
 
         <section className="detail-panel">
