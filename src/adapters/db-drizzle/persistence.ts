@@ -2,6 +2,7 @@ import { and, asc, desc, eq, gt, lt } from "drizzle-orm";
 
 import type {
   Address,
+  AddressBookEntry,
   AnalysisResult,
   CallNode,
   ContractMetadata,
@@ -20,13 +21,13 @@ import type { PersistencePort } from "@/core/ports";
 
 import type { Database } from "./client";
 import {
-  addressBook,
   analysisResults,
   confirmations,
   contracts,
   messages,
   moduleTransactions,
   profiles,
+  profileAddressBook,
   profileSafes,
   rawTransfers,
   safeModules,
@@ -602,39 +603,92 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
       });
   }
 
+  private async requireProfileBookmark(
+    profileId: string,
+    safeId: string,
+  ): Promise<void> {
+    const [bookmark] = await this.db
+      .select({ profileId: profileSafes.profileId })
+      .from(profileSafes)
+      .where(
+        and(
+          eq(profileSafes.profileId, profileId),
+          eq(profileSafes.safeId, safeId),
+        ),
+      )
+      .limit(1);
+    if (!bookmark) {
+      throw new Error("Trust records require a bookmarked Safe.");
+    }
+  }
+
+  async listAddressBookEntries(
+    profileId: string,
+    safeRef: SafeRef,
+  ): Promise<readonly AddressBookEntry[]> {
+    const safe = await this.findSafeRow(safeRef);
+    if (!safe) return [];
+
+    const rows = await this.db
+      .select()
+      .from(profileAddressBook)
+      .where(
+        and(
+          eq(profileAddressBook.profileId, profileId),
+          eq(profileAddressBook.safeId, safe.id),
+        ),
+      )
+      .orderBy(asc(profileAddressBook.address));
+
+    return rows.map((row) => ({
+      address: row.address as Address,
+      label: row.label,
+      trust: row.trustLevel,
+    }));
+  }
+
   async setAddressBookEntry(
+    profileId: string,
     safeRef: SafeRef,
     entryAddress: Address,
     label: string,
     trust: "trusted" | "flagged",
   ): Promise<void> {
     const safe = await this.requireSafeRow(safeRef);
+    await this.requireProfileBookmark(profileId, safe.id);
     await this.db
-      .insert(addressBook)
+      .insert(profileAddressBook)
       .values({
+        profileId,
         safeId: safe.id,
         address: lowerAddress(entryAddress),
         label,
         trustLevel: trust,
       })
       .onConflictDoUpdate({
-        target: [addressBook.safeId, addressBook.address],
+        target: [
+          profileAddressBook.profileId,
+          profileAddressBook.safeId,
+          profileAddressBook.address,
+        ],
         set: { label, trustLevel: trust },
       });
   }
 
   async removeAddressBookEntry(
+    profileId: string,
     safeRef: SafeRef,
     entryAddress: Address,
   ): Promise<void> {
     const safe = await this.findSafeRow(safeRef);
     if (!safe) return;
     await this.db
-      .delete(addressBook)
+      .delete(profileAddressBook)
       .where(
         and(
-          eq(addressBook.safeId, safe.id),
-          eq(addressBook.address, lowerAddress(entryAddress)),
+          eq(profileAddressBook.profileId, profileId),
+          eq(profileAddressBook.safeId, safe.id),
+          eq(profileAddressBook.address, lowerAddress(entryAddress)),
         ),
       );
   }
