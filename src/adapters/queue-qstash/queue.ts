@@ -63,7 +63,7 @@ export class QStashQueueAdapter implements QueuePort {
       ...(options.delaySeconds === undefined
         ? {}
         : { delay: options.delaySeconds }),
-      retries: 5,
+      retries: 3,
       label: ["safe-inspector", job.type],
     });
     if (!("messageId" in result)) {
