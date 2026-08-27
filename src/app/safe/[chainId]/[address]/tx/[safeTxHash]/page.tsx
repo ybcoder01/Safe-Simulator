@@ -110,7 +110,10 @@ export default async function TransactionDetailPage({ params }: PageProps) {
               <p className="eyebrow">Decoded action</p>
               <h2>Human-readable call</h2>
             </div>
-            <span>{decoded?.method ?? "Unknown selector"}</span>
+            <span>
+              {decoded?.method ??
+                (transaction.summary ? "Known selector" : "Unknown selector")}
+            </span>
           </div>
           {decoded ? (
             <>
@@ -148,6 +151,11 @@ export default async function TransactionDetailPage({ params }: PageProps) {
                 </div>
               ))}
             </>
+          ) : transaction.summary ? (
+            <div className="calldata">
+              <span>Selector summary · ABI unverified</span>
+              <strong>{transaction.summary}</strong>
+            </div>
           ) : (
             <div className="panel-empty">
               No verified decode is available. Review the raw calldata below.
