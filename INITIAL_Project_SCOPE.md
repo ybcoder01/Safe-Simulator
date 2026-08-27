@@ -100,14 +100,14 @@ Because everything displayed is public on-chain/Transaction-Service data, there 
 
 On import, a **backfill job** is enqueued (QStash) rather than run in the request path — large Safes have thousands of operations and serverless functions have execution limits. The job pages through the Transaction Service:
 
-| Source (api-kit / REST) | Data |
-|---|---|
-| `/multisig-transactions/` | All proposed + executed multisig txs, confirmations, signatures |
-| `/module-transactions/` | Transactions executed by enabled modules |
-| `/incoming-transfers/` and `/transfers/` | Native + token inflows/outflows |
-| `/messages/` | Off-chain signed messages (EIP-1271) |
-| `/balances/` | Current token balances (cache-only, not persisted history) |
-| On-chain via viem | Owners, threshold, modules, guard, nonce, implementation version |
+| Source (api-kit / REST)                  | Data                                                             |
+| ---------------------------------------- | ---------------------------------------------------------------- |
+| `/multisig-transactions/`                | All proposed + executed multisig txs, confirmations, signatures  |
+| `/module-transactions/`                  | Transactions executed by enabled modules                         |
+| `/incoming-transfers/` and `/transfers/` | Native + token inflows/outflows                                  |
+| `/messages/`                             | Off-chain signed messages (EIP-1271)                             |
+| `/balances/`                             | Current token balances (cache-only, not persisted history)       |
+| On-chain via viem                        | Owners, threshold, modules, guard, nonce, implementation version |
 
 Each page of results is normalized into the Postgres schema (§8) and the job re-enqueues itself with a cursor until complete — this chunked, self-continuing pattern is how long backfills fit inside serverless execution windows. **Incremental sync** then runs two ways: a Vercel Cron sweep every 5 minutes across active Safes (detect new txs by comparing latest nonce/tx timestamps), and an on-demand refresh triggered when a user opens a dashboard (stale-while-revalidate: serve stored data instantly, kick a sync job, push updates to the client via polling/SWR revalidation).
 
@@ -131,48 +131,48 @@ For each multisig transaction (and each message), the engine produces an immutab
 
 ## 7. Caching Strategy
 
-| Data | Store | Policy |
-|---|---|---|
-| Analysis of executed txs | Postgres (authoritative) + Redis | Immutable — cache forever, no TTL |
-| Analysis of pending txs | Redis | TTL 60s, recomputed on dashboard open |
-| Token metadata, ABIs, storage layouts | Redis + Postgres | Permanent (keyed chain+address), warmed by first use |
-| Balances / prices | Redis | TTL 30s / 5 min |
-| Transaction Service pages during sync | none | Never cached — always fetch fresh in sync jobs |
-| Rendered dashboard data | Next.js route cache + SWR | `stale-while-revalidate`, revalidated by sync completion |
+| Data                                  | Store                            | Policy                                                   |
+| ------------------------------------- | -------------------------------- | -------------------------------------------------------- |
+| Analysis of executed txs              | Postgres (authoritative) + Redis | Immutable — cache forever, no TTL                        |
+| Analysis of pending txs               | Redis                            | TTL 60s, recomputed on dashboard open                    |
+| Token metadata, ABIs, storage layouts | Redis + Postgres                 | Permanent (keyed chain+address), warmed by first use     |
+| Balances / prices                     | Redis                            | TTL 30s / 5 min                                          |
+| Transaction Service pages during sync | none                             | Never cached — always fetch fresh in sync jobs           |
+| Rendered dashboard data               | Next.js route cache + SWR        | `stale-while-revalidate`, revalidated by sync completion |
 
 Two principles: **immutable data is cached without expiry and persisted, so the expensive simulation work happens exactly once per transaction ever**; and cache is always a projection of Postgres, never the only copy — Redis can be flushed with zero data loss.
 
 ## 8. Data Model (Postgres via Drizzle, hosted on Neon)
 
-| Table | Key columns |
-|---|---|
-| `safes` | id, chain_id, address, threshold, nonce, version, guard, last_synced_at |
-| `safe_owners` | safe_id, owner_address, added_at_block |
-| `profiles` / `profile_safes` | anonymous profile ↔ bookmarked safes |
-| `transactions` | safe_id, safe_tx_hash (uq), nonce, to, value, data, operation, status(pending/executed/failed/replaced), executed_tx_hash, block, timestamps |
-| `confirmations` | transaction_id, owner, signature, signed_at |
-| `messages` | safe_id, message_hash, payload, confirmations |
-| `analysis_results` | transaction_id (uq per version), verdict, findings jsonb, state_diff jsonb, call_tree jsonb, engine_version |
-| `token_transfers` | transaction_id, token, from, to, amount, direction |
-| `approvals` | transaction_id, token, spender, amount, is_infinite, method |
-| `contracts` | chain_id, address, label, is_verified, implementation_of, abi_ref, source(registry/user/heuristic) |
-| `address_book` | safe_id, address, label, trust_level — the per-Safe whitelist |
-| `sync_cursors` | safe_id, stream, cursor, status |
+| Table                        | Key columns                                                                                                                                  |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `safes`                      | id, chain_id, address, threshold, nonce, version, guard, last_synced_at                                                                      |
+| `safe_owners`                | safe_id, owner_address, added_at_block                                                                                                       |
+| `profiles` / `profile_safes` | anonymous profile ↔ bookmarked safes                                                                                                        |
+| `transactions`               | safe_id, safe_tx_hash (uq), nonce, to, value, data, operation, status(pending/executed/failed/replaced), executed_tx_hash, block, timestamps |
+| `confirmations`              | transaction_id, owner, signature, signed_at                                                                                                  |
+| `messages`                   | safe_id, message_hash, payload, confirmations                                                                                                |
+| `analysis_results`           | transaction_id (uq per version), verdict, findings jsonb, state_diff jsonb, call_tree jsonb, engine_version                                  |
+| `token_transfers`            | transaction_id, token, from, to, amount, direction                                                                                           |
+| `approvals`                  | transaction_id, token, spender, amount, is_infinite, method                                                                                  |
+| `contracts`                  | chain_id, address, label, is_verified, implementation_of, abi_ref, source(registry/user/heuristic)                                           |
+| `address_book`               | safe_id, address, label, trust_level — the per-Safe whitelist                                                                                |
+| `sync_cursors`               | safe_id, stream, cursor, status                                                                                                              |
 
 `analysis_results.engine_version` lets the engine evolve: bumping the version invalidates nothing retroactively but allows a backfill job to re-analyze history under new rules, keeping old verdicts for audit.
 
 ## 9. API Surface (all read-only)
 
-| Endpoint | Purpose |
-|---|---|
-| `POST /api/v1/safes` | Import (manual or from WC discovery); enqueues backfill |
-| `GET /api/v1/safes` | Profile's bookmarked Safes with sync status |
-| `GET /api/v1/safes/:chain/:addr` | Overview: config, balances, counts, pending queue |
-| `GET /api/v1/safes/:chain/:addr/transactions?cursor=` | Paginated history with verdict summaries |
-| `GET /api/v1/safes/:chain/:addr/tx/:safeTxHash` | Full detail: decoded call(s), simulation, diffs, tokens, approvals, trust findings, confirmations |
-| `GET /api/v1/safes/:chain/:addr/messages/:hash` | Message detail + signer status |
-| `PUT /api/v1/safes/:chain/:addr/address-book` | Manage the whitelist |
-| `POST /api/v1/jobs/*` (QStash-signed) · `GET /api/v1/cron/sync` (Vercel Cron) | Background entry points, signature-verified |
+| Endpoint                                                                      | Purpose                                                                                           |
+| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `POST /api/v1/safes`                                                          | Import (manual or from WC discovery); enqueues backfill                                           |
+| `GET /api/v1/safes`                                                           | Profile's bookmarked Safes with sync status                                                       |
+| `GET /api/v1/safes/:chain/:addr`                                              | Overview: config, balances, counts, pending queue                                                 |
+| `GET /api/v1/safes/:chain/:addr/transactions?cursor=`                         | Paginated history with verdict summaries                                                          |
+| `GET /api/v1/safes/:chain/:addr/tx/:safeTxHash`                               | Full detail: decoded call(s), simulation, diffs, tokens, approvals, trust findings, confirmations |
+| `GET /api/v1/safes/:chain/:addr/messages/:hash`                               | Message detail + signer status                                                                    |
+| `PUT /api/v1/safes/:chain/:addr/address-book`                                 | Manage the whitelist                                                                              |
+| `POST /api/v1/jobs/*` (QStash-signed) · `GET /api/v1/cron/sync` (Vercel Cron) | Background entry points, signature-verified                                                       |
 
 Zod schemas validate every boundary in and out; the same schemas generate the typed client used by the frontend, so API and UI cannot drift.
 
@@ -192,14 +192,14 @@ The one Vercel-specific design constraint worth naming: no long-running processe
 
 ## 12. Testing Strategy
 
-| Layer | Tooling | What is proven |
-|---|---|---|
-| Unit (core) | Vitest, port mocks | Decoders (MultiSend nesting, proxy resolution), diff normalization, ERC-20 delta math, approval classification, every trust rule — pure functions, hundreds of fast tests, ≥90% coverage gate on `/core` |
-| Fixture-based | Recorded Transaction Service + trace payloads (MSW) | Real-world transactions with known-correct analyses: a Uniswap swap, an infinite approval, an owner change, a malicious delegatecall — the regression suite that guards verdict correctness |
-| Integration | Anvil mainnet-fork in CI | Adapters against a real EVM: deploy a Safe, execute txs, verify replay analysis matches ground truth end to end |
-| Contract tests | Vitest | Each adapter satisfies its port's behavioral contract (pagination, error mapping, retries) |
-| E2E | Playwright against preview deploys | Import flow (manual + mocked WalletConnect), dashboard render, detail page for a seeded Safe |
-| CI | GitHub Actions | typecheck → lint → unit → integration → e2e on preview; deploy to prod only on green |
+| Layer          | Tooling                                             | What is proven                                                                                                                                                                                           |
+| -------------- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unit (core)    | Vitest, port mocks                                  | Decoders (MultiSend nesting, proxy resolution), diff normalization, ERC-20 delta math, approval classification, every trust rule — pure functions, hundreds of fast tests, ≥90% coverage gate on `/core` |
+| Fixture-based  | Recorded Transaction Service + trace payloads (MSW) | Real-world transactions with known-correct analyses: a Uniswap swap, an infinite approval, an owner change, a malicious delegatecall — the regression suite that guards verdict correctness              |
+| Integration    | Anvil mainnet-fork in CI                            | Adapters against a real EVM: deploy a Safe, execute txs, verify replay analysis matches ground truth end to end                                                                                          |
+| Contract tests | Vitest                                              | Each adapter satisfies its port's behavioral contract (pagination, error mapping, retries)                                                                                                               |
+| E2E            | Playwright against preview deploys                  | Import flow (manual + mocked WalletConnect), dashboard render, detail page for a seeded Safe                                                                                                             |
+| CI             | GitHub Actions                                      | typecheck → lint → unit → integration → e2e on preview; deploy to prod only on green                                                                                                                     |
 
 The fixture suite is the heart of it: every bug found in production becomes a recorded fixture with the correct expected analysis, so the engine can never regress on a transaction it has been wrong about before.
 
@@ -283,5 +283,4 @@ Cost to run during development: Vercel Pro + Neon launch tier + Upstash pay-as-y
 
 ---
 
-
-*Safe SDK usage: `@safe-global/api-kit` for all Transaction Service access, `@safe-global/protocol-kit` for Safe contract encoding/reads during simulation construction. No signing kits are included in the dependency tree — their absence is enforced by a lint rule, making "read-only" a property the CI can verify.*
+_Safe SDK usage: `@safe-global/api-kit` for all Transaction Service access, `@safe-global/protocol-kit` for Safe contract encoding/reads during simulation construction. No signing kits are included in the dependency tree — their absence is enforced by a lint rule, making "read-only" a property the CI can verify._
