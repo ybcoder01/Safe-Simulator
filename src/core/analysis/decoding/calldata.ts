@@ -81,7 +81,7 @@ function parameterValue(
   index: number,
 ) {
   const named = call.parameters.find((parameter) =>
-    names.includes(parameter.name.replace(/^_/, "").toLowerCase()),
+    names.includes((parameter.name ?? "").replace(/^_/, "").toLowerCase()),
   );
   return named?.value ?? call.parameters[index]?.value ?? null;
 }
