@@ -24,7 +24,9 @@ function sameOrigin(request: NextRequest): boolean {
 
 async function context(request: NextRequest, route: RouteContext) {
   const safe = safeRouteParamsSchema.safeParse(await route.params);
-  if (!safe.success) return { failure: error("Invalid Safe route.", 400, "invalid_safe") };
+  if (!safe.success) {
+    return { failure: error("Invalid Safe route.", 400, "invalid_safe") };
+  }
 
   const profileId = parseProfileId(request.cookies.get(PROFILE_COOKIE)?.value);
   if (!profileId) {
@@ -53,7 +55,11 @@ export async function GET(request: NextRequest, route: RouteContext) {
 
 export async function PUT(request: NextRequest, route: RouteContext) {
   if (!sameOrigin(request)) {
-    return error("Cross-origin trust changes are rejected.", 403, "origin_rejected");
+    return error(
+      "Cross-origin trust changes are rejected.",
+      403,
+      "origin_rejected",
+    );
   }
 
   const resolved = await context(request, route);
