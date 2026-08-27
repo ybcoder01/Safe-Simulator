@@ -1,4 +1,5 @@
 import SafeApiKit from "@safe-global/api-kit";
+import { getAddress } from "viem";
 
 import type {
   Address,
@@ -73,6 +74,26 @@ interface BalanceResponse {
     readonly decimals?: number;
     readonly symbol?: string;
   } | null;
+}
+
+export interface BalanceRequestConfig {
+  readonly headers?: Readonly<Record<string, string>>;
+  readonly url: string;
+}
+
+export function balanceRequestConfig(
+  safe: SafeRef,
+  environment: NodeJS.ProcessEnv = process.env,
+): BalanceRequestConfig {
+  const { apiKey, serviceBaseUrl } = transactionServiceConfig(
+    safe.chainId,
+    environment,
+  );
+
+  return {
+    ...(apiKey ? { headers: { Authorization: `Bearer ${apiKey}` } } : {}),
+    url: `${serviceBaseUrl}/api/v1/safes/${getAddress(safe.address)}/balances/`,
+  };
 }
 
 export class SafeApiAdapter implements SafeDataPort {
@@ -252,17 +273,12 @@ export class SafeApiAdapter implements SafeDataPort {
   }
 
   async getBalances(safe: SafeRef): Promise<readonly TokenBalance[]> {
-    const { serviceBaseUrl } = transactionServiceConfig(safe.chainId);
+    const request = balanceRequestConfig(safe);
 
-    const response = await fetch(
-      `${serviceBaseUrl}/api/v1/safes/${safe.address}/balances/`,
-      {
-        ...(process.env.SAFE_API_KEY
-          ? { headers: { "X-API-Key": process.env.SAFE_API_KEY } }
-          : {}),
-        signal: AbortSignal.timeout(12_000),
-      },
-    );
+    const response = await fetch(request.url, {
+      ...(request.headers ? { headers: request.headers } : {}),
+      signal: AbortSignal.timeout(12_000),
+    });
     if (!response.ok)
       throw new Error(
         `Safe balance request failed with status ${response.status}.`,
