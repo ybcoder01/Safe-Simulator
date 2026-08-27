@@ -87,7 +87,7 @@ function parameterValue(
 }
 
 function methodName(method: string) {
-  return method.split("(")[0].toLowerCase();
+  return method.split("(").at(0)?.toLowerCase() ?? method.toLowerCase();
 }
 
 export function decodedCallSummary(call: DecodedCall) {
