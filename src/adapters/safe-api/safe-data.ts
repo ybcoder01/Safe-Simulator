@@ -16,7 +16,46 @@ import type {
 } from "@/core/domain";
 import type { SafeDataPort } from "@/core/ports";
 
-const MAINNET_SERVICE_URL = "https://api.safe.global/tx-service/eth";
+const HOSTED_TRANSACTION_SERVICE_URLS: Partial<Record<ChainId, string>> = {
+  1: "https://api.safe.global/tx-service/eth",
+  50: "https://api.safe.global/tx-service/xdc",
+};
+
+export interface TransactionServiceConfig {
+  readonly apiKey?: string;
+  readonly serviceBaseUrl: string;
+  readonly txServiceUrl?: string;
+}
+
+const stripApiSuffix = (url: string) =>
+  url.replace(/\/api\/?$/, "").replace(/\/$/, "");
+
+export function transactionServiceConfig(
+  chainId: ChainId,
+  environment: NodeJS.ProcessEnv = process.env,
+): TransactionServiceConfig {
+  const configuredUrl = environment[`SAFE_TX_SERVICE_URL_${chainId}`];
+  const hostedUrl = HOSTED_TRANSACTION_SERVICE_URLS[chainId];
+  const apiKey = environment.SAFE_API_KEY;
+
+  if (!configuredUrl && !hostedUrl) {
+    throw new Error(
+      `SAFE_TX_SERVICE_URL_${chainId} is required for this chain.`,
+    );
+  }
+  if (!configuredUrl && !apiKey) {
+    throw new Error(
+      "SAFE_API_KEY is required for the hosted Safe Transaction Service.",
+    );
+  }
+
+  const serviceBaseUrl = stripApiSuffix(configuredUrl ?? hostedUrl!);
+  return {
+    ...(apiKey ? { apiKey } : {}),
+    serviceBaseUrl,
+    ...(configuredUrl ? { txServiceUrl: `${serviceBaseUrl}/api` } : {}),
+  };
+}
 
 const asAddress = (value: string) => value.toLowerCase() as Address;
 const asHex = (value: string | null | undefined) => (value ?? "0x") as Hex;
@@ -43,22 +82,10 @@ export class SafeApiAdapter implements SafeDataPort {
     const existing = this.clients.get(chainId);
     if (existing) return existing;
 
-    const customUrl = process.env[`SAFE_TX_SERVICE_URL_${chainId}`];
-    const apiKey = process.env.SAFE_API_KEY;
-    if (!customUrl && chainId !== 1) {
-      throw new Error(
-        `SAFE_TX_SERVICE_URL_${chainId} is required for this chain.`,
-      );
-    }
-    if (!customUrl && !apiKey) {
-      throw new Error(
-        "SAFE_API_KEY is required for the hosted Safe Transaction Service.",
-      );
-    }
-
+    const { apiKey, txServiceUrl } = transactionServiceConfig(chainId);
     const client = new SafeApiKit({
       chainId: BigInt(chainId),
-      ...(customUrl ? { txServiceUrl: customUrl } : {}),
+      ...(txServiceUrl ? { txServiceUrl } : {}),
       ...(apiKey ? { apiKey } : {}),
     });
     this.clients.set(chainId, client);
@@ -225,16 +252,10 @@ export class SafeApiAdapter implements SafeDataPort {
   }
 
   async getBalances(safe: SafeRef): Promise<readonly TokenBalance[]> {
-    const serviceUrl =
-      process.env[`SAFE_TX_SERVICE_URL_${safe.chainId}`] ??
-      (safe.chainId === 1 ? MAINNET_SERVICE_URL : null);
-    if (!serviceUrl)
-      throw new Error(
-        `SAFE_TX_SERVICE_URL_${safe.chainId} is required for balance reads.`,
-      );
+    const { serviceBaseUrl } = transactionServiceConfig(safe.chainId);
 
     const response = await fetch(
-      `${serviceUrl.replace(/\/$/, "")}/api/v1/safes/${safe.address}/balances/`,
+      `${serviceBaseUrl}/api/v1/safes/${safe.address}/balances/`,
       {
         ...(process.env.SAFE_API_KEY
           ? { headers: { "X-API-Key": process.env.SAFE_API_KEY } }
