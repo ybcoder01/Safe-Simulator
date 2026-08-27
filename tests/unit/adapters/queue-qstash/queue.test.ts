@@ -1,6 +1,32 @@
 import { describe, expect, it } from "vitest";
 
-import { toQStashDeduplicationId } from "../../../../src/adapters/queue-qstash/queue";
+import {
+  applicationUrl,
+  toQStashDeduplicationId,
+} from "../../../../src/adapters/queue-qstash/queue";
+
+describe("applicationUrl", () => {
+  it("uses the public project URL for production callbacks", () => {
+    expect(
+      applicationUrl({
+        VERCEL_ENV: "production",
+        VERCEL_PROJECT_PRODUCTION_URL: "safe-simulator.vercel.app",
+        VERCEL_URL:
+          "safe-simulator-eqr6bt91y-mohits-projects-8b971b93.vercel.app",
+      }),
+    ).toBe("https://safe-simulator.vercel.app");
+  });
+
+  it("keeps deployment-specific callback URLs outside production", () => {
+    expect(
+      applicationUrl({
+        VERCEL_ENV: "preview",
+        VERCEL_PROJECT_PRODUCTION_URL: "safe-simulator.vercel.app",
+        VERCEL_URL: "safe-simulator-preview.vercel.app",
+      }),
+    ).toBe("https://safe-simulator-preview.vercel.app");
+  });
+});
 
 describe("toQStashDeduplicationId", () => {
   it("converts application idempotency keys into deterministic QStash-safe IDs", async () => {
