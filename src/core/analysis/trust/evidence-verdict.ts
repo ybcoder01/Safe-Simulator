@@ -1,15 +1,6 @@
-import type {
-  Address,
-  Finding,
-  Operation,
-  Verdict,
-} from "../../domain";
+import type { Address, Finding, Operation, Verdict } from "../../domain";
 
-export type DecodeConfidence =
-  | "verified"
-  | "service"
-  | "signature"
-  | "raw";
+export type DecodeConfidence = "verified" | "service" | "signature" | "raw";
 
 export interface EvidenceVerdictInput {
   readonly operation: Operation;
@@ -41,7 +32,9 @@ export interface EvidenceVerdict {
 }
 
 function uniqueAddresses(addresses: readonly Address[]): readonly Address[] {
-  return [...new Set(addresses.map((address) => address.toLowerCase()))] as Address[];
+  return [
+    ...new Set(addresses.map((address) => address.toLowerCase())),
+  ] as Address[];
 }
 
 export function evaluateEvidenceVerdict(
@@ -146,9 +139,7 @@ export function evaluateEvidenceVerdict(
   });
 
   const flagged = findings.some((finding) => finding.severity === "critical");
-  const unverified = findings.some(
-    (finding) => finding.severity === "warning",
-  );
+  const unverified = findings.some((finding) => finding.severity === "warning");
   const verdict: EvidenceVerdict["verdict"] = flagged
     ? "flagged"
     : unverified
