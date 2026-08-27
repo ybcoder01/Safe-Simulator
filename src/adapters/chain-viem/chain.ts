@@ -58,6 +58,21 @@ export class ViemChainAdapter implements ChainPort {
     );
   }
 
+  async getStorageAt(
+    chainId: ChainId,
+    address: Address,
+    slot: Hex,
+    blockNumber?: bigint,
+  ): Promise<Hex> {
+    return (
+      (await this.getClient(chainId).getStorageAt({
+        address: address as ViemAddress,
+        slot: slot as ViemHex,
+        blockNumber,
+      })) ?? "0x"
+    );
+  }
+
   async getSafeSnapshot(
     safe: SafeRef,
     blockNumber?: bigint,
