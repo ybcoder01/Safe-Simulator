@@ -1155,3 +1155,102 @@ select {
     display: none;
   }
 }
+
+
+.trust-copy {
+  margin: 18px 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.trust-form {
+  display: grid;
+  grid-template-columns: minmax(220px, 2fr) minmax(180px, 1fr) minmax(130px, 0.7fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.trust-form label {
+  display: grid;
+  gap: 7px;
+  color: var(--faint);
+  font-size: 10px;
+}
+
+.trust-form input,
+.trust-form select {
+  min-width: 0;
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  outline: none;
+  color: var(--text);
+  background: #07110d;
+  font: inherit;
+}
+
+.trust-form input:focus,
+.trust-form select:focus {
+  border-color: rgba(101, 242, 172, 0.5);
+}
+
+.trust-records {
+  display: grid;
+  margin-top: 16px;
+}
+
+.trust-record {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 14px 0;
+  border-bottom: 1px solid rgba(200, 230, 215, 0.08);
+}
+
+.trust-record > div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.trust-record span {
+  color: var(--green);
+  font-family: var(--font-geist-mono);
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.trust-record strong {
+  font-size: 12px;
+}
+
+.trust-record code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--faint);
+  font-size: 10px;
+}
+
+.trust-record button {
+  border: 0;
+  color: #ffad9f;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: 10px;
+}
+
+@media (max-width: 850px) {
+  .trust-form {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .trust-form {
+    grid-template-columns: 1fr;
+  }
+}
