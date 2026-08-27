@@ -1,5 +1,6 @@
 import type {
   Address,
+  AddressBookEntry,
   AnalysisResult,
   CallRequest,
   ChainId,
