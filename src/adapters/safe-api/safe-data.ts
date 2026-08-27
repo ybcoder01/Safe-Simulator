@@ -118,9 +118,7 @@ export function normalizeDecodedData(
         normalizeDecodedData(
           item.dataDecoded ?? { method: "Unknown call", parameters: [] },
           {
-            to: /^0x[0-9a-fA-F]{40}$/.test(item.to)
-              ? asAddress(item.to)
-              : null,
+            to: /^0x[0-9a-fA-F]{40}$/.test(item.to) ? asAddress(item.to) : null,
             value: item.value,
             data: asHex(item.data),
             operation: operation(item.operation ?? 0),
