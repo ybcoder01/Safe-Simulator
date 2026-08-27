@@ -3,9 +3,10 @@ import { Client, Receiver } from "@upstash/qstash";
 import type { QueueJob } from "@/core/domain";
 import type { QueuePort } from "@/core/ports";
 
-function isDevelopmentMode() {
+function isDevelopmentMode(environment: NodeJS.ProcessEnv = process.env) {
   return (
-    process.env.QSTASH_DEV === "true" && process.env.NODE_ENV !== "production"
+    environment.QSTASH_DEV === "true" &&
+    environment.NODE_ENV !== "production"
   );
 }
 
@@ -37,11 +38,19 @@ function createReceiver() {
   });
 }
 
-function applicationUrl() {
-  const explicitUrl = process.env.APP_BASE_URL?.replace(/\/$/, "");
+export function applicationUrl(
+  environment: NodeJS.ProcessEnv = process.env,
+): string {
+  const explicitUrl = environment.APP_BASE_URL?.replace(/\/$/, "");
   if (explicitUrl) return explicitUrl;
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  if (isDevelopmentMode()) return "http://localhost:3000";
+  if (
+    environment.VERCEL_ENV === "production" &&
+    environment.VERCEL_PROJECT_PRODUCTION_URL
+  ) {
+    return `https://${environment.VERCEL_PROJECT_PRODUCTION_URL.replace(/\/$/, "")}`;
+  }
+  if (environment.VERCEL_URL) return `https://${environment.VERCEL_URL}`;
+  if (isDevelopmentMode(environment)) return "http://localhost:3000";
   throw new Error(
     "APP_BASE_URL is not configured and VERCEL_URL is unavailable.",
   );
