@@ -18,14 +18,15 @@ const target = "0x2222222222222222222222222222222222222222" as Address;
 const token = "0x3333333333333333333333333333333333333333" as Address;
 const counterparty = "0x4444444444444444444444444444444444444444" as Address;
 const spender = "0x5555555555555555555555555555555555555555" as Address;
+const implementation = "0x6666666666666666666666666666666666666666" as Address;
 const maxUint256 = (1n << 256n) - 1n;
 
 function addressTopic(address: Address): Hex {
-  return `0x${"0".repeat(24)}${address.slice(2)}` as Hex;
+  return ("0x" + "0".repeat(24) + address.slice(2)) as Hex;
 }
 
 function word(value: bigint): Hex {
-  return `0x${value.toString(16).padStart(64, "0")}` as Hex;
+  return ("0x" + value.toString(16).padStart(64, "0")) as Hex;
 }
 const safeTxHash =
   "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" as Hex;
@@ -33,6 +34,8 @@ const executedTxHash =
   "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" as Hex;
 const blockHash =
   "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc" as Hex;
+const slot =
+  "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd" as Hex;
 
 function transaction(
   overrides: Partial<SafeTransaction> = {},
@@ -68,7 +71,19 @@ const output: SimulationOutput = {
     operation: "call",
     reverted: false,
     error: null,
-    calls: [],
+    calls: [
+      {
+        from: target,
+        to: implementation,
+        input: "0xabcdef01",
+        output: "0x",
+        value: 0n,
+        operation: "delegatecall",
+        reverted: false,
+        error: null,
+        calls: [],
+      },
+    ],
   },
   logs: [
     {
@@ -88,10 +103,21 @@ const output: SimulationOutput = {
       logIndex: 2,
     },
   ],
-  storageChanges: [],
+  storageChanges: [
+    {
+      address: target,
+      slot,
+      before: word(1n),
+      after: word(2n),
+    },
+  ],
   blockNumber: 10n,
   blockHash,
   error: null,
+  traceCoverage: {
+    callTrace: "complete",
+    storageDiff: "complete",
+  },
 };
 
 function simulation(overrides: Partial<SimulationPort> = {}): SimulationPort {
@@ -103,7 +129,7 @@ function simulation(overrides: Partial<SimulationPort> = {}): SimulationPort {
 }
 
 describe("resolveExecutionInsight", () => {
-  it("labels mined receipt replay and serializes bigint values", async () => {
+  it("serializes receipt, internal-call, storage, and token evidence", async () => {
     const result = await resolveExecutionInsight(simulation(), transaction());
 
     expect(result).toMatchObject({
@@ -113,12 +139,32 @@ describe("resolveExecutionInsight", () => {
       blockNumber: "10",
       coverage: {
         outcome: "on-chain-receipt",
-        callTrace: "root-only",
+        callTrace: "complete",
         eventLogs: "complete",
         tokenEvents: "standard-events",
-        storageDiff: "unavailable",
+        storageDiff: "complete",
       },
     });
+    expect(result.internalCalls).toEqual([
+      {
+        depth: 1,
+        from: target,
+        to: implementation,
+        input: "0xabcdef01",
+        value: "0",
+        operation: "delegatecall",
+        reverted: false,
+        error: null,
+      },
+    ]);
+    expect(result.storageChanges).toEqual([
+      {
+        address: target,
+        slot,
+        before: word(1n),
+        after: word(2n),
+      },
+    ]);
     expect(result.tokenMovements).toEqual([
       {
         token,
@@ -137,6 +183,25 @@ describe("resolveExecutionInsight", () => {
       infinite: true,
       logIndex: 2,
     });
+  });
+
+  it("keeps legacy or degraded outputs explicitly root-only", async () => {
+    const degraded = {
+      ...output,
+      callTree: { ...output.callTree, calls: [] },
+      storageChanges: [],
+      traceCoverage: undefined,
+    };
+
+    const result = await resolveExecutionInsight(
+      simulation({ replay: vi.fn().mockResolvedValue(degraded) }),
+      transaction(),
+    );
+
+    expect(result.coverage.callTrace).toBe("root-only");
+    expect(result.coverage.storageDiff).toBe("unavailable");
+    expect(result.internalCalls).toEqual([]);
+    expect(result.storageChanges).toEqual([]);
   });
 
   it("uses a direct call only for pending call operations", async () => {

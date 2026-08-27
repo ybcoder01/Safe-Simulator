@@ -152,6 +152,10 @@ export interface SimulationOutput {
   readonly blockNumber: bigint;
   readonly blockHash: Hex;
   readonly error: string | null;
+  readonly traceCoverage?: {
+    readonly callTrace: "complete" | "partial" | "unavailable";
+    readonly storageDiff: "complete" | "partial" | "unavailable";
+  };
 }
 
 export interface AbiParameter {
