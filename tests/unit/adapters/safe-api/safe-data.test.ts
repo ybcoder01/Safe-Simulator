@@ -28,8 +28,8 @@ describe("transactionServiceConfig", () => {
   });
 
   it("requires explicit configuration for unsupported chains", () => {
-    expect(() =>
-      transactionServiceConfig(999, { NODE_ENV: "test" }),
-    ).toThrow("SAFE_TX_SERVICE_URL_999 is required for this chain.");
+    expect(() => transactionServiceConfig(999, { NODE_ENV: "test" })).toThrow(
+      "SAFE_TX_SERVICE_URL_999 is required for this chain.",
+    );
   });
 });
