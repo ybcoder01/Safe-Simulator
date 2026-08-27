@@ -1,15 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { PublicAbiAdapter } from "../../../../src/adapters/abi-sourcify/metadata";
-import type {
-  Address,
-  Hex,
-} from "../../../../src/core/domain";
+import type { Address, Hex } from "../../../../src/core/domain";
 import type { ChainPort } from "../../../../src/core/ports";
 
 const target = "0x1111111111111111111111111111111111111111" as Address;
-const implementation =
-  "0x2222222222222222222222222222222222222222" as Address;
+const implementation = "0x2222222222222222222222222222222222222222" as Address;
 const beacon = "0x3333333333333333333333333333333333333333" as Address;
 const implementationSlot =
   "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc";
@@ -64,16 +60,16 @@ describe("PublicAbiAdapter", () => {
       fetcher as unknown as typeof fetch,
     );
 
-    await expect(adapter.getContractMetadata(50, target)).resolves.toMatchObject(
-      {
-        address: target,
-        label: "TestToken",
-        verified: true,
-        source: "sourcify",
-        implementation: null,
-        abi: [{ type: "function", name: "approve" }],
-      },
-    );
+    await expect(
+      adapter.getContractMetadata(50, target),
+    ).resolves.toMatchObject({
+      address: target,
+      label: "TestToken",
+      verified: true,
+      source: "sourcify",
+      implementation: null,
+      abi: [{ type: "function", name: "approve" }],
+    });
     expect(fetcher).toHaveBeenCalledWith(
       expect.stringContaining(
         `/v2/contract/50/${target}?fields=abi,compilation`,
@@ -129,14 +125,14 @@ describe("PublicAbiAdapter", () => {
       fetcher as unknown as typeof fetch,
     );
 
-    await expect(adapter.getContractMetadata(50, target)).resolves.toMatchObject(
-      {
-        address: target,
-        verified: false,
-        abi: null,
-        source: "unknown",
-      },
-    );
+    await expect(
+      adapter.getContractMetadata(50, target),
+    ).resolves.toMatchObject({
+      address: target,
+      verified: false,
+      abi: null,
+      source: "unknown",
+    });
   });
 
   it("uses only one verified signature and rejects ambiguous matches", async () => {
@@ -180,9 +176,9 @@ describe("PublicAbiAdapter", () => {
       fetcher as unknown as typeof fetch,
     );
 
-    await expect(
-      adapter.lookupFunctionSignature("0x095ea7b3"),
-    ).resolves.toBe("approve(address,uint256)");
+    await expect(adapter.lookupFunctionSignature("0x095ea7b3")).resolves.toBe(
+      "approve(address,uint256)",
+    );
     await expect(
       adapter.lookupFunctionSignature("0x095ea7b3"),
     ).resolves.toBeNull();
