@@ -1,4 +1,5 @@
-import { cookies } from "next/headers";\nimport Link from "next/link";
+import { cookies } from "next/headers";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import {
@@ -7,10 +8,12 @@ import {
   getSafeDataPort,
   getSimulationPort,
 } from "@/container";
-import { AddressBookEditor } from "@/components/safes/address-book-editor";\nimport { decodedCallSummary } from "@/core/analysis/decoding/calldata";
+import { AddressBookEditor } from "@/components/safes/address-book-editor";
+import { decodedCallSummary } from "@/core/analysis/decoding/calldata";
 import { resolveContractInsight } from "@/lib/api/contract-insight";
 import { resolveEvidenceVerdict } from "@/lib/api/evidence-verdict";
-import { resolveExecutionInsight } from "@/lib/api/execution-insight";\nimport { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
+import { resolveExecutionInsight } from "@/lib/api/execution-insight";
+import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
 import {
   safeRouteParamsSchema,
   safeTransactionHashSchema,
