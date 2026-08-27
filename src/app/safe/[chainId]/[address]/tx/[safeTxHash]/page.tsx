@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { cookies } from "next/headers";\nimport Link from "next/link";
 import { notFound } from "next/navigation";
 
 import {
@@ -7,10 +7,10 @@ import {
   getSafeDataPort,
   getSimulationPort,
 } from "@/container";
-import { decodedCallSummary } from "@/core/analysis/decoding/calldata";
+import { AddressBookEditor } from "@/components/safes/address-book-editor";\nimport { decodedCallSummary } from "@/core/analysis/decoding/calldata";
 import { resolveContractInsight } from "@/lib/api/contract-insight";
 import { resolveEvidenceVerdict } from "@/lib/api/evidence-verdict";
-import { resolveExecutionInsight } from "@/lib/api/execution-insight";
+import { resolveExecutionInsight } from "@/lib/api/execution-insight";\nimport { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
 import {
   safeRouteParamsSchema,
   safeTransactionHashSchema,
@@ -44,18 +44,29 @@ export default async function TransactionDetailPage({ params }: PageProps) {
   const hash = safeTransactionHashSchema.safeParse(values.safeTxHash);
   if (!safe.success || !hash.success) notFound();
 
-  const persisted = await getPersistencePort().findTransaction(
+  const persistence = getPersistencePort();
+  const persisted = await persistence.findTransaction(
     safe.data,
     hash.data,
   );
   if (!persisted) notFound();
 
-  const [transaction, insight, execution] = await Promise.all([
+  const cookieStore = await cookies();
+  const profileId = parseProfileId(cookieStore.get(PROFILE_COOKIE)?.value);
+  const [transaction, insight, execution, addressBook] = await Promise.all([
     Promise.resolve(toTransactionView(persisted)),
     resolveContractInsight(getSafeDataPort(), getAbiPort(), persisted),
     resolveExecutionInsight(getSimulationPort(), persisted),
+    profileId
+      ? persistence.listAddressBookEntries(profileId, safe.data)
+      : Promise.resolve([]),
   ]);
-  const verdict = resolveEvidenceVerdict(persisted, insight, execution);
+  const verdict = resolveEvidenceVerdict(
+    persisted,
+    insight,
+    execution,
+    addressBook,
+  );
   const decoded = insight.decoded;
   const nestedCalls =
     decoded?.parameters.flatMap((parameter) => parameter.nestedCalls) ?? [];
@@ -119,7 +130,27 @@ export default async function TransactionDetailPage({ params }: PageProps) {
               ) : null}
             </div>
           ))}
+          {verdict.addresses.map((assessment) => (
+            <div
+              className="calldata"
+              key={`address-trust-${assessment.address.toLowerCase()}`}
+            >
+              <span>
+                {assessment.status} · {assessment.roles.join(" · ")}
+              </span>
+              <strong>{assessment.label ?? "No explicit trust label"}</strong>
+              <code>{assessment.address}</code>
+            </div>
+          ))}
         </section>
+
+        {profileId ? (
+          <AddressBookEditor
+            chainId={safe.data.chainId}
+            initialEntries={addressBook}
+            safeAddress={safe.data.address}
+          />
+        ) : null}
 
         <section className="detail-grid">
           <div>
