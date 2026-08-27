@@ -52,9 +52,7 @@ function normalizedCall(
       abi: abi as Abi,
       data: transaction.data,
     });
-    const definition = abi.find(
-      (item) => item.name === result.functionName,
-    );
+    const definition = abi.find((item) => item.name === result.functionName);
     if (!definition) return null;
 
     const args = Array.isArray(result.args) ? result.args : [];
@@ -130,9 +128,7 @@ export async function resolveContractInsight(
 
   const selector = transaction.data.slice(0, 10) as `0x${string}`;
   const signature = await abiPort.lookupFunctionSignature(selector);
-  const signatureFunction = signature
-    ? functionFromSignature(signature)
-    : null;
+  const signatureFunction = signature ? functionFromSignature(signature) : null;
   const decoded = signatureFunction
     ? normalizedCall(transaction, [signatureFunction])
     : null;
