@@ -299,6 +299,27 @@ export const addressBook = pgTable(
   (table) => [primaryKey({ columns: [table.safeId, table.address] })],
 );
 
+export const profileAddressBook = pgTable(
+  "profile_address_book",
+  {
+    profileId: uuid("profile_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
+    safeId: uuid("safe_id")
+      .notNull()
+      .references(() => safes.id, { onDelete: "cascade" }),
+    address: address("address").notNull(),
+    label: text("label").notNull(),
+    trustLevel: trustLevelEnum("trust_level").notNull(),
+    createdAt,
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.profileId, table.safeId, table.address],
+    }),
+  ],
+);
+
 export const syncCursors = pgTable(
   "sync_cursors",
   {
