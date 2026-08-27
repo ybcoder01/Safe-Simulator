@@ -2,10 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { PublicClient } from "viem";
 
 import { RpcSimulationAdapter } from "../../../../src/adapters/simulator-rpc/simulation";
-import type {
-  Address,
-  Hex,
-} from "../../../../src/core/domain";
+import type { Address, Hex } from "../../../../src/core/domain";
 
 const transactionHash =
   "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" as Hex;
