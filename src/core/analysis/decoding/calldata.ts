@@ -75,7 +75,11 @@ export function knownCallSummary(data: Hex, operation: Operation) {
   return null;
 }
 
-function parameterValue(call: DecodedCall, names: readonly string[], index: number) {
+function parameterValue(
+  call: DecodedCall,
+  names: readonly string[],
+  index: number,
+) {
   const named = call.parameters.find((parameter) =>
     names.includes(parameter.name.replace(/^_/, "").toLowerCase()),
   );
