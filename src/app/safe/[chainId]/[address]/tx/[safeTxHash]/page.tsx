@@ -48,10 +48,7 @@ export default async function TransactionDetailPage({ params }: PageProps) {
   if (!safe.success || !hash.success) notFound();
 
   const persistence = getPersistencePort();
-  const persisted = await persistence.findTransaction(
-    safe.data,
-    hash.data,
-  );
+  const persisted = await persistence.findTransaction(safe.data, hash.data);
   if (!persisted) notFound();
 
   const cookieStore = await cookies();
