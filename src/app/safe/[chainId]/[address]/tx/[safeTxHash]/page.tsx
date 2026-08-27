@@ -1,9 +1,15 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { getAbiPort, getPersistencePort, getSafeDataPort } from "@/container";
+import {
+  getAbiPort,
+  getPersistencePort,
+  getSafeDataPort,
+  getSimulationPort,
+} from "@/container";
 import { decodedCallSummary } from "@/core/analysis/decoding/calldata";
 import { resolveContractInsight } from "@/lib/api/contract-insight";
+import { resolveExecutionInsight } from "@/lib/api/execution-insight";
 import {
   safeRouteParamsSchema,
   safeTransactionHashSchema,
@@ -43,9 +49,10 @@ export default async function TransactionDetailPage({ params }: PageProps) {
   );
   if (!persisted) notFound();
 
-  const [transaction, insight] = await Promise.all([
+  const [transaction, insight, execution] = await Promise.all([
     Promise.resolve(toTransactionView(persisted)),
     resolveContractInsight(getSafeDataPort(), getAbiPort(), persisted),
+    resolveExecutionInsight(getSimulationPort(), persisted),
   ]);
   const decoded = insight.decoded;
   const nestedCalls =
@@ -102,6 +109,95 @@ export default async function TransactionDetailPage({ params }: PageProps) {
           <div>
             <span>Executed</span>
             <strong>{formatDate(transaction.executedAt)}</strong>
+          </div>
+        </section>
+
+        <section className="detail-panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Execution evidence</p>
+              <h2>
+                {execution.mode === "executed-replay"
+                  ? "On-chain replay"
+                  : execution.mode === "direct-call-check"
+                    ? "Read-only call check"
+                    : "Execution unavailable"}
+              </h2>
+            </div>
+            <span>
+              {execution.success === null
+                ? "No verdict"
+                : execution.success
+                  ? "Succeeded"
+                  : "Reverted"}
+            </span>
+          </div>
+          <dl className="detail-list">
+            <div>
+              <dt>Evidence source</dt>
+              <dd>{execution.coverage.outcome}</dd>
+            </div>
+            <div>
+              <dt>Gas used</dt>
+              <dd>{execution.gasUsed ?? "Unavailable"}</dd>
+            </div>
+            <div>
+              <dt>Block</dt>
+              <dd>{execution.blockNumber ?? "Latest state"}</dd>
+            </div>
+            <div>
+              <dt>Event logs</dt>
+              <dd>
+                {execution.coverage.eventLogs === "complete"
+                  ? `${execution.logs.length} emitted`
+                  : "Unavailable"}
+              </dd>
+            </div>
+            <div>
+              <dt>Call trace</dt>
+              <dd>{execution.coverage.callTrace}</dd>
+            </div>
+            <div>
+              <dt>Storage diff</dt>
+              <dd>{execution.coverage.storageDiff}</dd>
+            </div>
+          </dl>
+          {execution.rootCall ? (
+            <div className="calldata">
+              <span>Outer call</span>
+              <strong>
+                {execution.rootCall.reverted ? "Reverted" : "Completed"} ·{" "}
+                {execution.rootCall.from} → {execution.rootCall.to}
+              </strong>
+              <code>{execution.rootCall.input}</code>
+            </div>
+          ) : null}
+          {execution.error ? (
+            <div className="calldata">
+              <span>Execution error</span>
+              <strong>{execution.error}</strong>
+            </div>
+          ) : null}
+          {execution.logs.slice(0, 20).map((log) => (
+            <div className="calldata" key={`${log.logIndex}-${log.address}`}>
+              <span>Event log {log.logIndex}</span>
+              <strong>{log.address}</strong>
+              <code>
+                {log.topics[0] ?? "No topic"} · {log.data}
+              </code>
+            </div>
+          ))}
+          {execution.logs.length > 20 ? (
+            <div className="panel-empty">
+              {execution.logs.length - 20} additional logs are available through
+              the transaction API.
+            </div>
+          ) : null}
+          <div className="calldata">
+            <span>Coverage limits</span>
+            {execution.warnings.map((warning) => (
+              <strong key={warning}>{warning}</strong>
+            ))}
           </div>
         </section>
 
