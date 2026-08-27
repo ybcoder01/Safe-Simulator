@@ -73,7 +73,10 @@ function assessAddresses(
   >();
   const add = (address: Address, role: AddressRole) => {
     const key = addressKey(address);
-    const current = roles.get(key) ?? { address, roles: new Set<AddressRole>() };
+    const current = roles.get(key) ?? {
+      address,
+      roles: new Set<AddressRole>(),
+    };
     current.roles.add(role);
     roles.set(key, current);
   };
