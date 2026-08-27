@@ -120,8 +120,10 @@ export class PublicAbiAdapter implements AbiPort {
     chainId: ChainId,
     address: Address,
   ): Promise<ContractMetadata> {
-    const implementationChain =
-      await this.resolveImplementationChain(chainId, address);
+    const implementationChain = await this.resolveImplementationChain(
+      chainId,
+      address,
+    );
     const implementation = implementationChain[0] ?? null;
     const lookupAddress = implementationChain.at(-1) ?? address;
 
@@ -220,8 +222,7 @@ export class PublicAbiAdapter implements AbiPort {
       return {
         address,
         chainId,
-        label:
-          typeof compilation?.name === "string" ? compilation.name : null,
+        label: typeof compilation?.name === "string" ? compilation.name : null,
         verified: true,
         abi: functions,
         implementation: null,
