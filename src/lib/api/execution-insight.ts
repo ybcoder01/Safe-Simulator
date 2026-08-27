@@ -147,7 +147,8 @@ export async function resolveExecutionInsight(
     );
   } catch (error) {
     const message =
-      error instanceof Error ? error.message.split("\n")[0] : String(error);
+      (error instanceof Error ? error.message.split("\n")[0] : String(error)) ??
+      "Unknown simulation error.";
     return unavailable(message.slice(0, 240));
   }
 }
