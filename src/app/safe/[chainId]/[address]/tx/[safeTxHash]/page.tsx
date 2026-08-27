@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { getPersistencePort, getSafeDataPort } from "@/container";
+import { getAbiPort, getPersistencePort, getSafeDataPort } from "@/container";
 import { decodedCallSummary } from "@/core/analysis/decoding/calldata";
+import { resolveContractInsight } from "@/lib/api/contract-insight";
 import {
-  resolveDecodedCall,
   safeRouteParamsSchema,
   safeTransactionHashSchema,
   toTransactionView,
@@ -43,10 +43,11 @@ export default async function TransactionDetailPage({ params }: PageProps) {
   );
   if (!persisted) notFound();
 
-  const [transaction, decoded] = await Promise.all([
+  const [transaction, insight] = await Promise.all([
     Promise.resolve(toTransactionView(persisted)),
-    resolveDecodedCall(getSafeDataPort(), persisted),
+    resolveContractInsight(getSafeDataPort(), getAbiPort(), persisted),
   ]);
+  const decoded = insight.decoded;
   const nestedCalls =
     decoded?.parameters.flatMap((parameter) => parameter.nestedCalls) ?? [];
   const safePath = `/safe/${safe.data.chainId}/${safe.data.address}`;
@@ -107,13 +108,69 @@ export default async function TransactionDetailPage({ params }: PageProps) {
         <section className="detail-panel">
           <div className="panel-heading">
             <div>
+              <p className="eyebrow">Contract metadata</p>
+              <h2>{insight.metadata.label ?? "Target contract"}</h2>
+            </div>
+            <span>
+              {insight.metadata.verified
+                ? "Verified by Sourcify"
+                : "No verified ABI"}
+            </span>
+          </div>
+          <dl className="detail-list">
+            <div>
+              <dt>Metadata source</dt>
+              <dd>{insight.metadata.source}</dd>
+            </div>
+            <div>
+              <dt>Proxy status</dt>
+              <dd>
+                {insight.implementationChain.length > 0
+                  ? `${insight.implementationChain.length} implementation layer(s)`
+                  : "No ERC-1967 implementation detected"}
+              </dd>
+            </div>
+          </dl>
+          {insight.implementationChain.length > 0 ? (
+            <div className="calldata">
+              <span>Implementation chain</span>
+              <code>
+                {[transaction.to, ...insight.implementationChain].join(" → ")}
+              </code>
+            </div>
+          ) : null}
+        </section>
+
+        <section className="detail-panel">
+          <div className="panel-heading">
+            <div>
               <p className="eyebrow">Decoded action</p>
               <h2>Human-readable call</h2>
             </div>
             <span>
-              {decoded?.method ??
-                (transaction.summary ? "Known selector" : "Unknown selector")}
+              {insight.provenance === "verified-abi"
+                ? "Verified ABI"
+                : insight.provenance === "safe-service"
+                  ? "Safe service decode"
+                  : insight.provenance === "signature-database"
+                    ? "Signature match · unverified"
+                    : (decoded?.method ??
+                      (transaction.summary
+                        ? "Known selector"
+                        : "Unknown selector"))}
             </span>
+          </div>
+          <div className="calldata">
+            <span>Decode provenance</span>
+            <strong>
+              {insight.provenance === "verified-abi"
+                ? "Sourcify verified contract ABI"
+                : insight.provenance === "safe-service"
+                  ? "Safe transaction service"
+                  : insight.provenance === "signature-database"
+                    ? `Sourcify signature database · ${insight.signature}`
+                    : "Raw calldata only"}
+            </strong>
           </div>
           {decoded ? (
             <>
@@ -121,6 +178,7 @@ export default async function TransactionDetailPage({ params }: PageProps) {
                 <span>Summary</span>
                 <strong>{decodedCallSummary(decoded)}</strong>
               </div>
+
               {decoded.parameters.length > 0 ? (
                 <dl className="detail-list">
                   {decoded.parameters.map((parameter, index) => (

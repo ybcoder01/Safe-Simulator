@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 
-import { getPersistencePort, getSafeDataPort } from "@/container";
+import { getAbiPort, getPersistencePort, getSafeDataPort } from "@/container";
+import { resolveContractInsight } from "@/lib/api/contract-insight";
 import {
-  resolveDecodedCall,
   safeRouteParamsSchema,
   safeTransactionHashSchema,
   toTransactionView,
@@ -49,9 +49,13 @@ export async function GET(_request: Request, context: RouteContext) {
     );
   }
 
-  const decoded = await resolveDecodedCall(getSafeDataPort(), transaction);
+  const insight = await resolveContractInsight(
+    getSafeDataPort(),
+    getAbiPort(),
+    transaction,
+  );
 
   return NextResponse.json({
-    data: { ...toTransactionView(transaction), decoded },
+    data: { ...toTransactionView(transaction), insight },
   });
 }

@@ -64,6 +64,13 @@ export interface ChainPort {
     address: Address,
     blockNumber?: bigint,
   ): Promise<Hex>;
+  /** Reads one storage slot without modifying chain state. */
+  getStorageAt(
+    chainId: ChainId,
+    address: Address,
+    slot: Hex,
+    blockNumber?: bigint,
+  ): Promise<Hex>;
   /** Reads the canonical Safe configuration using eth_call only. */
   getSafeSnapshot(safe: SafeRef, blockNumber?: bigint): Promise<SafeSnapshot>;
   /** Performs a read-only contract call. Implementations must never hold or accept signing keys. */
