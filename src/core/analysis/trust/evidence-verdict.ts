@@ -21,13 +21,17 @@ export interface EvidenceVerdictInput {
   readonly callTrace: "root-only" | "unavailable";
   readonly storageDiff: "unavailable";
   readonly tokenEvents: "standard-events" | "unavailable";
+  readonly outcome: "on-chain-receipt" | "read-only-call" | "unavailable";
 }
 
 export interface EvidenceVerdict {
   readonly verdict: Exclude<Verdict, "trusted">;
   readonly headline: string;
   readonly findings: readonly Finding[];
-  readonly coverage: "target-and-receipt-only";
+  readonly coverage:
+    | "target-and-receipt-only"
+    | "target-and-call-only"
+    | "target-only";
   readonly trustBoundary: string;
 }
 
@@ -132,9 +136,11 @@ export function evaluateEvidenceVerdict(
     severity: "info",
     title: "Analysis coverage is partial",
     detail:
-      input.tokenEvents === "unavailable"
-        ? "This verdict uses the target and decode provenance. Receipt token events, internal calls, and storage changes are not evaluated."
-        : "This verdict uses the target, decode provenance, outer call, and receipt events. Internal calls and storage changes are not evaluated.",
+      input.outcome === "on-chain-receipt"
+        ? "This verdict uses the target, decode provenance, outer call, and receipt events. Internal calls and storage changes are not evaluated."
+        : input.outcome === "read-only-call"
+          ? "This verdict uses the target, decode provenance, and a direct read-only call. Receipt events, internal calls, and storage changes are not evaluated."
+          : "This verdict uses target metadata and decode provenance only. Execution behavior, receipt events, internal calls, and storage changes are not evaluated.",
     addresses: [],
   });
 
@@ -155,7 +161,12 @@ export function evaluateEvidenceVerdict(
           ? "Trust is not fully established"
           : "No risk signal in available evidence",
     findings,
-    coverage: "target-and-receipt-only",
+    coverage:
+      input.outcome === "on-chain-receipt"
+        ? "target-and-receipt-only"
+        : input.outcome === "read-only-call"
+          ? "target-and-call-only"
+          : "target-only",
     trustBoundary:
       "Trusted is reserved for explicit address-book or registry rules and is never inferred from verification alone.",
   };
