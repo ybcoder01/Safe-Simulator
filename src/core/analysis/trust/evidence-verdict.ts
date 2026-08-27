@@ -190,14 +190,16 @@ export function evaluateEvidenceVerdict(
       movement.to,
     ]),
   );
-  const movementUnresolved = addresses.filter(
-    (assessment) =>
-      movementAddresses.some(
-        (address) => addressKey(address) === addressKey(assessment.address),
-      ) &&
+  const movementUnresolved = movementAddresses.flatMap((address) => {
+    const assessment = addresses.find(
+      (item) => addressKey(item.address) === addressKey(address),
+    );
+    return assessment &&
       assessment.status !== "trusted" &&
-      assessment.status !== "flagged",
-  );
+      assessment.status !== "flagged"
+      ? [assessment]
+      : [];
+  });
   if (movementUnresolved.length > 0) {
     findings.push({
       code: "movement-trust-unresolved",
