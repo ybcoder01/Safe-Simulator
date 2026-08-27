@@ -7,6 +7,7 @@ import {
   getSimulationPort,
 } from "@/container";
 import { resolveContractInsight } from "@/lib/api/contract-insight";
+import { resolveEvidenceVerdict } from "@/lib/api/evidence-verdict";
 import { resolveExecutionInsight } from "@/lib/api/execution-insight";
 import {
   safeRouteParamsSchema,
@@ -60,7 +61,9 @@ export async function GET(_request: Request, context: RouteContext) {
     resolveExecutionInsight(getSimulationPort(), transaction),
   ]);
 
+  const verdict = resolveEvidenceVerdict(transaction, insight, execution);
+
   return NextResponse.json({
-    data: { ...toTransactionView(transaction), insight, execution },
+    data: { ...toTransactionView(transaction), insight, execution, verdict },
   });
 }
