@@ -248,7 +248,9 @@ export default async function TransactionDetailPage({ params }: PageProps) {
               <h2>Receipt-derived changes</h2>
             </div>
             <span>
-              {execution.allowanceChanges.some((allowance) => allowance.infinite)
+              {execution.allowanceChanges.some(
+                (allowance) => allowance.infinite,
+              )
                 ? "Infinite detected"
                 : `${execution.allowanceChanges.length} recognized`}
             </span>
@@ -268,7 +270,9 @@ export default async function TransactionDetailPage({ params }: PageProps) {
                 key={`allowance-${allowance.logIndex}-${allowance.token}`}
               >
                 <span>
-                  {allowance.infinite ? "Infinite allowance" : "Bounded allowance"}
+                  {allowance.infinite
+                    ? "Infinite allowance"
+                    : "Bounded allowance"}
                 </span>
                 <strong>
                   {allowance.owner} → {allowance.spender}
