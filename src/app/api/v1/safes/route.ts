@@ -6,10 +6,6 @@ import { getImportSafeService, getPersistencePort } from "@/container";
 import { SafeImportError } from "@/core/safes/import-safe";
 import { parseProfileId, PROFILE_COOKIE, PROFILE_MAX_AGE } from "@/lib/api/profile";\nimport { importSafeInputSchema, toSafeView } from "@/lib/api/safes";
 
-const PROFILE_COOKIE = "safe-inspector-profile";
-const PROFILE_MAX_AGE = 60 * 60 * 24 * 365;
-const profileIdSchema = z.string().uuid();
-
 function errorResponse(
   message: string,
   status: number,
