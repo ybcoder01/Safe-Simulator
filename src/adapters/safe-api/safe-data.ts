@@ -91,9 +91,7 @@ export function balanceRequestConfig(
   );
 
   return {
-    ...(apiKey
-      ? { headers: { Authorization: `Bearer ${apiKey}` } }
-      : {}),
+    ...(apiKey ? { headers: { Authorization: `Bearer ${apiKey}` } } : {}),
     url: `${serviceBaseUrl}/api/v1/safes/${getAddress(safe.address)}/balances/`,
   };
 }
