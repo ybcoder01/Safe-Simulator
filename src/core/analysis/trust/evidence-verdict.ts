@@ -1,6 +1,18 @@
-import type { Address, Finding, Operation, Verdict } from "../../domain";
+import type {
+  Address,
+  AddressBookEntry,
+  Finding,
+  Operation,
+  Verdict,
+} from "../../domain";
 
 export type DecodeConfidence = "verified" | "service" | "signature" | "raw";
+export type AddressRole =
+  | "target"
+  | "token"
+  | "movement-sender"
+  | "movement-recipient"
+  | "approval-spender";
 
 export interface EvidenceVerdictInput {
   readonly operation: Operation;
@@ -18,16 +30,25 @@ export interface EvidenceVerdictInput {
     readonly amount: string;
     readonly infinite: boolean;
   }[];
+  readonly addressBook: readonly AddressBookEntry[];
   readonly callTrace: "root-only" | "unavailable";
   readonly storageDiff: "unavailable";
   readonly tokenEvents: "standard-events" | "unavailable";
   readonly outcome: "on-chain-receipt" | "read-only-call" | "unavailable";
 }
 
+export interface AddressTrustAssessment {
+  readonly address: Address;
+  readonly label: string | null;
+  readonly status: Verdict;
+  readonly roles: readonly AddressRole[];
+}
+
 export interface EvidenceVerdict {
-  readonly verdict: Exclude<Verdict, "trusted">;
+  readonly verdict: Verdict;
   readonly headline: string;
   readonly findings: readonly Finding[];
+  readonly addresses: readonly AddressTrustAssessment[];
   readonly coverage:
     | "target-and-receipt-only"
     | "target-and-call-only"
@@ -35,16 +56,70 @@ export interface EvidenceVerdict {
   readonly trustBoundary: string;
 }
 
+function addressKey(address: Address): string {
+  return address.toLowerCase();
+}
+
 function uniqueAddresses(addresses: readonly Address[]): readonly Address[] {
-  return [
-    ...new Set(addresses.map((address) => address.toLowerCase())),
-  ] as Address[];
+  return [...new Set(addresses.map(addressKey))] as Address[];
+}
+
+function assessAddresses(
+  input: EvidenceVerdictInput,
+): readonly AddressTrustAssessment[] {
+  const roles = new Map<
+    string,
+    { address: Address; roles: Set<AddressRole> }
+  >();
+  const add = (address: Address, role: AddressRole) => {
+    const key = addressKey(address);
+    const current = roles.get(key) ?? {
+      address,
+      roles: new Set<AddressRole>(),
+    };
+    current.roles.add(role);
+    roles.set(key, current);
+  };
+
+  add(input.target, "target");
+  for (const movement of input.movements) {
+    add(movement.token, "token");
+    add(movement.from, "movement-sender");
+    add(movement.to, "movement-recipient");
+  }
+  for (const allowance of input.allowances) {
+    add(allowance.token, "token");
+    add(allowance.spender, "approval-spender");
+  }
+
+  const records = new Map<string, AddressBookEntry>();
+  for (const record of input.addressBook) {
+    const key = addressKey(record.address);
+    const current = records.get(key);
+    if (!current || record.trust === "flagged") records.set(key, record);
+  }
+
+  return [...roles.values()].map(({ address, roles: addressRoles }) => {
+    const record = records.get(addressKey(address));
+    const isVerifiedTarget =
+      addressRoles.has("target") &&
+      addressKey(address) === addressKey(input.target) &&
+      input.targetVerified;
+
+    return {
+      address,
+      label: record?.label ?? null,
+      status: record?.trust ?? (isVerifiedTarget ? "known" : "unverified"),
+      roles: [...addressRoles],
+    };
+  });
 }
 
 export function evaluateEvidenceVerdict(
   input: EvidenceVerdictInput,
 ): EvidenceVerdict {
   const findings: Finding[] = [];
+  const addresses = assessAddresses(input);
 
   if (input.operation === "delegatecall") {
     findings.push({
@@ -64,6 +139,20 @@ export function evaluateEvidenceVerdict(
       title: "Infinite token allowance emitted",
       detail: `Token ${allowance.token} emitted a maximum-value allowance for spender ${allowance.spender}.`,
       addresses: [allowance.token, allowance.spender],
+    });
+  }
+
+  const explicitlyFlagged = addresses.filter(
+    (assessment) => assessment.status === "flagged",
+  );
+  if (explicitlyFlagged.length > 0) {
+    findings.push({
+      code: "explicitly-flagged-address",
+      severity: "critical",
+      title: "An involved address is explicitly flagged",
+      detail:
+        "A profile-specific trust record marks one or more involved addresses as flagged.",
+      addresses: explicitlyFlagged.map((assessment) => assessment.address),
     });
   }
 
@@ -97,37 +186,57 @@ export function evaluateEvidenceVerdict(
     });
   }
 
-  if (input.movements.length > 0) {
+  const movementAddresses = uniqueAddresses(
+    input.movements.flatMap((movement) => [
+      movement.token,
+      movement.from,
+      movement.to,
+    ]),
+  );
+  const movementUnresolved = movementAddresses.flatMap((address) => {
+    const assessment = addresses.find(
+      (item) => addressKey(item.address) === addressKey(address),
+    );
+    return assessment &&
+      assessment.status !== "trusted" &&
+      assessment.status !== "flagged"
+      ? [assessment]
+      : [];
+  });
+  if (movementUnresolved.length > 0) {
     findings.push({
       code: "movement-trust-unresolved",
       severity: "warning",
-      title: "Token movement address trust is not evaluated yet",
+      title: "Token movement address trust is incomplete",
       detail:
-        "Token event participants are visible, but address-book and registry trust checks are not implemented in this analysis version.",
-      addresses: uniqueAddresses(
-        input.movements.flatMap((movement) => [
-          movement.token,
-          movement.from,
-          movement.to,
-        ]),
-      ),
+        "At least one token or event participant lacks an explicit trusted record.",
+      addresses: movementUnresolved.map((assessment) => assessment.address),
     });
   }
 
   const boundedAllowances = input.allowances.filter((item) => !item.infinite);
-  if (boundedAllowances.length > 0) {
+  const boundedAddresses = uniqueAddresses(
+    boundedAllowances.flatMap((allowance) => [
+      allowance.token,
+      allowance.spender,
+    ]),
+  );
+  const boundedUnresolved = addresses.filter(
+    (assessment) =>
+      boundedAddresses.some(
+        (address) => addressKey(address) === addressKey(assessment.address),
+      ) &&
+      assessment.status !== "trusted" &&
+      assessment.status !== "flagged",
+  );
+  if (boundedUnresolved.length > 0) {
     findings.push({
       code: "spender-trust-unresolved",
       severity: "warning",
-      title: "Approval spender trust is not evaluated yet",
+      title: "Approval address trust is incomplete",
       detail:
-        "The allowance amount is bounded, but address-book and registry trust checks are not implemented in this analysis version.",
-      addresses: uniqueAddresses(
-        boundedAllowances.flatMap((allowance) => [
-          allowance.token,
-          allowance.spender,
-        ]),
-      ),
+        "The allowance is bounded, but its token or spender lacks an explicit trusted record.",
+      addresses: boundedUnresolved.map((assessment) => assessment.address),
     });
   }
 
@@ -137,20 +246,27 @@ export function evaluateEvidenceVerdict(
     title: "Analysis coverage is partial",
     detail:
       input.outcome === "on-chain-receipt"
-        ? "This verdict uses the target, decode provenance, outer call, and receipt events. Internal calls and storage changes are not evaluated."
+        ? "This verdict uses the target, decode provenance, outer call, receipt events, and profile-specific trust records. Internal calls and storage changes are not evaluated."
         : input.outcome === "read-only-call"
-          ? "This verdict uses the target, decode provenance, and a direct read-only call. Receipt events, internal calls, and storage changes are not evaluated."
-          : "This verdict uses target metadata and decode provenance only. Execution behavior, receipt events, internal calls, and storage changes are not evaluated.",
+          ? "This verdict uses the target, decode provenance, a direct read-only call, and profile-specific trust records. Receipt events, internal calls, and storage changes are not evaluated."
+          : "This verdict uses target metadata, decode provenance, and profile-specific trust records only. Execution behavior, receipt events, internal calls, and storage changes are not evaluated.",
     addresses: [],
   });
 
-  const flagged = findings.some((finding) => finding.severity === "critical");
-  const unverified = findings.some((finding) => finding.severity === "warning");
-  const verdict: EvidenceVerdict["verdict"] = flagged
+  const hasCritical = findings.some(
+    (finding) => finding.severity === "critical",
+  );
+  const hasWarning = findings.some((finding) => finding.severity === "warning");
+  const allExplicitlyTrusted =
+    addresses.length > 0 &&
+    addresses.every((assessment) => assessment.status === "trusted");
+  const verdict: Verdict = hasCritical
     ? "flagged"
-    : unverified
+    : hasWarning
       ? "unverified"
-      : "known";
+      : allExplicitlyTrusted
+        ? "trusted"
+        : "known";
 
   return {
     verdict,
@@ -159,8 +275,11 @@ export function evaluateEvidenceVerdict(
         ? "Critical evidence requires review"
         : verdict === "unverified"
           ? "Trust is not fully established"
-          : "No risk signal in available evidence",
+          : verdict === "trusted"
+            ? "All involved addresses are explicitly trusted"
+            : "No risk signal in available evidence",
     findings,
+    addresses,
     coverage:
       input.outcome === "on-chain-receipt"
         ? "target-and-receipt-only"
@@ -168,6 +287,6 @@ export function evaluateEvidenceVerdict(
           ? "target-and-call-only"
           : "target-only",
     trustBoundary:
-      "Trusted is reserved for explicit address-book or registry rules and is never inferred from verification alone.",
+      "Trusted requires explicit profile-specific records and is never inferred from source verification alone. Critical evidence always takes precedence.",
   };
 }

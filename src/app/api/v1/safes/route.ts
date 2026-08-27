@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { z, ZodError } from "zod";
+import { ZodError } from "zod";
 
 import { supportedChainSummaries } from "@/adapters/chain-viem/config";
 import { getImportSafeService, getPersistencePort } from "@/container";
 import { SafeImportError } from "@/core/safes/import-safe";
+import {
+  parseProfileId,
+  PROFILE_COOKIE,
+  PROFILE_MAX_AGE,
+} from "@/lib/api/profile";
 import { importSafeInputSchema, toSafeView } from "@/lib/api/safes";
-
-const PROFILE_COOKIE = "safe-inspector-profile";
-const PROFILE_MAX_AGE = 60 * 60 * 24 * 365;
-const profileIdSchema = z.string().uuid();
 
 function errorResponse(
   message: string,
@@ -36,15 +37,13 @@ function infrastructureError(error: unknown) {
 }
 
 export async function GET(request: NextRequest) {
-  const parsedProfileId = profileIdSchema.safeParse(
-    request.cookies.get(PROFILE_COOKIE)?.value,
-  );
-  if (!parsedProfileId.success)
+  const profileId = parseProfileId(request.cookies.get(PROFILE_COOKIE)?.value);
+  if (!profileId)
     return NextResponse.json({ data: [], chains: supportedChainSummaries });
 
   try {
     const persistence = getPersistencePort();
-    const items = await persistence.listSafesForProfile(parsedProfileId.data);
+    const items = await persistence.listSafesForProfile(profileId);
     const data = await Promise.all(
       items.map(async (safe) => {
         const cursors = await Promise.all(
@@ -71,12 +70,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const input = importSafeInputSchema.parse(await request.json());
-    const existingProfileId = profileIdSchema.safeParse(
-      request.cookies.get(PROFILE_COOKIE)?.value,
-    );
-    const profileId = existingProfileId.success
-      ? existingProfileId.data
-      : crypto.randomUUID();
+    const profileId =
+      parseProfileId(request.cookies.get(PROFILE_COOKIE)?.value) ??
+      crypto.randomUUID();
     const safe = await getImportSafeService().execute({ ...input, profileId });
     const response = NextResponse.json(
       { data: toSafeView(safe) },

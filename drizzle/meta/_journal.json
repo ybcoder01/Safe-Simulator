@@ -8,6 +8,13 @@
       "when": 1787745714386,
       "tag": "0000_wild_mother_askani",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1787839200000,
+      "tag": "0001_profile_address_book",
+      "breakpoints": true
     }
   ]
 }

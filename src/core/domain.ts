@@ -193,6 +193,12 @@ export interface StorageLayout {
 }
 
 export type Verdict = "trusted" | "known" | "unverified" | "flagged";
+
+export interface AddressBookEntry {
+  readonly address: Address;
+  readonly label: string;
+  readonly trust: "trusted" | "flagged";
+}
 export type FindingSeverity = "info" | "warning" | "critical";
 
 export interface Finding {
