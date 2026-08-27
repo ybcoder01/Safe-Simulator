@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 
-import { getAbiPort, getPersistencePort, getSafeDataPort } from "@/container";
+import {
+  getAbiPort,
+  getPersistencePort,
+  getSafeDataPort,
+  getSimulationPort,
+} from "@/container";
 import { resolveContractInsight } from "@/lib/api/contract-insight";
+import { resolveExecutionInsight } from "@/lib/api/execution-insight";
 import {
   safeRouteParamsSchema,
   safeTransactionHashSchema,
@@ -49,13 +55,12 @@ export async function GET(_request: Request, context: RouteContext) {
     );
   }
 
-  const insight = await resolveContractInsight(
-    getSafeDataPort(),
-    getAbiPort(),
-    transaction,
-  );
+  const [insight, execution] = await Promise.all([
+    resolveContractInsight(getSafeDataPort(), getAbiPort(), transaction),
+    resolveExecutionInsight(getSimulationPort(), transaction),
+  ]);
 
   return NextResponse.json({
-    data: { ...toTransactionView(transaction), insight },
+    data: { ...toTransactionView(transaction), insight, execution },
   });
 }

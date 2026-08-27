@@ -5,6 +5,7 @@ import { getDatabase } from "@/adapters/db-drizzle/client";
 import { DrizzlePersistenceAdapter } from "@/adapters/db-drizzle/persistence";
 import { QStashQueueAdapter } from "@/adapters/queue-qstash/queue";
 import { SafeApiAdapter } from "@/adapters/safe-api/safe-data";
+import { RpcSimulationAdapter } from "@/adapters/simulator-rpc/simulation";
 import { ImportSafeService } from "@/core/safes/import-safe";
 
 let abi: PublicAbiAdapter | null = null;
@@ -13,6 +14,7 @@ let persistence: DrizzlePersistenceAdapter | null = null;
 let cache: UpstashCacheAdapter | null = null;
 let queue: QStashQueueAdapter | null = null;
 let safeData: SafeApiAdapter | null = null;
+let simulation: RpcSimulationAdapter | null = null;
 
 export function getChainPort() {
   chain ??= new ViemChainAdapter();
@@ -42,6 +44,11 @@ export function getQueuePort() {
 export function getSafeDataPort() {
   safeData ??= new SafeApiAdapter();
   return safeData;
+}
+
+export function getSimulationPort() {
+  simulation ??= new RpcSimulationAdapter();
+  return simulation;
 }
 
 export function getImportSafeService() {
