@@ -23,6 +23,7 @@ const snapshot: SafeSnapshot = {
 function makeChain(overrides: Partial<ChainPort> = {}): ChainPort {
   return {
     getCode: vi.fn().mockResolvedValue("0x6000"),
+    getStorageAt: vi.fn().mockResolvedValue("0x"),
     getSafeSnapshot: vi.fn().mockResolvedValue(snapshot),
     call: vi.fn(),
     getBlockHash: vi.fn(),
