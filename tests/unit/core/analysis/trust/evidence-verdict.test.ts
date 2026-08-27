@@ -18,6 +18,7 @@ function input(
     target,
     targetVerified: true,
     decodeConfidence: "verified",
+    movements: [],
     allowances: [],
     callTrace: "root-only",
     storageDiff: "unavailable",
@@ -51,6 +52,23 @@ describe("evaluateEvidenceVerdict", () => {
       "signature-only-decode",
       "partial-analysis-coverage",
     ]);
+  });
+
+  it("keeps token movements unverified until participant trust exists", () => {
+    const result = evaluateEvidenceVerdict(
+      input({
+        movements: [{ token, from: target, to: spender }],
+      }),
+    );
+
+    expect(result.verdict).toBe("unverified");
+    expect(result.findings).toContainEqual(
+      expect.objectContaining({
+        code: "movement-trust-unresolved",
+        severity: "warning",
+        addresses: [token, target, spender],
+      }),
+    );
   });
 
   it("keeps bounded approvals unverified until spender trust exists", () => {
