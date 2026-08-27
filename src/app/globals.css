@@ -1165,10 +1165,9 @@ select {
 
 .trust-form {
   display: grid;
-  grid-template-columns: minmax(220px, 2fr) minmax(180px, 1fr) minmax(
-      130px,
-      0.7fr
-    ) auto;
+  grid-template-columns:
+    minmax(220px, 2fr) minmax(180px, 1fr) minmax(130px, 0.7fr)
+    auto;
   gap: 12px;
   align-items: end;
 }
