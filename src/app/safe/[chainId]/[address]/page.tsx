@@ -49,7 +49,6 @@ export default async function SafeDashboardPage({ params }: PageProps) {
   ]);
   const transactions = page.items.map(toTransactionView);
   const chainName = safe.chainId === 1 ? "Ethereum" : "XDC Network";
-  const basePath = `/safe/${safe.chainId}/${safe.address}`;
 
   return (
     <main className="workspace shell">
