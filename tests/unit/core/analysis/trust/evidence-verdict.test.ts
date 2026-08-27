@@ -20,6 +20,7 @@ function input(
     decodeConfidence: "verified",
     movements: [],
     allowances: [],
+    addressBook: [],
     callTrace: "root-only",
     storageDiff: "unavailable",
     tokenEvents: "standard-events",
@@ -205,11 +206,7 @@ describe("evaluateEvidenceVerdict", () => {
 
     expect(result.verdict).toBe("flagged");
     expect(result.findings.map((finding) => finding.code)).toEqual(
-      expect.arrayContaining([
-        "delegatecall-operation",
-        "infinite-allowance",
-      ]),
+      expect.arrayContaining(["delegatecall-operation", "infinite-allowance"]),
     );
   });
-
 });
