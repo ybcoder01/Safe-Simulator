@@ -4,6 +4,8 @@ import type {
   SafeTransaction,
   SimulationOutput,
 } from "@/core/domain";
+import { extractTokenEventFacts } from "@/core/analysis/tokens/event-facts";
+import type { Address } from "@/core/domain";
 import type { SimulationPort } from "@/core/ports";
 
 export interface ExecutionInsight {
@@ -25,11 +27,28 @@ export interface ExecutionInsight {
     readonly data: Hex;
     readonly logIndex: number;
   }[];
+  readonly tokenMovements: readonly {
+    readonly token: string;
+    readonly from: string;
+    readonly to: string;
+    readonly amount: string;
+    readonly direction: "inbound" | "outbound" | "self" | "external";
+    readonly logIndex: number;
+  }[];
+  readonly allowanceChanges: readonly {
+    readonly token: string;
+    readonly owner: string;
+    readonly spender: string;
+    readonly amount: string;
+    readonly infinite: boolean;
+    readonly logIndex: number;
+  }[];
   readonly error: string | null;
   readonly coverage: {
     readonly outcome: "on-chain-receipt" | "read-only-call" | "unavailable";
     readonly callTrace: "root-only" | "unavailable";
     readonly eventLogs: "complete" | "unavailable";
+    readonly tokenEvents: "standard-events" | "unavailable";
     readonly storageDiff: "unavailable";
   };
   readonly warnings: readonly string[];
@@ -47,8 +66,10 @@ function logsView(logs: readonly LogEntry[]): ExecutionInsight["logs"] {
 function outputView(
   mode: ExecutionInsight["mode"],
   output: SimulationOutput,
+  safe: Address,
 ): ExecutionInsight {
   const executed = mode === "executed-replay";
+  const tokenEvents = extractTokenEventFacts(output.logs, safe);
 
   return {
     mode,
@@ -64,11 +85,20 @@ function outputView(
       reverted: output.callTree.reverted,
     },
     logs: logsView(output.logs),
+    tokenMovements: tokenEvents.movements.map((movement) => ({
+      ...movement,
+      amount: movement.amount.toString(),
+    })),
+    allowanceChanges: tokenEvents.allowances.map((allowance) => ({
+      ...allowance,
+      amount: allowance.amount.toString(),
+    })),
     error: output.error,
     coverage: {
       outcome: executed ? "on-chain-receipt" : "read-only-call",
       callTrace: "root-only",
       eventLogs: executed ? "complete" : "unavailable",
+      tokenEvents: executed ? "standard-events" : "unavailable",
       storageDiff: "unavailable",
     },
     warnings: executed
@@ -76,6 +106,7 @@ function outputView(
           "Outcome, gas, block, and event logs come from the mined transaction receipt.",
           "This RPC does not expose debug traces; only the outer call is shown.",
           "Storage changes are unavailable until a trace-capable provider is configured.",
+          "Token facts recognize canonical ERC-20-shaped events; an emitted event does not prove standard compliance.",
         ]
       : [
           "This is a direct read-only call from the Safe address, not a full Safe signature-path simulation.",
@@ -94,11 +125,14 @@ function unavailable(error: string): ExecutionInsight {
     blockHash: null,
     rootCall: null,
     logs: [],
+    tokenMovements: [],
+    allowanceChanges: [],
     error,
     coverage: {
       outcome: "unavailable",
       callTrace: "unavailable",
       eventLogs: "unavailable",
+      tokenEvents: "unavailable",
       storageDiff: "unavailable",
     },
     warnings: [
@@ -119,6 +153,7 @@ export async function resolveExecutionInsight(
           transaction.safe.chainId,
           transaction.executedTxHash,
         ),
+        transaction.safe.address,
       );
     }
 
@@ -144,6 +179,7 @@ export async function resolveExecutionInsight(
         },
         [],
       ),
+      transaction.safe.address,
     );
   } catch (error) {
     const message =
