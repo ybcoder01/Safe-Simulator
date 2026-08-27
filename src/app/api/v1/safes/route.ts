@@ -4,7 +4,11 @@ import { ZodError } from "zod";
 import { supportedChainSummaries } from "@/adapters/chain-viem/config";
 import { getImportSafeService, getPersistencePort } from "@/container";
 import { SafeImportError } from "@/core/safes/import-safe";
-import { parseProfileId, PROFILE_COOKIE, PROFILE_MAX_AGE } from "@/lib/api/profile";
+import {
+  parseProfileId,
+  PROFILE_COOKIE,
+  PROFILE_MAX_AGE,
+} from "@/lib/api/profile";
 import { importSafeInputSchema, toSafeView } from "@/lib/api/safes";
 
 function errorResponse(
