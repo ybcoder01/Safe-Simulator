@@ -4,7 +4,11 @@ import {
   type EvidenceVerdict,
   type EvidenceVerdictInput,
 } from "@/core/analysis/trust/evidence-verdict";
-import type {\n  Address,\n  AddressBookEntry,\n  SafeTransaction,\n} from "@/core/domain";
+import type {
+  Address,
+  AddressBookEntry,
+  SafeTransaction,
+} from "@/core/domain";
 import type { ContractInsight } from "@/lib/api/contract-insight";
 import type { ExecutionInsight } from "@/lib/api/execution-insight";
 
@@ -27,6 +31,7 @@ export function resolveEvidenceVerdict(
   transaction: SafeTransaction,
   contract: ContractInsight,
   execution: ExecutionInsight,
+  addressBook: readonly AddressBookEntry[],
 ): EvidenceVerdict {
   const input = {
     operation: transaction.operation,
@@ -38,12 +43,13 @@ export function resolveEvidenceVerdict(
       from: movement.from as Address,
       to: movement.to as Address,
     })),
-    addressBook,\n    allowances: execution.allowanceChanges.map((allowance) => ({
+    allowances: execution.allowanceChanges.map((allowance) => ({
       token: allowance.token as Address,
       spender: allowance.spender as Address,
       amount: allowance.amount,
       infinite: allowance.infinite,
     })),
+    addressBook,
     callTrace: execution.coverage.callTrace,
     storageDiff: execution.coverage.storageDiff,
     tokenEvents: execution.coverage.tokenEvents,
