@@ -154,6 +154,10 @@ export default async function TransactionDetailPage({ params }: PageProps) {
               </dd>
             </div>
             <div>
+              <dt>Token event extraction</dt>
+              <dd>{execution.coverage.tokenEvents}</dd>
+            </div>
+            <div>
               <dt>Call trace</dt>
               <dd>{execution.coverage.callTrace}</dd>
             </div>
@@ -199,6 +203,86 @@ export default async function TransactionDetailPage({ params }: PageProps) {
               <strong key={warning}>{warning}</strong>
             ))}
           </div>
+        </section>
+
+        <section className="detail-panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Token activity</p>
+              <h2>Receipt-derived movements</h2>
+            </div>
+            <span>{execution.tokenMovements.length} recognized</span>
+          </div>
+          {execution.coverage.tokenEvents === "unavailable" ? (
+            <div className="panel-empty">
+              Token event evidence is unavailable for this transaction.
+            </div>
+          ) : execution.tokenMovements.length === 0 ? (
+            <div className="panel-empty">
+              No canonical ERC-20-shaped Transfer events were emitted.
+            </div>
+          ) : (
+            execution.tokenMovements.map((movement) => (
+              <div
+                className="calldata"
+                key={`movement-${movement.logIndex}-${movement.token}`}
+              >
+                <span>{movement.direction} movement</span>
+                <strong>{movement.amount} base units</strong>
+                <code>
+                  {movement.token} · {movement.from} → {movement.to}
+                </code>
+              </div>
+            ))
+          )}
+          <div className="panel-empty">
+            Derived from canonical event shape. The emitting contract is not
+            independently proven to implement ERC-20.
+          </div>
+        </section>
+
+        <section className="detail-panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Allowances</p>
+              <h2>Receipt-derived changes</h2>
+            </div>
+            <span>
+              {execution.allowanceChanges.some(
+                (allowance) => allowance.infinite,
+              )
+                ? "Infinite detected"
+                : `${execution.allowanceChanges.length} recognized`}
+            </span>
+          </div>
+          {execution.coverage.tokenEvents === "unavailable" ? (
+            <div className="panel-empty">
+              Allowance event evidence is unavailable for this transaction.
+            </div>
+          ) : execution.allowanceChanges.length === 0 ? (
+            <div className="panel-empty">
+              No canonical ERC-20-shaped Approval events were emitted.
+            </div>
+          ) : (
+            execution.allowanceChanges.map((allowance) => (
+              <div
+                className="calldata"
+                key={`allowance-${allowance.logIndex}-${allowance.token}`}
+              >
+                <span>
+                  {allowance.infinite
+                    ? "Infinite allowance"
+                    : "Bounded allowance"}
+                </span>
+                <strong>
+                  {allowance.owner} → {allowance.spender}
+                </strong>
+                <code>
+                  {allowance.token} · {allowance.amount} base units
+                </code>
+              </div>
+            ))
+          )}
         </section>
 
         <section className="detail-panel">
