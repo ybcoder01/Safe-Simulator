@@ -38,7 +38,9 @@ function defaultClient(chainId: ChainId): PublicClient {
 
 function errorMessage(error: unknown): string {
   const message =
-    error instanceof Error ? error.message : "Read-only execution check failed.";
+    error instanceof Error
+      ? error.message
+      : "Read-only execution check failed.";
   return message.split("\n")[0]?.slice(0, 240) || "Execution check failed.";
 }
 
