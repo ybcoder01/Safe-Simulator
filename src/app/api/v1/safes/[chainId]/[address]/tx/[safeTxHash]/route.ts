@@ -1,10 +1,6 @@
 import { NextResponse } from "next/server";
 
-import {
-  getAbiPort,
-  getPersistencePort,
-  getSafeDataPort,
-} from "@/container";
+import { getAbiPort, getPersistencePort, getSafeDataPort } from "@/container";
 import { resolveContractInsight } from "@/lib/api/contract-insight";
 import {
   safeRouteParamsSchema,
