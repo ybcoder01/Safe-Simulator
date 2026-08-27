@@ -59,9 +59,7 @@ export function AddressBookEditor({
       router.refresh();
     } catch (cause) {
       setError(
-        cause instanceof Error
-          ? cause.message
-          : "Could not save trust record.",
+        cause instanceof Error ? cause.message : "Could not save trust record.",
       );
     } finally {
       setSubmitting(false);
@@ -86,8 +84,7 @@ export function AddressBookEditor({
       }
       setEntries((current) =>
         current.filter(
-          (entry) =>
-            entry.address.toLowerCase() !== entryAddress.toLowerCase(),
+          (entry) => entry.address.toLowerCase() !== entryAddress.toLowerCase(),
         ),
       );
       router.refresh();
