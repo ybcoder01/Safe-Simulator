@@ -4,6 +4,7 @@ import type {
   CallRequest,
   ChainId,
   ContractMetadata,
+  DecodedCall,
   Hex,
   ModuleTransaction,
   Page,
@@ -48,6 +49,12 @@ export interface SafeDataPort {
   ): Promise<Page<SafeMessage>>;
   /** Balances are an ephemeral projection and must not be used as historical truth. */
   getBalances(safe: SafeRef): Promise<readonly TokenBalance[]>;
+  /** Best-effort, read-only calldata decoding. A null result keeps raw calldata explicit. */
+  decodeTransactionData(
+    safe: SafeRef,
+    to: Address,
+    data: Hex,
+  ): Promise<DecodedCall | null>;
 }
 
 export interface ChainPort {
