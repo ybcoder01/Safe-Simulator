@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type {
-  DecodedCall,
-  Hex,
-} from "../../../../../src/core/domain";
+import type { DecodedCall, Hex } from "../../../../../src/core/domain";
 import {
   decodedCallSummary,
   knownCallSummary,
@@ -29,9 +26,7 @@ describe("calldata summaries", () => {
   });
 
   it("keeps unknown selectors explicit", () => {
-    expect(
-      knownCallSummary("0x1234567800000000" as Hex, "call"),
-    ).toBeNull();
+    expect(knownCallSummary("0x1234567800000000" as Hex, "call")).toBeNull();
   });
 
   it("summarizes normalized approval and batch decodes", () => {
