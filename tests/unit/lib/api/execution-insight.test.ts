@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
+import {
+  ERC20_APPROVAL_TOPIC,
+  ERC20_TRANSFER_TOPIC,
+} from "../../../../src/core/analysis/tokens/event-facts";
 import type {
   Address,
   Hex,
@@ -11,6 +15,19 @@ import { resolveExecutionInsight } from "../../../../src/lib/api/execution-insig
 
 const safe = "0x1111111111111111111111111111111111111111" as Address;
 const target = "0x2222222222222222222222222222222222222222" as Address;
+const token = "0x3333333333333333333333333333333333333333" as Address;
+const counterparty =
+  "0x4444444444444444444444444444444444444444" as Address;
+const spender = "0x5555555555555555555555555555555555555555" as Address;
+const maxUint256 = (1n << 256n) - 1n;
+
+function addressTopic(address: Address): Hex {
+  return `0x${"0".repeat(24)}${address.slice(2)}` as Hex;
+}
+
+function word(value: bigint): Hex {
+  return `0x${value.toString(16).padStart(64, "0")}` as Hex;
+}
 const safeTxHash =
   "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" as Hex;
 const executedTxHash =
@@ -54,7 +71,28 @@ const output: SimulationOutput = {
     error: null,
     calls: [],
   },
-  logs: [],
+  logs: [
+    {
+      address: token,
+      topics: [
+        ERC20_TRANSFER_TOPIC,
+        addressTopic(safe),
+        addressTopic(counterparty),
+      ],
+      data: word(25n),
+      logIndex: 1,
+    },
+    {
+      address: token,
+      topics: [
+        ERC20_APPROVAL_TOPIC,
+        addressTopic(safe),
+        addressTopic(spender),
+      ],
+      data: word(maxUint256),
+      logIndex: 2,
+    },
+  ],
   storageChanges: [],
   blockNumber: 10n,
   blockHash,
@@ -82,8 +120,27 @@ describe("resolveExecutionInsight", () => {
         outcome: "on-chain-receipt",
         callTrace: "root-only",
         eventLogs: "complete",
+        tokenEvents: "standard-events",
         storageDiff: "unavailable",
       },
+    });
+    expect(result.tokenMovements).toEqual([
+      {
+        token,
+        from: safe,
+        to: counterparty,
+        amount: "25",
+        direction: "outbound",
+        logIndex: 1,
+      },
+    ]);
+    expect(result.allowanceChanges[0]).toEqual({
+      token,
+      owner: safe,
+      spender,
+      amount: maxUint256.toString(),
+      infinite: true,
+      logIndex: 2,
     });
   });
 
