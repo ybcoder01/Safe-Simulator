@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 import {
   getAbiPort,
@@ -8,7 +8,7 @@ import {
 } from "@/container";
 import { resolveContractInsight } from "@/lib/api/contract-insight";
 import { resolveEvidenceVerdict } from "@/lib/api/evidence-verdict";
-import { resolveExecutionInsight } from "@/lib/api/execution-insight";
+import { resolveExecutionInsight } from "@/lib/api/execution-insight";\nimport { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
 import {
   safeRouteParamsSchema,
   safeTransactionHashSchema,
@@ -23,7 +23,7 @@ interface RouteContext {
   }>;
 }
 
-export async function GET(_request: Request, context: RouteContext) {
+export async function GET(request: NextRequest, context: RouteContext) {
   const params = await context.params;
   const safe = safeRouteParamsSchema.safeParse(params);
   const safeTxHash = safeTransactionHashSchema.safeParse(params.safeTxHash);
@@ -40,7 +40,8 @@ export async function GET(_request: Request, context: RouteContext) {
     );
   }
 
-  const transaction = await getPersistencePort().findTransaction(
+  const persistence = getPersistencePort();
+  const transaction = await persistence.findTransaction(
     safe.data,
     safeTxHash.data,
   );
@@ -56,12 +57,23 @@ export async function GET(_request: Request, context: RouteContext) {
     );
   }
 
-  const [insight, execution] = await Promise.all([
+  const profileId = parseProfileId(
+    request.cookies.get(PROFILE_COOKIE)?.value,
+  );
+  const [insight, execution, addressBook] = await Promise.all([
     resolveContractInsight(getSafeDataPort(), getAbiPort(), transaction),
     resolveExecutionInsight(getSimulationPort(), transaction),
+    profileId
+      ? persistence.listAddressBookEntries(profileId, safe.data)
+      : Promise.resolve([]),
   ]);
 
-  const verdict = resolveEvidenceVerdict(transaction, insight, execution);
+  const verdict = resolveEvidenceVerdict(
+    transaction,
+    insight,
+    execution,
+    addressBook,
+  );
 
   return NextResponse.json({
     data: { ...toTransactionView(transaction), insight, execution, verdict },
