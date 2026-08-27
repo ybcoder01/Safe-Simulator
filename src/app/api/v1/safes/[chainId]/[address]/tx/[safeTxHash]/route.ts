@@ -8,7 +8,8 @@ import {
 } from "@/container";
 import { resolveContractInsight } from "@/lib/api/contract-insight";
 import { resolveEvidenceVerdict } from "@/lib/api/evidence-verdict";
-import { resolveExecutionInsight } from "@/lib/api/execution-insight";\nimport { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
+import { resolveExecutionInsight } from "@/lib/api/execution-insight";
+import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
 import {
   safeRouteParamsSchema,
   safeTransactionHashSchema,
