@@ -34,9 +34,7 @@ const transaction: SafeTransaction = {
   blockHash: hash,
 };
 
-function contract(
-  overrides: Partial<ContractMetadata> = {},
-): ContractInsight {
+function contract(overrides: Partial<ContractMetadata> = {}): ContractInsight {
   return {
     metadata: {
       address: target,
@@ -83,11 +81,7 @@ function execution(
 
 describe("resolveEvidenceVerdict", () => {
   it("maps contract provenance and receipt coverage into core rules", () => {
-    const result = resolveEvidenceVerdict(
-      transaction,
-      contract(),
-      execution(),
-    );
+    const result = resolveEvidenceVerdict(transaction, contract(), execution());
 
     expect(result.verdict).toBe("unverified");
     expect(result.findings.map((finding) => finding.code)).toContain(
