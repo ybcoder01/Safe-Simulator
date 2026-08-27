@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { SafeTransaction, TokenBalance } from "@/core/domain";
+import type { SafeTransaction, TokenBalance } from "../../../../src/core/domain";
 import {
   safeRouteParamsSchema,
   toBalanceView,
   toTransactionView,
   transactionPageQuerySchema,
-} from "@/lib/api/safe-details";
+} from "../../../../src/lib/api/safe-details";
 
 describe("Safe dashboard API view models", () => {
   it("parses supported Safe routes and normalizes the address", () => {
