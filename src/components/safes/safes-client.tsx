@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 
 import type { SafeView } from "@/lib/api/safes";
@@ -79,7 +80,7 @@ export function SafesClient({ chains }: { chains: readonly ChainOption[] }) {
         imported,
         ...current.filter(
           (item) =>
-            item.address !== imported.address ||
+            item.address.toLowerCase() !== imported.address.toLowerCase() ||
             item.chainId !== imported.chainId,
         ),
       ]);
@@ -175,9 +176,11 @@ export function SafesClient({ chains }: { chains: readonly ChainOption[] }) {
           </div>
         ) : null}
         {items.map((safe) => (
-          <article
+          <Link
+            aria-label={`Open Safe ${safe.address}`}
             className="safe-card"
-            key={`${safe.chainId}:${safe.address}`}
+            href={`/safe/${safe.chainId}/${safe.address.toLowerCase()}`}
+            key={`${safe.chainId}:${safe.address.toLowerCase()}`}
           >
             <div className="safe-avatar">0×</div>
             <div className="safe-identity">
@@ -207,7 +210,7 @@ export function SafesClient({ chains }: { chains: readonly ChainOption[] }) {
                     ? "Syncing"
                     : "Queued"}
             </span>
-          </article>
+          </Link>
         ))}
       </section>
     </div>
