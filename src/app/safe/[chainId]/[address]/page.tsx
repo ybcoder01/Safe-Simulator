@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { TransactionHistory } from "@/components/safes/transaction-history";
 import { getPersistencePort, getSafeDataPort } from "@/container";
 import {
   resolveSyncStatus,
@@ -28,14 +29,6 @@ function formatTokenAmount(amount: string, decimals: number) {
     .slice(0, 4)
     .replace(/0+$/, "");
   return fraction ? `${whole}.${fraction}` : whole.toString();
-}
-
-function formatDate(timestamp: number) {
-  return new Intl.DateTimeFormat("en", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "UTC",
-  }).format(new Date(timestamp * 1_000));
 }
 
 export default async function SafeDashboardPage({ params }: PageProps) {
@@ -185,64 +178,13 @@ export default async function SafeDashboardPage({ params }: PageProps) {
           </section>
         </div>
 
-        <section className="history-panel">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">Activity</p>
-              <h2>Transaction history</h2>
-            </div>
-            <span>
-              {transactions.length}
-              {page.nextCursor ? "+" : ""} loaded
-            </span>
-          </div>
-
-          {transactions.length === 0 ? (
-            <div className="history-empty">
-              <div className="empty-icon" aria-hidden="true">
-                ↔
-              </div>
-              <h3>No Safe transactions yet</h3>
-              <p>
-                This account is fully synced, but its multisig history is empty.
-                New activity will appear after the next synchronization.
-              </p>
-            </div>
-          ) : (
-            <div className="history-list">
-              {transactions.map((transaction) => (
-                <Link
-                  className="history-row"
-                  href={`${basePath}/tx/${transaction.safeTxHash}`}
-                  key={transaction.safeTxHash}
-                >
-                  <span className={`tx-status tx-${transaction.status}`}>
-                    {transaction.status}
-                  </span>
-                  <div>
-                    <strong>
-                      Nonce {transaction.nonce} ·{" "}
-                      {transaction.operation === "delegatecall"
-                        ? "Delegate call"
-                        : "Contract call"}
-                    </strong>
-                    <span>
-                      To {shorten(transaction.to)} ·{" "}
-                      {transaction.confirmations.length}/{safe.threshold}{" "}
-                      confirmations
-                    </span>
-                  </div>
-                  <time dateTime={new Date(
-                    transaction.proposedAt * 1_000,
-                  ).toISOString()}>
-                    {formatDate(transaction.proposedAt)}
-                  </time>
-                  <span aria-hidden="true">→</span>
-                </Link>
-              ))}
-            </div>
-          )}
-        </section>
+        <TransactionHistory
+          address={safe.address}
+          chainId={safe.chainId}
+          initialTransactions={transactions}
+          nextCursor={page.nextCursor}
+          threshold={safe.threshold}
+        />
       </div>
 
       <footer className="workspace-footer">
