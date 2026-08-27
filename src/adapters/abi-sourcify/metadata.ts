@@ -194,7 +194,7 @@ export class PublicAbiAdapter implements AbiPort {
         ),
       ];
 
-      return names.length === 1 ? names[0] : null;
+      return names.length === 1 ? (names[0] ?? null) : null;
     } catch {
       return null;
     }
