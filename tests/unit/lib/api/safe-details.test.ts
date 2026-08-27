@@ -1,9 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type {
-  SafeTransaction,
-  TokenBalance,
-} from "@/core/domain";
+import type { SafeTransaction, TokenBalance } from "@/core/domain";
 import {
   safeRouteParamsSchema,
   toBalanceView,
@@ -19,9 +16,7 @@ describe("Safe dashboard API view models", () => {
     });
 
     expect(parsed.chainId).toBe(50);
-    expect(parsed.address).toBe(
-      "0xc8bAe80ca5c2C9eC3bd4AC16c422220a33b6B173",
-    );
+    expect(parsed.address).toBe("0xc8bAe80ca5c2C9eC3bd4AC16c422220a33b6B173");
   });
 
   it("rejects unsupported chains and unsafe pagination limits", () => {
