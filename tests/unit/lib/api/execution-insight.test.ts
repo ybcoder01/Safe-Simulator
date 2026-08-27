@@ -16,8 +16,7 @@ import { resolveExecutionInsight } from "../../../../src/lib/api/execution-insig
 const safe = "0x1111111111111111111111111111111111111111" as Address;
 const target = "0x2222222222222222222222222222222222222222" as Address;
 const token = "0x3333333333333333333333333333333333333333" as Address;
-const counterparty =
-  "0x4444444444444444444444444444444444444444" as Address;
+const counterparty = "0x4444444444444444444444444444444444444444" as Address;
 const spender = "0x5555555555555555555555555555555555555555" as Address;
 const maxUint256 = (1n << 256n) - 1n;
 
@@ -84,11 +83,7 @@ const output: SimulationOutput = {
     },
     {
       address: token,
-      topics: [
-        ERC20_APPROVAL_TOPIC,
-        addressTopic(safe),
-        addressTopic(spender),
-      ],
+      topics: [ERC20_APPROVAL_TOPIC, addressTopic(safe), addressTopic(spender)],
       data: word(maxUint256),
       logIndex: 2,
     },
