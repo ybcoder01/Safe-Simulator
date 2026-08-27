@@ -9,6 +9,7 @@ describe("applicationUrl", () => {
   it("uses the public project URL for production callbacks", () => {
     expect(
       applicationUrl({
+        NODE_ENV: "production",
         VERCEL_ENV: "production",
         VERCEL_PROJECT_PRODUCTION_URL: "safe-simulator.vercel.app",
         VERCEL_URL:
@@ -20,6 +21,7 @@ describe("applicationUrl", () => {
   it("keeps deployment-specific callback URLs outside production", () => {
     expect(
       applicationUrl({
+        NODE_ENV: "production",
         VERCEL_ENV: "preview",
         VERCEL_PROJECT_PRODUCTION_URL: "safe-simulator.vercel.app",
         VERCEL_URL: "safe-simulator-preview.vercel.app",
