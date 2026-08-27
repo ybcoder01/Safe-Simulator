@@ -16,6 +16,11 @@ export interface EvidenceVerdictInput {
   readonly target: Address;
   readonly targetVerified: boolean;
   readonly decodeConfidence: DecodeConfidence;
+  readonly movements: readonly {
+    readonly token: Address;
+    readonly from: Address;
+    readonly to: Address;
+  }[];
   readonly allowances: readonly {
     readonly token: Address;
     readonly spender: Address;
@@ -95,6 +100,23 @@ export function evaluateEvidenceVerdict(
     });
   }
 
+  if (input.movements.length > 0) {
+    findings.push({
+      code: "movement-trust-unresolved",
+      severity: "warning",
+      title: "Token movement address trust is not evaluated yet",
+      detail:
+        "Token event participants are visible, but address-book and registry trust checks are not implemented in this analysis version.",
+      addresses: uniqueAddresses(
+        input.movements.flatMap((movement) => [
+          movement.token,
+          movement.from,
+          movement.to,
+        ]),
+      ),
+    });
+  }
+
   const boundedAllowances = input.allowances.filter((item) => !item.infinite);
   if (boundedAllowances.length > 0) {
     findings.push({
@@ -112,29 +134,16 @@ export function evaluateEvidenceVerdict(
     });
   }
 
-  if (
-    input.callTrace !== "root-only" ||
-    input.storageDiff === "unavailable" ||
-    input.tokenEvents === "unavailable"
-  ) {
-    findings.push({
-      code: "partial-analysis-coverage",
-      severity: "info",
-      title: "Analysis coverage is partial",
-      detail:
-        "This verdict uses the target, decode provenance, outer call, and available receipt events. Internal calls and storage changes are not evaluated.",
-      addresses: [],
-    });
-  } else {
-    findings.push({
-      code: "partial-analysis-coverage",
-      severity: "info",
-      title: "Analysis coverage is partial",
-      detail:
-        "This verdict uses the target, decode provenance, outer call, and receipt events. Internal calls and storage changes are not evaluated.",
-      addresses: [],
-    });
-  }
+  findings.push({
+    code: "partial-analysis-coverage",
+    severity: "info",
+    title: "Analysis coverage is partial",
+    detail:
+      input.tokenEvents === "unavailable"
+        ? "This verdict uses the target and decode provenance. Receipt token events, internal calls, and storage changes are not evaluated."
+        : "This verdict uses the target, decode provenance, outer call, and receipt events. Internal calls and storage changes are not evaluated.",
+    addresses: [],
+  });
 
   const flagged = findings.some((finding) => finding.severity === "critical");
   const unverified = findings.some(
