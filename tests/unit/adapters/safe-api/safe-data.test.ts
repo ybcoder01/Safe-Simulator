@@ -102,7 +102,9 @@ describe("normalizeDecodedData", () => {
             ],
           },
         ],
-      }).parameters.at(0)?.nestedCalls.at(0),
+      })
+        .parameters.at(0)
+        ?.nestedCalls.at(0),
     ).toMatchObject({
       method: "approve",
       to: "0x1111111111111111111111111111111111111111",
