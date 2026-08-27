@@ -81,7 +81,12 @@ function execution(
 
 describe("resolveEvidenceVerdict", () => {
   it("maps contract provenance and receipt coverage into core rules", () => {
-    const result = resolveEvidenceVerdict(transaction, contract(), execution(), []);
+    const result = resolveEvidenceVerdict(
+      transaction,
+      contract(),
+      execution(),
+      [],
+    );
 
     expect(result.verdict).toBe("unverified");
     expect(result.findings.map((finding) => finding.code)).toContain(
@@ -117,7 +122,11 @@ describe("resolveEvidenceVerdict", () => {
   it("passes profile trust records into the core evaluation", () => {
     const result = resolveEvidenceVerdict(
       transaction,
-      contract({ verified: true, source: "sourcify" }),
+      {
+        ...contract({ verified: true, source: "sourcify" }),
+        provenance: "verified-abi",
+        signature: null,
+      },
       execution([
         {
           token,
@@ -137,5 +146,4 @@ describe("resolveEvidenceVerdict", () => {
 
     expect(result.verdict).toBe("trusted");
   });
-
 });
