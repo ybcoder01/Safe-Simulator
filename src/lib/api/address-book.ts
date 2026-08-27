@@ -24,8 +24,6 @@ export interface AddressBookView {
   readonly trust: "trusted" | "flagged";
 }
 
-export function toAddressBookView(
-  entry: AddressBookEntry,
-): AddressBookView {
+export function toAddressBookView(entry: AddressBookEntry): AddressBookView {
   return entry;
 }
