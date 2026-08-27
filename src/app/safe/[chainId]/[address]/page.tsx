@@ -158,10 +158,7 @@ export default async function SafeDashboardPage({ params }: PageProps) {
             ) : (
               <div className="balance-list">
                 {balanceResult.map((balance) => (
-                  <div
-                    className="balance-row"
-                    key={balance.token ?? "native"}
-                  >
+                  <div className="balance-row" key={balance.token ?? "native"}>
                     <div>
                       <strong>{balance.symbol}</strong>
                       <span>
