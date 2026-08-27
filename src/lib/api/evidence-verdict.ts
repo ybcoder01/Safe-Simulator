@@ -47,6 +47,7 @@ export function resolveEvidenceVerdict(
     callTrace: execution.coverage.callTrace,
     storageDiff: execution.coverage.storageDiff,
     tokenEvents: execution.coverage.tokenEvents,
+    outcome: execution.coverage.outcome,
   } satisfies EvidenceVerdictInput;
 
   return evaluateEvidenceVerdict(input);
