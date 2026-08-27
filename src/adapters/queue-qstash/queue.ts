@@ -5,8 +5,7 @@ import type { QueuePort } from "@/core/ports";
 
 function isDevelopmentMode(environment: NodeJS.ProcessEnv = process.env) {
   return (
-    environment.QSTASH_DEV === "true" &&
-    environment.NODE_ENV !== "production"
+    environment.QSTASH_DEV === "true" && environment.NODE_ENV !== "production"
   );
 }
 
