@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { SafeTransaction, TokenBalance } from "../../../../src/core/domain";
+import type {
+  SafeTransaction,
+  TokenBalance,
+} from "../../../../src/core/domain";
 import {
   safeRouteParamsSchema,
   toBalanceView,
