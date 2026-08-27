@@ -120,6 +120,10 @@ export interface PersistencePort {
   /** Lists all persisted Safes for bounded background sweeps. The cursor is opaque to callers. */
   listSafes(cursor: string | null, limit: number): Promise<Page<SafeSnapshot>>;
   bookmarkSafe(profileId: string, safe: SafeRef): Promise<void>;
+  listAddressBookEntries(
+    profileId: string,
+    safe: SafeRef,
+  ): Promise<readonly AddressBookEntry[]>;
   upsertTransactions(items: readonly SafeTransaction[]): Promise<void>;
   upsertModuleTransactions(items: readonly ModuleTransaction[]): Promise<void>;
   upsertTransfers(items: readonly TransferRecord[]): Promise<void>;
@@ -145,12 +149,17 @@ export interface PersistencePort {
   ): Promise<SyncCursor | null>;
   upsertContract(metadata: ContractMetadata): Promise<void>;
   setAddressBookEntry(
+    profileId: string,
     safe: SafeRef,
     address: Address,
     label: string,
     trust: "trusted" | "flagged",
   ): Promise<void>;
-  removeAddressBookEntry(safe: SafeRef, address: Address): Promise<void>;
+  removeAddressBookEntry(
+    profileId: string,
+    safe: SafeRef,
+    address: Address,
+  ): Promise<void>;
 }
 
 export interface CachePort {
