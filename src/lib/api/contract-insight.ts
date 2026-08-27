@@ -7,6 +7,7 @@ import {
 
 import type {
   AbiFunction,
+  AbiParameter,
   DecodedCall,
   DecodedParameter,
   SafeTransaction,
@@ -78,12 +79,35 @@ function normalizedCall(
   }
 }
 
+function normalizedAbiParameter(
+  input: ViemAbiFunction["inputs"][number],
+): AbiParameter {
+  const parameter = input as ViemAbiFunction["inputs"][number] & {
+    readonly name?: string;
+    readonly components?: readonly ViemAbiFunction["inputs"][number][];
+  };
+
+  return {
+    name: parameter.name ?? "",
+    type: parameter.type,
+    ...(parameter.components
+      ? { components: parameter.components.map(normalizedAbiParameter) }
+      : {}),
+  };
+}
+
 function functionFromSignature(signature: string): AbiFunction | null {
   try {
     const item = parseAbiItem(`function ${signature}`);
     if (item.type !== "function") return null;
 
-    return item as ViemAbiFunction as AbiFunction;
+    return {
+      type: "function",
+      name: item.name,
+      stateMutability: item.stateMutability,
+      inputs: item.inputs.map(normalizedAbiParameter),
+      outputs: item.outputs.map(normalizedAbiParameter),
+    };
   } catch {
     return null;
   }
