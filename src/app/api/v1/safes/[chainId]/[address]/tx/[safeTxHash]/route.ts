@@ -58,9 +58,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     );
   }
 
-  const profileId = parseProfileId(
-    request.cookies.get(PROFILE_COOKIE)?.value,
-  );
+  const profileId = parseProfileId(request.cookies.get(PROFILE_COOKIE)?.value);
   const [insight, execution, addressBook] = await Promise.all([
     resolveContractInsight(getSafeDataPort(), getAbiPort(), transaction),
     resolveExecutionInsight(getSimulationPort(), transaction),
