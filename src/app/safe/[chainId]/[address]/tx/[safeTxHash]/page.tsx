@@ -9,6 +9,7 @@ import {
 } from "@/container";
 import { decodedCallSummary } from "@/core/analysis/decoding/calldata";
 import { resolveContractInsight } from "@/lib/api/contract-insight";
+import { resolveEvidenceVerdict } from "@/lib/api/evidence-verdict";
 import { resolveExecutionInsight } from "@/lib/api/execution-insight";
 import {
   safeRouteParamsSchema,
@@ -54,6 +55,7 @@ export default async function TransactionDetailPage({ params }: PageProps) {
     resolveContractInsight(getSafeDataPort(), getAbiPort(), persisted),
     resolveExecutionInsight(getSimulationPort(), persisted),
   ]);
+  const verdict = resolveEvidenceVerdict(persisted, insight, execution);
   const decoded = insight.decoded;
   const nestedCalls =
     decoded?.parameters.flatMap((parameter) => parameter.nestedCalls) ?? [];
@@ -88,6 +90,36 @@ export default async function TransactionDetailPage({ params }: PageProps) {
             {transaction.status}
           </span>
         </header>
+
+        <section className="detail-panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Evidence verdict</p>
+              <h2>{verdict.headline}</h2>
+            </div>
+            <span>{verdict.verdict}</span>
+          </div>
+          <dl className="detail-list">
+            <div>
+              <dt>Coverage</dt>
+              <dd>{verdict.coverage}</dd>
+            </div>
+            <div>
+              <dt>Trust rule</dt>
+              <dd>{verdict.trustBoundary}</dd>
+            </div>
+          </dl>
+          {verdict.findings.map((finding, index) => (
+            <div className="calldata" key={`${finding.code}-${index}`}>
+              <span>{finding.severity} finding</span>
+              <strong>{finding.title}</strong>
+              <code>{finding.detail}</code>
+              {finding.addresses.length > 0 ? (
+                <code>{finding.addresses.join(" · ")}</code>
+              ) : null}
+            </div>
+          ))}
+        </section>
 
         <section className="detail-grid">
           <div>
