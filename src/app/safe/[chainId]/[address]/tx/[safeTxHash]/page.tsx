@@ -109,8 +109,8 @@ export default async function TransactionDetailPage({ params }: PageProps) {
               <dd>{verdict.trustBoundary}</dd>
             </div>
           </dl>
-          {verdict.findings.map((finding) => (
-            <div className="calldata" key={finding.code}>
+          {verdict.findings.map((finding, index) => (
+            <div className="calldata" key={`${finding.code}-${index}`}>
               <span>{finding.severity} finding</span>
               <strong>{finding.title}</strong>
               <code>{finding.detail}</code>
