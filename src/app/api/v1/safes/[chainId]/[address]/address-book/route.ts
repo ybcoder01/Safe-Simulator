@@ -14,7 +14,12 @@ interface RouteContext {
   readonly params: Promise<{ chainId: string; address: string }>;
 }
 
-function error(message: string, status: number, code: string, details?: unknown) {
+function error(
+  message: string,
+  status: number,
+  code: string,
+  details?: unknown,
+) {
   return NextResponse.json({ error: { code, message, details } }, { status });
 }
 
@@ -94,7 +99,11 @@ export async function PUT(request: NextRequest, route: RouteContext) {
 
 export async function DELETE(request: NextRequest, route: RouteContext) {
   if (!sameOrigin(request)) {
-    return error("Cross-origin trust changes are rejected.", 403, "origin_rejected");
+    return error(
+      "Cross-origin trust changes are rejected.",
+      403,
+      "origin_rejected",
+    );
   }
 
   const resolved = await context(request, route);
