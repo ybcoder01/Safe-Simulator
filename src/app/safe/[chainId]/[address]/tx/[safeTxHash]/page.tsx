@@ -1,11 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import {
-  getAbiPort,
-  getPersistencePort,
-  getSafeDataPort,
-} from "@/container";
+import { getAbiPort, getPersistencePort, getSafeDataPort } from "@/container";
 import { decodedCallSummary } from "@/core/analysis/decoding/calldata";
 import { resolveContractInsight } from "@/lib/api/contract-insight";
 import {
@@ -158,10 +154,10 @@ export default async function TransactionDetailPage({ params }: PageProps) {
                   ? "Safe service decode"
                   : insight.provenance === "signature-database"
                     ? "Signature match · unverified"
-                    : decoded?.method ??
+                    : (decoded?.method ??
                       (transaction.summary
                         ? "Known selector"
-                        : "Unknown selector")}
+                        : "Unknown selector"))}
             </span>
           </div>
           <div className="calldata">
