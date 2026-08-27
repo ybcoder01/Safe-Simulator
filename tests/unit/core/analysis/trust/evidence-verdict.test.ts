@@ -74,9 +74,7 @@ describe("evaluateEvidenceVerdict", () => {
   it("keeps bounded approvals unverified until spender trust exists", () => {
     const result = evaluateEvidenceVerdict(
       input({
-        allowances: [
-          { token, spender, amount: "1000000", infinite: false },
-        ],
+        allowances: [{ token, spender, amount: "1000000", infinite: false }],
       }),
     );
 
