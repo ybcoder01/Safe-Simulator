@@ -23,6 +23,7 @@ function input(
     callTrace: "root-only",
     storageDiff: "unavailable",
     tokenEvents: "standard-events",
+    outcome: "on-chain-receipt",
     ...overrides,
   };
 }
@@ -32,6 +33,7 @@ describe("evaluateEvidenceVerdict", () => {
     const result = evaluateEvidenceVerdict(input());
 
     expect(result.verdict).toBe("known");
+    expect(result.coverage).toBe("target-and-receipt-only");
     expect(result.trustBoundary).toContain("never inferred");
     expect(result.findings.map((finding) => finding.code)).toEqual([
       "partial-analysis-coverage",
