@@ -2,13 +2,15 @@ import { getAddress } from "viem";
 import { z } from "zod";
 
 import type {
+  DecodedCall,
   Hex,
   SafeRef,
   SafeSnapshot,
   SafeTransaction,
   TokenBalance,
 } from "@/core/domain";
-import type { PersistencePort } from "@/core/ports";
+import { knownCallSummary } from "@/core/analysis/decoding/calldata";
+import type { PersistencePort, SafeDataPort } from "@/core/ports";
 import { toSafeView, type SafeView } from "@/lib/api/safes";
 
 export const safeRouteParamsSchema = z.object({
@@ -39,6 +41,7 @@ export interface TransactionView {
   readonly value: string;
   readonly data: string;
   readonly operation: "call" | "delegatecall";
+  readonly summary: string | null;
   readonly status: "pending" | "executed" | "failed" | "replaced";
   readonly confirmations: readonly {
     readonly owner: string;
@@ -65,9 +68,32 @@ export function toTransactionView(
   return {
     ...transaction,
     nonce: transaction.nonce.toString(),
+    summary: knownCallSummary(transaction.data, transaction.operation),
     value: transaction.value.toString(),
     blockNumber: transaction.blockNumber?.toString() ?? null,
   };
+}
+
+export async function resolveDecodedCall(
+  safeData: SafeDataPort,
+  transaction: SafeTransaction,
+): Promise<DecodedCall | null> {
+  if (transaction.data === "0x") return null;
+
+  try {
+    return await safeData.decodeTransactionData(
+      transaction.safe,
+      transaction.to,
+      transaction.data,
+    );
+  } catch (error) {
+    console.warn("[safe-decoder] Calldata decoding unavailable.", {
+      chainId: transaction.safe.chainId,
+      safeTxHash: transaction.safeTxHash,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
 }
 
 export function toBalanceView(balance: TokenBalance): BalanceView {
