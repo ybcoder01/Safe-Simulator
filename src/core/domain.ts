@@ -20,6 +20,22 @@ export interface SafeSnapshot extends SafeRef {
 }
 
 export type Operation = "call" | "delegatecall";
+
+export interface DecodedParameter {
+  readonly name: string;
+  readonly type: string;
+  readonly value: string;
+  readonly nestedCalls: readonly DecodedCall[];
+}
+
+export interface DecodedCall {
+  readonly method: string;
+  readonly parameters: readonly DecodedParameter[];
+  readonly to: Address | null;
+  readonly value: string | null;
+  readonly data: Hex | null;
+  readonly operation: Operation | null;
+}
 export type TransactionStatus = "pending" | "executed" | "failed" | "replaced";
 
 export interface Confirmation {
