@@ -4,7 +4,7 @@ import {
   type EvidenceVerdict,
   type EvidenceVerdictInput,
 } from "@/core/analysis/trust/evidence-verdict";
-import type { Address, SafeTransaction } from "@/core/domain";
+import type {\n  Address,\n  AddressBookEntry,\n  SafeTransaction,\n} from "@/core/domain";
 import type { ContractInsight } from "@/lib/api/contract-insight";
 import type { ExecutionInsight } from "@/lib/api/execution-insight";
 
@@ -38,7 +38,7 @@ export function resolveEvidenceVerdict(
       from: movement.from as Address,
       to: movement.to as Address,
     })),
-    allowances: execution.allowanceChanges.map((allowance) => ({
+    addressBook,\n    allowances: execution.allowanceChanges.map((allowance) => ({
       token: allowance.token as Address,
       spender: allowance.spender as Address,
       amount: allowance.amount,
