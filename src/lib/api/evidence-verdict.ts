@@ -33,6 +33,11 @@ export function resolveEvidenceVerdict(
     target: transaction.to,
     targetVerified: contract.metadata.verified,
     decodeConfidence: decodeConfidence(contract.provenance),
+    movements: execution.tokenMovements.map((movement) => ({
+      token: movement.token as Address,
+      from: movement.from as Address,
+      to: movement.to as Address,
+    })),
     allowances: execution.allowanceChanges.map((allowance) => ({
       token: allowance.token as Address,
       spender: allowance.spender as Address,
