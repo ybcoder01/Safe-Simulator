@@ -12,7 +12,7 @@ describe("calldata summaries", () => {
       "0x095ea7b3000000000000000000000000941acf4e2df51bf43c3c4167631dbefa268bc9d700000000000000000000000000000000000000000000000000000000000f4240" as Hex;
 
     expect(knownCallSummary(data, "call")).toBe(
-      "Approve 0x941acf…68bc9d7 for 1000000 base units",
+      "Approve 0x941acf…8bc9d7 for 1000000 base units",
     );
   });
 
@@ -65,7 +65,7 @@ describe("calldata summaries", () => {
     };
 
     expect(decodedCallSummary(approval)).toBe(
-      "Approve 0x941acf…68bc9d7 for 1000000 base units",
+      "Approve 0x941acf…8bc9d7 for 1000000 base units",
     );
     expect(decodedCallSummary(batch)).toBe("Batch of 2 decoded calls");
   });
