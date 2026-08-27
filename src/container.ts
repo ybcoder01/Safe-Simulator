@@ -1,3 +1,4 @@
+import { PublicAbiAdapter } from "@/adapters/abi-sourcify/metadata";
 import { UpstashCacheAdapter } from "@/adapters/cache-upstash/cache";
 import { ViemChainAdapter } from "@/adapters/chain-viem/chain";
 import { getDatabase } from "@/adapters/db-drizzle/client";
@@ -6,6 +7,7 @@ import { QStashQueueAdapter } from "@/adapters/queue-qstash/queue";
 import { SafeApiAdapter } from "@/adapters/safe-api/safe-data";
 import { ImportSafeService } from "@/core/safes/import-safe";
 
+let abi: PublicAbiAdapter | null = null;
 let chain: ViemChainAdapter | null = null;
 let persistence: DrizzlePersistenceAdapter | null = null;
 let cache: UpstashCacheAdapter | null = null;
@@ -15,6 +17,11 @@ let safeData: SafeApiAdapter | null = null;
 export function getChainPort() {
   chain ??= new ViemChainAdapter();
   return chain;
+}
+
+export function getAbiPort() {
+  abi ??= new PublicAbiAdapter(getChainPort());
+  return abi;
 }
 
 export function getPersistencePort() {
