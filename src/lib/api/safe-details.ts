@@ -2,6 +2,7 @@ import { getAddress } from "viem";
 import { z } from "zod";
 
 import type {
+  Hex,
   SafeRef,
   SafeSnapshot,
   SafeTransaction,
@@ -23,7 +24,8 @@ export const safeRouteParamsSchema = z.object({
 
 export const safeTransactionHashSchema = z
   .string()
-  .regex(/^0x[0-9a-fA-F]{64}$/, "Invalid Safe transaction hash.");
+  .regex(/^0x[0-9a-fA-F]{64}$/, "Invalid Safe transaction hash.")
+  .transform((value) => value as Hex);
 
 export const transactionPageQuerySchema = z.object({
   cursor: z.string().datetime().nullable().default(null),
