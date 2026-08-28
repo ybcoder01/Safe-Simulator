@@ -5,6 +5,7 @@ import type {
   CallRequest,
   ChainId,
   ContractMetadata,
+  ExecutionEvidenceRecord,
   DecodedCall,
   Hex,
   ModuleTransaction,
@@ -138,6 +139,13 @@ export interface PersistencePort {
     safe: SafeRef,
     safeTxHash: Hex,
   ): Promise<SafeTransaction | null>;
+  saveExecutionEvidence(result: ExecutionEvidenceRecord): Promise<void>;
+  findExecutionEvidence(
+    safe: SafeRef,
+    safeTxHash: Hex,
+    engineVersion: string,
+    blockHash: Hex,
+  ): Promise<ExecutionEvidenceRecord | null>;
   saveAnalysis(result: AnalysisResult): Promise<void>;
   findAnalysis(
     safeTxHash: Hex,

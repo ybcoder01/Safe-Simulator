@@ -11,7 +11,11 @@ import type {
   SimulationOutput,
 } from "../../../../src/core/domain";
 import type { SimulationPort } from "../../../../src/core/ports";
-import { resolveExecutionInsight } from "../../../../src/lib/api/execution-insight";
+import {
+  EXECUTION_EVIDENCE_ENGINE_VERSION,
+  resolveExecutionInsight,
+  type ExecutionEvidenceStores,
+} from "../../../../src/lib/api/execution-insight";
 
 const safe = "0x1111111111111111111111111111111111111111" as Address;
 const target = "0x2222222222222222222222222222222222222222" as Address;
@@ -125,6 +129,28 @@ function simulation(overrides: Partial<SimulationPort> = {}): SimulationPort {
     replay: vi.fn().mockResolvedValue(output),
     simulate: vi.fn().mockResolvedValue(output),
     ...overrides,
+  };
+}
+
+function evidenceStores(initialRecord: unknown = null) {
+  const values = new Map<string, unknown>();
+  const get = vi.fn(async (key: string) => values.get(key) ?? null);
+  const set = vi.fn(async (key: string, value: unknown) => {
+    values.set(key, value);
+  });
+  const findExecutionEvidence = vi.fn().mockResolvedValue(initialRecord);
+  const saveExecutionEvidence = vi.fn().mockResolvedValue(undefined);
+
+  return {
+    stores: {
+      cache: { get, set },
+      persistence: { findExecutionEvidence, saveExecutionEvidence },
+    } as unknown as ExecutionEvidenceStores,
+    values,
+    get,
+    set,
+    findExecutionEvidence,
+    saveExecutionEvidence,
   };
 }
 
@@ -246,6 +272,123 @@ describe("resolveExecutionInsight", () => {
     expect(result.success).toBeNull();
     expect(result.error).toContain("trace-capable");
     expect(port.simulate).not.toHaveBeenCalled();
+  });
+
+  it("persists complete executed evidence and reuses the Redis projection", async () => {
+    const port = simulation();
+    const state = evidenceStores();
+
+    const first = await resolveExecutionInsight(
+      port,
+      transaction(),
+      state.stores,
+    );
+    const second = await resolveExecutionInsight(
+      port,
+      transaction(),
+      state.stores,
+    );
+
+    expect(first.coverage.callTrace).toBe("complete");
+    expect(second).toEqual(first);
+    expect(port.replay).toHaveBeenCalledTimes(1);
+    expect(state.saveExecutionEvidence).toHaveBeenCalledTimes(1);
+    expect(state.saveExecutionEvidence).toHaveBeenCalledWith(
+      expect.objectContaining({
+        engineVersion: EXECUTION_EVIDENCE_ENGINE_VERSION,
+        blockHash,
+        simulation: output,
+      }),
+    );
+    expect(state.set).toHaveBeenCalledWith(
+      expect.stringContaining(EXECUTION_EVIDENCE_ENGINE_VERSION),
+      expect.any(Object),
+      null,
+    );
+  });
+
+  it("anchors complete evidence when the persisted block hash is missing", async () => {
+    const state = evidenceStores();
+
+    await resolveExecutionInsight(
+      simulation(),
+      transaction({ blockHash: null }),
+      state.stores,
+    );
+
+    expect(state.saveExecutionEvidence).toHaveBeenCalledWith(
+      expect.objectContaining({ blockHash }),
+    );
+    expect(state.set).toHaveBeenCalledWith(
+      expect.stringContaining(blockHash),
+      expect.any(Object),
+      null,
+    );
+  });
+
+  it("rehydrates complete PostgreSQL evidence without replaying", async () => {
+    const state = evidenceStores({
+      safe: transaction().safe,
+      safeTxHash,
+      engineVersion: EXECUTION_EVIDENCE_ENGINE_VERSION,
+      blockHash,
+      simulation: output,
+      createdAt: 1,
+    });
+    const port = simulation({ replay: vi.fn() });
+
+    const result = await resolveExecutionInsight(
+      port,
+      transaction(),
+      state.stores,
+    );
+
+    expect(result.coverage.callTrace).toBe("complete");
+    expect(port.replay).not.toHaveBeenCalled();
+    expect(state.set).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not retain partial trace evidence indefinitely", async () => {
+    const partial: SimulationOutput = {
+      ...output,
+      traceCoverage: {
+        callTrace: "partial",
+        storageDiff: "complete",
+      },
+    };
+    const state = evidenceStores();
+
+    const result = await resolveExecutionInsight(
+      simulation({ replay: vi.fn().mockResolvedValue(partial) }),
+      transaction(),
+      state.stores,
+    );
+
+    expect(result.coverage.callTrace).toBe("partial");
+    expect(state.saveExecutionEvidence).not.toHaveBeenCalled();
+    expect(state.set).not.toHaveBeenCalled();
+  });
+
+  it("does not cache evidence from a different block hash", async () => {
+    const changedBlockHash =
+      "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee" as Hex;
+    const state = evidenceStores();
+
+    const result = await resolveExecutionInsight(
+      simulation({
+        replay: vi
+          .fn()
+          .mockResolvedValue({ ...output, blockHash: changedBlockHash }),
+      }),
+      transaction(),
+      state.stores,
+    );
+
+    expect(result.warnings).toContain(
+      "The replay block hash differs from the persisted transaction; this evidence was not cached.",
+    );
+    expect(state.saveExecutionEvidence).not.toHaveBeenCalled();
+    expect(state.set).not.toHaveBeenCalled();
   });
 
   it("degrades provider failures to an explicit unavailable result", async () => {

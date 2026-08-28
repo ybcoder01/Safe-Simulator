@@ -223,6 +223,15 @@ export interface AnalysisResult {
   readonly immutable: boolean;
 }
 
+export interface ExecutionEvidenceRecord {
+  readonly safe: SafeRef;
+  readonly safeTxHash: Hex;
+  readonly engineVersion: string;
+  readonly blockHash: Hex;
+  readonly simulation: SimulationOutput;
+  readonly createdAt: UnixTime;
+}
+
 export interface SyncCursor {
   readonly safe: SafeRef;
   readonly stream: "multisig" | "module" | "transfer" | "message";
