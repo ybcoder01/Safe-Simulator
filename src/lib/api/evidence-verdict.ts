@@ -45,6 +45,10 @@ export function resolveEvidenceVerdict(
       amount: allowance.amount,
       infinite: allowance.infinite,
     })),
+    internalCalls: execution.internalCalls.map((call) => ({
+      to: call.to as Address,
+      operation: call.operation,
+    })),
     addressBook,
     callTrace: execution.coverage.callTrace,
     storageDiff: execution.coverage.storageDiff,

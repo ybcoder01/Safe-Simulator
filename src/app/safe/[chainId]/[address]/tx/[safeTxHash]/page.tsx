@@ -239,6 +239,57 @@ export default async function TransactionDetailPage({ params }: PageProps) {
               <code>{execution.rootCall.input}</code>
             </div>
           ) : null}
+          {execution.internalCalls.slice(0, 40).map((call, index) => (
+            <div className="calldata" key={`internal-call-${index}-${call.to}`}>
+              <span>
+                Internal call {index + 1} · depth {call.depth} ·{" "}
+                {call.operation}
+              </span>
+              <strong>
+                {call.reverted ? "Reverted" : "Completed"} · {call.from} →{" "}
+                {call.to}
+              </strong>
+              <code>{call.input}</code>
+              {call.error ? <code>{call.error}</code> : null}
+            </div>
+          ))}
+          {execution.internalCalls.length > 40 ? (
+            <div className="panel-empty">
+              {execution.internalCalls.length - 40} additional internal calls
+              are available through the transaction API.
+            </div>
+          ) : null}
+          {execution.coverage.callTrace === "complete" &&
+          execution.internalCalls.length === 0 ? (
+            <div className="panel-empty">
+              The complete trace contains no internal calls.
+            </div>
+          ) : null}
+          {execution.storageChanges.slice(0, 40).map((change, index) => (
+            <div
+              className="calldata"
+              key={`storage-${index}-${change.address}-${change.slot}`}
+            >
+              <span>Raw storage slot change</span>
+              <strong>{change.address}</strong>
+              <code>{change.slot}</code>
+              <code>
+                {change.before} → {change.after}
+              </code>
+            </div>
+          ))}
+          {execution.storageChanges.length > 40 ? (
+            <div className="panel-empty">
+              {execution.storageChanges.length - 40} additional storage changes
+              are available through the transaction API.
+            </div>
+          ) : null}
+          {execution.coverage.storageDiff === "complete" &&
+          execution.storageChanges.length === 0 ? (
+            <div className="panel-empty">
+              The complete prestate diff contains no storage slot changes.
+            </div>
+          ) : null}
           {execution.error ? (
             <div className="calldata">
               <span>Execution error</span>

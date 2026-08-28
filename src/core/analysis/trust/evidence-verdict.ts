@@ -12,7 +12,8 @@ export type AddressRole =
   | "token"
   | "movement-sender"
   | "movement-recipient"
-  | "approval-spender";
+  | "approval-spender"
+  | "internal-target";
 
 export interface EvidenceVerdictInput {
   readonly operation: Operation;
@@ -30,9 +31,13 @@ export interface EvidenceVerdictInput {
     readonly amount: string;
     readonly infinite: boolean;
   }[];
+  readonly internalCalls: readonly {
+    readonly to: Address;
+    readonly operation: Operation;
+  }[];
   readonly addressBook: readonly AddressBookEntry[];
-  readonly callTrace: "root-only" | "unavailable";
-  readonly storageDiff: "unavailable";
+  readonly callTrace: "complete" | "partial" | "root-only" | "unavailable";
+  readonly storageDiff: "complete" | "partial" | "unavailable";
   readonly tokenEvents: "standard-events" | "unavailable";
   readonly outcome: "on-chain-receipt" | "read-only-call" | "unavailable";
 }
@@ -50,7 +55,9 @@ export interface EvidenceVerdict {
   readonly findings: readonly Finding[];
   readonly addresses: readonly AddressTrustAssessment[];
   readonly coverage:
+    | "target-receipt-and-trace"
     | "target-and-receipt-only"
+    | "target-call-and-trace"
     | "target-and-call-only"
     | "target-only";
   readonly trustBoundary: string;
@@ -91,6 +98,9 @@ function assessAddresses(
     add(allowance.token, "token");
     add(allowance.spender, "approval-spender");
   }
+  for (const call of input.internalCalls) {
+    add(call.to, "internal-target");
+  }
 
   const records = new Map<string, AddressBookEntry>();
   for (const record of input.addressBook) {
@@ -129,6 +139,20 @@ export function evaluateEvidenceVerdict(
       detail:
         "The target code can modify Safe-owned storage. Full internal behavior requires a trace-capable provider.",
       addresses: [input.target],
+    });
+  }
+
+  const internalDelegatecalls = input.internalCalls.filter(
+    (call) => call.operation === "delegatecall",
+  );
+  if (internalDelegatecalls.length > 0) {
+    findings.push({
+      code: "internal-delegatecall",
+      severity: "critical",
+      title: "An internal delegate call was traced",
+      detail:
+        "The traced target code executed in its caller's storage context. Critical evidence is preserved regardless of address labels.",
+      addresses: uniqueAddresses(internalDelegatecalls.map((call) => call.to)),
     });
   }
 
@@ -240,16 +264,54 @@ export function evaluateEvidenceVerdict(
     });
   }
 
+  const internalTargets = uniqueAddresses(
+    input.internalCalls.map((call) => call.to),
+  );
+  const unresolvedInternalTargets = addresses.filter(
+    (assessment) =>
+      internalTargets.some(
+        (address) => addressKey(address) === addressKey(assessment.address),
+      ) &&
+      assessment.status !== "trusted" &&
+      assessment.status !== "flagged",
+  );
+  if (unresolvedInternalTargets.length > 0) {
+    findings.push({
+      code: "internal-call-trust-unresolved",
+      severity: "warning",
+      title: "Internal call target trust is incomplete",
+      detail:
+        "At least one traced internal target lacks an explicit trusted record.",
+      addresses: unresolvedInternalTargets.map(
+        (assessment) => assessment.address,
+      ),
+    });
+  }
+
+  const traceDetail =
+    input.callTrace === "complete"
+      ? "Traced internal targets and delegate calls are evaluated."
+      : input.callTrace === "partial"
+        ? "Visible internal targets and delegate calls are evaluated, but the trace was truncated by safety bounds."
+        : "Internal calls are not evaluated because no usable trace was returned.";
+  const storageDetail =
+    input.storageDiff === "complete"
+      ? "Raw storage slots are displayed but are not semantically scored."
+      : input.storageDiff === "partial"
+        ? "A bounded subset of raw storage slots is displayed but is not semantically scored."
+        : "Storage changes are unavailable.";
+  const evidenceDetail =
+    input.outcome === "on-chain-receipt"
+      ? "This verdict uses the target, decode provenance, mined receipt events, traced call targets when available, and profile-specific trust records."
+      : input.outcome === "read-only-call"
+        ? "This verdict uses the target, decode provenance, direct-call outcome, traced call targets when available, and profile-specific trust records. Receipt events are unavailable."
+        : "This verdict uses target metadata, decode provenance, and profile-specific trust records only. Execution behavior is unavailable.";
+
   findings.push({
     code: "partial-analysis-coverage",
     severity: "info",
-    title: "Analysis coverage is partial",
-    detail:
-      input.outcome === "on-chain-receipt"
-        ? "This verdict uses the target, decode provenance, outer call, receipt events, and profile-specific trust records. Internal calls and storage changes are not evaluated."
-        : input.outcome === "read-only-call"
-          ? "This verdict uses the target, decode provenance, a direct read-only call, and profile-specific trust records. Receipt events, internal calls, and storage changes are not evaluated."
-          : "This verdict uses target metadata, decode provenance, and profile-specific trust records only. Execution behavior, receipt events, internal calls, and storage changes are not evaluated.",
+    title: "Analysis coverage is bounded",
+    detail: [evidenceDetail, traceDetail, storageDetail].join(" "),
     addresses: [],
   });
 
@@ -282,9 +344,13 @@ export function evaluateEvidenceVerdict(
     addresses,
     coverage:
       input.outcome === "on-chain-receipt"
-        ? "target-and-receipt-only"
+        ? input.callTrace === "complete" || input.callTrace === "partial"
+          ? "target-receipt-and-trace"
+          : "target-and-receipt-only"
         : input.outcome === "read-only-call"
-          ? "target-and-call-only"
+          ? input.callTrace === "complete" || input.callTrace === "partial"
+            ? "target-call-and-trace"
+            : "target-and-call-only"
           : "target-only",
     trustBoundary:
       "Trusted requires explicit profile-specific records and is never inferred from source verification alone. Critical evidence always takes precedence.",

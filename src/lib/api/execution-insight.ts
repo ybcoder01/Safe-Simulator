@@ -1,11 +1,12 @@
 import type {
+  Address,
+  CallNode,
   Hex,
   LogEntry,
   SafeTransaction,
   SimulationOutput,
 } from "@/core/domain";
 import { extractTokenEventFacts } from "@/core/analysis/tokens/event-facts";
-import type { Address } from "@/core/domain";
 import type { SimulationPort } from "@/core/ports";
 
 export interface ExecutionInsight {
@@ -21,11 +22,27 @@ export interface ExecutionInsight {
     readonly value: string;
     readonly reverted: boolean;
   } | null;
+  readonly internalCalls: readonly {
+    readonly depth: number;
+    readonly from: string;
+    readonly to: string;
+    readonly input: Hex;
+    readonly value: string;
+    readonly operation: "call" | "delegatecall";
+    readonly reverted: boolean;
+    readonly error: string | null;
+  }[];
   readonly logs: readonly {
     readonly address: string;
     readonly topics: readonly Hex[];
     readonly data: Hex;
     readonly logIndex: number;
+  }[];
+  readonly storageChanges: readonly {
+    readonly address: string;
+    readonly slot: Hex;
+    readonly before: Hex;
+    readonly after: Hex;
   }[];
   readonly tokenMovements: readonly {
     readonly token: string;
@@ -46,10 +63,10 @@ export interface ExecutionInsight {
   readonly error: string | null;
   readonly coverage: {
     readonly outcome: "on-chain-receipt" | "read-only-call" | "unavailable";
-    readonly callTrace: "root-only" | "unavailable";
+    readonly callTrace: "complete" | "partial" | "root-only" | "unavailable";
     readonly eventLogs: "complete" | "unavailable";
     readonly tokenEvents: "standard-events" | "unavailable";
-    readonly storageDiff: "unavailable";
+    readonly storageDiff: "complete" | "partial" | "unavailable";
   };
   readonly warnings: readonly string[];
 }
@@ -63,6 +80,83 @@ function logsView(logs: readonly LogEntry[]): ExecutionInsight["logs"] {
   }));
 }
 
+function internalCallView(root: CallNode): ExecutionInsight["internalCalls"] {
+  const calls: Array<ExecutionInsight["internalCalls"][number]> = [];
+
+  function visit(nodes: readonly CallNode[], depth: number) {
+    for (const node of nodes) {
+      calls.push({
+        depth,
+        from: node.from,
+        to: node.to,
+        input: node.input,
+        value: node.value.toString(),
+        operation: node.operation,
+        reverted: node.reverted,
+        error: node.error,
+      });
+      visit(node.calls, depth + 1);
+    }
+  }
+
+  visit(root.calls, 1);
+  return calls;
+}
+
+function coverageWarnings(
+  executed: boolean,
+  callTrace: ExecutionInsight["coverage"]["callTrace"],
+  storageDiff: ExecutionInsight["coverage"]["storageDiff"],
+): readonly string[] {
+  const warnings = [
+    executed
+      ? "Outcome, gas, block, and event logs come from the mined transaction receipt."
+      : "This is a direct read-only call from the Safe address, not a full Safe signature-path simulation.",
+  ];
+
+  if (callTrace === "complete") {
+    warnings.push(
+      "Internal calls come from the configured debug tracer and are bounded before serialization.",
+    );
+  } else if (callTrace === "partial") {
+    warnings.push(
+      "The debug call trace exceeded safety bounds; the visible internal calls are incomplete.",
+    );
+  } else {
+    warnings.push(
+      executed
+        ? "No usable debug call trace was returned; only the outer call is shown."
+        : "Delegatecall behavior cannot be established without a usable debug call trace.",
+    );
+  }
+
+  if (storageDiff === "complete") {
+    warnings.push(
+      "Storage changes are raw slot differences from prestate tracer diff mode; unmapped slots are not interpreted.",
+    );
+  } else if (storageDiff === "partial") {
+    warnings.push(
+      "The storage diff exceeded safety bounds; the visible raw slot changes are incomplete.",
+    );
+  } else {
+    warnings.push(
+      executed
+        ? "No usable prestate diff was returned; storage changes remain unavailable."
+        : "Storage changes are unavailable without a usable prestate diff.",
+    );
+  }
+
+  if (executed) {
+    warnings.push(
+      "Token facts recognize canonical ERC-20-shaped events; an emitted event does not prove standard compliance.",
+    );
+  } else {
+    warnings.push("Event logs are not returned by the direct call check.");
+  }
+
+  return warnings;
+}
+
 function outputView(
   mode: ExecutionInsight["mode"],
   output: SimulationOutput,
@@ -70,6 +164,14 @@ function outputView(
 ): ExecutionInsight {
   const executed = mode === "executed-replay";
   const tokenEvents = extractTokenEventFacts(output.logs, safe);
+  const traceCoverage = output.traceCoverage ?? {
+    callTrace: "unavailable" as const,
+    storageDiff: "unavailable" as const,
+  };
+  const callTrace =
+    traceCoverage.callTrace === "unavailable"
+      ? ("root-only" as const)
+      : traceCoverage.callTrace;
 
   return {
     mode,
@@ -84,7 +186,9 @@ function outputView(
       value: output.callTree.value.toString(),
       reverted: output.callTree.reverted,
     },
+    internalCalls: internalCallView(output.callTree),
     logs: logsView(output.logs),
+    storageChanges: output.storageChanges.map((change) => ({ ...change })),
     tokenMovements: tokenEvents.movements.map((movement) => ({
       ...movement,
       amount: movement.amount.toString(),
@@ -96,23 +200,12 @@ function outputView(
     error: output.error,
     coverage: {
       outcome: executed ? "on-chain-receipt" : "read-only-call",
-      callTrace: "root-only",
+      callTrace,
       eventLogs: executed ? "complete" : "unavailable",
       tokenEvents: executed ? "standard-events" : "unavailable",
-      storageDiff: "unavailable",
+      storageDiff: traceCoverage.storageDiff,
     },
-    warnings: executed
-      ? [
-          "Outcome, gas, block, and event logs come from the mined transaction receipt.",
-          "This RPC does not expose debug traces; only the outer call is shown.",
-          "Storage changes are unavailable until a trace-capable provider is configured.",
-          "Token facts recognize canonical ERC-20-shaped events; an emitted event does not prove standard compliance.",
-        ]
-      : [
-          "This is a direct read-only call from the Safe address, not a full Safe signature-path simulation.",
-          "Event logs and storage changes are not returned by eth_call.",
-          "Delegatecall transactions require a trace-capable provider and are not checked here.",
-        ],
+    warnings: coverageWarnings(executed, callTrace, traceCoverage.storageDiff),
   };
 }
 
@@ -124,7 +217,9 @@ function unavailable(error: string): ExecutionInsight {
     blockNumber: null,
     blockHash: null,
     rootCall: null,
+    internalCalls: [],
     logs: [],
+    storageChanges: [],
     tokenMovements: [],
     allowanceChanges: [],
     error,
