@@ -307,6 +307,25 @@ describe("resolveExecutionInsight", () => {
     );
   });
 
+  it("anchors complete evidence when the persisted block hash is missing", async () => {
+    const state = evidenceStores();
+
+    await resolveExecutionInsight(
+      simulation(),
+      transaction({ blockHash: null }),
+      state.stores,
+    );
+
+    expect(state.saveExecutionEvidence).toHaveBeenCalledWith(
+      expect.objectContaining({ blockHash }),
+    );
+    expect(state.set).toHaveBeenCalledWith(
+      expect.stringContaining(blockHash),
+      expect.any(Object),
+      null,
+    );
+  });
+
   it("rehydrates complete PostgreSQL evidence without replaying", async () => {
     const state = evidenceStores({
       safe: transaction().safe,

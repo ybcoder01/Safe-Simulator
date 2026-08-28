@@ -178,10 +178,10 @@ async function persistExecutionInsight(
   output: SimulationOutput,
   insight: ExecutionInsight,
 ): Promise<void> {
-  const blockHash = transaction.blockHash;
+  const blockHash = transaction.blockHash ?? output.blockHash;
   if (
-    !blockHash ||
-    output.blockHash.toLowerCase() !== blockHash.toLowerCase() ||
+    (transaction.blockHash &&
+      output.blockHash.toLowerCase() !== transaction.blockHash.toLowerCase()) ||
     !hasCompleteTrace(output)
   ) {
     return;

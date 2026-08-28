@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, lt } from "drizzle-orm";
+import { and, asc, desc, eq, gt, isNull, lt } from "drizzle-orm";
 
 import type {
   Address,
@@ -499,11 +499,36 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
       );
     }
     if (
-      transaction.blockHash?.toLowerCase() !== record.blockHash.toLowerCase()
+      transaction.blockHash &&
+      transaction.blockHash.toLowerCase() !== record.blockHash.toLowerCase()
     ) {
       throw new Error(
         `Execution evidence block does not match transaction ${record.safeTxHash}.`,
       );
+    }
+
+    if (!transaction.blockHash) {
+      await this.db
+        .update(transactions)
+        .set({ blockHash: record.blockHash })
+        .where(
+          and(
+            eq(transactions.id, transaction.id),
+            isNull(transactions.blockHash),
+          ),
+        );
+      const [anchored] = await this.db
+        .select({ blockHash: transactions.blockHash })
+        .from(transactions)
+        .where(eq(transactions.id, transaction.id))
+        .limit(1);
+      if (
+        anchored?.blockHash?.toLowerCase() !== record.blockHash.toLowerCase()
+      ) {
+        throw new Error(
+          `Execution evidence block does not match transaction ${record.safeTxHash}.`,
+        );
+      }
     }
 
     await this.db
