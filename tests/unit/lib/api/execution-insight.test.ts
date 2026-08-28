@@ -135,11 +135,9 @@ function simulation(overrides: Partial<SimulationPort> = {}): SimulationPort {
 function evidenceStores(initialRecord: unknown = null) {
   const values = new Map<string, unknown>();
   const get = vi.fn(async (key: string) => values.get(key) ?? null);
-  const set = vi.fn(
-    async (key: string, value: unknown, _ttlSeconds: number | null) => {
-      values.set(key, value);
-    },
-  );
+  const set = vi.fn(async (key: string, value: unknown) => {
+    values.set(key, value);
+  });
   const findExecutionEvidence = vi.fn().mockResolvedValue(initialRecord);
   const saveExecutionEvidence = vi.fn().mockResolvedValue(undefined);
 
