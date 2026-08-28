@@ -481,9 +481,7 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
     return row ? this.transactionFromRow(row) : null;
   }
 
-  async saveExecutionEvidence(
-    record: ExecutionEvidenceRecord,
-  ): Promise<void> {
+  async saveExecutionEvidence(record: ExecutionEvidenceRecord): Promise<void> {
     const safe = await this.requireSafeRow(record.safe);
     const [transaction] = await this.db
       .select()

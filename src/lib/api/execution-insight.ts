@@ -7,11 +7,7 @@ import type {
   SimulationOutput,
 } from "@/core/domain";
 import { extractTokenEventFacts } from "@/core/analysis/tokens/event-facts";
-import type {
-  CachePort,
-  PersistencePort,
-  SimulationPort,
-} from "@/core/ports";
+import type { CachePort, PersistencePort, SimulationPort } from "@/core/ports";
 
 export interface ExecutionInsight {
   readonly mode: "executed-replay" | "direct-call-check" | "unavailable";
