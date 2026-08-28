@@ -7,7 +7,11 @@ import type {
   SimulationOutput,
 } from "@/core/domain";
 import { extractTokenEventFacts } from "@/core/analysis/tokens/event-facts";
-import type { SimulationPort } from "@/core/ports";
+import type {
+  CachePort,
+  PersistencePort,
+  SimulationPort,
+} from "@/core/ports";
 
 export interface ExecutionInsight {
   readonly mode: "executed-replay" | "direct-call-check" | "unavailable";
@@ -69,6 +73,150 @@ export interface ExecutionInsight {
     readonly storageDiff: "complete" | "partial" | "unavailable";
   };
   readonly warnings: readonly string[];
+}
+
+export const EXECUTION_EVIDENCE_ENGINE_VERSION = "execution-evidence-v1";
+
+export interface ExecutionEvidenceStores {
+  readonly cache: Pick<CachePort, "get" | "set">;
+  readonly persistence: Pick<
+    PersistencePort,
+    "findExecutionEvidence" | "saveExecutionEvidence"
+  >;
+}
+
+interface CachedExecutionEvidence {
+  readonly engineVersion: string;
+  readonly blockHash: Hex;
+  readonly insight: ExecutionInsight;
+}
+
+function evidenceCacheKey(transaction: SafeTransaction, blockHash: Hex) {
+  return [
+    "execution-evidence",
+    EXECUTION_EVIDENCE_ENGINE_VERSION,
+    transaction.safe.chainId,
+    transaction.safeTxHash.toLowerCase(),
+    blockHash.toLowerCase(),
+  ].join(":");
+}
+
+function hasCompleteTrace(output: SimulationOutput) {
+  return (
+    output.traceCoverage?.callTrace === "complete" &&
+    output.traceCoverage.storageDiff === "complete"
+  );
+}
+
+function hasCompleteInsight(insight: ExecutionInsight) {
+  return (
+    insight.mode === "executed-replay" &&
+    insight.coverage.callTrace === "complete" &&
+    insight.coverage.storageDiff === "complete"
+  );
+}
+
+async function findStoredExecutionInsight(
+  stores: ExecutionEvidenceStores,
+  transaction: SafeTransaction,
+): Promise<ExecutionInsight | null> {
+  const blockHash = transaction.blockHash;
+  if (!blockHash) return null;
+
+  const key = evidenceCacheKey(transaction, blockHash);
+  try {
+    const cached = await stores.cache.get<CachedExecutionEvidence>(key);
+    if (
+      cached?.engineVersion === EXECUTION_EVIDENCE_ENGINE_VERSION &&
+      cached.blockHash.toLowerCase() === blockHash.toLowerCase() &&
+      hasCompleteInsight(cached.insight)
+    ) {
+      return cached.insight;
+    }
+  } catch {
+    // PostgreSQL remains authoritative when Redis is unavailable.
+  }
+
+  try {
+    const record = await stores.persistence.findExecutionEvidence(
+      transaction.safe,
+      transaction.safeTxHash,
+      EXECUTION_EVIDENCE_ENGINE_VERSION,
+      blockHash,
+    );
+    if (
+      !record ||
+      record.blockHash.toLowerCase() !== blockHash.toLowerCase() ||
+      !hasCompleteTrace(record.simulation)
+    ) {
+      return null;
+    }
+
+    const insight = outputView(
+      "executed-replay",
+      record.simulation,
+      transaction.safe.address,
+    );
+    try {
+      await stores.cache.set<CachedExecutionEvidence>(
+        key,
+        {
+          engineVersion: EXECUTION_EVIDENCE_ENGINE_VERSION,
+          blockHash,
+          insight,
+        },
+        null,
+      );
+    } catch {
+      // A cache write failure must not discard authoritative stored evidence.
+    }
+    return insight;
+  } catch {
+    return null;
+  }
+}
+
+async function persistExecutionInsight(
+  stores: ExecutionEvidenceStores,
+  transaction: SafeTransaction,
+  output: SimulationOutput,
+  insight: ExecutionInsight,
+): Promise<void> {
+  const blockHash = transaction.blockHash;
+  if (
+    !blockHash ||
+    output.blockHash.toLowerCase() !== blockHash.toLowerCase() ||
+    !hasCompleteTrace(output)
+  ) {
+    return;
+  }
+
+  try {
+    await stores.persistence.saveExecutionEvidence({
+      safe: transaction.safe,
+      safeTxHash: transaction.safeTxHash,
+      engineVersion: EXECUTION_EVIDENCE_ENGINE_VERSION,
+      blockHash,
+      simulation: output,
+      createdAt: Math.floor(Date.now() / 1_000),
+    });
+  } catch {
+    return;
+  }
+
+  try {
+    await stores.cache.set<CachedExecutionEvidence>(
+      evidenceCacheKey(transaction, blockHash),
+      {
+        engineVersion: EXECUTION_EVIDENCE_ENGINE_VERSION,
+        blockHash,
+        insight,
+      },
+      null,
+    );
+  } catch {
+    // PostgreSQL already has the evidence; Redis can be repopulated later.
+  }
 }
 
 function logsView(logs: readonly LogEntry[]): ExecutionInsight["logs"] {
@@ -239,17 +387,39 @@ function unavailable(error: string): ExecutionInsight {
 export async function resolveExecutionInsight(
   simulation: SimulationPort,
   transaction: SafeTransaction,
+  stores?: ExecutionEvidenceStores,
 ): Promise<ExecutionInsight> {
   try {
     if (transaction.executedTxHash) {
-      return outputView(
+      const stored = stores
+        ? await findStoredExecutionInsight(stores, transaction)
+        : null;
+      if (stored) return stored;
+
+      const output = await simulation.replay(
+        transaction.safe.chainId,
+        transaction.executedTxHash,
+      );
+      let insight = outputView(
         "executed-replay",
-        await simulation.replay(
-          transaction.safe.chainId,
-          transaction.executedTxHash,
-        ),
+        output,
         transaction.safe.address,
       );
+      if (
+        transaction.blockHash &&
+        output.blockHash.toLowerCase() !== transaction.blockHash.toLowerCase()
+      ) {
+        insight = {
+          ...insight,
+          warnings: [
+            ...insight.warnings,
+            "The replay block hash differs from the persisted transaction; this evidence was not cached.",
+          ],
+        };
+      } else if (stores) {
+        await persistExecutionInsight(stores, transaction, output, insight);
+      }
+      return insight;
     }
 
     if (transaction.status !== "pending") {

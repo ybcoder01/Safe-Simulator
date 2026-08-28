@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import {
   getAbiPort,
+  getCachePort,
   getPersistencePort,
   getSafeDataPort,
   getSimulationPort,
@@ -56,7 +57,10 @@ export default async function TransactionDetailPage({ params }: PageProps) {
   const [transaction, insight, execution, addressBook] = await Promise.all([
     Promise.resolve(toTransactionView(persisted)),
     resolveContractInsight(getSafeDataPort(), getAbiPort(), persisted),
-    resolveExecutionInsight(getSimulationPort(), persisted),
+    resolveExecutionInsight(getSimulationPort(), persisted, {
+      cache: getCachePort(),
+      persistence,
+    }),
     profileId
       ? persistence.listAddressBookEntries(profileId, safe.data)
       : Promise.resolve([]),

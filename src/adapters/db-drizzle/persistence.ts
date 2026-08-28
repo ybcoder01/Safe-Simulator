@@ -6,6 +6,7 @@ import type {
   AnalysisResult,
   CallNode,
   ContractMetadata,
+  ExecutionEvidenceRecord,
   Hex,
   ModuleTransaction,
   Page,
@@ -24,6 +25,7 @@ import {
   analysisResults,
   confirmations,
   contracts,
+  executionEvidence,
   messages,
   moduleTransactions,
   profiles,
@@ -71,7 +73,7 @@ function mapSimulation(
 ): SimulationOutput | null {
   if (!value) return null;
 
-  return {
+  const simulation: SimulationOutput = {
     success: value.success as boolean,
     gasUsed: value.gasUsed === null ? null : BigInt(value.gasUsed as string),
     callTree: mapCallNode(value.callTree as Record<string, unknown>),
@@ -81,6 +83,11 @@ function mapSimulation(
     blockHash: value.blockHash as Hex,
     error: value.error as string | null,
   };
+  const coverage = value.traceCoverage as
+    | SimulationOutput["traceCoverage"]
+    | undefined;
+
+  return coverage ? { ...simulation, traceCoverage: coverage } : simulation;
 }
 
 function mapAnalysis(value: unknown): AnalysisResult {
@@ -472,6 +479,96 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
       )
       .limit(1);
     return row ? this.transactionFromRow(row) : null;
+  }
+
+  async saveExecutionEvidence(
+    record: ExecutionEvidenceRecord,
+  ): Promise<void> {
+    const safe = await this.requireSafeRow(record.safe);
+    const [transaction] = await this.db
+      .select()
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.safeId, safe.id),
+          eq(transactions.safeTxHash, record.safeTxHash),
+        ),
+      )
+      .limit(1);
+    if (!transaction) {
+      throw new Error(
+        `Cannot persist execution evidence for unknown transaction ${record.safeTxHash}.`,
+      );
+    }
+    if (
+      transaction.blockHash?.toLowerCase() !== record.blockHash.toLowerCase()
+    ) {
+      throw new Error(
+        `Execution evidence block does not match transaction ${record.safeTxHash}.`,
+      );
+    }
+
+    await this.db
+      .insert(executionEvidence)
+      .values({
+        transactionId: transaction.id,
+        engineVersion: record.engineVersion,
+        blockHash: record.blockHash,
+        evidence: jsonWithBigInts(record.simulation),
+        createdAt: asDate(record.createdAt),
+      })
+      .onConflictDoNothing({
+        target: [
+          executionEvidence.transactionId,
+          executionEvidence.engineVersion,
+          executionEvidence.blockHash,
+        ],
+      });
+  }
+
+  async findExecutionEvidence(
+    safeRef: SafeRef,
+    safeTxHash: Hex,
+    engineVersion: string,
+    blockHash: Hex,
+  ): Promise<ExecutionEvidenceRecord | null> {
+    const safe = await this.findSafeRow(safeRef);
+    if (!safe) return null;
+
+    const [row] = await this.db
+      .select({
+        evidence: executionEvidence.evidence,
+        createdAt: executionEvidence.createdAt,
+      })
+      .from(executionEvidence)
+      .innerJoin(
+        transactions,
+        eq(executionEvidence.transactionId, transactions.id),
+      )
+      .where(
+        and(
+          eq(transactions.safeId, safe.id),
+          eq(transactions.safeTxHash, safeTxHash),
+          eq(executionEvidence.engineVersion, engineVersion),
+          eq(executionEvidence.blockHash, blockHash),
+        ),
+      )
+      .limit(1);
+    if (!row) return null;
+
+    const simulation = mapSimulation(
+      row.evidence as Record<string, unknown> | null,
+    );
+    return simulation
+      ? {
+          safe: safeRef,
+          safeTxHash,
+          engineVersion,
+          blockHash,
+          simulation,
+          createdAt: asUnixTime(row.createdAt),
+        }
+      : null;
   }
 
   async saveAnalysis(result: AnalysisResult): Promise<void> {

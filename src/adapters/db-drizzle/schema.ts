@@ -239,6 +239,27 @@ export const analysisResults = pgTable(
   ],
 );
 
+export const executionEvidence = pgTable(
+  "execution_evidence",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    transactionId: uuid("transaction_id")
+      .notNull()
+      .references(() => transactions.id, { onDelete: "cascade" }),
+    engineVersion: text("engine_version").notNull(),
+    blockHash: varchar("block_hash", { length: 66 }).notNull(),
+    evidence: jsonb("evidence").notNull(),
+    createdAt,
+  },
+  (table) => [
+    uniqueIndex("execution_evidence_transaction_version_block_unique").on(
+      table.transactionId,
+      table.engineVersion,
+      table.blockHash,
+    ),
+  ],
+);
+
 export const tokenTransfers = pgTable("token_transfers", {
   id: uuid("id").primaryKey().defaultRandom(),
   transactionId: uuid("transaction_id")
