@@ -20,6 +20,7 @@ function input(
     decodeConfidence: "verified",
     movements: [],
     allowances: [],
+    internalCalls: [],
     addressBook: [],
     callTrace: "root-only",
     storageDiff: "unavailable",
@@ -55,6 +56,30 @@ describe("evaluateEvidenceVerdict", () => {
       "signature-only-decode",
       "partial-analysis-coverage",
     ]);
+  });
+
+  it("flags traced internal delegate calls and unresolved targets", () => {
+    const result = evaluateEvidenceVerdict(
+      input({
+        callTrace: "complete",
+        internalCalls: [{ to: spender, operation: "delegatecall" }],
+      }),
+    );
+
+    expect(result.verdict).toBe("flagged");
+    expect(result.coverage).toBe("target-receipt-and-trace");
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "internal-delegatecall",
+          addresses: [spender],
+        }),
+        expect.objectContaining({
+          code: "internal-call-trust-unresolved",
+          addresses: [spender],
+        }),
+      ]),
+    );
   });
 
   it("keeps token movements unverified until participant trust exists", () => {
