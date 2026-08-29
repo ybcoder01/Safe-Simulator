@@ -27,10 +27,7 @@ function payloadView(payload: string) {
   }
 }
 
-export function toMessageView(
-  message: SafeMessage,
-  currentThreshold: number,
-) {
+export function toMessageView(message: SafeMessage, currentThreshold: number) {
   const confirmations = message.confirmations.filter(
     (confirmation, index, items) =>
       items.findIndex(
