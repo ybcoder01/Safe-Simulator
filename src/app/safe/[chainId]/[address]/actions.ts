@@ -22,9 +22,12 @@ interface RefreshSafeInput {
 
 export async function requestSafeRefresh(
   input: RefreshSafeInput,
-  _previousState: RefreshSyncState,
-  _formData: FormData,
+  previousState: RefreshSyncState,
+  formData: FormData,
 ): Promise<RefreshSyncState> {
+  void previousState;
+  void formData;
+
   const requestedAt = Date.now();
   const parsed = safeRouteParamsSchema.safeParse(input);
   if (!parsed.success) {
