@@ -31,8 +31,21 @@ export function resolveEvidenceVerdict(
   addressBook: readonly AddressBookEntry[],
   approvalRisk: ApprovalRiskResult | null = null,
 ): EvidenceVerdict {
-  const executedAllowances =
-    approvalRisk?.executedChanges ?? execution.allowanceChanges;
+  const executedAllowances = approvalRisk
+    ? approvalRisk.executedChanges.map((allowance) => ({
+        token: allowance.token,
+        spender: allowance.spender,
+        amount: allowance.amount,
+        infinite: allowance.infinite,
+        newSpenderAtAnchor: allowance.newSpenderAtAnchor,
+      }))
+    : execution.allowanceChanges.map((allowance) => ({
+        token: allowance.token as Address,
+        spender: allowance.spender as Address,
+        amount: allowance.amount,
+        infinite: allowance.infinite,
+        newSpenderAtAnchor: null,
+      }));
   const input = {
     operation: transaction.operation,
     target: transaction.to,
