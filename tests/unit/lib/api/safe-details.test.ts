@@ -5,6 +5,7 @@ import type {
   TokenBalance,
 } from "../../../../src/core/domain";
 import {
+  groupTransactionViews,
   safeRouteParamsSchema,
   toBalanceView,
   toTransactionView,
@@ -62,6 +63,41 @@ describe("Safe dashboard API view models", () => {
       nonce: "2",
       value: "42",
       blockNumber: "12",
+    });
+  });
+
+  it("separates pending actions from historical activity without reordering", () => {
+    const makeTransaction = (
+      status: SafeTransaction["status"],
+      suffix: string,
+    ) =>
+      toTransactionView({
+        safe: {
+          chainId: 50,
+          address: "0xc8bae80ca5c2c9ec3bd4ac16c422220a33b6b173",
+        },
+        safeTxHash: `0x${suffix.repeat(64)}`,
+        nonce: BigInt(suffix),
+        to: "0x1111111111111111111111111111111111111111",
+        value: 0n,
+        data: "0x",
+        operation: "call",
+        status,
+        confirmations: [],
+        proposedAt: 1_700_000_000 + Number(suffix),
+        executedAt: status === "executed" ? 1_700_000_100 : null,
+        executedTxHash: null,
+        blockNumber: null,
+        blockHash: null,
+      } as SafeTransaction);
+
+    const executed = makeTransaction("executed", "1");
+    const pending = makeTransaction("pending", "2");
+    const replaced = makeTransaction("replaced", "3");
+
+    expect(groupTransactionViews([executed, pending, replaced])).toEqual({
+      pending: [pending],
+      history: [executed, replaced],
     });
   });
 
