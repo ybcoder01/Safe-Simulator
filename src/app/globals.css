@@ -846,6 +846,46 @@ select {
   color: var(--muted);
 }
 
+.sync-refresh-form {
+  display: grid;
+  gap: 7px;
+  justify-items: end;
+}
+
+.sync-refresh-button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid rgba(101, 242, 172, 0.3);
+  border-radius: 8px;
+  color: var(--green);
+  background: rgba(101, 242, 172, 0.05);
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 620;
+}
+
+.sync-refresh-button:hover:not(:disabled) {
+  border-color: rgba(101, 242, 172, 0.58);
+  background: rgba(101, 242, 172, 0.1);
+}
+
+.sync-refresh-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.sync-refresh-form p {
+  max-width: 300px;
+  margin: 0;
+  color: var(--faint);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.sync-refresh-form .form-error {
+  color: #ffad9f;
+}
+
 .dashboard-hero h1,
 .transaction-title h1 {
   margin: 0;
@@ -1243,6 +1283,9 @@ select {
     justify-items: start;
     max-width: none;
     text-align: left;
+  }
+  .sync-refresh-form {
+    justify-items: start;
   }
   .dashboard-metrics,
   .detail-grid {
