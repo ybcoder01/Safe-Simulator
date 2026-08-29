@@ -1,10 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getPersistencePort } from "@/container";
-import {
-  messageHashSchema,
-  toMessageView,
-} from "@/lib/api/message-details";
+import { messageHashSchema, toMessageView } from "@/lib/api/message-details";
 import { safeRouteParamsSchema } from "@/lib/api/safe-details";
 
 interface RouteContext {
