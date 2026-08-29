@@ -20,7 +20,9 @@ const hash =
 
 function word(value: bigint | Address): string {
   const body =
-    typeof value === "bigint" ? value.toString(16) : value.toLowerCase().slice(2);
+    typeof value === "bigint"
+      ? value.toString(16)
+      : value.toLowerCase().slice(2);
   return body.padStart(64, "0");
 }
 
