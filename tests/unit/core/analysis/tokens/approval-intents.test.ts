@@ -121,6 +121,49 @@ describe("extractApprovalRequests", () => {
     );
   });
 
+  it("decodes ERC-20 allowance increases as deltas", () => {
+    const result = extractApprovalRequests(
+      transaction(token, calldata("0x39509351", spender, 250n)),
+      null,
+    );
+
+    expect(result.items[0]).toMatchObject({
+      standard: "erc20",
+      method: "increaseAllowance",
+      amount: 250n,
+      amountMode: "increase",
+      infinite: null,
+      owner: safe,
+      spender,
+    });
+  });
+
+  it("decodes nested ERC-20 allowance decreases as deltas", () => {
+    const nested: DecodedCall = {
+      method: "decreaseAllowance",
+      parameters: [],
+      to: token,
+      value: "0",
+      data: calldata("0xa457c2d7", spender, 75n),
+      operation: "call",
+    };
+
+    const result = extractApprovalRequests(
+      transaction(safe, "0x12345678"),
+      decodedWithNested(nested),
+    );
+
+    expect(result.items[0]).toMatchObject({
+      standard: "erc20",
+      source: "nested-calldata",
+      method: "decreaseAllowance",
+      amount: 75n,
+      amountMode: "decrease",
+      infinite: null,
+      depth: 1,
+    });
+  });
+
   it("decodes canonical Permit2 allowance approval", () => {
     const amount = (1n << 160n) - 1n;
     const result = extractApprovalRequests(

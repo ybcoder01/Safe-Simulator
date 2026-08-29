@@ -28,6 +28,13 @@ function approvalData(amount: bigint): Hex {
   return ("0x095ea7b3" + word(spender) + word(amount)) as Hex;
 }
 
+function adjustmentData(
+  selector: "0x39509351" | "0xa457c2d7",
+  amount: bigint,
+): Hex {
+  return (selector + word(spender) + word(amount)) as Hex;
+}
+
 function transaction(
   status: SafeTransaction["status"],
   to: Address = token,
@@ -162,6 +169,96 @@ describe("resolveApprovalRisk", () => {
       newSpenderAtAnchor: null,
     });
     expect(result.requests[0]?.warning).toContain("could not be read");
+  });
+
+  it("projects an allowance increase from anchored prior state", async () => {
+    const chain = {
+      call: vi.fn().mockResolvedValue(("0x" + word(100n)) as Hex),
+    };
+
+    const result = await resolveApprovalRisk(
+      chain,
+      transaction("pending", token, adjustmentData("0x39509351", 25n)),
+      contract,
+      execution(),
+    );
+
+    expect(result.requests[0]).toMatchObject({
+      method: "increaseAllowance",
+      amount: "25",
+      amountMode: "increase",
+      priorAmount: "100",
+      resultingAmount: "125",
+      infinite: false,
+      newSpenderAtAnchor: false,
+    });
+  });
+
+  it("detects an increase that reaches exact uint256 maximum", async () => {
+    const maximum = (1n << 256n) - 1n;
+    const chain = {
+      call: vi.fn().mockResolvedValue(("0x" + word(maximum - 10n)) as Hex),
+    };
+
+    const result = await resolveApprovalRisk(
+      chain,
+      transaction("pending", token, adjustmentData("0x39509351", 10n)),
+      contract,
+      execution(),
+    );
+
+    expect(result.requests[0]).toMatchObject({
+      resultingAmount: maximum.toString(),
+      infinite: true,
+    });
+  });
+
+  it("projects decreases and keeps underflow-shaped requests explicit", async () => {
+    const chain = {
+      call: vi.fn().mockResolvedValue(("0x" + word(100n)) as Hex),
+    };
+
+    const bounded = await resolveApprovalRisk(
+      chain,
+      transaction("pending", token, adjustmentData("0xa457c2d7", 25n)),
+      contract,
+      execution(),
+    );
+    const excessive = await resolveApprovalRisk(
+      chain,
+      transaction("pending", token, adjustmentData("0xa457c2d7", 125n)),
+      contract,
+      execution(),
+    );
+
+    expect(bounded.requests[0]).toMatchObject({
+      amountMode: "decrease",
+      resultingAmount: "75",
+      infinite: false,
+    });
+    expect(excessive.requests[0]).toMatchObject({
+      resultingAmount: null,
+      infinite: null,
+    });
+    expect(excessive.requests[0]?.warning).toContain("would revert");
+  });
+
+  it("does not label a zero-to-zero approval as a new spender", async () => {
+    const chain = {
+      call: vi.fn().mockResolvedValue(("0x" + word(0n)) as Hex),
+    };
+
+    const result = await resolveApprovalRisk(
+      chain,
+      transaction("pending", token, approvalData(0n)),
+      contract,
+      execution(),
+    );
+
+    expect(result.requests[0]).toMatchObject({
+      resultingAmount: "0",
+      newSpenderAtAnchor: false,
+    });
   });
 
   it("queries Permit2 allowance state through the canonical contract", async () => {
