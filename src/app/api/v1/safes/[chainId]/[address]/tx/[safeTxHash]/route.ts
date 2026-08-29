@@ -8,6 +8,7 @@ import {
   getSafeDataPort,
   getSimulationPort,
 } from "@/container";
+import { resolveApprovalRisk } from "@/lib/api/approval-risk";
 import { resolveContractInsight } from "@/lib/api/contract-insight";
 import { resolveEvidenceVerdict } from "@/lib/api/evidence-verdict";
 import { resolveExecutionInsight } from "@/lib/api/execution-insight";
@@ -74,23 +75,30 @@ export async function GET(request: NextRequest, context: RouteContext) {
       : Promise.resolve([]),
   ]);
 
-  const [verdict, tokenMetadata] = await Promise.all([
-    Promise.resolve(
-      resolveEvidenceVerdict(transaction, insight, execution, addressBook),
-    ),
+  const chain = getChainPort();
+  const [approvalRisk, tokenMetadata] = await Promise.all([
+    resolveApprovalRisk(chain, transaction, insight, execution),
     resolveExecutionTokenMetadata(
-      getChainPort(),
+      chain,
       cache,
       transaction.safe.chainId,
       execution,
     ),
   ]);
+  const verdict = resolveEvidenceVerdict(
+    transaction,
+    insight,
+    execution,
+    addressBook,
+    approvalRisk,
+  );
 
   return NextResponse.json({
     data: {
       ...toTransactionView(transaction),
       insight,
       execution,
+      approvalRisk,
       tokenMetadata,
       verdict,
     },
