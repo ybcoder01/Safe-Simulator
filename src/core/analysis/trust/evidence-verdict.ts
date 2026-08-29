@@ -185,8 +185,7 @@ export function evaluateEvidenceVerdict(
   const approvalRequests = input.approvalRequests ?? [];
   for (const approval of approvalRequests.filter(
     (item) =>
-      item.infinite === true &&
-      item.standard !== "permit2-signature-transfer",
+      item.infinite === true && item.standard !== "permit2-signature-transfer",
   )) {
     const involved = [approval.token, approval.spender].filter(
       (address): address is Address => address !== null,
@@ -233,9 +232,7 @@ export function evaluateEvidenceVerdict(
         "Permit2 can authorize a caller-dependent spender without a persistent ERC-20 allowance. Review the signer, token, amount, recipient, nonce, and deadline.",
       addresses: uniqueAddresses(
         approvalRequests
-          .filter(
-            (item) => item.standard === "permit2-signature-transfer",
-          )
+          .filter((item) => item.standard === "permit2-signature-transfer")
           .map((item) => item.token)
           .filter((address): address is Address => address !== null),
       ),
@@ -340,8 +337,7 @@ export function evaluateEvidenceVerdict(
   const boundedAllowances = input.allowances.filter((item) => !item.infinite);
   const boundedRequests = approvalRequests.filter(
     (item) =>
-      item.standard !== "permit2-signature-transfer" &&
-      item.infinite !== true,
+      item.standard !== "permit2-signature-transfer" && item.infinite !== true,
   );
   const boundedAddresses = uniqueAddresses([
     ...boundedAllowances.flatMap((allowance) => [
