@@ -191,9 +191,7 @@ async function readPriorAllowances(
   return values;
 }
 
-function combineWarnings(
-  ...values: readonly (string | null)[]
-): string | null {
+function combineWarnings(...values: readonly (string | null)[]): string | null {
   const warnings = values.filter((value): value is string => value !== null);
   return warnings.length > 0 ? warnings.join(" ") : null;
 }
