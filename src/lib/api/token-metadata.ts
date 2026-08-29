@@ -48,7 +48,10 @@ function cacheKey(
   ].join(":");
 }
 
-function isMetadataView(value: unknown, token: Address): value is TokenMetadataView {
+function isMetadataView(
+  value: unknown,
+  token: Address,
+): value is TokenMetadataView {
   if (value === null || typeof value !== "object") return false;
   const candidate = value as Partial<TokenMetadataView>;
   return (
@@ -113,9 +116,7 @@ async function readMetadata(
       status: "malformed",
       symbol,
       decimals:
-        decimals !== null && decimals <= MAX_DISPLAY_DECIMALS
-          ? decimals
-          : null,
+        decimals !== null && decimals <= MAX_DISPLAY_DECIMALS ? decimals : null,
       warning:
         "The token returned malformed or unsupported metadata; raw base units remain authoritative.",
     };
@@ -208,16 +209,11 @@ export async function resolveExecutionTokenMetadata(
   chainId: ChainId,
   execution: Pick<
     ExecutionInsight,
-    | "tokenMovements"
-    | "allowanceChanges"
-    | "blockNumber"
-    | "blockHash"
+    "tokenMovements" | "allowanceChanges" | "blockNumber" | "blockHash"
   >,
 ): Promise<TokenMetadataResult> {
   const tokens = [
-    ...execution.tokenMovements.map(
-      (movement) => movement.token as Address,
-    ),
+    ...execution.tokenMovements.map((movement) => movement.token as Address),
     ...execution.allowanceChanges.map(
       (allowance) => allowance.token as Address,
     ),
