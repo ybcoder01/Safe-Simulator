@@ -5,6 +5,7 @@ import {
   ERC20_SYMBOL_SELECTOR,
 } from "../../../../src/core/analysis/tokens/metadata";
 import type { Address, Hex } from "../../../../src/core/domain";
+import type { ChainPort } from "../../../../src/core/ports";
 import {
   resolveTokenMetadata,
   type TokenMetadataView,
@@ -29,7 +30,7 @@ function symbol(value: string): Hex {
   ) as Hex;
 }
 
-function chain() {
+function chain(): Pick<ChainPort, "call"> {
   return {
     call: vi.fn(async (_chainId, request) => {
       if (request.data === ERC20_DECIMALS_SELECTOR) return word(6n);
