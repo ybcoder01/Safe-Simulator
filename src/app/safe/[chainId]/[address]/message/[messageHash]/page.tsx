@@ -2,10 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { getPersistencePort } from "@/container";
-import {
-  messageHashSchema,
-  toMessageView,
-} from "@/lib/api/message-details";
+import { messageHashSchema, toMessageView } from "@/lib/api/message-details";
 import { safeRouteParamsSchema } from "@/lib/api/safe-details";
 
 interface PageProps {
@@ -141,13 +138,14 @@ export default async function MessageDetailPage({ params }: PageProps) {
                         confirmation.signedAt * 1_000,
                       ).toISOString()}
                     >
-                      {new Date(
-                        confirmation.signedAt * 1_000,
-                      ).toLocaleString("en-US", {
-                        dateStyle: "medium",
-                        timeStyle: "short",
-                        timeZone: "UTC",
-                      })}
+                      {new Date(confirmation.signedAt * 1_000).toLocaleString(
+                        "en-US",
+                        {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                          timeZone: "UTC",
+                        },
+                      )}
                     </time>
                   ) : null}
                 </div>
