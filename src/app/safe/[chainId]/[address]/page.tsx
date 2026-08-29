@@ -4,7 +4,6 @@ import { notFound } from "next/navigation";
 import { MessageHistory } from "@/components/safes/message-history";
 import { SyncRefreshControl } from "@/components/safes/sync-refresh-control";
 import { TransactionHistory } from "@/components/safes/transaction-history";
-import { requestSafeRefresh } from "./actions";
 import { getPersistencePort, getSafeDataPort } from "@/container";
 import { toMessageView } from "@/lib/api/message-details";
 import {
@@ -13,6 +12,8 @@ import {
   toBalanceView,
   toTransactionView,
 } from "@/lib/api/safe-details";
+
+import { requestSafeRefresh } from "./actions";
 
 interface PageProps {
   readonly params: Promise<{ chainId: string; address: string }>;
