@@ -4,6 +4,8 @@ export const CANONICAL_PERMIT2_ADDRESS =
   "0x000000000022d473030f116ddee9f6b43ac78ba3" as Address;
 
 const ERC20_APPROVE_SELECTOR = "0x095ea7b3";
+const ERC20_INCREASE_ALLOWANCE_SELECTOR = "0x39509351";
+const ERC20_DECREASE_ALLOWANCE_SELECTOR = "0xa457c2d7";
 const PERMIT2_APPROVE_SELECTOR = "0x87517c45";
 const PERMIT2_PERMIT_SINGLE_SELECTOR = "0x2b67b570";
 const PERMIT2_PERMIT_BATCH_SELECTOR = "0x2a2d80d1";
@@ -22,6 +24,7 @@ export type ApprovalStandard =
   | "erc20"
   | "permit2-allowance"
   | "permit2-signature-transfer";
+export type ApprovalAmountMode = "absolute" | "increase" | "decrease";
 
 export interface ApprovalRequest {
   readonly standard: ApprovalStandard;
@@ -33,6 +36,7 @@ export interface ApprovalRequest {
   readonly owner: Address | null;
   readonly spender: Address | null;
   readonly amount: bigint | null;
+  readonly amountMode: ApprovalAmountMode;
   readonly infinite: boolean | null;
   readonly expiration: bigint | null;
   readonly warning: string | null;
@@ -77,11 +81,16 @@ function isPermit2(target: Address): boolean {
 }
 
 function request(
-  values: Omit<ApprovalRequest, "warning"> & {
+  values: Omit<ApprovalRequest, "warning" | "amountMode"> & {
+    readonly amountMode?: ApprovalAmountMode;
     readonly warning?: string | null;
   },
 ): ApprovalRequest {
-  return { ...values, warning: values.warning ?? null };
+  return {
+    ...values,
+    amountMode: values.amountMode ?? "absolute",
+    warning: values.warning ?? null,
+  };
 }
 
 function decodePermit2Batch(
@@ -223,6 +232,34 @@ function decodeRaw(
         amount,
         infinite: amount === MAX_UINT256,
         expiration: null,
+      }),
+    ];
+  }
+
+  if (
+    callSelector === ERC20_INCREASE_ALLOWANCE_SELECTOR ||
+    callSelector === ERC20_DECREASE_ALLOWANCE_SELECTOR
+  ) {
+    const spender = wordAddress(data, 0, 4);
+    const amount = wordUint(data, 1, 4);
+    if (!spender || amount === null) return [];
+    const increasing = callSelector === ERC20_INCREASE_ALLOWANCE_SELECTOR;
+    return [
+      request({
+        standard: "erc20",
+        source,
+        method: increasing ? "increaseAllowance" : "decreaseAllowance",
+        depth,
+        target,
+        token: target,
+        owner,
+        spender,
+        amount,
+        amountMode: increasing ? "increase" : "decrease",
+        infinite: null,
+        expiration: null,
+        warning:
+          "The calldata amount is an allowance delta. The resulting allowance depends on prior state and token implementation semantics.",
       }),
     ];
   }
@@ -407,6 +444,43 @@ function decodedFallback(
     }
   }
 
+  if (
+    !isPermit2(target) &&
+    (method === "increaseallowance" || method === "decreaseallowance")
+  ) {
+    const spender = normalizedAddress(parameter(call, ["spender"], 0));
+    const amountValue = parameter(
+      call,
+      ["addedvalue", "subtractedvalue", "amount", "value", "wad"],
+      1,
+    );
+    try {
+      if (!spender || amountValue === null) return [];
+      const amount = BigInt(amountValue);
+      const increasing = method === "increaseallowance";
+      return [
+        request({
+          standard: "erc20",
+          source,
+          method: increasing ? "increaseAllowance" : "decreaseAllowance",
+          depth,
+          target,
+          token: target,
+          owner: null,
+          spender,
+          amount,
+          amountMode: increasing ? "increase" : "decrease",
+          infinite: null,
+          expiration: null,
+          warning:
+            "The calldata amount is an allowance delta and the approval owner cannot be established from this decoded call alone.",
+        }),
+      ];
+    } catch {
+      return [];
+    }
+  }
+
   if (isPermit2(target) && method === "permit") {
     return [
       request({
@@ -461,6 +535,7 @@ function requestKey(item: ApprovalRequest): string {
   return [
     item.standard,
     item.method,
+    item.amountMode,
     item.depth,
     item.target,
     item.token ?? "",
