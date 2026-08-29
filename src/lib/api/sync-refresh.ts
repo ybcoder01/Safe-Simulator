@@ -3,7 +3,11 @@ import type { SafeRef } from "@/core/domain";
 export const SYNC_REFRESH_WINDOW_MS = 300_000;
 
 export type RefreshSyncState =
-  | { readonly status: "idle"; readonly message: null; readonly requestedAt: null }
+  | {
+      readonly status: "idle";
+      readonly message: null;
+      readonly requestedAt: null;
+    }
   | {
       readonly status: "queued" | "running" | "error";
       readonly message: string;
@@ -32,10 +36,7 @@ export function isSafeBookmarked(
   );
 }
 
-export function refreshIdempotencyKey(
-  safe: SafeRef,
-  now = Date.now(),
-): string {
+export function refreshIdempotencyKey(safe: SafeRef, now = Date.now()): string {
   const bucket = Math.floor(now / SYNC_REFRESH_WINDOW_MS);
   return `sync:refresh:${safe.chainId}:${safe.address.toLowerCase()}:${bucket}`;
 }
