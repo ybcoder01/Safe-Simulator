@@ -329,9 +329,7 @@ export default async function TransactionDetailPage({ params }: PageProps) {
               <p className="eyebrow">Safe configuration</p>
               <h2>Receipt-derived changes</h2>
             </div>
-            <span>
-              {execution.safeConfigurationChanges.length} recognized
-            </span>
+            <span>{execution.safeConfigurationChanges.length} recognized</span>
           </div>
           {execution.coverage.eventLogs === "unavailable" ? (
             <div className="panel-empty">
