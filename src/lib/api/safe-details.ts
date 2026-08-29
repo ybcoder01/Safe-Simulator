@@ -55,6 +55,28 @@ export interface TransactionView {
   readonly blockHash: string | null;
 }
 
+export interface TransactionGroups {
+  readonly pending: readonly TransactionView[];
+  readonly history: readonly TransactionView[];
+}
+
+export function groupTransactionViews(
+  transactions: readonly TransactionView[],
+): TransactionGroups {
+  const pending: TransactionView[] = [];
+  const history: TransactionView[] = [];
+
+  for (const transaction of transactions) {
+    if (transaction.status === "pending") {
+      pending.push(transaction);
+    } else {
+      history.push(transaction);
+    }
+  }
+
+  return { pending, history };
+}
+
 export interface BalanceView {
   readonly token: string | null;
   readonly amount: string;
