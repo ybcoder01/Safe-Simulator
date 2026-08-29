@@ -67,19 +67,15 @@ function paddedAddress(address: Address): string {
 
 function allowanceData(lookup: AllowanceLookup): Hex {
   if (lookup.standard === "permit2-allowance") {
-    return (
-      PERMIT2_ALLOWANCE_SELECTOR +
+    return (PERMIT2_ALLOWANCE_SELECTOR +
       paddedAddress(lookup.owner) +
       paddedAddress(lookup.token) +
-      paddedAddress(lookup.spender)
-    ) as Hex;
+      paddedAddress(lookup.spender)) as Hex;
   }
 
-  return (
-    ERC20_ALLOWANCE_SELECTOR +
+  return (ERC20_ALLOWANCE_SELECTOR +
     paddedAddress(lookup.owner) +
-    paddedAddress(lookup.spender)
-  ) as Hex;
+    paddedAddress(lookup.spender)) as Hex;
 }
 
 function lookupTarget(lookup: AllowanceLookup): Address {
@@ -127,10 +123,7 @@ function stateAnchor(
   transaction: SafeTransaction,
   execution: ExecutionInsight,
 ): ApprovalRiskResult["anchor"] & { readonly callBlock: bigint | undefined } {
-  if (
-    transaction.status === "executed" &&
-    execution.blockNumber !== null
-  ) {
+  if (transaction.status === "executed" && execution.blockNumber !== null) {
     try {
       const block = BigInt(execution.blockNumber);
       if (block > 0n) {
