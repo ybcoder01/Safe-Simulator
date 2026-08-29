@@ -6,6 +6,7 @@ import type {
   SafeTransaction,
   SimulationOutput,
 } from "@/core/domain";
+import { extractSafeConfigurationChanges } from "@/core/analysis/safes/event-facts";
 import { extractTokenEventFacts } from "@/core/analysis/tokens/event-facts";
 import type { CachePort, PersistencePort, SimulationPort } from "@/core/ports";
 
@@ -60,6 +61,20 @@ export interface ExecutionInsight {
     readonly infinite: boolean;
     readonly logIndex: number;
   }[];
+  readonly safeConfigurationChanges: readonly {
+    readonly field:
+      | "owner"
+      | "threshold"
+      | "module"
+      | "guard"
+      | "fallback-handler"
+      | "implementation";
+    readonly action: "added" | "removed" | "changed";
+    readonly before: string | null;
+    readonly after: string | null;
+    readonly logIndex: number;
+    readonly provenance: "safe-event";
+  }[];
   readonly error: string | null;
   readonly coverage: {
     readonly outcome: "on-chain-receipt" | "read-only-call" | "unavailable";
@@ -112,6 +127,24 @@ function hasCompleteInsight(insight: ExecutionInsight) {
   );
 }
 
+function withSafeConfigurationChanges(
+  insight: ExecutionInsight,
+  safe: Address,
+): ExecutionInsight {
+  const existing = (insight as Partial<ExecutionInsight>)
+    .safeConfigurationChanges;
+  if (Array.isArray(existing)) return insight;
+
+  const logs = insight.logs.map((log) => ({
+    ...log,
+    address: log.address as Address,
+  }));
+  return {
+    ...insight,
+    safeConfigurationChanges: extractSafeConfigurationChanges(logs, safe),
+  };
+}
+
 async function findStoredExecutionInsight(
   stores: ExecutionEvidenceStores,
   transaction: SafeTransaction,
@@ -127,7 +160,10 @@ async function findStoredExecutionInsight(
       cached.blockHash.toLowerCase() === blockHash.toLowerCase() &&
       hasCompleteInsight(cached.insight)
     ) {
-      return cached.insight;
+      return withSafeConfigurationChanges(
+        cached.insight,
+        transaction.safe.address,
+      );
     }
   } catch {
     // PostgreSQL remains authoritative when Redis is unavailable.
@@ -341,6 +377,10 @@ function outputView(
       ...allowance,
       amount: allowance.amount.toString(),
     })),
+    safeConfigurationChanges: extractSafeConfigurationChanges(
+      output.logs,
+      safe,
+    ),
     error: output.error,
     coverage: {
       outcome: executed ? "on-chain-receipt" : "read-only-call",
@@ -366,6 +406,7 @@ function unavailable(error: string): ExecutionInsight {
     storageChanges: [],
     tokenMovements: [],
     allowanceChanges: [],
+    safeConfigurationChanges: [],
     error,
     coverage: {
       outcome: "unavailable",
