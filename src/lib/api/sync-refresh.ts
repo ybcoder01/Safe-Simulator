@@ -1,6 +1,13 @@
-import type { SafeRef } from "@/core/domain";
+import type { SafeRef, SyncCursor } from "@/core/domain";
 
 export const SYNC_REFRESH_WINDOW_MS = 300_000;
+
+export const refreshSyncStreams = [
+  "multisig",
+  "module",
+  "transfer",
+  "message",
+] as const satisfies readonly SyncCursor["stream"][];
 
 export type RefreshSyncState =
   | {
@@ -33,6 +40,37 @@ export function isSafeBookmarked(
     (safe) =>
       safe.chainId === target.chainId &&
       safe.address.toLowerCase() === target.address.toLowerCase(),
+  );
+}
+
+export function queuedRefreshCursors(
+  safe: SafeRef,
+  current: readonly (SyncCursor | null)[],
+  now: number,
+): readonly SyncCursor[] {
+  return refreshSyncStreams.map((stream, index) => ({
+    safe,
+    stream,
+    cursor: current[index]?.cursor ?? null,
+    status: "idle",
+    updatedAt: now,
+  }));
+}
+
+export function restoredRefreshCursors(
+  safe: SafeRef,
+  current: readonly (SyncCursor | null)[],
+  now: number,
+): readonly SyncCursor[] {
+  return refreshSyncStreams.map(
+    (stream, index) =>
+      current[index] ?? {
+        safe,
+        stream,
+        cursor: null,
+        status: "failed",
+        updatedAt: now,
+      },
   );
 }
 
