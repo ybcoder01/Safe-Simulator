@@ -457,7 +457,10 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
   ): Promise<Page<SafeMessage>> {
     const safe = await this.requireSafeRow(safeRef);
     const predicate = cursor
-      ? and(eq(messages.safeId, safe.id), lt(messages.createdAt, new Date(cursor)))
+      ? and(
+          eq(messages.safeId, safe.id),
+          lt(messages.createdAt, new Date(cursor)),
+        )
       : eq(messages.safeId, safe.id);
     const rows = await this.db
       .select()
