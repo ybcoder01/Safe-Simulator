@@ -22,8 +22,7 @@ export function SyncRefreshControl({
     action,
     initialRefreshSyncState,
   );
-  const checking =
-    state.status === "queued" || state.status === "running";
+  const checking = state.status === "queued" || state.status === "running";
 
   useEffect(() => {
     if (!checking) return;
