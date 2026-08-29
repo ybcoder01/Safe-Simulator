@@ -57,10 +57,10 @@ export async function requestSafeRefresh(
     }
 
     const sync = await resolveSyncSummary(persistence, parsed.data);
-    if (sync.status === "syncing") {
+    if (sync.status === "syncing" || sync.status === "queued") {
       return {
         status: "running",
-        message: "Synchronization is already in progress.",
+        message: "Synchronization is already queued or running.",
         requestedAt,
       };
     }
