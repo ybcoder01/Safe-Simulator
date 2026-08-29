@@ -326,6 +326,48 @@ export default async function TransactionDetailPage({ params }: PageProps) {
         <section className="detail-panel">
           <div className="panel-heading">
             <div>
+              <p className="eyebrow">Safe configuration</p>
+              <h2>Receipt-derived changes</h2>
+            </div>
+            <span>{execution.safeConfigurationChanges.length} recognized</span>
+          </div>
+          {execution.coverage.eventLogs === "unavailable" ? (
+            <div className="panel-empty">
+              Safe configuration event evidence is unavailable for this
+              transaction.
+            </div>
+          ) : execution.safeConfigurationChanges.length === 0 ? (
+            <div className="panel-empty">
+              No canonical Safe configuration events were emitted by this Safe.
+            </div>
+          ) : (
+            execution.safeConfigurationChanges.map((change) => (
+              <div
+                className="calldata"
+                key={`safe-change-${change.logIndex}-${change.field}`}
+              >
+                <span>
+                  {change.field} · {change.action}
+                </span>
+                <strong>
+                  {change.before ?? "Previous value not emitted"} →{" "}
+                  {change.after ?? "No longer configured"}
+                </strong>
+                <code>
+                  Receipt log {change.logIndex} · canonical Safe event
+                </code>
+              </div>
+            ))
+          )}
+          <div className="panel-empty">
+            Only events emitted by this Safe are interpreted. Values absent from
+            an event remain unknown and are never inferred from raw storage.
+          </div>
+        </section>
+
+        <section className="detail-panel">
+          <div className="panel-heading">
+            <div>
               <p className="eyebrow">Token activity</p>
               <h2>Receipt-derived movements</h2>
             </div>

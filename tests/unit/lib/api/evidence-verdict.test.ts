@@ -69,6 +69,7 @@ function execution(
     storageChanges: [],
     tokenMovements: [],
     allowanceChanges,
+    safeConfigurationChanges: [],
     error: null,
     coverage: {
       outcome: "on-chain-receipt",
