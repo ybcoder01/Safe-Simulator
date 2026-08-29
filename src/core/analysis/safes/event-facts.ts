@@ -140,10 +140,7 @@ export function extractSafeConfigurationChanges(
         after: address,
         ...common,
       });
-    } else if (
-      signature === SAFE_CHANGED_FALLBACK_HANDLER_TOPIC &&
-      address
-    ) {
+    } else if (signature === SAFE_CHANGED_FALLBACK_HANDLER_TOPIC && address) {
       changes.push({
         field: "fallback-handler",
         action: "changed",
@@ -151,10 +148,7 @@ export function extractSafeConfigurationChanges(
         after: address,
         ...common,
       });
-    } else if (
-      signature === SAFE_CHANGED_IMPLEMENTATION_TOPIC &&
-      address
-    ) {
+    } else if (signature === SAFE_CHANGED_IMPLEMENTATION_TOPIC && address) {
       changes.push({
         field: "implementation",
         action: "changed",
