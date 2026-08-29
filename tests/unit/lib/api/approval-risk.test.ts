@@ -1,8 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import {
-  CANONICAL_PERMIT2_ADDRESS,
-} from "../../../../src/core/analysis/tokens/approval-intents";
+import { CANONICAL_PERMIT2_ADDRESS } from "../../../../src/core/analysis/tokens/approval-intents";
 import type {
   Address,
   Hex,
@@ -20,7 +18,9 @@ const hash =
 
 function word(value: bigint | Address): string {
   const body =
-    typeof value === "bigint" ? value.toString(16) : value.toLowerCase().slice(2);
+    typeof value === "bigint"
+      ? value.toString(16)
+      : value.toLowerCase().slice(2);
   return body.padStart(64, "0");
 }
 
@@ -70,12 +70,10 @@ function execution(
     safeConfigurationChanges: [],
     error: null,
     coverage: {
-      outcome:
-        allowances.length > 0 ? "on-chain-receipt" : "read-only-call",
+      outcome: allowances.length > 0 ? "on-chain-receipt" : "read-only-call",
       callTrace: "root-only",
       eventLogs: allowances.length > 0 ? "complete" : "unavailable",
-      tokenEvents:
-        allowances.length > 0 ? "standard-events" : "unavailable",
+      tokenEvents: allowances.length > 0 ? "standard-events" : "unavailable",
       storageDiff: "unavailable",
     },
     warnings: [],
@@ -143,11 +141,7 @@ describe("resolveApprovalRisk", () => {
       priorAmount: "25",
       newSpenderAtAnchor: false,
     });
-    expect(chain.call).toHaveBeenCalledWith(
-      50,
-      expect.any(Object),
-      9n,
-    );
+    expect(chain.call).toHaveBeenCalledWith(50, expect.any(Object), 9n);
     expect(result.warnings[0]).toContain("previous block");
   });
 
@@ -171,19 +165,15 @@ describe("resolveApprovalRisk", () => {
   });
 
   it("queries Permit2 allowance state through the canonical contract", async () => {
-    const data = (
-      "0x87517c45" +
+    const data = ("0x87517c45" +
       word(token) +
       word(spender) +
       word(500n) +
-      word(1000n)
-    ) as Hex;
+      word(1000n)) as Hex;
     const chain = {
       call: vi
         .fn()
-        .mockResolvedValue(
-          ("0x" + word(0n) + word(0n) + word(0n)) as Hex,
-        ),
+        .mockResolvedValue(("0x" + word(0n) + word(0n) + word(0n)) as Hex),
     };
 
     const result = await resolveApprovalRisk(
