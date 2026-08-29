@@ -7,6 +7,7 @@ import type {
   SafeRef,
   SafeSnapshot,
   SafeTransaction,
+  SyncCursor,
   TokenBalance,
 } from "@/core/domain";
 import { knownCallSummary } from "@/core/analysis/decoding/calldata";
@@ -122,21 +123,63 @@ export function toBalanceView(balance: TokenBalance): BalanceView {
   return { ...balance, amount: balance.amount.toString() };
 }
 
+const syncStreams = ["multisig", "module", "transfer", "message"] as const;
+
+export interface SyncSummaryView {
+  readonly status: SafeView["syncStatus"];
+  readonly completedStreams: number;
+  readonly totalStreams: number;
+  readonly lastFullSyncAt: number | null;
+  readonly latestActivityAt: number | null;
+}
+
+export function summarizeSyncCursors(
+  cursors: readonly (SyncCursor | null)[],
+): SyncSummaryView {
+  const present = cursors.filter(
+    (cursor): cursor is SyncCursor => cursor !== null,
+  );
+  const completedStreams = present.filter(
+    (cursor) => cursor.status === "complete",
+  ).length;
+  const status: SafeView["syncStatus"] = present.some(
+    (cursor) => cursor.status === "failed",
+  )
+    ? "failed"
+    : cursors.every((cursor) => cursor?.status === "complete")
+      ? "complete"
+      : present.some((cursor) => cursor.status === "running")
+        ? "syncing"
+        : "queued";
+  const timestamps = present.map((cursor) => cursor.updatedAt);
+
+  return {
+    status,
+    completedStreams,
+    totalStreams: syncStreams.length,
+    lastFullSyncAt:
+      status === "complete" && timestamps.length === syncStreams.length
+        ? Math.min(...timestamps)
+        : null,
+    latestActivityAt: timestamps.length > 0 ? Math.max(...timestamps) : null,
+  };
+}
+
+export async function resolveSyncSummary(
+  persistence: PersistencePort,
+  safe: SafeRef,
+): Promise<SyncSummaryView> {
+  const cursors = await Promise.all(
+    syncStreams.map((stream) => persistence.findSyncCursor(safe, stream)),
+  );
+  return summarizeSyncCursors(cursors);
+}
+
 export async function resolveSyncStatus(
   persistence: PersistencePort,
   safe: SafeRef,
 ): Promise<SafeView["syncStatus"]> {
-  const cursors = await Promise.all(
-    (["multisig", "module", "transfer", "message"] as const).map((stream) =>
-      persistence.findSyncCursor(safe, stream),
-    ),
-  );
-
-  if (cursors.some((cursor) => cursor?.status === "failed")) return "failed";
-  if (cursors.every((cursor) => cursor?.status === "complete"))
-    return "complete";
-  if (cursors.some((cursor) => cursor?.status === "running")) return "syncing";
-  return "queued";
+  return (await resolveSyncSummary(persistence, safe)).status;
 }
 
 export async function toDetailedSafeView(

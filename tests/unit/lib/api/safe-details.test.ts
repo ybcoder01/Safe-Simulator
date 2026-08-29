@@ -1,16 +1,38 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type {
+  SafeRef,
   SafeTransaction,
+  SyncCursor,
   TokenBalance,
 } from "../../../../src/core/domain";
 import {
   groupTransactionViews,
   safeRouteParamsSchema,
+  summarizeSyncCursors,
   toBalanceView,
   toTransactionView,
   transactionPageQuerySchema,
 } from "../../../../src/lib/api/safe-details";
+
+const safeRef: SafeRef = {
+  chainId: 50,
+  address: "0xc8bae80ca5c2c9ec3bd4ac16c422220a33b6b173",
+};
+
+function syncCursor(
+  stream: SyncCursor["stream"],
+  status: SyncCursor["status"],
+  updatedAt: number,
+): SyncCursor {
+  return {
+    safe: safeRef,
+    stream,
+    cursor: null,
+    status,
+    updatedAt,
+  };
+}
 
 describe("Safe dashboard API view models", () => {
   it("parses supported Safe routes and normalizes the address", () => {
@@ -99,6 +121,49 @@ describe("Safe dashboard API view models", () => {
       pending: [pending],
       history: [executed, replaced],
     });
+  });
+
+  it("uses the oldest completed stream as the conservative full-sync time", () => {
+    expect(
+      summarizeSyncCursors([
+        syncCursor("multisig", "complete", 240),
+        syncCursor("module", "complete", 220),
+        syncCursor("transfer", "complete", 230),
+        syncCursor("message", "complete", 210),
+      ]),
+    ).toEqual({
+      status: "complete",
+      completedStreams: 4,
+      totalStreams: 4,
+      lastFullSyncAt: 210,
+      latestActivityAt: 240,
+    });
+  });
+
+  it("keeps full-sync time unknown for partial and failed cursor sets", () => {
+    expect(
+      summarizeSyncCursors([
+        syncCursor("multisig", "complete", 200),
+        syncCursor("module", "running", 250),
+        null,
+        null,
+      ]),
+    ).toEqual({
+      status: "syncing",
+      completedStreams: 1,
+      totalStreams: 4,
+      lastFullSyncAt: null,
+      latestActivityAt: 250,
+    });
+
+    expect(
+      summarizeSyncCursors([
+        syncCursor("multisig", "running", 260),
+        syncCursor("module", "failed", 270),
+        syncCursor("transfer", "complete", 200),
+        syncCursor("message", "complete", 210),
+      ]).status,
+    ).toBe("failed");
   });
 
   it("serializes token amounts without losing precision", () => {
