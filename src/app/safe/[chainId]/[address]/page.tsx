@@ -2,7 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { MessageHistory } from "@/components/safes/message-history";
+import { SyncRefreshControl } from "@/components/safes/sync-refresh-control";
 import { TransactionHistory } from "@/components/safes/transaction-history";
+import { requestSafeRefresh } from "./actions";
 import { getPersistencePort, getSafeDataPort } from "@/container";
 import { toMessageView } from "@/lib/api/message-details";
 import {
@@ -67,6 +69,10 @@ export default async function SafeDashboardPage({ params }: PageProps) {
     toMessageView(message, safe.threshold),
   );
   const chainName = safe.chainId === 1 ? "Ethereum" : "XDC Network";
+  const refreshAction = requestSafeRefresh.bind(null, {
+    chainId: safe.chainId,
+    address: safe.address,
+  });
 
   return (
     <main className="workspace shell">
@@ -123,6 +129,10 @@ export default async function SafeDashboardPage({ params }: PageProps) {
                 )}
               </span>
             )}
+            <SyncRefreshControl
+              action={refreshAction}
+              disabled={sync.status === "syncing" || sync.status === "queued"}
+            />
           </div>
         </section>
 
