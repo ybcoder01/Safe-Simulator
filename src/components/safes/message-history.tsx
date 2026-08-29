@@ -68,7 +68,9 @@ export function MessageHistory({
               <span>
                 {message.confirmationCount}/{message.currentThreshold} reports
               </span>
-              <time dateTime={new Date(message.createdAt * 1_000).toISOString()}>
+              <time
+                dateTime={new Date(message.createdAt * 1_000).toISOString()}
+              >
                 {new Date(message.createdAt * 1_000).toLocaleString("en-US", {
                   dateStyle: "medium",
                   timeStyle: "short",
