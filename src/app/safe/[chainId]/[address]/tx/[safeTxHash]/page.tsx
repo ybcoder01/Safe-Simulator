@@ -439,10 +439,13 @@ export default async function TransactionDetailPage({ params }: PageProps) {
               ).length
             }{" "}
             of {tokenMetadata.totalTokens} token contracts
-            {tokenMetadata.blockHash ? " at the execution block" : " at latest state"}
+            {tokenMetadata.blockHash
+              ? " at the execution block"
+              : " at latest state"}
             {tokenMetadata.limited
               ? "; additional token contracts remain unenriched"
-              : ""}.
+              : ""}
+            .
           </div>
           <div className="panel-empty">
             Derived from canonical event shape. The emitting contract is not
