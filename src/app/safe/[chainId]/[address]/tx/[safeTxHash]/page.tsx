@@ -498,10 +498,16 @@ export default async function TransactionDetailPage({ params }: PageProps) {
                 </span>
                 <strong>
                   {approval.infinite === true
-                    ? "Infinite authorization requested"
-                    : approval.amount !== null
-                      ? `${approval.amount} base units requested`
-                      : "Authorization request detected"}
+                    ? "Infinite resulting allowance requested"
+                    : approval.amount !== null &&
+                        approval.amountMode === "increase"
+                      ? `Increase allowance by ${approval.amount} base units`
+                      : approval.amount !== null &&
+                          approval.amountMode === "decrease"
+                        ? `Decrease allowance by ${approval.amount} base units`
+                        : approval.amount !== null
+                          ? `${approval.amount} base units requested`
+                          : "Authorization request detected"}
                 </strong>
                 <code>
                   Token: {approval.token ?? "Unavailable"} · spender:{" "}
@@ -520,6 +526,12 @@ export default async function TransactionDetailPage({ params }: PageProps) {
                       ? "yes"
                       : "no"}
                 </code>
+                {approval.amountMode !== "absolute" ? (
+                  <code>
+                    Projected resulting allowance:{" "}
+                    {approval.resultingAmount ?? "Unavailable"}
+                  </code>
+                ) : null}
                 {approval.expiration !== null ? (
                   <code>Expiration: {approval.expiration}</code>
                 ) : null}
