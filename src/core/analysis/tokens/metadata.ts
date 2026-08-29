@@ -31,16 +31,11 @@ function wordNumber(bytes: Uint8Array, offset: number): bigint | null {
 
 function decodedText(bytes: Uint8Array): string | null {
   try {
-    const value = new TextDecoder("utf-8", { fatal: true })
-      .decode(bytes)
-      .trim();
-    if (
-      value.length === 0 ||
-      [...value].length > 32 ||
-      CONTROL_CHARACTER_PATTERN.test(value)
-    ) {
-      return null;
-    }
+    const decoded = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    if (CONTROL_CHARACTER_PATTERN.test(decoded)) return null;
+
+    const value = decoded.trim();
+    if (value.length === 0 || [...value].length > 32) return null;
     return value;
   } catch {
     return null;
