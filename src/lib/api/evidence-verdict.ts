@@ -56,22 +56,16 @@ export function resolveEvidenceVerdict(
       from: movement.from as Address,
       to: movement.to as Address,
     })),
-    allowances: executedAllowances.map((allowance) => ({
-      token: allowance.token as Address,
-      spender: allowance.spender as Address,
-      amount: allowance.amount,
-      infinite: allowance.infinite,
-      newSpenderAtAnchor:
-        "newSpenderAtAnchor" in allowance ? allowance.newSpenderAtAnchor : null,
-    })),
-    approvalRequests: approvalRisk?.requests.map((approval) => ({
-      standard: approval.standard,
-      token: approval.token,
-      spender: approval.spender,
-      amount: approval.amount,
-      infinite: approval.infinite,
-      newSpenderAtAnchor: approval.newSpenderAtAnchor,
-    })),
+    allowances: executedAllowances,
+    approvalRequests:
+      approvalRisk?.requests.map((approval) => ({
+        standard: approval.standard,
+        token: approval.token,
+        spender: approval.spender,
+        amount: approval.amount,
+        infinite: approval.infinite,
+        newSpenderAtAnchor: approval.newSpenderAtAnchor,
+      })) ?? [],
     internalCalls: execution.internalCalls.map((call) => ({
       to: call.to as Address,
       operation: call.operation,
