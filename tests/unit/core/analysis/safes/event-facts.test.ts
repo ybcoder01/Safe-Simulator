@@ -7,19 +7,13 @@ import {
   SAFE_CHANGED_THRESHOLD_TOPIC,
   SAFE_DISABLED_MODULE_TOPIC,
 } from "../../../../../src/core/analysis/safes/event-facts";
-import type {
-  Address,
-  Hex,
-  LogEntry,
-} from "../../../../../src/core/domain";
+import type { Address, Hex, LogEntry } from "../../../../../src/core/domain";
 
 const safe = "0x1111111111111111111111111111111111111111" as Address;
 const owner = "0x2222222222222222222222222222222222222222" as Address;
-const moduleAddress =
-  "0x3333333333333333333333333333333333333333" as Address;
+const moduleAddress = "0x3333333333333333333333333333333333333333" as Address;
 const guard = "0x4444444444444444444444444444444444444444" as Address;
-const unrelated =
-  "0x5555555555555555555555555555555555555555" as Address;
+const unrelated = "0x5555555555555555555555555555555555555555" as Address;
 
 function addressWord(address: Address): Hex {
   return ("0x" + "0".repeat(24) + address.slice(2)) as Hex;
