@@ -31,7 +31,9 @@ function wordNumber(bytes: Uint8Array, offset: number): bigint | null {
 
 function decodedText(bytes: Uint8Array): string | null {
   try {
-    const value = new TextDecoder("utf-8", { fatal: true }).decode(bytes).trim();
+    const value = new TextDecoder("utf-8", { fatal: true })
+      .decode(bytes)
+      .trim();
     if (
       value.length === 0 ||
       [...value].length > 32 ||
