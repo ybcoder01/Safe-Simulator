@@ -5,16 +5,19 @@ import { notFound } from "next/navigation";
 import {
   getAbiPort,
   getCachePort,
+  getChainPort,
   getPersistencePort,
   getSafeDataPort,
   getSimulationPort,
 } from "@/container";
 import { AddressBookEditor } from "@/components/safes/address-book-editor";
 import { decodedCallSummary } from "@/core/analysis/decoding/calldata";
+import { formatTokenAmount } from "@/core/analysis/tokens/metadata";
 import { resolveContractInsight } from "@/lib/api/contract-insight";
 import { resolveEvidenceVerdict } from "@/lib/api/evidence-verdict";
 import { resolveExecutionInsight } from "@/lib/api/execution-insight";
 import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
+import { resolveExecutionTokenMetadata } from "@/lib/api/token-metadata";
 import {
   safeRouteParamsSchema,
   safeTransactionHashSchema,
@@ -49,6 +52,7 @@ export default async function TransactionDetailPage({ params }: PageProps) {
   if (!safe.success || !hash.success) notFound();
 
   const persistence = getPersistencePort();
+  const cache = getCachePort();
   const persisted = await persistence.findTransaction(safe.data, hash.data);
   if (!persisted) notFound();
 
@@ -58,18 +62,29 @@ export default async function TransactionDetailPage({ params }: PageProps) {
     Promise.resolve(toTransactionView(persisted)),
     resolveContractInsight(getSafeDataPort(), getAbiPort(), persisted),
     resolveExecutionInsight(getSimulationPort(), persisted, {
-      cache: getCachePort(),
+      cache,
       persistence,
     }),
     profileId
       ? persistence.listAddressBookEntries(profileId, safe.data)
       : Promise.resolve([]),
   ]);
-  const verdict = resolveEvidenceVerdict(
-    persisted,
-    insight,
-    execution,
-    addressBook,
+  const [verdict, tokenMetadata] = await Promise.all([
+    Promise.resolve(
+      resolveEvidenceVerdict(persisted, insight, execution, addressBook),
+    ),
+    resolveExecutionTokenMetadata(
+      getChainPort(),
+      cache,
+      persisted.safe.chainId,
+      execution,
+    ),
+  ]);
+  const tokenMetadataByAddress = new Map(
+    tokenMetadata.items.map((metadata) => [
+      metadata.token.toLowerCase(),
+      metadata,
+    ]),
   );
   const decoded = insight.decoded;
   const nestedCalls =
@@ -382,19 +397,53 @@ export default async function TransactionDetailPage({ params }: PageProps) {
               No canonical ERC-20-shaped Transfer events were emitted.
             </div>
           ) : (
-            execution.tokenMovements.map((movement) => (
-              <div
-                className="calldata"
-                key={`movement-${movement.logIndex}-${movement.token}`}
-              >
-                <span>{movement.direction} movement</span>
-                <strong>{movement.amount} base units</strong>
-                <code>
-                  {movement.token} · {movement.from} → {movement.to}
-                </code>
-              </div>
-            ))
+            execution.tokenMovements.map((movement) => {
+              const metadata = tokenMetadataByAddress.get(
+                movement.token.toLowerCase(),
+              );
+              const formatted = formatTokenAmount(
+                movement.amount,
+                metadata?.decimals ?? null,
+              );
+
+              return (
+                <div
+                  className="calldata"
+                  key={`movement-${movement.logIndex}-${movement.token}`}
+                >
+                  <span>
+                    {movement.direction} movement ·{" "}
+                    {metadata?.status ?? "unavailable"} metadata
+                  </span>
+                  <strong>
+                    {formatted === null
+                      ? `${movement.amount} base units`
+                      : `${formatted} ${metadata?.symbol ?? "(symbol unavailable)"}`}
+                  </strong>
+                  <code>
+                    Raw: {movement.amount} base units · token {movement.token}
+                  </code>
+                  <code>
+                    {movement.from} → {movement.to}
+                  </code>
+                  {metadata?.warning ? <code>{metadata.warning}</code> : null}
+                </div>
+              );
+            })
           )}
+          <div className="panel-empty">
+            Metadata resolved for{" "}
+            {
+              tokenMetadata.items.filter(
+                (metadata) => metadata.status === "resolved",
+              ).length
+            }{" "}
+            of {tokenMetadata.totalTokens} token contracts
+            {tokenMetadata.blockHash ? " at the execution block" : " at latest state"}
+            {tokenMetadata.limited
+              ? "; additional token contracts remain unenriched"
+              : ""}.
+          </div>
           <div className="panel-empty">
             Derived from canonical event shape. The emitting contract is not
             independently proven to implement ERC-20.
@@ -424,24 +473,42 @@ export default async function TransactionDetailPage({ params }: PageProps) {
               No canonical ERC-20-shaped Approval events were emitted.
             </div>
           ) : (
-            execution.allowanceChanges.map((allowance) => (
-              <div
-                className="calldata"
-                key={`allowance-${allowance.logIndex}-${allowance.token}`}
-              >
-                <span>
-                  {allowance.infinite
-                    ? "Infinite allowance"
-                    : "Bounded allowance"}
-                </span>
-                <strong>
-                  {allowance.owner} → {allowance.spender}
-                </strong>
-                <code>
-                  {allowance.token} · {allowance.amount} base units
-                </code>
-              </div>
-            ))
+            execution.allowanceChanges.map((allowance) => {
+              const metadata = tokenMetadataByAddress.get(
+                allowance.token.toLowerCase(),
+              );
+              const formatted = formatTokenAmount(
+                allowance.amount,
+                metadata?.decimals ?? null,
+              );
+
+              return (
+                <div
+                  className="calldata"
+                  key={`allowance-${allowance.logIndex}-${allowance.token}`}
+                >
+                  <span>
+                    {allowance.infinite
+                      ? "Infinite allowance"
+                      : "Bounded allowance"}{" "}
+                    · {metadata?.status ?? "unavailable"} metadata
+                  </span>
+                  <strong>
+                    {allowance.owner} → {allowance.spender}
+                  </strong>
+                  <code>
+                    Amount:{" "}
+                    {formatted === null
+                      ? `${allowance.amount} base units`
+                      : `${formatted} ${metadata?.symbol ?? "(symbol unavailable)"}`}
+                  </code>
+                  <code>
+                    Raw: {allowance.amount} base units · token {allowance.token}
+                  </code>
+                  {metadata?.warning ? <code>{metadata.warning}</code> : null}
+                </div>
+              );
+            })
           )}
         </section>
 
