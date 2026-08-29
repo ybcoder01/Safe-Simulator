@@ -22,10 +22,11 @@ export function SyncRefreshControl({
     action,
     initialRefreshSyncState,
   );
-  const queued = state.status === "queued";
+  const checking =
+    state.status === "queued" || state.status === "running";
 
   useEffect(() => {
-    if (!queued) return;
+    if (!checking) return;
 
     const refreshes = [3_000, 8_000, 15_000].map((delay) =>
       window.setTimeout(() => router.refresh(), delay),
@@ -33,7 +34,7 @@ export function SyncRefreshControl({
     return () => {
       refreshes.forEach((timer) => window.clearTimeout(timer));
     };
-  }, [queued, state.requestedAt, router]);
+  }, [checking, state.requestedAt, router]);
 
   const statusId = "sync-refresh-status";
   return (
@@ -41,13 +42,15 @@ export function SyncRefreshControl({
       <button
         aria-describedby={state.message ? statusId : undefined}
         className="sync-refresh-button"
-        disabled={disabled || pending || queued}
+        disabled={disabled || pending || checking}
         type="submit"
       >
         {pending
           ? "Queueing refresh…"
-          : queued
-            ? "Refresh queued"
+          : checking
+            ? state.status === "queued"
+              ? "Refresh queued"
+              : "Sync in progress"
             : disabled
               ? "Sync in progress"
               : "Refresh data"}
