@@ -467,10 +467,9 @@ export default async function TransactionDetailPage({ params }: PageProps) {
               <h2>Requested and receipt-proven changes</h2>
             </div>
             <span>
-              {[
-                ...approvalRisk.requests,
-                ...approvalRisk.executedChanges,
-              ].some((item) => item.infinite)
+              {[...approvalRisk.requests, ...approvalRisk.executedChanges].some(
+                (item) => item.infinite,
+              )
                 ? "Infinite detected"
                 : `${approvalRisk.requests.length} requested · ${approvalRisk.executedChanges.length} emitted`}
             </span>
