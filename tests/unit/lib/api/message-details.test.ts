@@ -32,9 +32,9 @@ describe("signed-message API view models", () => {
   });
 
   it("accepts bounded pagination and rejects unsafe limits", () => {
-    expect(
-      messagePageQuerySchema.parse({ cursor: null, limit: "25" }),
-    ).toEqual({ cursor: null, limit: 25 });
+    expect(messagePageQuerySchema.parse({ cursor: null, limit: "25" })).toEqual(
+      { cursor: null, limit: 25 },
+    );
     expect(
       messagePageQuerySchema.safeParse({ cursor: null, limit: "101" }).success,
     ).toBe(false);
