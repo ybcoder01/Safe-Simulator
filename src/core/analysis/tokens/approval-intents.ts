@@ -44,7 +44,9 @@ function normalizedAddress(value: string | null | undefined): Address | null {
 }
 
 function selector(data: Hex): string {
-  return data.length >= 10 ? data.slice(0, 10).toLowerCase() : data.toLowerCase();
+  return data.length >= 10
+    ? data.slice(0, 10).toLowerCase()
+    : data.toLowerCase();
 }
 
 function word(data: Hex, index: number, baseBytes = 0): string | null {
@@ -427,8 +429,7 @@ function decodedFallback(
 
   if (
     isPermit2(target) &&
-    (method === "permittransferfrom" ||
-      method === "permitwitnesstransferfrom")
+    (method === "permittransferfrom" || method === "permitwitnesstransferfrom")
   ) {
     return [
       request({
@@ -501,9 +502,7 @@ export function extractApprovalRequests(
         ? decodeRaw(target, call.data, null, "nested-calldata", depth)
         : [];
     items.push(
-      ...(raw.length > 0
-        ? raw
-        : decodedFallback(call, "decoded-call", depth)),
+      ...(raw.length > 0 ? raw : decodedFallback(call, "decoded-call", depth)),
     );
 
     for (const child of nestedCalls(call)) visit(child, depth + 1);
@@ -513,7 +512,9 @@ export function extractApprovalRequests(
     for (const call of nestedCalls(decoded)) visit(call, 1);
   }
 
-  const unique = [...new Map(items.map((item) => [requestKey(item), item])).values()];
+  const unique = [
+    ...new Map(items.map((item) => [requestKey(item), item])).values(),
+  ];
   if (unique.length > MAX_REQUESTS) limited = true;
   return { items: unique.slice(0, MAX_REQUESTS), limited };
 }
