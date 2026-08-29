@@ -13,6 +13,7 @@ import {
 import { AddressBookEditor } from "@/components/safes/address-book-editor";
 import { decodedCallSummary } from "@/core/analysis/decoding/calldata";
 import { formatTokenAmount } from "@/core/analysis/tokens/metadata";
+import { resolveApprovalRisk } from "@/lib/api/approval-risk";
 import { resolveContractInsight } from "@/lib/api/contract-insight";
 import { resolveEvidenceVerdict } from "@/lib/api/evidence-verdict";
 import { resolveExecutionInsight } from "@/lib/api/execution-insight";
@@ -69,17 +70,23 @@ export default async function TransactionDetailPage({ params }: PageProps) {
       ? persistence.listAddressBookEntries(profileId, safe.data)
       : Promise.resolve([]),
   ]);
-  const [verdict, tokenMetadata] = await Promise.all([
-    Promise.resolve(
-      resolveEvidenceVerdict(persisted, insight, execution, addressBook),
-    ),
+  const chain = getChainPort();
+  const [approvalRisk, tokenMetadata] = await Promise.all([
+    resolveApprovalRisk(chain, persisted, insight, execution),
     resolveExecutionTokenMetadata(
-      getChainPort(),
+      chain,
       cache,
       persisted.safe.chainId,
       execution,
     ),
   ]);
+  const verdict = resolveEvidenceVerdict(
+    persisted,
+    insight,
+    execution,
+    addressBook,
+    approvalRisk,
+  );
   const tokenMetadataByAddress = new Map(
     tokenMetadata.items.map((metadata) => [
       metadata.token.toLowerCase(),
@@ -456,27 +463,86 @@ export default async function TransactionDetailPage({ params }: PageProps) {
         <section className="detail-panel">
           <div className="panel-heading">
             <div>
-              <p className="eyebrow">Allowances</p>
-              <h2>Receipt-derived changes</h2>
+              <p className="eyebrow">Approval risk</p>
+              <h2>Requested and receipt-proven changes</h2>
             </div>
             <span>
-              {execution.allowanceChanges.some(
-                (allowance) => allowance.infinite,
-              )
+              {[
+                ...approvalRisk.requests,
+                ...approvalRisk.executedChanges,
+              ].some((item) => item.infinite)
                 ? "Infinite detected"
-                : `${execution.allowanceChanges.length} recognized`}
+                : `${approvalRisk.requests.length} requested · ${approvalRisk.executedChanges.length} emitted`}
             </span>
+          </div>
+
+          <div className="calldata">
+            <span>Calldata requests</span>
+            <strong>{approvalRisk.requests.length} recognized</strong>
+          </div>
+          {approvalRisk.requests.length === 0 ? (
+            <div className="panel-empty">
+              No direct or recursively decoded ERC-20 or Permit2 authorization
+              request was recognized.
+            </div>
+          ) : (
+            approvalRisk.requests.map((approval, index) => (
+              <div
+                className="calldata"
+                key={`approval-request-${index}-${approval.target}`}
+              >
+                <span>
+                  requested · {approval.standard} · {approval.method}
+                  {approval.depth > 0
+                    ? ` · nested depth ${approval.depth}`
+                    : ""}
+                </span>
+                <strong>
+                  {approval.infinite === true
+                    ? "Infinite authorization requested"
+                    : approval.amount !== null
+                      ? `${approval.amount} base units requested`
+                      : "Authorization request detected"}
+                </strong>
+                <code>
+                  Token: {approval.token ?? "Unavailable"} · spender:{" "}
+                  {approval.spender ?? "Caller-dependent or unavailable"}
+                </code>
+                <code>
+                  Owner: {approval.owner ?? "Unavailable"} · target:{" "}
+                  {approval.target}
+                </code>
+                <code>
+                  Prior allowance: {approval.priorAmount ?? "Unavailable"} · new
+                  at comparison anchor:{" "}
+                  {approval.newSpenderAtAnchor === null
+                    ? "unknown"
+                    : approval.newSpenderAtAnchor
+                      ? "yes"
+                      : "no"}
+                </code>
+                {approval.expiration !== null ? (
+                  <code>Expiration: {approval.expiration}</code>
+                ) : null}
+                {approval.warning ? <code>{approval.warning}</code> : null}
+              </div>
+            ))
+          )}
+
+          <div className="calldata">
+            <span>Receipt events</span>
+            <strong>{approvalRisk.executedChanges.length} recognized</strong>
           </div>
           {execution.coverage.tokenEvents === "unavailable" ? (
             <div className="panel-empty">
               Allowance event evidence is unavailable for this transaction.
             </div>
-          ) : execution.allowanceChanges.length === 0 ? (
+          ) : approvalRisk.executedChanges.length === 0 ? (
             <div className="panel-empty">
               No canonical ERC-20-shaped Approval events were emitted.
             </div>
           ) : (
-            execution.allowanceChanges.map((allowance) => {
+            approvalRisk.executedChanges.map((allowance) => {
               const metadata = tokenMetadataByAddress.get(
                 allowance.token.toLowerCase(),
               );
@@ -491,9 +557,10 @@ export default async function TransactionDetailPage({ params }: PageProps) {
                   key={`allowance-${allowance.logIndex}-${allowance.token}`}
                 >
                   <span>
+                    emitted ·{" "}
                     {allowance.infinite
-                      ? "Infinite allowance"
-                      : "Bounded allowance"}{" "}
+                      ? "infinite allowance"
+                      : "bounded allowance"}{" "}
                     · {metadata?.status ?? "unavailable"} metadata
                   </span>
                   <strong>
@@ -508,11 +575,28 @@ export default async function TransactionDetailPage({ params }: PageProps) {
                   <code>
                     Raw: {allowance.amount} base units · token {allowance.token}
                   </code>
+                  <code>
+                    Prior allowance: {allowance.priorAmount ?? "Unavailable"} ·
+                    new at comparison anchor:{" "}
+                    {allowance.newSpenderAtAnchor === null
+                      ? "unknown"
+                      : allowance.newSpenderAtAnchor
+                        ? "yes"
+                        : "no"}
+                  </code>
+                  {allowance.warning ? <code>{allowance.warning}</code> : null}
                   {metadata?.warning ? <code>{metadata.warning}</code> : null}
                 </div>
               );
             })
           )}
+
+          <div className="calldata">
+            <span>Approval coverage limits</span>
+            {approvalRisk.warnings.map((warning) => (
+              <strong key={warning}>{warning}</strong>
+            ))}
+          </div>
         </section>
 
         <section className="detail-panel">
