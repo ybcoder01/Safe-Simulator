@@ -13,6 +13,7 @@ const ERC20_ALLOWANCE_SELECTOR = "0xdd62ed3e";
 const PERMIT2_ALLOWANCE_SELECTOR = "0x927da105";
 const WORD_PATTERN = /^0x[0-9a-fA-F]{64,}$/;
 const MAX_STATE_READS = 24;
+const MAX_UINT256 = (1n << 256n) - 1n;
 
 export interface ApprovalRequestView {
   readonly standard: ApprovalStandard;
@@ -24,6 +25,8 @@ export interface ApprovalRequestView {
   readonly owner: Address | null;
   readonly spender: Address | null;
   readonly amount: string | null;
+  readonly amountMode: ApprovalRequest["amountMode"];
+  readonly resultingAmount: string | null;
   readonly infinite: boolean | null;
   readonly expiration: string | null;
   readonly priorAmount: string | null;
@@ -188,6 +191,63 @@ async function readPriorAllowances(
   return values;
 }
 
+function combineWarnings(
+  ...values: readonly (string | null)[]
+): string | null {
+  const warnings = values.filter((value): value is string => value !== null);
+  return warnings.length > 0 ? warnings.join(" ") : null;
+}
+
+function projectedAllowance(
+  item: ApprovalRequest,
+  prior: bigint | null,
+): {
+  readonly amount: bigint | null;
+  readonly infinite: boolean | null;
+  readonly warning: string | null;
+} {
+  if (item.standard === "permit2-signature-transfer") {
+    return { amount: null, infinite: item.infinite, warning: null };
+  }
+  if (item.amount === null) {
+    return { amount: null, infinite: null, warning: null };
+  }
+  if (item.amountMode === "absolute") {
+    return {
+      amount: item.amount,
+      infinite: item.infinite,
+      warning: null,
+    };
+  }
+  if (prior === null) {
+    return { amount: null, infinite: null, warning: null };
+  }
+
+  if (item.amountMode === "increase") {
+    if (item.amount > MAX_UINT256 - prior) {
+      return {
+        amount: null,
+        infinite: null,
+        warning:
+          "The requested increase would overflow uint256 under common allowance-adjustment semantics.",
+      };
+    }
+    const amount = prior + item.amount;
+    return { amount, infinite: amount === MAX_UINT256, warning: null };
+  }
+
+  if (item.amount > prior) {
+    return {
+      amount: null,
+      infinite: null,
+      warning:
+        "The requested decrease exceeds the prior allowance and would revert under common allowance-adjustment semantics.",
+    };
+  }
+  const amount = prior - item.amount;
+  return { amount, infinite: amount === MAX_UINT256, warning: null };
+}
+
 function stateWarning(
   prior: bigint | null,
   anchor: ApprovalRiskResult["anchor"],
@@ -236,13 +296,24 @@ export async function resolveApprovalRisk(
   const requests = extracted.items.map((item): ApprovalRequestView => {
     const lookup = requestLookup(item);
     const priorAmount = lookup ? (prior.get(lookupKey(lookup)) ?? null) : null;
+    const projection = projectedAllowance(item, priorAmount);
+    const newSpenderAtAnchor =
+      priorAmount === null || projection.amount === null
+        ? null
+        : priorAmount === 0n && projection.amount > 0n;
     return {
       ...item,
       amount: item.amount?.toString() ?? null,
+      resultingAmount: projection.amount?.toString() ?? null,
+      infinite: projection.infinite,
       expiration: item.expiration?.toString() ?? null,
       priorAmount: priorAmount?.toString() ?? null,
-      newSpenderAtAnchor: priorAmount === null ? null : priorAmount === 0n,
-      warning: stateWarning(priorAmount, anchor, item.warning),
+      newSpenderAtAnchor,
+      warning: combineWarnings(
+        item.warning,
+        projection.warning,
+        lookup ? stateWarning(priorAmount, anchor, null) : null,
+      ),
     };
   });
 
