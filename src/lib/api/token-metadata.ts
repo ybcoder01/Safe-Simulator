@@ -7,6 +7,7 @@ import {
 } from "@/core/analysis/tokens/metadata";
 import type { Address, ChainId, Hex } from "@/core/domain";
 import type { CachePort, ChainPort } from "@/core/ports";
+import type { ExecutionInsight } from "@/lib/api/execution-insight";
 
 export interface TokenMetadataView {
   readonly token: Address;
@@ -199,4 +200,41 @@ export async function resolveTokenMetadata(
     limited: unique.length > selected.length,
     blockHash: request.blockHash,
   };
+}
+
+export async function resolveExecutionTokenMetadata(
+  chain: Pick<ChainPort, "call">,
+  cache: Pick<CachePort, "get" | "set">,
+  chainId: ChainId,
+  execution: Pick<
+    ExecutionInsight,
+    | "tokenMovements"
+    | "allowanceChanges"
+    | "blockNumber"
+    | "blockHash"
+  >,
+): Promise<TokenMetadataResult> {
+  const tokens = [
+    ...execution.tokenMovements.map(
+      (movement) => movement.token as Address,
+    ),
+    ...execution.allowanceChanges.map(
+      (allowance) => allowance.token as Address,
+    ),
+  ];
+  let blockNumber: bigint | null = null;
+  if (execution.blockNumber !== null) {
+    try {
+      blockNumber = BigInt(execution.blockNumber);
+    } catch {
+      blockNumber = null;
+    }
+  }
+
+  return resolveTokenMetadata(chain, cache, {
+    chainId,
+    tokens,
+    blockNumber,
+    blockHash: execution.blockHash,
+  });
 }
