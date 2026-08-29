@@ -143,7 +143,7 @@ describe("resolveTokenMetadata", () => {
       decimals: null,
     });
     expect(result.items[0]?.warning).toContain("raw base units");
-    expect(cachePort.set).toHaveBeenCalledTimes(1);
+    expect(cachePort.set).not.toHaveBeenCalled();
   });
 
   it("does not cache partial metadata caused by a read failure", async () => {
