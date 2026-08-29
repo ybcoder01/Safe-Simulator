@@ -16,18 +16,16 @@ const blockHash =
   "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" as Hex;
 
 function word(value: bigint): Hex {
-  return (`0x${value.toString(16).padStart(64, "0")}`) as Hex;
+  return `0x${value.toString(16).padStart(64, "0")}` as Hex;
 }
 
 function symbol(value: string): Hex {
   const body = Array.from(value)
     .map((character) => character.charCodeAt(0).toString(16).padStart(2, "0"))
     .join("");
-  return (
-    `0x${32n.toString(16).padStart(64, "0")}${BigInt(value.length)
-      .toString(16)
-      .padStart(64, "0")}${body.padEnd(64, "0")}`
-  ) as Hex;
+  return `0x${32n.toString(16).padStart(64, "0")}${BigInt(value.length)
+    .toString(16)
+    .padStart(64, "0")}${body.padEnd(64, "0")}` as Hex;
 }
 
 function chain(): Pick<ChainPort, "call"> {
@@ -127,9 +125,7 @@ describe("resolveTokenMetadata", () => {
   it("marks malformed metadata and keeps raw units authoritative", async () => {
     const chainPort = {
       call: vi.fn(async (_chainId: number, request: { data: Hex }) =>
-        request.data === ERC20_DECIMALS_SELECTOR
-          ? word(255n)
-          : symbol("TOKEN"),
+        request.data === ERC20_DECIMALS_SELECTOR ? word(255n) : symbol("TOKEN"),
       ),
     };
     const cachePort = cache();
