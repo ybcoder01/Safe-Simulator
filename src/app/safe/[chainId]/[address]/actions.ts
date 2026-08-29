@@ -7,12 +7,15 @@ import { getPersistencePort, getQueuePort } from "@/container";
 import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
 import {
   isSafeBookmarked,
+  queuedRefreshCursors,
   refreshIdempotencyKey,
+  refreshSyncStreams,
+  restoredRefreshCursors,
   type RefreshSyncState,
 } from "@/lib/api/sync-refresh";
 import {
-  resolveSyncSummary,
   safeRouteParamsSchema,
+  summarizeSyncCursors,
 } from "@/lib/api/safe-details";
 
 interface RefreshSafeInput {
@@ -59,7 +62,12 @@ export async function requestSafeRefresh(
       };
     }
 
-    const sync = await resolveSyncSummary(persistence, parsed.data);
+    const currentCursors = await Promise.all(
+      refreshSyncStreams.map((stream) =>
+        persistence.findSyncCursor(parsed.data, stream),
+      ),
+    );
+    const sync = summarizeSyncCursors(currentCursors);
     if (sync.status === "syncing" || sync.status === "queued") {
       return {
         status: "running",
@@ -68,10 +76,32 @@ export async function requestSafeRefresh(
       };
     }
 
-    await getQueuePort().enqueue(
-      { type: "incremental-sync", safe: parsed.data },
-      { idempotencyKey: refreshIdempotencyKey(parsed.data, requestedAt) },
+    const requestedAtSeconds = Math.floor(requestedAt / 1_000);
+    const queuedCursors = queuedRefreshCursors(
+      parsed.data,
+      currentCursors,
+      requestedAtSeconds,
     );
+    try {
+      await Promise.all(
+        queuedCursors.map((cursor) => persistence.saveSyncCursor(cursor)),
+      );
+      await getQueuePort().enqueue(
+        { type: "incremental-sync", safe: parsed.data },
+        { idempotencyKey: refreshIdempotencyKey(parsed.data, requestedAt) },
+      );
+    } catch (error) {
+      const restoredCursors = restoredRefreshCursors(
+        parsed.data,
+        currentCursors,
+        requestedAtSeconds,
+      );
+      await Promise.allSettled(
+        restoredCursors.map((cursor) => persistence.saveSyncCursor(cursor)),
+      );
+      throw error;
+    }
+
     revalidatePath(
       `/safe/${parsed.data.chainId}/${parsed.data.address.toLowerCase()}`,
     );
