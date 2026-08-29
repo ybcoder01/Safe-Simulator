@@ -161,8 +161,7 @@ export function summarizeSyncCursors(
       status === "complete" && timestamps.length === syncStreams.length
         ? Math.min(...timestamps)
         : null,
-    latestActivityAt:
-      timestamps.length > 0 ? Math.max(...timestamps) : null,
+    latestActivityAt: timestamps.length > 0 ? Math.max(...timestamps) : null,
   };
 }
 
