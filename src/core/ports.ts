@@ -130,6 +130,12 @@ export interface PersistencePort {
   upsertModuleTransactions(items: readonly ModuleTransaction[]): Promise<void>;
   upsertTransfers(items: readonly TransferRecord[]): Promise<void>;
   upsertMessages(items: readonly SafeMessage[]): Promise<void>;
+  listMessages(
+    safe: SafeRef,
+    cursor: string | null,
+    limit: number,
+  ): Promise<Page<SafeMessage>>;
+  findMessage(safe: SafeRef, messageHash: Hex): Promise<SafeMessage | null>;
   listTransactions(
     safe: SafeRef,
     cursor: string | null,

@@ -429,6 +429,77 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
     }
   }
 
+  private async messageFromRow(
+    row: typeof messages.$inferSelect,
+  ): Promise<SafeMessage> {
+    const [safe] = await this.db
+      .select()
+      .from(safes)
+      .where(eq(safes.id, row.safeId))
+      .limit(1);
+    if (!safe) {
+      throw new Error(`Message ${row.messageHash} points to a missing Safe.`);
+    }
+
+    return {
+      safe: { chainId: safe.chainId, address: safe.address as Address },
+      messageHash: row.messageHash as Hex,
+      payload: row.payload,
+      confirmations: row.confirmations as SafeMessage["confirmations"],
+      createdAt: asUnixTime(row.createdAt),
+    };
+  }
+
+  async listMessages(
+    safeRef: SafeRef,
+    cursor: string | null,
+    limit: number,
+  ): Promise<Page<SafeMessage>> {
+    const safe = await this.requireSafeRow(safeRef);
+    const predicate = cursor
+      ? and(
+          eq(messages.safeId, safe.id),
+          lt(messages.createdAt, new Date(cursor)),
+        )
+      : eq(messages.safeId, safe.id);
+    const rows = await this.db
+      .select()
+      .from(messages)
+      .where(predicate)
+      .orderBy(desc(messages.createdAt))
+      .limit(limit + 1);
+    const hasNext = rows.length > limit;
+    const pageRows = hasNext ? rows.slice(0, limit) : rows;
+
+    return {
+      items: await Promise.all(pageRows.map((row) => this.messageFromRow(row))),
+      nextCursor:
+        hasNext && pageRows.length > 0
+          ? pageRows[pageRows.length - 1]!.createdAt.toISOString()
+          : null,
+      total: null,
+    };
+  }
+
+  async findMessage(
+    safeRef: SafeRef,
+    messageHash: Hex,
+  ): Promise<SafeMessage | null> {
+    const safe = await this.findSafeRow(safeRef);
+    if (!safe) return null;
+    const [row] = await this.db
+      .select()
+      .from(messages)
+      .where(
+        and(
+          eq(messages.safeId, safe.id),
+          eq(messages.messageHash, messageHash),
+        ),
+      )
+      .limit(1);
+    return row ? this.messageFromRow(row) : null;
+  }
+
   async listTransactions(
     safeRef: SafeRef,
     cursor: string | null,
