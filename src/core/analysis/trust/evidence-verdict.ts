@@ -30,6 +30,18 @@ export interface EvidenceVerdictInput {
     readonly spender: Address;
     readonly amount: string;
     readonly infinite: boolean;
+    readonly newSpenderAtAnchor?: boolean | null;
+  }[];
+  readonly approvalRequests?: readonly {
+    readonly standard:
+      | "erc20"
+      | "permit2-allowance"
+      | "permit2-signature-transfer";
+    readonly token: Address | null;
+    readonly spender: Address | null;
+    readonly amount: string | null;
+    readonly infinite: boolean | null;
+    readonly newSpenderAtAnchor: boolean | null;
   }[];
   readonly internalCalls: readonly {
     readonly to: Address;
@@ -98,6 +110,10 @@ function assessAddresses(
     add(allowance.token, "token");
     add(allowance.spender, "approval-spender");
   }
+  for (const approval of input.approvalRequests ?? []) {
+    if (approval.token) add(approval.token, "token");
+    if (approval.spender) add(approval.spender, "approval-spender");
+  }
   for (const call of input.internalCalls) {
     add(call.to, "internal-target");
   }
@@ -163,6 +179,89 @@ export function evaluateEvidenceVerdict(
       title: "Infinite token allowance emitted",
       detail: `Token ${allowance.token} emitted a maximum-value allowance for spender ${allowance.spender}.`,
       addresses: [allowance.token, allowance.spender],
+    });
+  }
+
+  const approvalRequests = input.approvalRequests ?? [];
+  for (const approval of approvalRequests.filter(
+    (item) =>
+      item.infinite === true &&
+      item.standard !== "permit2-signature-transfer",
+  )) {
+    const involved = [approval.token, approval.spender].filter(
+      (address): address is Address => address !== null,
+    );
+    findings.push({
+      code: "requested-infinite-allowance",
+      severity: "critical",
+      title: "Calldata requests an infinite token allowance",
+      detail:
+        approval.standard === "permit2-allowance"
+          ? "The transaction requests a maximum Permit2 allowance. Calldata proves the request; receipt evidence separately proves any emitted change."
+          : "The transaction requests a maximum ERC-20 allowance. Calldata proves the request; receipt evidence separately proves any emitted change.",
+      addresses: uniqueAddresses(involved),
+    });
+  }
+
+  const maximumPermit2Transfers = approvalRequests.filter(
+    (item) =>
+      item.standard === "permit2-signature-transfer" && item.infinite === true,
+  );
+  if (maximumPermit2Transfers.length > 0) {
+    findings.push({
+      code: "maximum-permit2-signature-transfer",
+      severity: "critical",
+      title: "Permit2 signature transfer has a maximum amount",
+      detail:
+        "The signed Permit2 transfer authorizes a maximum-value amount. This is nonce-bound rather than a persistent allowance, but still requires explicit review.",
+      addresses: uniqueAddresses(
+        maximumPermit2Transfers
+          .map((item) => item.token)
+          .filter((address): address is Address => address !== null),
+      ),
+    });
+  } else if (
+    approvalRequests.some(
+      (item) => item.standard === "permit2-signature-transfer",
+    )
+  ) {
+    findings.push({
+      code: "permit2-signature-transfer",
+      severity: "warning",
+      title: "Permit2 signature-based transfer requested",
+      detail:
+        "Permit2 can authorize a caller-dependent spender without a persistent ERC-20 allowance. Review the signer, token, amount, recipient, nonce, and deadline.",
+      addresses: uniqueAddresses(
+        approvalRequests
+          .filter(
+            (item) => item.standard === "permit2-signature-transfer",
+          )
+          .map((item) => item.token)
+          .filter((address): address is Address => address !== null),
+      ),
+    });
+  }
+
+  const newSpenders = [
+    ...input.allowances
+      .filter((item) => item.newSpenderAtAnchor === true)
+      .flatMap((item) => [item.token, item.spender]),
+    ...approvalRequests
+      .filter((item) => item.newSpenderAtAnchor === true)
+      .flatMap((item) =>
+        [item.token, item.spender].filter(
+          (address): address is Address => address !== null,
+        ),
+      ),
+  ];
+  if (newSpenders.length > 0) {
+    findings.push({
+      code: "new-approval-spender",
+      severity: "warning",
+      title: "Allowance targets a spender with zero prior allowance",
+      detail:
+        "The allowance was zero at the stated comparison anchor. Same-block ordering and pending-state changes remain explicit coverage limits.",
+      addresses: uniqueAddresses(newSpenders),
     });
   }
 
@@ -239,12 +338,22 @@ export function evaluateEvidenceVerdict(
   }
 
   const boundedAllowances = input.allowances.filter((item) => !item.infinite);
-  const boundedAddresses = uniqueAddresses(
-    boundedAllowances.flatMap((allowance) => [
+  const boundedRequests = approvalRequests.filter(
+    (item) =>
+      item.standard !== "permit2-signature-transfer" &&
+      item.infinite !== true,
+  );
+  const boundedAddresses = uniqueAddresses([
+    ...boundedAllowances.flatMap((allowance) => [
       allowance.token,
       allowance.spender,
     ]),
-  );
+    ...boundedRequests.flatMap((approval) =>
+      [approval.token, approval.spender].filter(
+        (address): address is Address => address !== null,
+      ),
+    ),
+  ]);
   const boundedUnresolved = addresses.filter(
     (assessment) =>
       boundedAddresses.some(
