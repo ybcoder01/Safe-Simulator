@@ -164,8 +164,7 @@ async function resolveOne(
   if (cached) return cached;
 
   const metadata = await readMetadata(chain, request, token);
-  const cacheable =
-    metadata.status === "resolved" || metadata.status === "malformed";
+  const cacheable = metadata.status === "resolved";
   if (cacheable) {
     try {
       await cache.set(
