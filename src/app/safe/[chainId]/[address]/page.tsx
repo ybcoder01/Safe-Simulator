@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { MessageHistory } from "@/components/safes/message-history";
 import { TransactionHistory } from "@/components/safes/transaction-history";
 import { getPersistencePort, getSafeDataPort } from "@/container";
+import { toMessageView } from "@/lib/api/message-details";
 import {
   resolveSyncStatus,
   safeRouteParamsSchema,
@@ -39,15 +41,19 @@ export default async function SafeDashboardPage({ params }: PageProps) {
   const safe = await persistence.findSafe(parsed.data);
   if (!safe) notFound();
 
-  const [status, page, balanceResult] = await Promise.all([
+  const [status, page, messagePage, balanceResult] = await Promise.all([
     resolveSyncStatus(persistence, safe),
     persistence.listTransactions(safe, null, 25),
+    persistence.listMessages(safe, null, 10),
     getSafeDataPort()
       .getBalances(safe)
       .then((items) => items.map(toBalanceView))
       .catch(() => null),
   ]);
   const transactions = page.items.map(toTransactionView);
+  const messageViews = messagePage.items.map((message) =>
+    toMessageView(message, safe.threshold),
+  );
   const chainName = safe.chainId === 1 ? "Ethereum" : "XDC Network";
 
   return (
@@ -180,6 +186,12 @@ export default async function SafeDashboardPage({ params }: PageProps) {
           initialTransactions={transactions}
           nextCursor={page.nextCursor}
           threshold={safe.threshold}
+        />
+
+        <MessageHistory
+          address={safe.address}
+          chainId={safe.chainId}
+          messages={messageViews}
         />
       </div>
 
