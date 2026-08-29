@@ -49,9 +49,7 @@ export function resolveEvidenceVerdict(
       amount: allowance.amount,
       infinite: allowance.infinite,
       newSpenderAtAnchor:
-        "newSpenderAtAnchor" in allowance
-          ? allowance.newSpenderAtAnchor
-          : null,
+        "newSpenderAtAnchor" in allowance ? allowance.newSpenderAtAnchor : null,
     })),
     approvalRequests: approvalRisk?.requests.map((approval) => ({
       standard: approval.standard,
