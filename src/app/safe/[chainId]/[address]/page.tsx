@@ -6,7 +6,7 @@ import { TransactionHistory } from "@/components/safes/transaction-history";
 import { getPersistencePort, getSafeDataPort } from "@/container";
 import { toMessageView } from "@/lib/api/message-details";
 import {
-  resolveSyncStatus,
+  resolveSyncSummary,
   safeRouteParamsSchema,
   toBalanceView,
   toTransactionView,
@@ -18,6 +18,18 @@ interface PageProps {
 
 function shorten(value: string, start = 8, end = 6) {
   return `${value.slice(0, start)}…${value.slice(-end)}`;
+}
+
+function formatTimestamp(timestamp: number) {
+  return new Intl.DateTimeFormat("en", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "UTC",
+  }).format(new Date(timestamp * 1_000));
+}
+
+function timestampDateTime(timestamp: number) {
+  return new Date(timestamp * 1_000).toISOString();
 }
 
 function formatTokenAmount(amount: string, decimals: number) {
@@ -41,8 +53,8 @@ export default async function SafeDashboardPage({ params }: PageProps) {
   const safe = await persistence.findSafe(parsed.data);
   if (!safe) notFound();
 
-  const [status, page, messagePage, balanceResult] = await Promise.all([
-    resolveSyncStatus(persistence, safe),
+  const [sync, page, messagePage, balanceResult] = await Promise.all([
+    resolveSyncSummary(persistence, safe),
     persistence.listTransactions(safe, null, 25),
     persistence.listMessages(safe, null, 10),
     getSafeDataPort()
@@ -81,15 +93,37 @@ export default async function SafeDashboardPage({ params }: PageProps) {
             <h1>{shorten(safe.address, 12, 10)}</h1>
             <p className="full-address">{safe.address}</p>
           </div>
-          <span className={`verified-pill sync-${status}`}>
-            {status === "complete"
-              ? "Synced"
-              : status === "failed"
-                ? "Sync failed"
-                : status === "syncing"
-                  ? "Syncing"
-                  : "Queued"}
-          </span>
+          <div className="sync-summary">
+            <span className={`verified-pill sync-${sync.status}`}>
+              {sync.status === "complete"
+                ? "Synced"
+                : sync.status === "failed"
+                  ? "Sync failed"
+                  : sync.status === "syncing"
+                    ? "Syncing"
+                    : "Queued"}
+            </span>
+            {sync.lastFullSyncAt !== null ? (
+              <time dateTime={timestampDateTime(sync.lastFullSyncAt)}>
+                Full sync completed {formatTimestamp(sync.lastFullSyncAt)} UTC
+              </time>
+            ) : (
+              <span>
+                {sync.completedStreams} of {sync.totalStreams} streams complete
+                {sync.latestActivityAt !== null ? (
+                  <>
+                    {" "}
+                    · Last activity{" "}
+                    <time dateTime={timestampDateTime(sync.latestActivityAt)}>
+                      {formatTimestamp(sync.latestActivityAt)} UTC
+                    </time>
+                  </>
+                ) : (
+                  " · No sync activity recorded"
+                )}
+              </span>
+            )}
+          </div>
         </section>
 
         <section className="dashboard-metrics" aria-label="Safe configuration">
