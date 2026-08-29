@@ -1255,3 +1255,20 @@ select {
     grid-template-columns: 1fr;
   }
 }
+
+.message-confirmation {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.message-confirmation code {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.message-confirmation code:last-child {
+  color: var(--faint);
+  font-size: 9px;
+}
