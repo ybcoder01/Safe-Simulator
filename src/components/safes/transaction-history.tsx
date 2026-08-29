@@ -101,7 +101,10 @@ export function TransactionHistory({
 
   return (
     <>
-      <section className="pending-panel" aria-labelledby="pending-actions-title">
+      <section
+        className="pending-panel"
+        aria-labelledby="pending-actions-title"
+      >
         <div className="panel-heading">
           <div>
             <p className="eyebrow">Awaiting execution</p>
