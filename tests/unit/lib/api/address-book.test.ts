@@ -113,14 +113,16 @@ describe("address book suggestions", () => {
       ),
     ).toEqual([candidate]);
     expect(
-      availableAddressBookSuggestions([candidate], [
-        {
-          address: address.toUpperCase(),
-          label: "Existing",
-          trust: "trusted",
-        },
-      ]),
+      availableAddressBookSuggestions(
+        [candidate],
+        [
+          {
+            address: address.toUpperCase(),
+            label: "Existing",
+            trust: "trusted",
+          },
+        ],
+      ),
     ).toEqual([]);
   });
 });
-
