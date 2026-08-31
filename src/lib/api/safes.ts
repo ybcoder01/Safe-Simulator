@@ -45,3 +45,19 @@ export function toSafeView(
 ): SafeView {
   return { ...safe, nonce: safe.nonce.toString(), syncStatus };
 }
+
+interface SafeIdentity {
+  readonly chainId: number;
+  readonly address: string;
+}
+
+export function withoutSafe<T extends SafeIdentity>(
+  items: readonly T[],
+  target: SafeIdentity,
+): readonly T[] {
+  const address = target.address.toLowerCase();
+  return items.filter(
+    (item) =>
+      item.chainId !== target.chainId || item.address.toLowerCase() !== address,
+  );
+}
