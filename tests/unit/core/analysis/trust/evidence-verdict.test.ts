@@ -14,6 +14,7 @@ function input(
   overrides: Partial<EvidenceVerdictInput> = {},
 ): EvidenceVerdictInput {
   return {
+    chainId: 50,
     operation: "call",
     target,
     targetVerified: true,
