@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 
 import type { DiscoveredSafeView } from "@/lib/api/safe-discovery";
-import type { SafeView } from "@/lib/api/safes";
+import { withoutSafe, type SafeView } from "@/lib/api/safes";
 
 interface ChainOption {
   readonly id: number;
@@ -15,11 +15,19 @@ interface ApiErrorBody {
   readonly error?: { readonly message?: string };
 }
 
+interface SafesClientProps {
+  readonly chains: readonly ChainOption[];
+  readonly removeSafe: (input: {
+    readonly chainId: number;
+    readonly address: string;
+  }) => Promise<{ readonly ok: boolean; readonly error?: string }>;
+}
+
 function shortenAddress(address: string) {
   return `${address.slice(0, 8)}…${address.slice(-6)}`;
 }
 
-export function SafesClient({ chains }: { chains: readonly ChainOption[] }) {
+export function SafesClient({ chains, removeSafe }: SafesClientProps) {
   const defaultChainId = chains[0]?.id ?? 1;
   const [items, setItems] = useState<readonly SafeView[]>([]);
   const [chainId, setChainId] = useState(defaultChainId);
@@ -27,6 +35,7 @@ export function SafesClient({ chains }: { chains: readonly ChainOption[] }) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [removing, setRemoving] = useState<string | null>(null);
   const [discoveryChainId, setDiscoveryChainId] = useState(defaultChainId);
   const [owner, setOwner] = useState("");
   const [discovered, setDiscovered] = useState<
@@ -183,6 +192,45 @@ export function SafesClient({ chains }: { chains: readonly ChainOption[] }) {
       );
     } finally {
       setDiscoveryImporting(null);
+    }
+  }
+
+  async function removeBookmarkedSafe(safe: SafeView) {
+    const confirmed = window.confirm(
+      "Remove this Safe from your watchlist? Its shared public history will not be deleted.",
+    );
+    if (!confirmed) return;
+
+    const key = `${safe.chainId}:${safe.address.toLowerCase()}`;
+    setRemoving(key);
+    setError(null);
+    try {
+      const result = await removeSafe({
+        chainId: safe.chainId,
+        address: safe.address,
+      });
+      if (!result.ok) {
+        throw new Error(result.error ?? "The Safe could not be removed.");
+      }
+
+      setItems((current) => withoutSafe(current, safe));
+      setDiscovered(
+        (current) =>
+          current?.map((candidate) =>
+            candidate.chainId === safe.chainId &&
+            candidate.address.toLowerCase() === safe.address.toLowerCase()
+              ? { ...candidate, imported: false }
+              : candidate,
+          ) ?? null,
+      );
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "The Safe could not be removed.",
+      );
+    } finally {
+      setRemoving(null);
     }
   }
 
@@ -364,43 +412,56 @@ export function SafesClient({ chains }: { chains: readonly ChainOption[] }) {
             </p>
           </div>
         ) : null}
-        {items.map((safe) => (
-          <Link
-            aria-label={`Open Safe ${safe.address}`}
-            className="safe-card"
-            href={`/safe/${safe.chainId}/${safe.address.toLowerCase()}`}
-            key={`${safe.chainId}:${safe.address.toLowerCase()}`}
-          >
-            <div className="safe-avatar">0×</div>
-            <div className="safe-identity">
-              <span>{safe.chainId === 1 ? "Ethereum" : "XDC Network"}</span>
-              <strong>{shortenAddress(safe.address)}</strong>
+        {items.map((safe) => {
+          const key = `${safe.chainId}:${safe.address.toLowerCase()}`;
+          return (
+            <div className="safe-card-row" key={key}>
+              <Link
+                aria-label={`Open Safe ${safe.address}`}
+                className="safe-card"
+                href={`/safe/${safe.chainId}/${safe.address.toLowerCase()}`}
+              >
+                <div className="safe-avatar">0×</div>
+                <div className="safe-identity">
+                  <span>{safe.chainId === 1 ? "Ethereum" : "XDC Network"}</span>
+                  <strong>{shortenAddress(safe.address)}</strong>
+                </div>
+                <div className="safe-stat">
+                  <span>Policy</span>
+                  <strong>
+                    {safe.threshold} of {safe.owners.length}
+                  </strong>
+                </div>
+                <div className="safe-stat">
+                  <span>Nonce</span>
+                  <strong>{safe.nonce}</strong>
+                </div>
+                <div className="safe-stat">
+                  <span>Version</span>
+                  <strong>{safe.version ?? "Unknown"}</strong>
+                </div>
+                <span className={`verified-pill sync-${safe.syncStatus}`}>
+                  {safe.syncStatus === "complete"
+                    ? "Synced"
+                    : safe.syncStatus === "failed"
+                      ? "Sync failed"
+                      : safe.syncStatus === "syncing"
+                        ? "Syncing"
+                        : "Queued"}
+                </span>
+              </Link>
+              <button
+                aria-label={`Remove Safe ${safe.address} from watchlist`}
+                className="safe-card-remove"
+                disabled={removing !== null}
+                onClick={() => void removeBookmarkedSafe(safe)}
+                type="button"
+              >
+                {removing === key ? "Removing…" : "Remove"}
+              </button>
             </div>
-            <div className="safe-stat">
-              <span>Policy</span>
-              <strong>
-                {safe.threshold} of {safe.owners.length}
-              </strong>
-            </div>
-            <div className="safe-stat">
-              <span>Nonce</span>
-              <strong>{safe.nonce}</strong>
-            </div>
-            <div className="safe-stat">
-              <span>Version</span>
-              <strong>{safe.version ?? "Unknown"}</strong>
-            </div>
-            <span className={`verified-pill sync-${safe.syncStatus}`}>
-              {safe.syncStatus === "complete"
-                ? "Synced"
-                : safe.syncStatus === "failed"
-                  ? "Sync failed"
-                  : safe.syncStatus === "syncing"
-                    ? "Syncing"
-                    : "Queued"}
-            </span>
-          </Link>
-        ))}
+          );
+        })}
       </section>
     </div>
   );
