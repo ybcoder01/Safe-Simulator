@@ -134,6 +134,7 @@ export default async function SafeDashboardPage({ params }: PageProps) {
             <SyncRefreshControl
               action={refreshAction}
               disabled={isRefreshActive(sync.status, sync.latestActivityAt)}
+              syncStatus={sync.status}
             />
           </div>
         </section>
