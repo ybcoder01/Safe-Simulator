@@ -162,9 +162,12 @@ export default async function TransactionDetailPage({ params }: PageProps) {
               key={`address-trust-${assessment.address.toLowerCase()}`}
             >
               <span>
-                {assessment.status} · {assessment.roles.join(" · ")}
+                {assessment.status} · {assessment.source.replaceAll("-", " ")} ·{" "}
+                {assessment.roles.join(" · ")}
               </span>
-              <strong>{assessment.label ?? "No explicit trust label"}</strong>
+              <strong>
+                {assessment.label ?? "No registry or profile label"}
+              </strong>
               <code>{assessment.address}</code>
             </div>
           ))}

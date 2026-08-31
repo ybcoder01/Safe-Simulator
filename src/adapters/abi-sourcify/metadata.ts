@@ -1,5 +1,6 @@
 import { getAddress, isAddress } from "viem";
 
+import { findContractRegistryEntry } from "@/core/analysis/trust/contract-registry";
 import type {
   AbiFunction,
   AbiParameter,
@@ -98,15 +99,17 @@ function unknownMetadata(
   address: Address,
   implementation: Address | null,
 ): ContractMetadata {
+  const registry = findContractRegistryEntry(chainId, address);
+
   return {
     address,
     chainId,
-    label: null,
+    label: registry?.label ?? null,
     verified: false,
     abi: null,
     implementation,
     storageLayout: null,
-    source: "unknown",
+    source: registry ? "registry" : "unknown",
   };
 }
 

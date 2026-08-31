@@ -14,6 +14,7 @@ function input(
   approvalRequests: NonNullable<EvidenceVerdictInput["approvalRequests"]>,
 ): EvidenceVerdictInput {
   return {
+    chainId: 50,
     operation: "call",
     target,
     targetVerified: true,

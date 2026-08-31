@@ -14,6 +14,7 @@ function input(
   overrides: Partial<EvidenceVerdictInput> = {},
 ): EvidenceVerdictInput {
   return {
+    chainId: 50,
     operation: "call",
     target,
     targetVerified: true,
@@ -94,7 +95,7 @@ describe("evaluateEvidenceVerdict", () => {
       expect.objectContaining({
         code: "movement-trust-unresolved",
         severity: "warning",
-        addresses: [token, target, spender],
+        addresses: [token, spender],
       }),
     );
   });
@@ -113,6 +114,66 @@ describe("evaluateEvidenceVerdict", () => {
         severity: "warning",
         addresses: [token, spender],
       }),
+    );
+  });
+
+  it("uses registry evidence as known without promoting it to trusted", () => {
+    const result = evaluateEvidenceVerdict(
+      input({
+        internalCalls: [{ to: spender, operation: "call" }],
+        registry: [
+          {
+            chainId: 50,
+            address: spender,
+            label: "Known infrastructure",
+            source: "safe-deployments",
+            reference: "https://example.com/authoritative-record",
+          },
+        ],
+        callTrace: "complete",
+      }),
+    );
+
+    expect(result.verdict).toBe("known");
+    expect(result.findings.map((finding) => finding.code)).not.toContain(
+      "internal-call-trust-unresolved",
+    );
+    expect(result.addresses).toContainEqual(
+      expect.objectContaining({
+        address: spender,
+        label: "Known infrastructure",
+        source: "registry",
+        status: "known",
+      }),
+    );
+  });
+
+  it("ignores registry records from a different chain", () => {
+    const result = evaluateEvidenceVerdict(
+      input({
+        internalCalls: [{ to: spender, operation: "call" }],
+        registry: [
+          {
+            chainId: 1,
+            address: spender,
+            label: "Wrong-chain infrastructure",
+            source: "safe-deployments",
+            reference: "https://example.com/authoritative-record",
+          },
+        ],
+        callTrace: "complete",
+      }),
+    );
+
+    expect(result.addresses).toContainEqual(
+      expect.objectContaining({
+        address: spender,
+        source: "unresolved",
+        status: "unverified",
+      }),
+    );
+    expect(result.findings.map((finding) => finding.code)).toContain(
+      "internal-call-trust-unresolved",
     );
   });
 
@@ -196,6 +257,15 @@ describe("evaluateEvidenceVerdict", () => {
         movements: [{ token, from: target, to: spender }],
         addressBook: [
           { address: spender, label: "Blocked counterparty", trust: "flagged" },
+        ],
+        registry: [
+          {
+            chainId: 50,
+            address: spender,
+            label: "Known infrastructure",
+            source: "safe-deployments",
+            reference: "https://example.com/authoritative-record",
+          },
         ],
       }),
     );

@@ -1,10 +1,12 @@
 import type {
   Address,
   AddressBookEntry,
+  ChainId,
   Finding,
   Operation,
   Verdict,
 } from "../../domain";
+import type { ContractRegistryEntry } from "./contract-registry";
 
 export type DecodeConfidence = "verified" | "service" | "signature" | "raw";
 export type AddressRole =
@@ -16,6 +18,7 @@ export type AddressRole =
   | "internal-target";
 
 export interface EvidenceVerdictInput {
+  readonly chainId: ChainId;
   readonly operation: Operation;
   readonly target: Address;
   readonly targetVerified: boolean;
@@ -48,6 +51,7 @@ export interface EvidenceVerdictInput {
     readonly operation: Operation;
   }[];
   readonly addressBook: readonly AddressBookEntry[];
+  readonly registry?: readonly ContractRegistryEntry[];
   readonly callTrace: "complete" | "partial" | "root-only" | "unavailable";
   readonly storageDiff: "complete" | "partial" | "unavailable";
   readonly tokenEvents: "standard-events" | "unavailable";
@@ -58,6 +62,7 @@ export interface AddressTrustAssessment {
   readonly address: Address;
   readonly label: string | null;
   readonly status: Verdict;
+  readonly source: "profile" | "registry" | "verified-source" | "unresolved";
   readonly roles: readonly AddressRole[];
 }
 
@@ -118,6 +123,12 @@ function assessAddresses(
     add(call.to, "internal-target");
   }
 
+  const registry = new Map<string, ContractRegistryEntry>();
+  for (const entry of input.registry ?? []) {
+    if (entry.chainId !== input.chainId) continue;
+    registry.set(addressKey(entry.address), entry);
+  }
+
   const records = new Map<string, AddressBookEntry>();
   for (const record of input.addressBook) {
     const key = addressKey(record.address);
@@ -127,6 +138,7 @@ function assessAddresses(
 
   return [...roles.values()].map(({ address, roles: addressRoles }) => {
     const record = records.get(addressKey(address));
+    const registryEntry = registry.get(addressKey(address));
     const isVerifiedTarget =
       addressRoles.has("target") &&
       addressKey(address) === addressKey(input.target) &&
@@ -134,8 +146,17 @@ function assessAddresses(
 
     return {
       address,
-      label: record?.label ?? null,
-      status: record?.trust ?? (isVerifiedTarget ? "known" : "unverified"),
+      label: record?.label ?? registryEntry?.label ?? null,
+      status:
+        record?.trust ??
+        (registryEntry || isVerifiedTarget ? "known" : "unverified"),
+      source: record
+        ? "profile"
+        : registryEntry
+          ? "registry"
+          : isVerifiedTarget
+            ? "verified-source"
+            : "unresolved",
       roles: [...addressRoles],
     };
   });
@@ -317,11 +338,7 @@ export function evaluateEvidenceVerdict(
     const assessment = addresses.find(
       (item) => addressKey(item.address) === addressKey(address),
     );
-    return assessment &&
-      assessment.status !== "trusted" &&
-      assessment.status !== "flagged"
-      ? [assessment]
-      : [];
+    return assessment && assessment.status === "unverified" ? [assessment] : [];
   });
   if (movementUnresolved.length > 0) {
     findings.push({
@@ -329,7 +346,7 @@ export function evaluateEvidenceVerdict(
       severity: "warning",
       title: "Token movement address trust is incomplete",
       detail:
-        "At least one token or event participant lacks an explicit trusted record.",
+        "At least one token or event participant lacks known or profile-trusted evidence.",
       addresses: movementUnresolved.map((assessment) => assessment.address),
     });
   }
@@ -354,9 +371,7 @@ export function evaluateEvidenceVerdict(
     (assessment) =>
       boundedAddresses.some(
         (address) => addressKey(address) === addressKey(assessment.address),
-      ) &&
-      assessment.status !== "trusted" &&
-      assessment.status !== "flagged",
+      ) && assessment.status === "unverified",
   );
   if (boundedUnresolved.length > 0) {
     findings.push({
@@ -364,7 +379,7 @@ export function evaluateEvidenceVerdict(
       severity: "warning",
       title: "Approval address trust is incomplete",
       detail:
-        "The allowance is bounded, but its token or spender lacks an explicit trusted record.",
+        "The allowance is bounded, but its token or spender lacks known or profile-trusted evidence.",
       addresses: boundedUnresolved.map((assessment) => assessment.address),
     });
   }
@@ -376,9 +391,7 @@ export function evaluateEvidenceVerdict(
     (assessment) =>
       internalTargets.some(
         (address) => addressKey(address) === addressKey(assessment.address),
-      ) &&
-      assessment.status !== "trusted" &&
-      assessment.status !== "flagged",
+      ) && assessment.status === "unverified",
   );
   if (unresolvedInternalTargets.length > 0) {
     findings.push({
@@ -386,7 +399,7 @@ export function evaluateEvidenceVerdict(
       severity: "warning",
       title: "Internal call target trust is incomplete",
       detail:
-        "At least one traced internal target lacks an explicit trusted record.",
+        "At least one traced internal target lacks known or profile-trusted evidence.",
       addresses: unresolvedInternalTargets.map(
         (assessment) => assessment.address,
       ),
@@ -407,10 +420,10 @@ export function evaluateEvidenceVerdict(
         : "Storage changes are unavailable.";
   const evidenceDetail =
     input.outcome === "on-chain-receipt"
-      ? "This verdict uses the target, decode provenance, mined receipt events, traced call targets when available, and profile-specific trust records."
+      ? "This verdict uses the target, decode provenance, mined receipt events, traced call targets when available, authoritative registry records, and profile-specific trust records."
       : input.outcome === "read-only-call"
-        ? "This verdict uses the target, decode provenance, direct-call outcome, traced call targets when available, and profile-specific trust records. Receipt events are unavailable."
-        : "This verdict uses target metadata, decode provenance, and profile-specific trust records only. Execution behavior is unavailable.";
+        ? "This verdict uses the target, decode provenance, direct-call outcome, traced call targets when available, authoritative registry records, and profile-specific trust records. Receipt events are unavailable."
+        : "This verdict uses target metadata, decode provenance, authoritative registry records, and profile-specific trust records only. Execution behavior is unavailable.";
 
   findings.push({
     code: "partial-analysis-coverage",
@@ -458,6 +471,6 @@ export function evaluateEvidenceVerdict(
             : "target-and-call-only"
           : "target-only",
     trustBoundary:
-      "Trusted requires explicit profile-specific records and is never inferred from source verification alone. Critical evidence always takes precedence.",
+      "Trusted is never inferred: it requires an explicit profile-specific record. Registry and verified-source evidence can establish known, never trusted. Critical evidence always takes precedence.",
   };
 }
