@@ -10,6 +10,8 @@ export const refreshSyncStreams = [
   "message",
 ] as const satisfies readonly SyncCursor["stream"][];
 
+export type SyncRefreshStatus = "queued" | "syncing" | "failed" | "complete";
+
 export type RefreshSyncState =
   | {
       readonly status: "idle";
@@ -34,7 +36,7 @@ export type RefreshSyncAction = (
 ) => Promise<RefreshSyncState>;
 
 export function isRefreshActive(
-  status: "queued" | "syncing" | "failed" | "complete",
+  status: SyncRefreshStatus,
   latestActivityAt: number | null,
   now = Math.floor(Date.now() / 1_000),
 ): boolean {
@@ -42,6 +44,20 @@ export function isRefreshActive(
     (status === "queued" || status === "syncing") &&
     latestActivityAt !== null &&
     latestActivityAt >= now - SYNC_REFRESH_ACTIVE_WINDOW_SECONDS
+  );
+}
+
+export function hasRefreshRequestSettled(
+  actionStatus: RefreshSyncState["status"],
+  requestedAt: number | null,
+  observedRequestAt: number | null,
+  syncStatus: SyncRefreshStatus,
+): boolean {
+  return (
+    (actionStatus === "queued" || actionStatus === "running") &&
+    requestedAt !== null &&
+    observedRequestAt === requestedAt &&
+    (syncStatus === "complete" || syncStatus === "failed")
   );
 }
 
