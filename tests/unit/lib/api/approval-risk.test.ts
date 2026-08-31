@@ -63,8 +63,7 @@ function execution(
   allowances: ExecutionInsight["allowanceChanges"] = [],
 ): ExecutionInsight {
   return {
-    mode:
-      allowances.length > 0 ? "executed-replay" : "safe-execution-check",
+    mode: allowances.length > 0 ? "executed-replay" : "safe-execution-check",
     success: true,
     gasUsed: "1",
     blockNumber: allowances.length > 0 ? "10" : "20",
