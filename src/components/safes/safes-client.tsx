@@ -87,9 +87,7 @@ export function SafesClient({ chains }: { chains: readonly ChainOption[] }) {
       data?: SafeView;
     } & ApiErrorBody;
     if (!response.ok || !body.data) {
-      throw new Error(
-        body.error?.message ?? "The Safe could not be imported.",
-      );
+      throw new Error(body.error?.message ?? "The Safe could not be imported.");
     }
 
     const imported = body.data;
@@ -101,13 +99,14 @@ export function SafesClient({ chains }: { chains: readonly ChainOption[] }) {
           item.chainId !== imported.chainId,
       ),
     ]);
-    setDiscovered((current) =>
-      current?.map((safe) =>
-        safe.chainId === imported.chainId &&
-        safe.address.toLowerCase() === imported.address.toLowerCase()
-          ? { ...safe, imported: true }
-          : safe,
-      ) ?? null,
+    setDiscovered(
+      (current) =>
+        current?.map((safe) =>
+          safe.chainId === imported.chainId &&
+          safe.address.toLowerCase() === imported.address.toLowerCase()
+            ? { ...safe, imported: true }
+            : safe,
+        ) ?? null,
     );
     return imported;
   }
@@ -249,10 +248,7 @@ export function SafesClient({ chains }: { chains: readonly ChainOption[] }) {
         ) : null}
       </form>
 
-      <form
-        className="import-panel discovery-panel"
-        onSubmit={discoverSafes}
-      >
+      <form className="import-panel discovery-panel" onSubmit={discoverSafes}>
         <div className="import-copy">
           <span className="step-number">02</span>
           <div>
