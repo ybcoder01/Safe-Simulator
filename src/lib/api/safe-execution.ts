@@ -48,9 +48,18 @@ function sameAddress(left: Address, right: Address): boolean {
   return left.toLowerCase() === right.toLowerCase();
 }
 
-function isStaticSafeSignature(signature: ViemHex): boolean {
+function isSupportedSafeSignature(
+  owner: Address,
+  signature: ViemHex,
+): boolean {
   if (signature.length !== 132) return false;
-  return Number.parseInt(signature.slice(-2), 16) !== 0;
+
+  const signatureType = Number.parseInt(signature.slice(-2), 16);
+  if (signatureType === 0) return false;
+  if (signatureType !== 1) return true;
+
+  const encodedOwner = `0x${signature.slice(26, 66)}`;
+  return encodedOwner.toLowerCase() === owner.toLowerCase();
 }
 
 function payloadMatches(
@@ -112,7 +121,10 @@ export function buildSafeExecutionRequest(
     const key = confirmation.owner.toLowerCase();
     if (
       owners.has(key) &&
-      isStaticSafeSignature(confirmation.signature as ViemHex)
+      isSupportedSafeSignature(
+        confirmation.owner,
+        confirmation.signature as ViemHex,
+      )
     ) {
       confirmations.set(key, confirmation);
     }
