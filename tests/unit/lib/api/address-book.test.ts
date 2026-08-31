@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   addressBookDeleteSchema,
   addressBookInputSchema,
+  availableAddressBookSuggestions,
   resolveAddressDisplay,
+  suggestedAddressBookLabel,
 } from "../../../../src/lib/api/address-book";
 
 const address = "0x1111111111111111111111111111111111111111";
@@ -76,5 +78,51 @@ describe("address book schemas", () => {
     expect(addressBookDeleteSchema.safeParse({ address: "nope" }).success).toBe(
       false,
     );
+  });
+});
+
+describe("address book suggestions", () => {
+  it("keeps existing labels and creates a bounded fallback label", () => {
+    expect(
+      suggestedAddressBookLabel({
+        address,
+        label: "Pinned protocol",
+        roles: ["target"],
+      }),
+    ).toBe("Pinned protocol");
+    expect(
+      suggestedAddressBookLabel({
+        address,
+        label: null,
+        roles: ["internal-call"],
+      }),
+    ).toBe("Internal call 0x11111111…11111111");
+  });
+
+  it("excludes configured addresses and case-insensitive duplicates", () => {
+    const candidate = {
+      address,
+      label: null,
+      roles: ["target"],
+    };
+
+    expect(
+      availableAddressBookSuggestions(
+        [candidate, { ...candidate, address: address.toUpperCase() }],
+        [],
+      ),
+    ).toEqual([candidate]);
+    expect(
+      availableAddressBookSuggestions(
+        [candidate],
+        [
+          {
+            address: address.toUpperCase(),
+            label: "Existing",
+            trust: "trusted",
+          },
+        ],
+      ),
+    ).toEqual([]);
   });
 });

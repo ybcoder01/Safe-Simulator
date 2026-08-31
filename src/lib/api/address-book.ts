@@ -29,6 +29,41 @@ export function toAddressBookView(entry: AddressBookEntry): AddressBookView {
   return entry;
 }
 
+export interface AddressBookSuggestion {
+  readonly address: string;
+  readonly label: string | null;
+  readonly roles: readonly string[];
+}
+
+export function suggestedAddressBookLabel(
+  suggestion: AddressBookSuggestion,
+): string {
+  const existingLabel = suggestion.label?.trim();
+  if (existingLabel) return existingLabel.slice(0, 80);
+
+  const role = suggestion.roles[0]?.replaceAll("-", " ") ?? "address";
+  const title = role.charAt(0).toUpperCase() + role.slice(1);
+  const shortened = `${suggestion.address.slice(0, 10)}…${suggestion.address.slice(-8)}`;
+  return `${title} ${shortened}`.slice(0, 80);
+}
+
+export function availableAddressBookSuggestions(
+  suggestions: readonly AddressBookSuggestion[],
+  entries: readonly AddressBookView[],
+): AddressBookSuggestion[] {
+  const configured = new Set(
+    entries.map((entry) => entry.address.toLowerCase()),
+  );
+  const seen = new Set<string>();
+
+  return suggestions.filter((suggestion) => {
+    const key = suggestion.address.toLowerCase();
+    if (configured.has(key) || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 export interface AddressDisplay {
   readonly label: string;
   readonly trust: "trusted" | "flagged" | "known";

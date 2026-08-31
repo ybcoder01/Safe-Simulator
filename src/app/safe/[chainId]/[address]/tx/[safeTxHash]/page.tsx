@@ -185,6 +185,11 @@ export default async function TransactionDetailPage({ params }: PageProps) {
             chainId={safe.data.chainId}
             initialEntries={addressBook}
             safeAddress={safe.data.address}
+            suggestions={verdict.addresses.map((assessment) => ({
+              address: assessment.address,
+              label: assessment.label,
+              roles: assessment.roles,
+            }))}
           />
         ) : null}
 
