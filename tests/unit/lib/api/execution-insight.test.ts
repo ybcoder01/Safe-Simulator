@@ -29,7 +29,7 @@ const counterparty = "0x4444444444444444444444444444444444444444" as Address;
 const spender = "0x5555555555555555555555555555555555555555" as Address;
 const implementation = "0x6666666666666666666666666666666666666666" as Address;
 const owner = "0x7777777777777777777777777777777777777777" as Address;
-const ownerSignature = (`0x${"11".repeat(64)}1b`) as Hex;
+const ownerSignature = `0x${"11".repeat(64)}1b` as Hex;
 const maxUint256 = (1n << 256n) - 1n;
 
 function addressTopic(address: Address): Hex {
@@ -161,9 +161,7 @@ function pendingSources(
           gasPrice: 0n,
           gasToken: null,
           refundReceiver: null,
-          confirmations: [
-            { owner, signature: ownerSignature, signedAt: 1 },
-          ],
+          confirmations: [{ owner, signature: ownerSignature, signedAt: 1 }],
         }
       : overrides.payload;
   const snapshot = overrides.snapshot ?? {
