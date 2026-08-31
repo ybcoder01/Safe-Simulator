@@ -13,6 +13,8 @@ import { resolveEvidenceVerdict } from "../../../../src/lib/api/evidence-verdict
 const safe = "0x1111111111111111111111111111111111111111" as Address;
 const target = "0x2222222222222222222222222222222222222222" as Address;
 const token = "0x3333333333333333333333333333333333333333" as Address;
+const registeredSafe =
+  "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762" as Address;
 const spender = "0x4444444444444444444444444444444444444444" as Address;
 const hash =
   "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" as Hex;
@@ -94,6 +96,38 @@ describe("resolveEvidenceVerdict", () => {
     expect(result.verdict).toBe("unverified");
     expect(result.findings.map((finding) => finding.code)).toContain(
       "signature-only-decode",
+    );
+  });
+
+  it("maps the chain registry into address assessments", () => {
+    const result = resolveEvidenceVerdict(
+      transaction,
+      contract(),
+      {
+        ...execution(),
+        internalCalls: [
+          {
+            depth: 1,
+            from: safe,
+            to: registeredSafe,
+            input: "0x",
+            value: "0",
+            operation: "call",
+            reverted: false,
+            error: null,
+          },
+        ],
+      },
+      [],
+    );
+
+    expect(result.addresses).toContainEqual(
+      expect.objectContaining({
+        address: registeredSafe,
+        label: "Safe v1.4.1 L2 Singleton",
+        source: "registry",
+        status: "known",
+      }),
     );
   });
 
