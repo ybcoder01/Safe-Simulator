@@ -1472,6 +1472,78 @@ select {
   border-color: rgba(101, 242, 172, 0.5);
 }
 
+.trust-suggestions {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.trust-suggestions > p {
+  margin: 0;
+  color: var(--faint);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.trust-suggestion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 14px;
+  border: 1px solid rgba(200, 230, 215, 0.08);
+  border-radius: 10px;
+  background: #08130f;
+}
+
+.trust-suggestion > div:first-child {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.trust-suggestion span,
+.trust-suggestion code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--faint);
+  font-size: 9px;
+}
+
+.trust-suggestion strong {
+  font-size: 12px;
+}
+
+.trust-suggestion-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.trust-suggestion-actions button {
+  min-width: 62px;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid rgba(101, 242, 172, 0.3);
+  border-radius: 8px;
+  color: var(--green);
+  background: rgba(101, 242, 172, 0.05);
+  cursor: pointer;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 620;
+}
+
+.trust-suggestion-actions button:last-child {
+  border-color: rgba(255, 173, 159, 0.35);
+  color: #ffad9f;
+  background: rgba(255, 108, 88, 0.05);
+}
+
+.trust-suggestion-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 .trust-records {
   display: grid;
   margin-top: 16px;
@@ -1528,6 +1600,11 @@ select {
 @media (max-width: 560px) {
   .trust-form {
     grid-template-columns: 1fr;
+  }
+
+  .trust-suggestion {
+    align-items: start;
+    flex-direction: column;
   }
 }
 
