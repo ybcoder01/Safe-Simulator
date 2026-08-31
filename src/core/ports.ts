@@ -128,6 +128,7 @@ export interface PersistencePort {
   /** Lists all persisted Safes for bounded background sweeps. The cursor is opaque to callers. */
   listSafes(cursor: string | null, limit: number): Promise<Page<SafeSnapshot>>;
   bookmarkSafe(profileId: string, safe: SafeRef): Promise<void>;
+  unbookmarkSafe(profileId: string, safe: SafeRef): Promise<void>;
   listAddressBookEntries(
     profileId: string,
     safe: SafeRef,

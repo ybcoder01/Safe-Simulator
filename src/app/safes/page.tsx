@@ -3,6 +3,8 @@ import Link from "next/link";
 import { supportedChainSummaries } from "@/adapters/chain-viem/config";
 import { SafesClient } from "@/components/safes/safes-client";
 
+import { removeSafeBookmark } from "./actions";
+
 export const metadata = { title: "Your Safes" };
 
 export default function SafesPage() {
@@ -19,7 +21,10 @@ export default function SafesPage() {
           <i aria-hidden="true" /> Read-only by design
         </span>
       </header>
-      <SafesClient chains={supportedChainSummaries} />
+      <SafesClient
+        chains={supportedChainSummaries}
+        removeSafe={removeSafeBookmark}
+      />
       <footer className="workspace-footer">
         <Link className="text-link" href="/">
           Return to overview
