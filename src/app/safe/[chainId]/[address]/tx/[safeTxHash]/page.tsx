@@ -165,7 +165,9 @@ export default async function TransactionDetailPage({ params }: PageProps) {
                 {assessment.status} · {assessment.source.replaceAll("-", " ")} ·{" "}
                 {assessment.roles.join(" · ")}
               </span>
-              <strong>{assessment.label ?? "No registry or profile label"}</strong>
+              <strong>
+                {assessment.label ?? "No registry or profile label"}
+              </strong>
               <code>{assessment.address}</code>
             </div>
           ))}
