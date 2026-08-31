@@ -1,11 +1,18 @@
-import Link from "next/link";
+"use client";
 
-import type { MessageView } from "@/lib/api/message-details";
+import Link from "next/link";
+import { useState } from "react";
+
+import {
+  appendUniqueMessageViews,
+  type MessageView,
+} from "@/lib/api/message-details";
 
 interface MessageHistoryProps {
   readonly address: string;
   readonly chainId: number;
-  readonly messages: readonly MessageView[];
+  readonly initialMessages: readonly MessageView[];
+  readonly nextCursor: string | null;
 }
 
 function shorten(value: string, start = 10, end = 8) {
@@ -21,16 +28,60 @@ function payloadSummary(message: MessageView) {
 export function MessageHistory({
   address,
   chainId,
-  messages,
+  initialMessages,
+  nextCursor: initialCursor,
 }: MessageHistoryProps) {
+  const [messages, setMessages] =
+    useState<readonly MessageView[]>(initialMessages);
+  const [nextCursor, setNextCursor] = useState(initialCursor);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function loadMore() {
+    if (!nextCursor || loading) return;
+    setLoading(true);
+    setError(null);
+
+    try {
+      const query = new URLSearchParams({ cursor: nextCursor, limit: "25" });
+      const response = await fetch(
+        `/api/v1/safes/${chainId}/${address}/messages?${query}`,
+        { cache: "no-store" },
+      );
+      const body = (await response.json()) as {
+        readonly data?: readonly MessageView[];
+        readonly nextCursor?: string | null;
+        readonly error?: { readonly message?: string };
+      };
+      if (!response.ok || !body.data) {
+        throw new Error(body.error?.message ?? "Could not load signed messages.");
+      }
+
+      const incoming = body.data;
+      setMessages((current) => appendUniqueMessageViews(current, incoming));
+      setNextCursor(body.nextCursor ?? null);
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not load signed messages.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
-    <section className="history-panel">
+    <section className="history-panel" aria-labelledby="message-history-title">
       <div className="panel-heading">
         <div>
           <p className="eyebrow">Off-chain activity</p>
-          <h2>Signed messages</h2>
+          <h2 id="message-history-title">Signed messages</h2>
         </div>
-        <span>{messages.length} loaded</span>
+        <span>
+          {messages.length}
+          {nextCursor ? "+" : ""} loaded
+        </span>
       </div>
 
       {messages.length === 0 ? (
@@ -81,6 +132,24 @@ export function MessageHistory({
           ))}
         </div>
       )}
+
+      {error ? (
+        <p className="form-error" role="alert">
+          {error}
+        </p>
+      ) : null}
+      {nextCursor ? (
+        <div className="history-actions">
+          <button
+            className="button button-small"
+            disabled={loading}
+            onClick={loadMore}
+            type="button"
+          >
+            {loading ? "Loading…" : "Load more"}
+          </button>
+        </div>
+      ) : null}
     </section>
   );
 }
