@@ -4,6 +4,7 @@ import {
   type EvidenceVerdict,
   type EvidenceVerdictInput,
 } from "@/core/analysis/trust/evidence-verdict";
+import { contractRegistryEntriesForChain } from "@/core/analysis/trust/contract-registry";
 import type { Address, AddressBookEntry, SafeTransaction } from "@/core/domain";
 import type { ApprovalRiskResult } from "@/lib/api/approval-risk";
 import type { ContractInsight } from "@/lib/api/contract-insight";
@@ -71,6 +72,7 @@ export function resolveEvidenceVerdict(
       operation: call.operation,
     })),
     addressBook,
+    registry: contractRegistryEntriesForChain(transaction.safe.chainId),
     callTrace: execution.coverage.callTrace,
     storageDiff: execution.coverage.storageDiff,
     tokenEvents: execution.coverage.tokenEvents,
