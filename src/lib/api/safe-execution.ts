@@ -48,10 +48,7 @@ function sameAddress(left: Address, right: Address): boolean {
   return left.toLowerCase() === right.toLowerCase();
 }
 
-function isSupportedSafeSignature(
-  owner: Address,
-  signature: ViemHex,
-): boolean {
+function isSupportedSafeSignature(owner: Address, signature: ViemHex): boolean {
   if (signature.length !== 132) return false;
 
   const signatureType = Number.parseInt(signature.slice(-2), 16);
