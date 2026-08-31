@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 
+import type { DiscoveredSafeView } from "@/lib/api/safe-discovery";
 import type { SafeView } from "@/lib/api/safes";
 
 interface ChainOption {
@@ -19,12 +20,25 @@ function shortenAddress(address: string) {
 }
 
 export function SafesClient({ chains }: { chains: readonly ChainOption[] }) {
+  const defaultChainId = chains[0]?.id ?? 1;
   const [items, setItems] = useState<readonly SafeView[]>([]);
-  const [chainId, setChainId] = useState(chains[0]?.id ?? 1);
+  const [chainId, setChainId] = useState(defaultChainId);
   const [address, setAddress] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [discoveryChainId, setDiscoveryChainId] = useState(defaultChainId);
+  const [owner, setOwner] = useState("");
+  const [discovered, setDiscovered] = useState<
+    readonly DiscoveredSafeView[] | null
+  >(null);
+  const [discoveryTotal, setDiscoveryTotal] = useState(0);
+  const [discoveryLimited, setDiscoveryLimited] = useState(false);
+  const [discovering, setDiscovering] = useState(false);
+  const [discoveryImporting, setDiscoveryImporting] = useState<string | null>(
+    null,
+  );
+  const [discoveryError, setDiscoveryError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -57,33 +71,54 @@ export function SafesClient({ chains }: { chains: readonly ChainOption[] }) {
     };
   }, []);
 
+  async function requestImport(
+    targetChainId: number,
+    targetAddress: string,
+  ): Promise<SafeView> {
+    const response = await fetch("/api/v1/safes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chainId: targetChainId,
+        address: targetAddress,
+      }),
+    });
+    const body = (await response.json()) as {
+      data?: SafeView;
+    } & ApiErrorBody;
+    if (!response.ok || !body.data) {
+      throw new Error(
+        body.error?.message ?? "The Safe could not be imported.",
+      );
+    }
+
+    const imported = body.data;
+    setItems((current) => [
+      imported,
+      ...current.filter(
+        (item) =>
+          item.address.toLowerCase() !== imported.address.toLowerCase() ||
+          item.chainId !== imported.chainId,
+      ),
+    ]);
+    setDiscovered((current) =>
+      current?.map((safe) =>
+        safe.chainId === imported.chainId &&
+        safe.address.toLowerCase() === imported.address.toLowerCase()
+          ? { ...safe, imported: true }
+          : safe,
+      ) ?? null,
+    );
+    return imported;
+  }
+
   async function importSafe(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitting(true);
     setError(null);
 
     try {
-      const response = await fetch("/api/v1/safes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chainId, address }),
-      });
-      const body = (await response.json()) as {
-        data?: SafeView;
-      } & ApiErrorBody;
-      if (!response.ok || !body.data)
-        throw new Error(
-          body.error?.message ?? "The Safe could not be imported.",
-        );
-      const imported = body.data;
-      setItems((current) => [
-        imported,
-        ...current.filter(
-          (item) =>
-            item.address.toLowerCase() !== imported.address.toLowerCase() ||
-            item.chainId !== imported.chainId,
-        ),
-      ]);
+      await requestImport(chainId, address);
       setAddress("");
     } catch (cause) {
       setError(
@@ -93,6 +128,62 @@ export function SafesClient({ chains }: { chains: readonly ChainOption[] }) {
       );
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function discoverSafes(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setDiscovering(true);
+    setDiscoveryError(null);
+    setDiscovered(null);
+
+    try {
+      const query = new URLSearchParams({
+        chainId: discoveryChainId.toString(),
+        owner,
+      });
+      const response = await fetch(`/api/v1/safes/discover?${query}`, {
+        cache: "no-store",
+      });
+      const body = (await response.json()) as {
+        readonly data?: readonly DiscoveredSafeView[];
+        readonly total?: number;
+        readonly limited?: boolean;
+      } & ApiErrorBody;
+      if (!response.ok || !body.data) {
+        throw new Error(
+          body.error?.message ?? "Safe discovery is temporarily unavailable.",
+        );
+      }
+
+      setDiscovered(body.data);
+      setDiscoveryTotal(body.total ?? body.data.length);
+      setDiscoveryLimited(body.limited ?? false);
+    } catch (cause) {
+      setDiscoveryError(
+        cause instanceof Error
+          ? cause.message
+          : "Safe discovery is temporarily unavailable.",
+      );
+    } finally {
+      setDiscovering(false);
+    }
+  }
+
+  async function importDiscovered(safe: DiscoveredSafeView) {
+    const key = `${safe.chainId}:${safe.address.toLowerCase()}`;
+    setDiscoveryImporting(key);
+    setDiscoveryError(null);
+    try {
+      await requestImport(safe.chainId, safe.address);
+    } catch (cause) {
+      setDiscoveryError(
+        cause instanceof Error
+          ? cause.message
+          : "The Safe could not be imported.",
+      );
+    } finally {
+      setDiscoveryImporting(null);
     }
   }
 
@@ -155,6 +246,108 @@ export function SafesClient({ chains }: { chains: readonly ChainOption[] }) {
           <p className="form-error" role="alert">
             {error}
           </p>
+        ) : null}
+      </form>
+
+      <form
+        className="import-panel discovery-panel"
+        onSubmit={discoverSafes}
+      >
+        <div className="import-copy">
+          <span className="step-number">02</span>
+          <div>
+            <h2>Discover by owner address</h2>
+            <p>
+              Look up public Safe Transaction Service records for an owner.
+              Candidates are fully verified on-chain only when you import them.
+            </p>
+          </div>
+        </div>
+        <div className="import-controls">
+          <label>
+            Network
+            <select
+              value={discoveryChainId}
+              onChange={(event) =>
+                setDiscoveryChainId(Number(event.target.value))
+              }
+            >
+              {chains.map((chain) => (
+                <option value={chain.id} key={chain.id}>
+                  {chain.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="address-field">
+            Owner address
+            <input
+              autoComplete="off"
+              inputMode="text"
+              onChange={(event) => setOwner(event.target.value)}
+              placeholder="0x…"
+              required
+              spellCheck={false}
+              value={owner}
+            />
+          </label>
+          <button className="button" disabled={discovering} type="submit">
+            {discovering ? "Discovering…" : "Discover Safes"}
+          </button>
+        </div>
+        {discoveryError ? (
+          <p className="form-error" role="alert">
+            {discoveryError}
+          </p>
+        ) : null}
+        {discovered !== null ? (
+          <div className="discovery-results" aria-live="polite">
+            <div className="discovery-summary">
+              <strong>
+                {discoveryTotal} Safe{discoveryTotal === 1 ? "" : "s"} reported
+              </strong>
+              {discoveryLimited ? (
+                <span>Showing the first {discovered.length} results.</span>
+              ) : (
+                <span>Public service records only.</span>
+              )}
+            </div>
+            {discovered.length === 0 ? (
+              <div className="panel-empty">
+                No Safes were reported for this owner on the selected network.
+              </div>
+            ) : (
+              <div className="discovery-list">
+                {discovered.map((safe) => {
+                  const key = `${safe.chainId}:${safe.address.toLowerCase()}`;
+                  return (
+                    <div className="discovery-row" key={key}>
+                      <div className="discovery-identity">
+                        <span>
+                          {safe.chainId === 1 ? "Ethereum" : "XDC Network"}
+                        </span>
+                        <code>{safe.address}</code>
+                      </div>
+                      {safe.imported ? (
+                        <span className="verified-pill">Imported</span>
+                      ) : (
+                        <button
+                          className="button button-small"
+                          disabled={discoveryImporting !== null}
+                          onClick={() => void importDiscovered(safe)}
+                          type="button"
+                        >
+                          {discoveryImporting === key
+                            ? "Verifying…"
+                            : "Verify & import"}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         ) : null}
       </form>
 
