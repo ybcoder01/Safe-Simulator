@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -13,12 +13,14 @@ import {
 interface SyncRefreshControlProps {
   readonly action: RefreshSyncAction;
   readonly disabled: boolean;
+  readonly latestActivityAt: number | null;
   readonly syncStatus: SyncRefreshStatus;
 }
 
 export function SyncRefreshControl({
   action,
   disabled,
+  latestActivityAt,
   syncStatus,
 }: SyncRefreshControlProps) {
   const router = useRouter();
@@ -26,20 +28,12 @@ export function SyncRefreshControl({
     action,
     initialRefreshSyncState,
   );
-  const observedRequestAt = useRef<number | null>(null);
   const actionAccepted =
     state.status === "queued" || state.status === "running";
-
-  useEffect(() => {
-    if (actionAccepted && disabled) {
-      observedRequestAt.current = state.requestedAt;
-    }
-  }, [actionAccepted, disabled, state.requestedAt]);
-
   const settled = hasRefreshRequestSettled(
     state.status,
     state.requestedAt,
-    observedRequestAt.current,
+    latestActivityAt,
     syncStatus,
   );
   const checking = actionAccepted && !settled;
