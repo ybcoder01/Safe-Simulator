@@ -27,9 +27,7 @@ function signature(byte: string, v = "1b"): Hex {
 }
 
 function prevalidatedSignature(owner: Address): Hex {
-  return (
-    `0x${"0".repeat(24)}${owner.slice(2)}${"0".repeat(64)}01`
-  ) as Hex;
+  return `0x${"0".repeat(24)}${owner.slice(2)}${"0".repeat(64)}01` as Hex;
 }
 
 function confirmation(owner: Address, value: Hex): Confirmation {
