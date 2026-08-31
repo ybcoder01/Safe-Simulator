@@ -13,8 +13,7 @@ import { resolveEvidenceVerdict } from "../../../../src/lib/api/evidence-verdict
 const safe = "0x1111111111111111111111111111111111111111" as Address;
 const target = "0x2222222222222222222222222222222222222222" as Address;
 const token = "0x3333333333333333333333333333333333333333" as Address;
-const registeredSafe =
-  "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762" as Address;
+const registeredSafe = "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762" as Address;
 const spender = "0x4444444444444444444444444444444444444444" as Address;
 const hash =
   "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" as Hex;
