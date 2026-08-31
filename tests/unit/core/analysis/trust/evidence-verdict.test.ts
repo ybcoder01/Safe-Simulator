@@ -148,6 +148,35 @@ describe("evaluateEvidenceVerdict", () => {
     );
   });
 
+  it("ignores registry records from a different chain", () => {
+    const result = evaluateEvidenceVerdict(
+      input({
+        internalCalls: [{ to: spender, operation: "call" }],
+        registry: [
+          {
+            chainId: 1,
+            address: spender,
+            label: "Wrong-chain infrastructure",
+            source: "safe-deployments",
+            reference: "https://example.com/authoritative-record",
+          },
+        ],
+        callTrace: "complete",
+      }),
+    );
+
+    expect(result.addresses).toContainEqual(
+      expect.objectContaining({
+        address: spender,
+        source: "unresolved",
+        status: "unverified",
+      }),
+    );
+    expect(result.findings.map((finding) => finding.code)).toContain(
+      "internal-call-trust-unresolved",
+    );
+  });
+
   it("flags an exact infinite allowance finding", () => {
     const result = evaluateEvidenceVerdict(
       input({
