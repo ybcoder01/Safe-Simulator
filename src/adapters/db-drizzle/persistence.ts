@@ -263,6 +263,20 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
       .onConflictDoNothing();
   }
 
+  async unbookmarkSafe(profileId: string, safe: SafeRef): Promise<void> {
+    const row = await this.findSafeRow(safe);
+    if (!row) return;
+
+    await this.db
+      .delete(profileSafes)
+      .where(
+        and(
+          eq(profileSafes.profileId, profileId),
+          eq(profileSafes.safeId, row.id),
+        ),
+      );
+  }
+
   private async transactionFromRow(
     row: TransactionRow,
   ): Promise<SafeTransaction> {
