@@ -182,6 +182,10 @@ function pendingSources(
     },
     chain: {
       getSafeSnapshot: vi.fn().mockResolvedValue(snapshot),
+      getTransactionBlock: vi.fn().mockResolvedValue({
+        blockNumber: 10n,
+        blockHash,
+      }),
     },
   };
 }
@@ -444,6 +448,47 @@ describe("resolveExecutionInsight", () => {
     expect(state.set).toHaveBeenCalledTimes(1);
   });
 
+  it("bypasses stale evidence and replays the canonical receipt after a reorganization", async () => {
+    const changedBlockHash =
+      "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee" as Hex;
+    const changedOutput: SimulationOutput = {
+      ...output,
+      blockNumber: 11n,
+      blockHash: changedBlockHash,
+    };
+    const state = evidenceStores({
+      safe: transaction().safe,
+      safeTxHash,
+      engineVersion: EXECUTION_EVIDENCE_ENGINE_VERSION,
+      blockHash,
+      simulation: output,
+      createdAt: 1,
+    });
+    const sources = pendingSources(transaction());
+    vi.mocked(sources.chain.getTransactionBlock).mockResolvedValue({
+      blockNumber: 11n,
+      blockHash: changedBlockHash,
+    });
+    const port = simulation({
+      replay: vi.fn().mockResolvedValue(changedOutput),
+    });
+
+    const result = await resolveExecutionInsight(
+      port,
+      transaction(),
+      state.stores,
+      sources,
+    );
+
+    expect(state.findExecutionEvidence).not.toHaveBeenCalled();
+    expect(port.replay).toHaveBeenCalledTimes(1);
+    expect(state.saveExecutionEvidence).not.toHaveBeenCalled();
+    expect(result.blockHash).toBe(changedBlockHash);
+    expect(result.warnings).toContain(
+      "The stored block anchor is no longer canonical. Cached evidence was bypassed and the current receipt was replayed; persistence will refresh during synchronization.",
+    );
+  });
+
   it("does not retain partial trace evidence indefinitely", async () => {
     const partial: SimulationOutput = {
       ...output,
@@ -481,7 +526,7 @@ describe("resolveExecutionInsight", () => {
     );
 
     expect(result.warnings).toContain(
-      "The replay block hash differs from the persisted transaction; this evidence was not cached.",
+      "The replay block hash differs from the canonical transaction anchor; this evidence was not cached.",
     );
     expect(state.saveExecutionEvidence).not.toHaveBeenCalled();
     expect(state.set).not.toHaveBeenCalled();
