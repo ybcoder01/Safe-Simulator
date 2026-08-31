@@ -54,6 +54,7 @@ describe("PublicAbiAdapter", () => {
           { type: "event", name: "Approval", inputs: [] },
         ],
         compilation: { name: "TestToken" },
+
         storageLayout: {
           storage: [
             {
