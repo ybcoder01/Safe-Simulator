@@ -99,11 +99,7 @@ describe("on-demand synchronization refresh", () => {
     const now = 10_000;
     expect(isRefreshActive("queued", now, now)).toBe(true);
     expect(
-      isRefreshActive(
-        "syncing",
-        now - SYNC_REFRESH_ACTIVE_WINDOW_SECONDS,
-        now,
-      ),
+      isRefreshActive("syncing", now - SYNC_REFRESH_ACTIVE_WINDOW_SECONDS, now),
     ).toBe(true);
     expect(
       isRefreshActive(
