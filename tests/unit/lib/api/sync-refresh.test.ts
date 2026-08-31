@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import type { SafeRef, SyncCursor } from "../../../../src/core/domain";
 import {
+  isRefreshActive,
   isSafeBookmarked,
   queuedRefreshCursors,
   refreshIdempotencyKey,
   refreshSyncStreams,
   restoredRefreshCursors,
+  SYNC_REFRESH_ACTIVE_WINDOW_SECONDS,
   SYNC_REFRESH_WINDOW_MS,
 } from "../../../../src/lib/api/sync-refresh";
 
@@ -91,6 +93,28 @@ describe("on-demand synchronization refresh", () => {
         updatedAt: 20,
       })),
     );
+  });
+
+  it("allows retrying an abandoned queued or running refresh", () => {
+    const now = 10_000;
+    expect(isRefreshActive("queued", now, now)).toBe(true);
+    expect(
+      isRefreshActive(
+        "syncing",
+        now - SYNC_REFRESH_ACTIVE_WINDOW_SECONDS,
+        now,
+      ),
+    ).toBe(true);
+    expect(
+      isRefreshActive(
+        "queued",
+        now - SYNC_REFRESH_ACTIVE_WINDOW_SECONDS - 1,
+        now,
+      ),
+    ).toBe(false);
+    expect(isRefreshActive("queued", null, now)).toBe(false);
+    expect(isRefreshActive("complete", now, now)).toBe(false);
+    expect(isRefreshActive("failed", now, now)).toBe(false);
   });
 
   it("deduplicates refreshes in one five-minute bucket", () => {

@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { getPersistencePort, getQueuePort } from "@/container";
 import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
 import {
+  isRefreshActive,
   isSafeBookmarked,
   queuedRefreshCursors,
   refreshIdempotencyKey,
@@ -68,7 +69,13 @@ export async function requestSafeRefresh(
       ),
     );
     const sync = summarizeSyncCursors(currentCursors);
-    if (sync.status === "syncing" || sync.status === "queued") {
+    if (
+      isRefreshActive(
+        sync.status,
+        sync.latestActivityAt,
+        Math.floor(requestedAt / 1_000),
+      )
+    ) {
       return {
         status: "running",
         message: "Synchronization is already queued or running.",

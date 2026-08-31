@@ -1,6 +1,7 @@
 import type { SafeRef, SyncCursor } from "@/core/domain";
 
 export const SYNC_REFRESH_WINDOW_MS = 300_000;
+export const SYNC_REFRESH_ACTIVE_WINDOW_SECONDS = 15 * 60;
 
 export const refreshSyncStreams = [
   "multisig",
@@ -31,6 +32,18 @@ export type RefreshSyncAction = (
   previousState: RefreshSyncState,
   formData: FormData,
 ) => Promise<RefreshSyncState>;
+
+export function isRefreshActive(
+  status: "queued" | "syncing" | "failed" | "complete",
+  latestActivityAt: number | null,
+  now = Math.floor(Date.now() / 1_000),
+): boolean {
+  return (
+    (status === "queued" || status === "syncing") &&
+    latestActivityAt !== null &&
+    latestActivityAt >= now - SYNC_REFRESH_ACTIVE_WINDOW_SECONDS
+  );
+}
 
 export function isSafeBookmarked(
   safes: readonly SafeRef[],

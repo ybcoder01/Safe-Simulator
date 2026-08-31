@@ -6,6 +6,7 @@ import { SyncRefreshControl } from "@/components/safes/sync-refresh-control";
 import { TransactionHistory } from "@/components/safes/transaction-history";
 import { getPersistencePort, getSafeDataPort } from "@/container";
 import { toMessageView } from "@/lib/api/message-details";
+import { isRefreshActive } from "@/lib/api/sync-refresh";
 import {
   resolveSyncSummary,
   safeRouteParamsSchema,
@@ -132,7 +133,7 @@ export default async function SafeDashboardPage({ params }: PageProps) {
             )}
             <SyncRefreshControl
               action={refreshAction}
-              disabled={sync.status === "syncing" || sync.status === "queued"}
+              disabled={isRefreshActive(sync.status, sync.latestActivityAt)}
             />
           </div>
         </section>
