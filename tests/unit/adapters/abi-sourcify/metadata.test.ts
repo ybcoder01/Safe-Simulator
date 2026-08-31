@@ -5,8 +5,7 @@ import type { Address, Hex } from "../../../../src/core/domain";
 import type { ChainPort } from "../../../../src/core/ports";
 
 const target = "0x1111111111111111111111111111111111111111" as Address;
-const registeredSafe =
-  "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762" as Address;
+const registeredSafe = "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762" as Address;
 const implementation = "0x2222222222222222222222222222222222222222" as Address;
 const beacon = "0x3333333333333333333333333333333333333333" as Address;
 const implementationSlot =
