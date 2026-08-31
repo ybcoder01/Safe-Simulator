@@ -1,7 +1,7 @@
 import { getAddress } from "viem";
 import { z } from "zod";
 
-import type { SafeSnapshot } from "@/core/domain";
+import type { Address, SafeSnapshot } from "@/core/domain";
 
 export const importSafeInputSchema = z.object({
   chainId: z
@@ -12,6 +12,17 @@ export const importSafeInputSchema = z.object({
     .string()
     .regex(/^0x[0-9a-fA-F]{40}$/, "Enter a 20-byte EVM address.")
     .transform((value) => getAddress(value)),
+});
+
+export const discoverSafesInputSchema = z.object({
+  chainId: z.coerce
+    .number()
+    .int()
+    .refine((value) => value === 1 || value === 50, "Unsupported chain."),
+  owner: z
+    .string()
+    .regex(/^0x[0-9a-fA-F]{40}$/, "Enter a 20-byte EVM address.")
+    .transform((value) => getAddress(value).toLowerCase() as Address),
 });
 
 export interface SafeView {
