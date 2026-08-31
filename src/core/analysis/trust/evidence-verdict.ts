@@ -344,7 +344,7 @@ export function evaluateEvidenceVerdict(
       severity: "warning",
       title: "Token movement address trust is incomplete",
       detail:
-        "At least one token or event participant lacks an explicit trusted record.",
+        "At least one token or event participant lacks known or profile-trusted evidence.",
       addresses: movementUnresolved.map((assessment) => assessment.address),
     });
   }
@@ -378,7 +378,7 @@ export function evaluateEvidenceVerdict(
       severity: "warning",
       title: "Approval address trust is incomplete",
       detail:
-        "The allowance is bounded, but its token or spender lacks an explicit trusted record.",
+        "The allowance is bounded, but its token or spender lacks known or profile-trusted evidence.",
       addresses: boundedUnresolved.map((assessment) => assessment.address),
     });
   }
@@ -399,7 +399,7 @@ export function evaluateEvidenceVerdict(
       severity: "warning",
       title: "Internal call target trust is incomplete",
       detail:
-        "At least one traced internal target lacks an explicit trusted record.",
+        "At least one traced internal target lacks known or profile-trusted evidence.",
       addresses: unresolvedInternalTargets.map(
         (assessment) => assessment.address,
       ),
