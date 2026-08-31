@@ -6,6 +6,8 @@ The project is currently at **Sprint 2 / ingestion**. The UI verifies and bookma
 
 The resumable ingestion pipeline is also available: imports enqueue four independent history streams, signed queue callbacks persist one page at a time, and the production cron starts a bounded sweep every five minutes.
 
+Storage changes retain their raw slot and before/after values. A variable name is shown only when verified Sourcify metadata proves one exact, full-width, in-place storage-layout entry; packed, dynamic, ambiguous, or unavailable layouts remain explicitly raw.
+
 ## Local development
 
 ```bash
