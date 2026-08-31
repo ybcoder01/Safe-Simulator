@@ -18,6 +18,7 @@ import { resolveContractInsight } from "@/lib/api/contract-insight";
 import { resolveEvidenceVerdict } from "@/lib/api/evidence-verdict";
 import { resolveExecutionInsight } from "@/lib/api/execution-insight";
 import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
+import { resolveStorageChangeAnalysis } from "@/lib/api/storage-changes";
 import { resolveExecutionTokenMetadata } from "@/lib/api/token-metadata";
 import {
   safeRouteParamsSchema,
@@ -61,9 +62,10 @@ export default async function TransactionDetailPage({ params }: PageProps) {
   const profileId = parseProfileId(cookieStore.get(PROFILE_COOKIE)?.value);
   const chain = getChainPort();
   const safeData = getSafeDataPort();
+  const abi = getAbiPort();
   const [transaction, insight, execution, addressBook] = await Promise.all([
     Promise.resolve(toTransactionView(persisted)),
-    resolveContractInsight(safeData, getAbiPort(), persisted),
+    resolveContractInsight(safeData, abi, persisted),
     resolveExecutionInsight(
       getSimulationPort(),
       persisted,
@@ -74,7 +76,7 @@ export default async function TransactionDetailPage({ params }: PageProps) {
       ? persistence.listAddressBookEntries(profileId, safe.data)
       : Promise.resolve([]),
   ]);
-  const [approvalRisk, tokenMetadata] = await Promise.all([
+  const [approvalRisk, tokenMetadata, storageAnalysis] = await Promise.all([
     resolveApprovalRisk(chain, persisted, insight, execution),
     resolveExecutionTokenMetadata(
       chain,
@@ -82,6 +84,7 @@ export default async function TransactionDetailPage({ params }: PageProps) {
       persisted.safe.chainId,
       execution,
     ),
+    resolveStorageChangeAnalysis(abi, persisted.safe.chainId, execution),
   ]);
   const verdict = resolveEvidenceVerdict(
     persisted,
@@ -89,6 +92,7 @@ export default async function TransactionDetailPage({ params }: PageProps) {
     execution,
     addressBook,
     approvalRisk,
+    storageAnalysis,
   );
   const tokenMetadataByAddress = new Map(
     tokenMetadata.items.map((metadata) => [
@@ -297,23 +301,44 @@ export default async function TransactionDetailPage({ params }: PageProps) {
               The complete trace contains no internal calls.
             </div>
           ) : null}
-          {execution.storageChanges.slice(0, 40).map((change, index) => (
+          {storageAnalysis.items.length > 0 ? (
+            <div className="calldata">
+              <span>Storage interpretation</span>
+              <strong>
+                {storageAnalysis.namedCount} named · {storageAnalysis.rawCount}{" "}
+                raw
+              </strong>
+              {storageAnalysis.warnings.map((warning) => (
+                <code key={warning}>{warning}</code>
+              ))}
+            </div>
+          ) : null}
+          {storageAnalysis.items.slice(0, 40).map((change, index) => (
             <div
               className="calldata"
               key={`storage-${index}-${change.address}-${change.slot}`}
             >
-              <span>Raw storage slot change</span>
-              <strong>{change.address}</strong>
+              <span>
+                {change.status === "named"
+                  ? "Named storage slot · verified layout"
+                  : "Unrecognized raw storage slot change"}
+              </span>
+              <strong>
+                {change.status === "named"
+                  ? `${change.contractLabel ? `${change.contractLabel} · ` : ""}${change.label} · ${change.type}`
+                  : change.address}
+              </strong>
+              {change.status === "named" ? <code>{change.address}</code> : null}
               <code>{change.slot}</code>
               <code>
                 {change.before} → {change.after}
               </code>
             </div>
           ))}
-          {execution.storageChanges.length > 40 ? (
+          {storageAnalysis.items.length > 40 ? (
             <div className="panel-empty">
-              {execution.storageChanges.length - 40} additional storage changes
-              are available through the transaction API.
+              {storageAnalysis.items.length - 40} additional storage changes are
+              available through the transaction API.
             </div>
           ) : null}
           {execution.coverage.storageDiff === "complete" &&
