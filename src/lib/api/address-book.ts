@@ -1,7 +1,8 @@
 import { getAddress } from "viem";
 import { z } from "zod";
 
-import type { AddressBookEntry } from "@/core/domain";
+import { findContractRegistryEntry } from "@/core/analysis/trust/contract-registry";
+import type { Address, AddressBookEntry } from "@/core/domain";
 
 const addressSchema = z
   .string()
@@ -26,4 +27,43 @@ export interface AddressBookView {
 
 export function toAddressBookView(entry: AddressBookEntry): AddressBookView {
   return entry;
+}
+
+export interface AddressDisplay {
+  readonly label: string;
+  readonly trust: "trusted" | "flagged" | "known";
+  readonly source: "profile" | "registry";
+}
+
+export function resolveAddressDisplay(
+  chainId: number,
+  address: string,
+  entries: readonly AddressBookView[],
+): AddressDisplay | null {
+  const normalized = addressSchema.safeParse(address);
+  if (!normalized.success) return null;
+
+  const profileEntry = entries.find(
+    (entry) => entry.address.toLowerCase() === normalized.data.toLowerCase(),
+  );
+  if (profileEntry) {
+    return {
+      label: profileEntry.label,
+      trust: profileEntry.trust,
+      source: "profile",
+    };
+  }
+
+  if (chainId !== 1 && chainId !== 50) return null;
+  const registryEntry = findContractRegistryEntry(
+    chainId,
+    normalized.data as Address,
+  );
+  return registryEntry
+    ? {
+        label: registryEntry.label,
+        trust: "known",
+        source: "registry",
+      }
+    : null;
 }
