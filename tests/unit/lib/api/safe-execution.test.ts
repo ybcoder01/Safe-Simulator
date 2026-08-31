@@ -23,7 +23,7 @@ const safeTxHash =
   "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" as Hex;
 
 function signature(byte: string, v = "1b"): Hex {
-  return (`0x${byte.repeat(64)}${v}`) as Hex;
+  return `0x${byte.repeat(64)}${v}` as Hex;
 }
 
 function confirmation(owner: Address, value: Hex): Confirmation {
@@ -154,7 +154,10 @@ describe("buildSafeExecutionRequest", () => {
     const result = buildSafeExecutionRequest(
       transaction(),
       payload(
-        [confirmation(ownerA, signature("11")), confirmation(ownerB, signature("22"))],
+        [
+          confirmation(ownerA, signature("11")),
+          confirmation(ownerB, signature("22")),
+        ],
         { value: 4n },
       ),
       snapshot(),
@@ -183,7 +186,7 @@ describe("buildSafeExecutionRequest", () => {
   });
 
   it("rejects non-owner, dynamic, and contract-signature heads rather than approximating", () => {
-    const dynamicSignature = (`0x${"33".repeat(96)}`) as Hex;
+    const dynamicSignature = `0x${"33".repeat(96)}` as Hex;
     const contractHead = signature("44", "00");
     const result = buildSafeExecutionRequest(
       transaction(),
