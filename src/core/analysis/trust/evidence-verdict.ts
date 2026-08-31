@@ -50,6 +50,10 @@ export interface EvidenceVerdictInput {
     readonly to: Address;
     readonly operation: Operation;
   }[];
+  readonly storageChanges?: readonly {
+    readonly address: Address;
+    readonly recognized: boolean;
+  }[];
   readonly addressBook: readonly AddressBookEntry[];
   readonly registry?: readonly ContractRegistryEntry[];
   readonly callTrace: "complete" | "partial" | "root-only" | "unavailable";
@@ -406,17 +410,39 @@ export function evaluateEvidenceVerdict(
     });
   }
 
+  const unrecognizedStorageAddresses = uniqueAddresses(
+    (input.storageChanges ?? [])
+      .filter((change) => !change.recognized)
+      .map((change) => change.address),
+  );
+  if (unrecognizedStorageAddresses.length > 0) {
+    findings.push({
+      code: "unrecognized-storage-change",
+      severity: "warning",
+      title: "Unrecognized storage changes require review",
+      detail:
+        "One or more changed slots could not be mapped to a single full-width variable from verified layout metadata.",
+      addresses: unrecognizedStorageAddresses,
+    });
+  }
+
   const traceDetail =
     input.callTrace === "complete"
       ? "Traced internal targets and delegate calls are evaluated."
       : input.callTrace === "partial"
         ? "Visible internal targets and delegate calls are evaluated, but the trace was truncated by safety bounds."
         : "Internal calls are not evaluated because no usable trace was returned.";
+  const storageItems = input.storageChanges ?? [];
+  const namedStorageCount = storageItems.filter(
+    (change) => change.recognized,
+  ).length;
   const storageDetail =
     input.storageDiff === "complete"
-      ? "Raw storage slots are displayed but are not semantically scored."
+      ? storageItems.length > 0
+        ? `${namedStorageCount} of ${storageItems.length} storage changes are mapped to exact full-width variables from verified layouts; all raw values remain displayed.`
+        : "The complete diff contains no storage changes."
       : input.storageDiff === "partial"
-        ? "A bounded subset of raw storage slots is displayed but is not semantically scored."
+        ? `A bounded subset of storage changes is displayed; ${namedStorageCount} visible changes are mapped to exact full-width variables from verified layouts.`
         : "Storage changes are unavailable.";
   const evidenceDetail =
     input.outcome === "on-chain-receipt"
