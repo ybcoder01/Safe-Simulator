@@ -54,7 +54,9 @@ export function MessageHistory({
         readonly error?: { readonly message?: string };
       };
       if (!response.ok || !body.data) {
-        throw new Error(body.error?.message ?? "Could not load signed messages.");
+        throw new Error(
+          body.error?.message ?? "Could not load signed messages.",
+        );
       }
 
       const incoming = body.data;
