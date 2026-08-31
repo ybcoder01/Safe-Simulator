@@ -58,7 +58,9 @@ export function appendUniqueMessageViews(
   current: readonly MessageView[],
   incoming: readonly MessageView[],
 ): readonly MessageView[] {
-  const known = new Set(current.map((message) => message.messageHash.toLowerCase()));
+  const known = new Set(
+    current.map((message) => message.messageHash.toLowerCase()),
+  );
   const merged = [...current];
 
   for (const message of incoming) {
