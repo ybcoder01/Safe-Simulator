@@ -20,7 +20,9 @@ export interface StorageChangeAnalysis {
   readonly warnings: readonly string[];
 }
 
-function uniqueAddresses(changes: readonly StorageChange[]): readonly Address[] {
+function uniqueAddresses(
+  changes: readonly StorageChange[],
+): readonly Address[] {
   const addresses = new Map<string, Address>();
   for (const change of changes) {
     const key = change.address.toLowerCase();
