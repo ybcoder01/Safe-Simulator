@@ -56,6 +56,26 @@ export interface TransactionView {
   readonly blockHash: string | null;
 }
 
+export function transactionMatchesSearch(
+  transaction: TransactionView,
+  query: string,
+  targetLabel: string | null = null,
+): boolean {
+  const normalized = query.trim().toLowerCase();
+  if (!normalized) return true;
+
+  return [
+    transaction.safeTxHash,
+    transaction.executedTxHash,
+    transaction.nonce,
+    transaction.to,
+    transaction.summary,
+    transaction.status,
+    transaction.operation,
+    targetLabel,
+  ].some((value) => value?.toLowerCase().includes(normalized));
+}
+
 export interface TransactionGroups {
   readonly pending: readonly TransactionView[];
   readonly history: readonly TransactionView[];

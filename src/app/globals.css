@@ -1135,6 +1135,64 @@ select {
   padding: 22px;
 }
 
+.activity-search {
+  display: grid;
+  gap: 9px;
+  margin-top: 30px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.012);
+}
+
+.activity-search label {
+  display: grid;
+  grid-template-columns: minmax(150px, auto) minmax(240px, 1fr);
+  gap: 16px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.activity-search input {
+  min-width: 0;
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  outline: none;
+  color: var(--text);
+  background: #07110d;
+  font: inherit;
+}
+
+.activity-search input:focus {
+  border-color: rgba(101, 242, 172, 0.5);
+}
+
+.activity-search > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.activity-search p {
+  margin: 0;
+  color: var(--faint);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.activity-search button {
+  border: 0;
+  color: var(--green);
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: 10px;
+}
+
 .pending-panel {
   margin-top: 30px;
   border-color: rgba(246, 200, 111, 0.18);
@@ -1409,6 +1467,11 @@ select {
   .dashboard-panel,
   .detail-panel {
     padding: 17px;
+  }
+
+  .activity-search label {
+    grid-template-columns: 1fr;
+    gap: 8px;
   }
   .pending-action-card {
     grid-template-columns: 1fr;
