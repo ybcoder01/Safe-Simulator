@@ -1,6 +1,7 @@
 import type {
   Address,
   AddressBookEntry,
+  ChainId,
   Finding,
   Operation,
   Verdict,
@@ -17,6 +18,7 @@ export type AddressRole =
   | "internal-target";
 
 export interface EvidenceVerdictInput {
+  readonly chainId: ChainId;
   readonly operation: Operation;
   readonly target: Address;
   readonly targetVerified: boolean;
@@ -123,6 +125,7 @@ function assessAddresses(
 
   const registry = new Map<string, ContractRegistryEntry>();
   for (const entry of input.registry ?? []) {
+    if (entry.chainId !== input.chainId) continue;
     registry.set(addressKey(entry.address), entry);
   }
 
