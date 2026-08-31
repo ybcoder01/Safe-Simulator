@@ -61,6 +61,22 @@ export interface SafeTransaction {
   readonly blockHash: Hex | null;
 }
 
+export interface SafeExecutionPayload {
+  readonly safe: SafeRef;
+  readonly safeTxHash: Hex;
+  readonly nonce: bigint;
+  readonly to: Address;
+  readonly value: bigint;
+  readonly data: Hex;
+  readonly operation: Operation;
+  readonly safeTxGas: bigint;
+  readonly baseGas: bigint;
+  readonly gasPrice: bigint;
+  readonly gasToken: Address | null;
+  readonly refundReceiver: Address | null;
+  readonly confirmations: readonly Confirmation[];
+}
+
 export interface ModuleTransaction {
   readonly safe: SafeRef;
   readonly module: Address;
