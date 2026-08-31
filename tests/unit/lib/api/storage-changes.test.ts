@@ -44,7 +44,8 @@ function metadata(target: Address): ContractMetadata {
 
 describe("resolveStorageChangeAnalysis", () => {
   it("bounds metadata lookups and leaves later contracts raw", async () => {
-    const getContractMetadata = vi.fn(async (_chainId, target: Address) =>
+    const getContractMetadata = vi.fn(
+      async (_chainId: number, target: Address) =>
       metadata(target),
     );
     const storageChanges = Array.from({ length: 21 }, (_, index) => ({
