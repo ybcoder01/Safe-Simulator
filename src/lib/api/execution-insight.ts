@@ -497,6 +497,7 @@ export async function resolveExecutionInsight(
         output,
         transaction.safe.address,
       );
+      const persistableInsight = insight;
       const replayAnchorMismatch =
         replayTransaction.blockHash &&
         output.blockHash.toLowerCase() !==
@@ -533,7 +534,7 @@ export async function resolveExecutionInsight(
             stores,
             replayTransaction,
             output,
-            insight,
+            persistableInsight,
           );
         }
       }
