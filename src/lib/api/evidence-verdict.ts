@@ -48,6 +48,7 @@ export function resolveEvidenceVerdict(
         newSpenderAtAnchor: null,
       }));
   const input = {
+    chainId: transaction.safe.chainId,
     operation: transaction.operation,
     target: transaction.to,
     targetVerified: contract.metadata.verified,
