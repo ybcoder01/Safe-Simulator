@@ -6,6 +6,7 @@ import type {
   SafeSnapshot,
 } from "../../../../src/core/domain";
 import { resolveSafeDiscovery } from "../../../../src/lib/api/safe-discovery";
+import { discoverSafesInputSchema } from "../../../../src/lib/api/safes";
 
 function address(index: number): Address {
   return `0x${index.toString(16).padStart(40, "0")}` as Address;
@@ -74,3 +75,26 @@ describe("resolveSafeDiscovery", () => {
     expect(result.items[0]).toMatchObject({ imported: false });
   });
 });
+describe("discoverSafesInputSchema", () => {
+  it("coerces supported query parameters and normalizes the owner", () => {
+    expect(
+      discoverSafesInputSchema.parse({
+        chainId: "50",
+        owner: "0x1111111111111111111111111111111111111111",
+      }),
+    ).toEqual({
+      chainId: 50,
+      owner: "0x1111111111111111111111111111111111111111",
+    });
+  });
+
+  it("rejects unsupported chains and malformed owner addresses", () => {
+    expect(
+      discoverSafesInputSchema.safeParse({
+        chainId: "10",
+        owner: "not-an-address",
+      }).success,
+    ).toBe(false);
+  });
+});
+
