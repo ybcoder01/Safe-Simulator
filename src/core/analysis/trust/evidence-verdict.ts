@@ -471,6 +471,6 @@ export function evaluateEvidenceVerdict(
             : "target-and-call-only"
           : "target-only",
     trustBoundary:
-      "Trusted requires an explicit profile-specific record. Registry and verified-source evidence can establish known, never trusted. Critical evidence always takes precedence.",
+      "Trusted is never inferred: it requires an explicit profile-specific record. Registry and verified-source evidence can establish known, never trusted. Critical evidence always takes precedence.",
   };
 }
