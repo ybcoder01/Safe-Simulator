@@ -107,8 +107,9 @@ function storageLayout(value: unknown): StorageLayout | null {
       typeof item.slot !== "string" ||
       typeof item.label !== "string" ||
       typeof item.type !== "string" ||
+      typeof item.offset !== "number" ||
       !Number.isInteger(item.offset) ||
-      (item.offset as number) < 0
+      item.offset < 0
     ) {
       return [];
     }
@@ -127,7 +128,7 @@ function storageLayout(value: unknown): StorageLayout | null {
           slot: toHex(numericSlot, { size: 32 }) as Hex,
           label: item.label,
           type: typeof type?.label === "string" ? type.label : item.type,
-          offset: item.offset as number,
+          offset: item.offset,
           numberOfBytes:
             Number.isSafeInteger(byteLength) && byteLength >= 0
               ? byteLength
