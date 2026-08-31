@@ -26,6 +26,12 @@ function signature(byte: string, v = "1b"): Hex {
   return `0x${byte.repeat(64)}${v}` as Hex;
 }
 
+function prevalidatedSignature(owner: Address): Hex {
+  return (
+    `0x${"0".repeat(24)}${owner.slice(2)}${"0".repeat(64)}01`
+  ) as Hex;
+}
+
 function confirmation(owner: Address, value: Hex): Confirmation {
   return { owner, signature: value, signedAt: 1 };
 }
@@ -134,7 +140,7 @@ describe("buildSafeExecutionRequest", () => {
   });
 
   it("uses a prevalidated signature owner as the read-only caller", () => {
-    const prevalidated = signature("00", "01");
+    const prevalidated = prevalidatedSignature(ownerB);
     const result = buildSafeExecutionRequest(
       transaction(),
       payload([
@@ -193,6 +199,7 @@ describe("buildSafeExecutionRequest", () => {
       payload([
         confirmation(ownerA, dynamicSignature),
         confirmation(ownerB, contractHead),
+        confirmation(ownerC, signature("55", "01")),
         confirmation(
           "0x0000000000000000000000000000000000000099" as Address,
           signature("55"),
