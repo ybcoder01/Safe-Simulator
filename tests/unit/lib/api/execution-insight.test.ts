@@ -448,6 +448,41 @@ describe("resolveExecutionInsight", () => {
     expect(state.set).toHaveBeenCalledTimes(1);
   });
 
+  it("bypasses cached evidence when the canonical anchor check is unavailable", async () => {
+    const state = evidenceStores({
+      safe: transaction().safe,
+      safeTxHash,
+      engineVersion: EXECUTION_EVIDENCE_ENGINE_VERSION,
+      blockHash,
+      simulation: output,
+      createdAt: 1,
+    });
+    const sources = pendingSources(transaction());
+    vi.mocked(sources.chain.getTransactionBlock).mockRejectedValue(
+      new Error("anchor unavailable"),
+    );
+    const port = simulation();
+
+    const result = await resolveExecutionInsight(
+      port,
+      transaction(),
+      state.stores,
+      sources,
+    );
+
+    expect(state.findExecutionEvidence).not.toHaveBeenCalled();
+    expect(port.replay).toHaveBeenCalledTimes(1);
+    expect(result.warnings).toContain(
+      "The canonical block anchor could not be checked independently. Cached evidence was bypassed and the current receipt was replayed.",
+    );
+    expect(state.saveExecutionEvidence).toHaveBeenCalledWith(
+      expect.objectContaining({
+        blockHash,
+        simulation: output,
+      }),
+    );
+  });
+
   it("bypasses stale evidence and replays the canonical receipt after a reorganization", async () => {
     const changedBlockHash =
       "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee" as Hex;
