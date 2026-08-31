@@ -1,9 +1,4 @@
-import type {
-  Address,
-  ContractMetadata,
-  Hex,
-  StorageChange,
-} from "../../domain";
+import type { ContractMetadata, StorageChange } from "../../domain";
 
 export interface InterpretedStorageChange extends StorageChange {
   readonly status: "named" | "raw";
