@@ -162,15 +162,16 @@ export function AddressBookEditor({
         <div className="trust-suggestions">
           <p>Classify addresses found in this transaction</p>
           {availableSuggestions.map((suggestion) => {
-            const saving =
-              quickSaving === suggestion.address.toLowerCase();
+            const saving = quickSaving === suggestion.address.toLowerCase();
             return (
               <div
                 className="trust-suggestion"
                 key={suggestion.address.toLowerCase()}
               >
                 <div>
-                  <span>{suggestion.roles.join(" · ") || "involved address"}</span>
+                  <span>
+                    {suggestion.roles.join(" · ") || "involved address"}
+                  </span>
                   <strong>{suggestedAddressBookLabel(suggestion)}</strong>
                   <code>{suggestion.address}</code>
                 </div>
