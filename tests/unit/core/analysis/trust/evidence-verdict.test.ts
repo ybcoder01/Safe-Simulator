@@ -304,4 +304,30 @@ describe("evaluateEvidenceVerdict", () => {
       expect.arrayContaining(["delegatecall-operation", "infinite-allowance"]),
     );
   });
+  it("requires review when a storage change cannot be recognized", () => {
+    const raw = evaluateEvidenceVerdict(
+      input({
+        storageDiff: "complete",
+        storageChanges: [{ address: target, recognized: false }],
+      }),
+    );
+    const named = evaluateEvidenceVerdict(
+      input({
+        storageDiff: "complete",
+        storageChanges: [{ address: target, recognized: true }],
+      }),
+    );
+
+    expect(raw.verdict).toBe("unverified");
+    expect(raw.findings).toContainEqual(
+      expect.objectContaining({
+        code: "unrecognized-storage-change",
+        severity: "warning",
+        addresses: [target],
+      }),
+    );
+    expect(named.findings.map((finding) => finding.code)).not.toContain(
+      "unrecognized-storage-change",
+    );
+  });
 });

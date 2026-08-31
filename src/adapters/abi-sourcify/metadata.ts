@@ -1,4 +1,4 @@
-import { getAddress, isAddress } from "viem";
+import { getAddress, isAddress, toHex } from "viem";
 
 import { findContractRegistryEntry } from "@/core/analysis/trust/contract-registry";
 import type {
@@ -8,6 +8,7 @@ import type {
   ChainId,
   ContractMetadata,
   Hex,
+  StorageLayout,
 } from "@/core/domain";
 import type { AbiPort, ChainPort } from "@/core/ports";
 
@@ -92,6 +93,55 @@ function addressFromWord(value: Hex | undefined): Address | null {
   } catch {
     return null;
   }
+}
+
+function storageLayout(value: unknown): StorageLayout | null {
+  const layout = record(value);
+  if (!layout || !Array.isArray(layout.storage)) return null;
+
+  const types = record(layout.types);
+  const slots = layout.storage.flatMap((value) => {
+    const item = record(value);
+    if (
+      !item ||
+      typeof item.slot !== "string" ||
+      typeof item.label !== "string" ||
+      typeof item.type !== "string" ||
+      typeof item.offset !== "number" ||
+      !Number.isInteger(item.offset) ||
+      item.offset < 0
+    ) {
+      return [];
+    }
+
+    try {
+      const numericSlot = BigInt(item.slot);
+      if (numericSlot < 0n) return [];
+      const type = record(types?.[item.type]);
+      const byteLength =
+        typeof type?.numberOfBytes === "string"
+          ? Number(type.numberOfBytes)
+          : Number.NaN;
+
+      return [
+        {
+          slot: toHex(numericSlot, { size: 32 }) as Hex,
+          label: item.label,
+          type: typeof type?.label === "string" ? type.label : item.type,
+          offset: item.offset,
+          numberOfBytes:
+            Number.isSafeInteger(byteLength) && byteLength >= 0
+              ? byteLength
+              : null,
+          encoding: typeof type?.encoding === "string" ? type.encoding : null,
+        },
+      ];
+    } catch {
+      return [];
+    }
+  });
+
+  return slots.length > 0 ? { slots } : null;
 }
 
 function unknownMetadata(
@@ -209,7 +259,7 @@ export class PublicAbiAdapter implements AbiPort {
   ): Promise<ContractMetadata | null> {
     try {
       const response = await this.fetcher(
-        `${SOURCIFY_CONTRACT_API}/${chainId}/${address}?fields=abi,compilation`,
+        `${SOURCIFY_CONTRACT_API}/${chainId}/${address}?fields=abi,compilation,storageLayout`,
         { cache: "force-cache" },
       );
       if (!response.ok) return null;
@@ -229,7 +279,7 @@ export class PublicAbiAdapter implements AbiPort {
         verified: true,
         abi: functions,
         implementation: null,
-        storageLayout: null,
+        storageLayout: storageLayout(body.storageLayout),
         source: "sourcify",
       };
     } catch {

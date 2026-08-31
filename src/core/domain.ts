@@ -209,6 +209,9 @@ export interface StorageLayout {
     readonly slot: Hex;
     readonly label: string;
     readonly type: string;
+    readonly offset: number;
+    readonly numberOfBytes: number | null;
+    readonly encoding: string | null;
   }[];
 }
 

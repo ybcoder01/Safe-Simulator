@@ -9,6 +9,7 @@ import type { Address, AddressBookEntry, SafeTransaction } from "@/core/domain";
 import type { ApprovalRiskResult } from "@/lib/api/approval-risk";
 import type { ContractInsight } from "@/lib/api/contract-insight";
 import type { ExecutionInsight } from "@/lib/api/execution-insight";
+import type { StorageChangeAnalysis } from "@/lib/api/storage-changes";
 
 function decodeConfidence(
   provenance: ContractInsight["provenance"],
@@ -31,6 +32,7 @@ export function resolveEvidenceVerdict(
   execution: ExecutionInsight,
   addressBook: readonly AddressBookEntry[],
   approvalRisk: ApprovalRiskResult | null = null,
+  storageAnalysis: StorageChangeAnalysis | null = null,
 ): EvidenceVerdict {
   const executedAllowances = approvalRisk
     ? approvalRisk.executedChanges.map((allowance) => ({
@@ -72,6 +74,11 @@ export function resolveEvidenceVerdict(
       to: call.to as Address,
       operation: call.operation,
     })),
+    storageChanges:
+      storageAnalysis?.items.map((change) => ({
+        address: change.address,
+        recognized: change.status === "named",
+      })) ?? [],
     addressBook,
     registry: contractRegistryEntriesForChain(transaction.safe.chainId),
     callTrace: execution.coverage.callTrace,

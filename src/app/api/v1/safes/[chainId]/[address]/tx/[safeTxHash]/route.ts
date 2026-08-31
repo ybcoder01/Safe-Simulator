@@ -13,6 +13,7 @@ import { resolveContractInsight } from "@/lib/api/contract-insight";
 import { resolveEvidenceVerdict } from "@/lib/api/evidence-verdict";
 import { resolveExecutionInsight } from "@/lib/api/execution-insight";
 import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
+import { resolveStorageChangeAnalysis } from "@/lib/api/storage-changes";
 import { resolveExecutionTokenMetadata } from "@/lib/api/token-metadata";
 import {
   safeRouteParamsSchema,
@@ -66,8 +67,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const profileId = parseProfileId(request.cookies.get(PROFILE_COOKIE)?.value);
   const chain = getChainPort();
   const safeData = getSafeDataPort();
+  const abi = getAbiPort();
   const [insight, execution, addressBook] = await Promise.all([
-    resolveContractInsight(safeData, getAbiPort(), transaction),
+    resolveContractInsight(safeData, abi, transaction),
     resolveExecutionInsight(
       getSimulationPort(),
       transaction,
@@ -79,7 +81,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       : Promise.resolve([]),
   ]);
 
-  const [approvalRisk, tokenMetadata] = await Promise.all([
+  const [approvalRisk, tokenMetadata, storageAnalysis] = await Promise.all([
     resolveApprovalRisk(chain, transaction, insight, execution),
     resolveExecutionTokenMetadata(
       chain,
@@ -87,6 +89,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       transaction.safe.chainId,
       execution,
     ),
+    resolveStorageChangeAnalysis(abi, transaction.safe.chainId, execution),
   ]);
   const verdict = resolveEvidenceVerdict(
     transaction,
@@ -94,6 +97,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     execution,
     addressBook,
     approvalRisk,
+    storageAnalysis,
   );
 
   return NextResponse.json({
@@ -103,6 +107,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       execution,
       approvalRisk,
       tokenMetadata,
+      storageAnalysis,
       verdict,
     },
   });

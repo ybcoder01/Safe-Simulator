@@ -54,6 +54,26 @@ describe("PublicAbiAdapter", () => {
           { type: "event", name: "Approval", inputs: [] },
         ],
         compilation: { name: "TestToken" },
+
+        storageLayout: {
+          storage: [
+            {
+              astId: 1,
+              contract: "contracts/TestToken.sol:TestToken",
+              label: "totalSupply",
+              offset: 0,
+              slot: "2",
+              type: "t_uint256",
+            },
+          ],
+          types: {
+            t_uint256: {
+              encoding: "inplace",
+              label: "uint256",
+              numberOfBytes: "32",
+            },
+          },
+        },
       }),
     );
     const adapter = new PublicAbiAdapter(
@@ -70,10 +90,22 @@ describe("PublicAbiAdapter", () => {
       source: "sourcify",
       implementation: null,
       abi: [{ type: "function", name: "approve" }],
+      storageLayout: {
+        slots: [
+          {
+            slot: "0x0000000000000000000000000000000000000000000000000000000000000002",
+            label: "totalSupply",
+            type: "uint256",
+            offset: 0,
+            numberOfBytes: 32,
+            encoding: "inplace",
+          },
+        ],
+      },
     });
     expect(fetcher).toHaveBeenCalledWith(
       expect.stringContaining(
-        `/v2/contract/50/${target}?fields=abi,compilation`,
+        `/v2/contract/50/${target}?fields=abi,compilation,storageLayout`,
       ),
       { cache: "force-cache" },
     );

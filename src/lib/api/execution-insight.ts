@@ -331,7 +331,7 @@ function coverageWarnings(
 
   if (storageDiff === "complete") {
     warnings.push(
-      "Storage changes are raw slot differences from prestate tracer diff mode; unmapped slots are not interpreted.",
+      "Storage changes come from prestate tracer diff mode; exact verified layout matches are interpreted separately while every raw slot remains available.",
     );
   } else if (storageDiff === "partial") {
     warnings.push(
@@ -350,7 +350,9 @@ function coverageWarnings(
       "Token facts recognize canonical ERC-20-shaped events; an emitted event does not prove standard compliance.",
     );
   } else {
-    warnings.push("Event logs are not returned by the direct call check.");
+    warnings.push(
+      "Event logs are not returned by the read-only Safe execution check.",
+    );
   }
 
   return warnings;
