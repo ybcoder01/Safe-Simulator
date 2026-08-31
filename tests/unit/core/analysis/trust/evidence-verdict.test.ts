@@ -330,5 +330,4 @@ describe("evaluateEvidenceVerdict", () => {
       "unrecognized-storage-change",
     );
   });
-
 });
