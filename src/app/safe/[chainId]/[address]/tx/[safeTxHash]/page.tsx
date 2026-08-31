@@ -242,6 +242,7 @@ export default async function TransactionDetailPage({ params }: PageProps) {
             </div>
             <div>
               <dt>Block</dt>
+
               <dd>{execution.blockNumber ?? "Latest state"}</dd>
             </div>
             <div>
