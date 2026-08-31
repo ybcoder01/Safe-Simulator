@@ -104,7 +104,10 @@ export interface ExecutionEvidenceStores {
 }
 
 export interface PendingExecutionSources {
-  readonly chain: Pick<ChainPort, "getSafeSnapshot">;
+  readonly chain: Pick<
+    ChainPort,
+    "getSafeSnapshot" | "getTransactionBlock"
+  >;
   readonly safeData: Pick<SafeDataPort, "getMultisigTransaction">;
 }
 
@@ -450,9 +453,39 @@ export async function resolveExecutionInsight(
 ): Promise<ExecutionInsight> {
   try {
     if (transaction.executedTxHash) {
-      const stored = stores
-        ? await findStoredExecutionInsight(stores, transaction)
-        : null;
+      let replayTransaction = transaction;
+      let anchorStatus: "not-checked" | "unchanged" | "changed" | "unavailable" =
+        "not-checked";
+
+      if (pendingSources && transaction.blockHash) {
+        try {
+          const anchor = await pendingSources.chain.getTransactionBlock(
+            transaction.safe.chainId,
+            transaction.executedTxHash,
+          );
+          anchorStatus =
+            anchor.blockHash.toLowerCase() ===
+            transaction.blockHash.toLowerCase()
+              ? "unchanged"
+              : "changed";
+          if (anchorStatus === "changed") {
+            replayTransaction = {
+              ...transaction,
+              blockNumber: anchor.blockNumber,
+              blockHash: anchor.blockHash,
+            };
+          }
+        } catch {
+          anchorStatus = "unavailable";
+        }
+      }
+
+      const stored =
+        stores &&
+        anchorStatus !== "changed" &&
+        anchorStatus !== "unavailable"
+          ? await findStoredExecutionInsight(stores, transaction)
+          : null;
       if (stored) return stored;
 
       const output = await simulation.replay(
@@ -464,19 +497,45 @@ export async function resolveExecutionInsight(
         output,
         transaction.safe.address,
       );
-      if (
-        transaction.blockHash &&
-        output.blockHash.toLowerCase() !== transaction.blockHash.toLowerCase()
-      ) {
+      const replayAnchorMismatch =
+        replayTransaction.blockHash &&
+        output.blockHash.toLowerCase() !==
+          replayTransaction.blockHash.toLowerCase();
+
+      if (replayAnchorMismatch) {
         insight = {
           ...insight,
           warnings: [
             ...insight.warnings,
-            "The replay block hash differs from the persisted transaction; this evidence was not cached.",
+            "The replay block hash differs from the canonical transaction anchor; this evidence was not cached.",
           ],
         };
-      } else if (stores) {
-        await persistExecutionInsight(stores, transaction, output, insight);
+      } else if (anchorStatus === "changed") {
+        insight = {
+          ...insight,
+          warnings: [
+            ...insight.warnings,
+            "The stored block anchor is no longer canonical. Cached evidence was bypassed and the current receipt was replayed; persistence will refresh during synchronization.",
+          ],
+        };
+      } else {
+        if (anchorStatus === "unavailable") {
+          insight = {
+            ...insight,
+            warnings: [
+              ...insight.warnings,
+              "The canonical block anchor could not be checked independently. Cached evidence was bypassed and the current receipt was replayed.",
+            ],
+          };
+        }
+        if (stores) {
+          await persistExecutionInsight(
+            stores,
+            replayTransaction,
+            output,
+            insight,
+          );
+        }
       }
       return insight;
     }
