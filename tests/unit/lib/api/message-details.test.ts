@@ -45,11 +45,12 @@ describe("signed-message API view models", () => {
     const first = toMessageView(message("first", []), 1);
     const second = {
       ...toMessageView(message("second", []), 1),
-      messageHash: `0x${"b".repeat(64)}`,
+      messageHash: `0x${"b".repeat(64)}` as SafeMessage["messageHash"],
     };
     const duplicateWithDifferentCase = {
       ...first,
-      messageHash: first.messageHash.toUpperCase(),
+      messageHash:
+        first.messageHash.toUpperCase() as SafeMessage["messageHash"],
     };
 
     expect(
