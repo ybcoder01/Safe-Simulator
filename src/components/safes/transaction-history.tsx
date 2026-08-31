@@ -9,6 +9,7 @@ import {
 } from "@/lib/api/address-book";
 import {
   groupTransactionViews,
+  transactionMatchesSearch,
   type TransactionView,
 } from "@/lib/api/safe-details";
 
@@ -79,8 +80,14 @@ export function TransactionHistory({
   const [nextCursor, setNextCursor] = useState(initialCursor);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
   const basePath = `/safe/${chainId}/${address}`;
-  const grouped = groupTransactionViews(transactions);
+  const filteredTransactions = transactions.filter((transaction) => {
+    const target = resolveAddressDisplay(chainId, transaction.to, addressBook);
+    return transactionMatchesSearch(transaction, query, target?.label ?? null);
+  });
+  const grouped = groupTransactionViews(filteredTransactions);
+  const searching = query.trim().length > 0;
 
   async function loadMore() {
     if (!nextCursor || loading) return;
@@ -121,6 +128,33 @@ export function TransactionHistory({
 
   return (
     <>
+      <section className="activity-search" aria-labelledby="activity-search-title">
+        <label htmlFor="activity-search">
+          <span id="activity-search-title">Search loaded activity</span>
+          <input
+            autoComplete="off"
+            id="activity-search"
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Label, address, nonce, summary, or hash"
+            spellCheck={false}
+            type="search"
+            value={query}
+          />
+        </label>
+        <div>
+          <p aria-live="polite">
+            {searching
+              ? `${filteredTransactions.length} of ${transactions.length} loaded transactions match.`
+              : "Search stays in this browser and covers loaded transactions only."}
+          </p>
+          {searching ? (
+            <button onClick={() => setQuery("")} type="button">
+              Clear
+            </button>
+          ) : null}
+        </div>
+      </section>
+
       <section
         className="pending-panel"
         aria-labelledby="pending-actions-title"
@@ -138,7 +172,9 @@ export function TransactionHistory({
 
         {grouped.pending.length === 0 ? (
           <div className="pending-empty">
-            No pending Safe actions are present in the loaded activity.
+            {searching
+              ? "No pending actions match this search."
+              : "No pending Safe actions are present in the loaded activity."}
           </div>
         ) : (
           <div className="pending-list">
@@ -202,10 +238,15 @@ export function TransactionHistory({
             <div className="empty-icon" aria-hidden="true">
               ↔
             </div>
-            <h3>No historical Safe transactions loaded</h3>
+            <h3>
+              {searching
+                ? "No historical activity matches"
+                : "No historical Safe transactions loaded"}
+            </h3>
             <p>
-              Executed, failed, and replaced activity will appear here after
-              synchronization.
+              {searching
+                ? "Try another label, address, nonce, summary, or hash."
+                : "Executed, failed, and replaced activity will appear here after synchronization."}
             </p>
           </div>
         ) : (
