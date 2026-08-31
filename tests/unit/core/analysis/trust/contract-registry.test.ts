@@ -7,8 +7,7 @@ import {
 import type { Address } from "../../../../../src/core/domain";
 
 const safeL2 = "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762" as Address;
-const fallbackHandler =
-  "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99" as Address;
+const fallbackHandler = "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99" as Address;
 
 describe("authoritative contract registry", () => {
   it("resolves pinned Safe deployments case-insensitively on supported chains", () => {
@@ -17,10 +16,7 @@ describe("authoritative contract registry", () => {
       source: "safe-deployments",
     });
     expect(
-      findContractRegistryEntry(
-        50,
-        fallbackHandler.toLowerCase() as Address,
-      ),
+      findContractRegistryEntry(50, fallbackHandler.toLowerCase() as Address),
     ).toMatchObject({
       label: "Safe v1.4.1 Compatibility Fallback Handler",
       source: "safe-deployments",
