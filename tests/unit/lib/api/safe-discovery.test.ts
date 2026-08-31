@@ -62,9 +62,9 @@ describe("resolveSafeDiscovery", () => {
 
     const result = await resolveSafeDiscovery(
       {
-        discoverSafesByOwner: vi.fn().mockResolvedValue([
-          { chainId: 1, address: address(1) },
-        ]),
+        discoverSafesByOwner: vi
+          .fn()
+          .mockResolvedValue([{ chainId: 1, address: address(1) }]),
       },
       { listSafesForProfile },
       { chainId: 1, owner: address(999) },
@@ -97,4 +97,3 @@ describe("discoverSafesInputSchema", () => {
     ).toBe(false);
   });
 });
-
