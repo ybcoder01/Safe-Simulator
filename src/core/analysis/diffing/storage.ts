@@ -46,8 +46,8 @@ export function interpretStorageChanges(
       status: exact ? "named" : "raw",
       label: exact?.label ?? null,
       type: exact?.type ?? null,
-      contractLabel: exact ? contract?.label ?? null : null,
-      metadataSource: exact ? contract?.source ?? null : null,
+      contractLabel: exact ? (contract?.label ?? null) : null,
+      metadataSource: exact ? (contract?.source ?? null) : null,
     };
   });
 }
