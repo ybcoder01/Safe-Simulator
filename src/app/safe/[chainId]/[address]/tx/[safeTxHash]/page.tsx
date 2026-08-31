@@ -59,18 +59,21 @@ export default async function TransactionDetailPage({ params }: PageProps) {
 
   const cookieStore = await cookies();
   const profileId = parseProfileId(cookieStore.get(PROFILE_COOKIE)?.value);
+  const chain = getChainPort();
+  const safeData = getSafeDataPort();
   const [transaction, insight, execution, addressBook] = await Promise.all([
     Promise.resolve(toTransactionView(persisted)),
-    resolveContractInsight(getSafeDataPort(), getAbiPort(), persisted),
-    resolveExecutionInsight(getSimulationPort(), persisted, {
-      cache,
-      persistence,
-    }),
+    resolveContractInsight(safeData, getAbiPort(), persisted),
+    resolveExecutionInsight(
+      getSimulationPort(),
+      persisted,
+      { cache, persistence },
+      { chain, safeData },
+    ),
     profileId
       ? persistence.listAddressBookEntries(profileId, safe.data)
       : Promise.resolve([]),
   ]);
-  const chain = getChainPort();
   const [approvalRisk, tokenMetadata] = await Promise.all([
     resolveApprovalRisk(chain, persisted, insight, execution),
     resolveExecutionTokenMetadata(
@@ -211,8 +214,8 @@ export default async function TransactionDetailPage({ params }: PageProps) {
               <h2>
                 {execution.mode === "executed-replay"
                   ? "On-chain replay"
-                  : execution.mode === "direct-call-check"
-                    ? "Read-only call check"
+                  : execution.mode === "safe-execution-check"
+                    ? "Full Safe execution check"
                     : "Execution unavailable"}
               </h2>
             </div>
