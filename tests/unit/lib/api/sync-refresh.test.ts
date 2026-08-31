@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { SafeRef, SyncCursor } from "../../../../src/core/domain";
 import {
+  hasRefreshRequestSettled,
   isRefreshActive,
   isSafeBookmarked,
   queuedRefreshCursors,
@@ -111,6 +112,49 @@ describe("on-demand synchronization refresh", () => {
     expect(isRefreshActive("queued", null, now)).toBe(false);
     expect(isRefreshActive("complete", now, now)).toBe(false);
     expect(isRefreshActive("failed", now, now)).toBe(false);
+  });
+
+  it("settles only the observed refresh request after persisted work finishes", () => {
+    const requestedAt = 10_500;
+
+    expect(
+      hasRefreshRequestSettled(
+        "queued",
+        requestedAt,
+        requestedAt,
+        "complete",
+      ),
+    ).toBe(true);
+    expect(
+      hasRefreshRequestSettled(
+        "running",
+        requestedAt,
+        requestedAt,
+        "failed",
+      ),
+    ).toBe(true);
+    expect(
+      hasRefreshRequestSettled("queued", requestedAt, null, "complete"),
+    ).toBe(false);
+    expect(
+      hasRefreshRequestSettled(
+        "queued",
+        requestedAt + 1,
+        requestedAt,
+        "complete",
+      ),
+    ).toBe(false);
+    expect(
+      hasRefreshRequestSettled(
+        "queued",
+        requestedAt,
+        requestedAt,
+        "syncing",
+      ),
+    ).toBe(false);
+    expect(
+      hasRefreshRequestSettled("error", requestedAt, requestedAt, "failed"),
+    ).toBe(false);
   });
 
   it("deduplicates refreshes in one five-minute bucket", () => {
