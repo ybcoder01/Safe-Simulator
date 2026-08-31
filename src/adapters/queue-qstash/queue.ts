@@ -42,16 +42,13 @@ export function applicationUrl(
 ): string {
   const explicitUrl = environment.APP_BASE_URL?.replace(/\/$/, "");
   if (explicitUrl) return explicitUrl;
-  if (
-    environment.VERCEL_ENV === "production" &&
-    environment.VERCEL_PROJECT_PRODUCTION_URL
-  ) {
+  if (environment.VERCEL_PROJECT_PRODUCTION_URL) {
     return `https://${environment.VERCEL_PROJECT_PRODUCTION_URL.replace(/\/$/, "")}`;
   }
   if (environment.VERCEL_URL) return `https://${environment.VERCEL_URL}`;
   if (isDevelopmentMode(environment)) return "http://localhost:3000";
   throw new Error(
-    "APP_BASE_URL is not configured and VERCEL_URL is unavailable.",
+    "APP_BASE_URL is not configured and no Vercel URL is available.",
   );
 }
 

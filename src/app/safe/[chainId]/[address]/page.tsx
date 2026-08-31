@@ -2,15 +2,19 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { MessageHistory } from "@/components/safes/message-history";
+import { SyncRefreshControl } from "@/components/safes/sync-refresh-control";
 import { TransactionHistory } from "@/components/safes/transaction-history";
 import { getPersistencePort, getSafeDataPort } from "@/container";
 import { toMessageView } from "@/lib/api/message-details";
+import { isRefreshActive } from "@/lib/api/sync-refresh";
 import {
   resolveSyncSummary,
   safeRouteParamsSchema,
   toBalanceView,
   toTransactionView,
 } from "@/lib/api/safe-details";
+
+import { requestSafeRefresh } from "./actions";
 
 interface PageProps {
   readonly params: Promise<{ chainId: string; address: string }>;
@@ -67,6 +71,10 @@ export default async function SafeDashboardPage({ params }: PageProps) {
     toMessageView(message, safe.threshold),
   );
   const chainName = safe.chainId === 1 ? "Ethereum" : "XDC Network";
+  const refreshAction = requestSafeRefresh.bind(null, {
+    chainId: safe.chainId,
+    address: safe.address,
+  });
 
   return (
     <main className="workspace shell">
@@ -123,6 +131,10 @@ export default async function SafeDashboardPage({ params }: PageProps) {
                 )}
               </span>
             )}
+            <SyncRefreshControl
+              action={refreshAction}
+              disabled={isRefreshActive(sync.status, sync.latestActivityAt)}
+            />
           </div>
         </section>
 
