@@ -329,22 +329,6 @@ describe("resolveExecutionInsight", () => {
       blockNumber: null,
       blockHash: null,
     });
-    const sources = pendingSources(pending, {
-      payload: {
-        ...pendingSources(pending).safeData,
-      } as never,
-      snapshot: {
-        ...pending.safe,
-        owners: [owner],
-        threshold: 2,
-        nonce: pending.nonce,
-        version: "1.4.1",
-        guard: null,
-        modules: [],
-        implementation: null,
-        observedAt: 1,
-      },
-    });
     const validPayload: SafeExecutionPayload = {
       safe: pending.safe,
       safeTxHash: pending.safeTxHash,
@@ -362,7 +346,17 @@ describe("resolveExecutionInsight", () => {
     };
     const incompleteSources = pendingSources(pending, {
       payload: validPayload,
-      snapshot: await sources.chain.getSafeSnapshot(pending.safe),
+      snapshot: {
+        ...pending.safe,
+        owners: [owner],
+        threshold: 2,
+        nonce: pending.nonce,
+        version: "1.4.1",
+        guard: null,
+        modules: [],
+        implementation: null,
+        observedAt: 1,
+      },
     });
 
     const result = await resolveExecutionInsight(
