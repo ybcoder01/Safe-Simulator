@@ -1,8 +1,6 @@
 import type { Address, ChainId } from "../../domain";
 
-export type ContractRegistrySource =
-  | "safe-deployments"
-  | "evm-specification";
+export type ContractRegistrySource = "safe-deployments" | "evm-specification";
 
 export interface ContractRegistryEntry {
   readonly chainId: ChainId;
