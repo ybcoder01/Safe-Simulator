@@ -4,25 +4,40 @@ import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 import {
+  hasRefreshRequestSettled,
   initialRefreshSyncState,
   type RefreshSyncAction,
+  type SyncRefreshStatus,
 } from "@/lib/api/sync-refresh";
 
 interface SyncRefreshControlProps {
   readonly action: RefreshSyncAction;
   readonly disabled: boolean;
+  readonly latestActivityAt: number | null;
+  readonly syncStatus: SyncRefreshStatus;
 }
 
 export function SyncRefreshControl({
   action,
   disabled,
+  latestActivityAt,
+  syncStatus,
 }: SyncRefreshControlProps) {
   const router = useRouter();
   const [state, formAction, pending] = useActionState(
     action,
     initialRefreshSyncState,
   );
-  const checking = state.status === "queued" || state.status === "running";
+  const actionAccepted =
+    state.status === "queued" || state.status === "running";
+  const settled = hasRefreshRequestSettled(
+    state.status,
+    state.requestedAt,
+    latestActivityAt,
+    syncStatus,
+  );
+  const checking = actionAccepted && !settled;
+  const message = settled ? null : state.message;
 
   useEffect(() => {
     if (!checking) return;
@@ -39,7 +54,7 @@ export function SyncRefreshControl({
   return (
     <form action={formAction} className="sync-refresh-form">
       <button
-        aria-describedby={state.message ? statusId : undefined}
+        aria-describedby={message ? statusId : undefined}
         className="sync-refresh-button"
         disabled={disabled || pending || checking}
         type="submit"
@@ -54,13 +69,13 @@ export function SyncRefreshControl({
               ? "Sync in progress"
               : "Refresh data"}
       </button>
-      {state.message ? (
+      {message ? (
         <p
           className={state.status === "error" ? "form-error" : undefined}
           id={statusId}
           role={state.status === "error" ? "alert" : "status"}
         >
-          {state.message}
+          {message}
         </p>
       ) : null}
     </form>
