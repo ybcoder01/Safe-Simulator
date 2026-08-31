@@ -92,8 +92,7 @@ describe("PublicAbiAdapter", () => {
       storageLayout: {
         slots: [
           {
-            slot:
-              "0x0000000000000000000000000000000000000000000000000000000000000002",
+            slot: "0x0000000000000000000000000000000000000000000000000000000000000002",
             label: "totalSupply",
             type: "uint256",
             offset: 0,
