@@ -11,6 +11,7 @@ import type {
   ModuleTransaction,
   Page,
   QueueJob,
+  SafeExecutionPayload,
   SafeMessage,
   SafeRef,
   SafeSnapshot,
@@ -34,6 +35,11 @@ export interface SafeDataPort {
     cursor: string | null,
     limit: number,
   ): Promise<Page<SafeTransaction>>;
+  /** Returns the complete service-authored Safe execution payload for signature-valid simulation. */
+  getMultisigTransaction(
+    safe: SafeRef,
+    safeTxHash: Hex,
+  ): Promise<SafeExecutionPayload | null>;
   listModuleTransactions(
     safe: SafeRef,
     cursor: string | null,
