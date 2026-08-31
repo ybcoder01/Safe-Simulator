@@ -154,6 +154,22 @@ export function balanceRequestConfig(
   };
 }
 
+export function normalizeDiscoveredSafes(
+  chainId: ChainId,
+  values: readonly string[],
+): readonly SafeRef[] {
+  const safes = new Map<string, SafeRef>();
+  for (const value of values) {
+    try {
+      const address = getAddress(value).toLowerCase() as Address;
+      safes.set(address, { chainId, address });
+    } catch {
+      // Malformed upstream entries are ignored rather than exposed as addresses.
+    }
+  }
+  return [...safes.values()];
+}
+
 export class SafeApiAdapter implements SafeDataPort {
   private readonly clients = new Map<ChainId, SafeApiKit>();
 
@@ -176,10 +192,7 @@ export class SafeApiAdapter implements SafeDataPort {
     owner: Address,
   ): Promise<readonly SafeRef[]> {
     const response = await this.getClient(chainId).getSafesByOwner(owner);
-    return response.safes.map((address) => ({
-      chainId,
-      address: asAddress(address),
-    }));
+    return normalizeDiscoveredSafes(chainId, response.safes);
   }
 
   async listMultisigTransactions(
