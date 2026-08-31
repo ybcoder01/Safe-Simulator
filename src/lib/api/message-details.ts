@@ -53,3 +53,20 @@ export function toMessageView(message: SafeMessage, currentThreshold: number) {
 }
 
 export type MessageView = ReturnType<typeof toMessageView>;
+
+export function appendUniqueMessageViews(
+  current: readonly MessageView[],
+  incoming: readonly MessageView[],
+): readonly MessageView[] {
+  const known = new Set(current.map((message) => message.messageHash.toLowerCase()));
+  const merged = [...current];
+
+  for (const message of incoming) {
+    const key = message.messageHash.toLowerCase();
+    if (known.has(key)) continue;
+    known.add(key);
+    merged.push(message);
+  }
+
+  return merged;
+}
