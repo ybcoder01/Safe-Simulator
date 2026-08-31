@@ -142,9 +142,9 @@ describe("Safe dashboard API view models", () => {
       blockHash: `0x${"c".repeat(64)}`,
     } as SafeTransaction);
 
-    expect(transactionMatchesSearch(transaction, "treasury", "Treasury Router")).toBe(
-      true,
-    );
+    expect(
+      transactionMatchesSearch(transaction, "treasury", "Treasury Router"),
+    ).toBe(true);
     expect(transactionMatchesSearch(transaction, "0x111111")).toBe(true);
     expect(transactionMatchesSearch(transaction, "42")).toBe(true);
     expect(transactionMatchesSearch(transaction, "delegate")).toBe(true);
