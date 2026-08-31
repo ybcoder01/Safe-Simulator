@@ -128,7 +128,10 @@ export function TransactionHistory({
 
   return (
     <>
-      <section className="activity-search" aria-labelledby="activity-search-title">
+      <section
+        className="activity-search"
+        aria-labelledby="activity-search-title"
+      >
         <label htmlFor="activity-search">
           <span id="activity-search-title">Search loaded activity</span>
           <input
