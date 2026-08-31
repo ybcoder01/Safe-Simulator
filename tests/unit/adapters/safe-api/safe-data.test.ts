@@ -4,6 +4,7 @@ import type { Address, ChainId, SafeRef } from "../../../../src/core/domain";
 import {
   balanceRequestConfig,
   normalizeDecodedData,
+  normalizeDiscoveredSafes,
   transactionServiceConfig,
 } from "../../../../src/adapters/safe-api/safe-data";
 
@@ -69,6 +70,28 @@ describe("balanceRequestConfig", () => {
     ).toEqual({
       url: "https://safe.example/api/v1/safes/0x000000000000000000000000000000000000dEaD/balances/",
     });
+  });
+});
+
+describe("normalizeDiscoveredSafes", () => {
+  it("deduplicates valid service addresses and drops malformed entries", () => {
+    expect(
+      normalizeDiscoveredSafes(50, [
+        "0x1111111111111111111111111111111111111111",
+        "0x1111111111111111111111111111111111111111",
+        "not-an-address",
+        "0x2222222222222222222222222222222222222222",
+      ]),
+    ).toEqual([
+      {
+        chainId: 50,
+        address: "0x1111111111111111111111111111111111111111",
+      },
+      {
+        chainId: 50,
+        address: "0x2222222222222222222222222222222222222222",
+      },
+    ]);
   });
 });
 
