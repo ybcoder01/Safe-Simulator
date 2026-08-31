@@ -239,7 +239,8 @@ export default async function SafeDashboardPage({ params }: PageProps) {
         <MessageHistory
           address={safe.address}
           chainId={safe.chainId}
-          messages={messageViews}
+          initialMessages={messageViews}
+          nextCursor={messagePage.nextCursor}
         />
       </div>
 
