@@ -104,7 +104,10 @@ export function buildSafeExecutionRequest(
   }
 
   const owners = new Set(snapshot.owners.map((owner) => owner.toLowerCase()));
-  const confirmations = new Map<string, SafeExecutionPayload["confirmations"][number]>();
+  const confirmations = new Map<
+    string,
+    SafeExecutionPayload["confirmations"][number]
+  >();
   for (const confirmation of payload.confirmations) {
     const key = confirmation.owner.toLowerCase();
     if (
@@ -116,9 +119,7 @@ export function buildSafeExecutionRequest(
   }
 
   const selected = [...confirmations.values()]
-    .sort((left, right) =>
-      BigInt(left.owner) < BigInt(right.owner) ? -1 : 1,
-    )
+    .sort((left, right) => (BigInt(left.owner) < BigInt(right.owner) ? -1 : 1))
     .slice(0, snapshot.threshold);
 
   if (selected.length < snapshot.threshold) {
