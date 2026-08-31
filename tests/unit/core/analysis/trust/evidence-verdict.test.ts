@@ -94,7 +94,7 @@ describe("evaluateEvidenceVerdict", () => {
       expect.objectContaining({
         code: "movement-trust-unresolved",
         severity: "warning",
-        addresses: [token, target, spender],
+        addresses: [token, spender],
       }),
     );
   });
@@ -112,6 +112,37 @@ describe("evaluateEvidenceVerdict", () => {
         code: "spender-trust-unresolved",
         severity: "warning",
         addresses: [token, spender],
+      }),
+    );
+  });
+
+  it("uses registry evidence as known without promoting it to trusted", () => {
+    const result = evaluateEvidenceVerdict(
+      input({
+        internalCalls: [{ to: spender, operation: "call" }],
+        registry: [
+          {
+            chainId: 50,
+            address: spender,
+            label: "Known infrastructure",
+            source: "safe-deployments",
+            reference: "https://example.com/authoritative-record",
+          },
+        ],
+        callTrace: "complete",
+      }),
+    );
+
+    expect(result.verdict).toBe("known");
+    expect(result.findings.map((finding) => finding.code)).not.toContain(
+      "internal-call-trust-unresolved",
+    );
+    expect(result.addresses).toContainEqual(
+      expect.objectContaining({
+        address: spender,
+        label: "Known infrastructure",
+        source: "registry",
+        status: "known",
       }),
     );
   });
@@ -196,6 +227,15 @@ describe("evaluateEvidenceVerdict", () => {
         movements: [{ token, from: target, to: spender }],
         addressBook: [
           { address: spender, label: "Blocked counterparty", trust: "flagged" },
+        ],
+        registry: [
+          {
+            chainId: 50,
+            address: spender,
+            label: "Known infrastructure",
+            source: "safe-deployments",
+            reference: "https://example.com/authoritative-record",
+          },
         ],
       }),
     );
