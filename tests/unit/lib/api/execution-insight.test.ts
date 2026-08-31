@@ -1,3 +1,4 @@
+import { decodeFunctionData } from "viem";
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -7,6 +8,8 @@ import {
 import type {
   Address,
   Hex,
+  SafeExecutionPayload,
+  SafeSnapshot,
   SafeTransaction,
   SimulationOutput,
 } from "../../../../src/core/domain";
@@ -15,7 +18,9 @@ import {
   EXECUTION_EVIDENCE_ENGINE_VERSION,
   resolveExecutionInsight,
   type ExecutionEvidenceStores,
+  type PendingExecutionSources,
 } from "../../../../src/lib/api/execution-insight";
+import { safeExecutionAbi } from "../../../../src/lib/api/safe-execution";
 
 const safe = "0x1111111111111111111111111111111111111111" as Address;
 const target = "0x2222222222222222222222222222222222222222" as Address;
@@ -23,6 +28,8 @@ const token = "0x3333333333333333333333333333333333333333" as Address;
 const counterparty = "0x4444444444444444444444444444444444444444" as Address;
 const spender = "0x5555555555555555555555555555555555555555" as Address;
 const implementation = "0x6666666666666666666666666666666666666666" as Address;
+const owner = "0x7777777777777777777777777777777777777777" as Address;
+const ownerSignature = (`0x${"11".repeat(64)}1b`) as Hex;
 const maxUint256 = (1n << 256n) - 1n;
 
 function addressTopic(address: Address): Hex {
@@ -132,6 +139,55 @@ function simulation(overrides: Partial<SimulationPort> = {}): SimulationPort {
   };
 }
 
+function pendingSources(
+  pending: SafeTransaction,
+  overrides: {
+    readonly payload?: SafeExecutionPayload | null;
+    readonly snapshot?: SafeSnapshot;
+  } = {},
+): PendingExecutionSources {
+  const payload =
+    overrides.payload === undefined
+      ? {
+          safe: pending.safe,
+          safeTxHash: pending.safeTxHash,
+          nonce: pending.nonce,
+          to: pending.to,
+          value: pending.value,
+          data: pending.data,
+          operation: pending.operation,
+          safeTxGas: 0n,
+          baseGas: 0n,
+          gasPrice: 0n,
+          gasToken: null,
+          refundReceiver: null,
+          confirmations: [
+            { owner, signature: ownerSignature, signedAt: 1 },
+          ],
+        }
+      : overrides.payload;
+  const snapshot = overrides.snapshot ?? {
+    ...pending.safe,
+    owners: [owner],
+    threshold: 1,
+    nonce: pending.nonce,
+    version: "1.4.1",
+    guard: null,
+    modules: [],
+    implementation: null,
+    observedAt: 1,
+  };
+
+  return {
+    safeData: {
+      getMultisigTransaction: vi.fn().mockResolvedValue(payload),
+    },
+    chain: {
+      getSafeSnapshot: vi.fn().mockResolvedValue(snapshot),
+    },
+  };
+}
+
 function evidenceStores(initialRecord: unknown = null) {
   const values = new Map<string, unknown>();
   const get = vi.fn(async (key: string) => values.get(key) ?? null);
@@ -230,7 +286,7 @@ describe("resolveExecutionInsight", () => {
     expect(result.storageChanges).toEqual([]);
   });
 
-  it("uses a direct call only for pending call operations", async () => {
+  it("simulates a threshold-confirmed pending transaction through execTransaction", async () => {
     const port = simulation();
     const pending = transaction({
       status: "pending",
@@ -240,22 +296,30 @@ describe("resolveExecutionInsight", () => {
       blockHash: null,
     });
 
-    const result = await resolveExecutionInsight(port, pending);
-
-    expect(result.mode).toBe("direct-call-check");
-    expect(port.simulate).toHaveBeenCalledWith(
-      50,
-      {
-        from: safe,
-        to: target,
-        data: "0x12345678",
-        value: 0n,
-      },
-      [],
+    const result = await resolveExecutionInsight(
+      port,
+      pending,
+      undefined,
+      pendingSources(pending),
     );
+
+    expect(result.mode).toBe("safe-execution-check");
+    expect(result.warnings).toContain(
+      "Pending execution evidence uses latest state and can change before the transaction is mined.",
+    );
+    expect(port.simulate).toHaveBeenCalledTimes(1);
+    const [, request, overrides] = vi.mocked(port.simulate).mock.calls[0]!;
+    expect(request).toMatchObject({ from: owner, to: safe, value: 0n });
+    expect(overrides).toEqual([]);
+    expect(
+      decodeFunctionData({ abi: safeExecutionAbi, data: request.data }),
+    ).toMatchObject({
+      functionName: "execTransaction",
+      args: expect.arrayContaining([target, 0n, "0x12345678", 0]),
+    });
   });
 
-  it("does not approximate pending delegatecall behavior", async () => {
+  it("does not approximate pending execution without enough supported signatures", async () => {
     const port = simulation();
     const pending = transaction({
       status: "pending",
@@ -265,12 +329,52 @@ describe("resolveExecutionInsight", () => {
       blockNumber: null,
       blockHash: null,
     });
+    const sources = pendingSources(pending, {
+      payload: {
+        ...pendingSources(pending).safeData,
+      } as never,
+      snapshot: {
+        ...pending.safe,
+        owners: [owner],
+        threshold: 2,
+        nonce: pending.nonce,
+        version: "1.4.1",
+        guard: null,
+        modules: [],
+        implementation: null,
+        observedAt: 1,
+      },
+    });
+    const validPayload: SafeExecutionPayload = {
+      safe: pending.safe,
+      safeTxHash: pending.safeTxHash,
+      nonce: pending.nonce,
+      to: pending.to,
+      value: pending.value,
+      data: pending.data,
+      operation: pending.operation,
+      safeTxGas: 0n,
+      baseGas: 0n,
+      gasPrice: 0n,
+      gasToken: null,
+      refundReceiver: null,
+      confirmations: [{ owner, signature: ownerSignature, signedAt: 1 }],
+    };
+    const incompleteSources = pendingSources(pending, {
+      payload: validPayload,
+      snapshot: await sources.chain.getSafeSnapshot(pending.safe),
+    });
 
-    const result = await resolveExecutionInsight(port, pending);
+    const result = await resolveExecutionInsight(
+      port,
+      pending,
+      undefined,
+      incompleteSources,
+    );
 
     expect(result.mode).toBe("unavailable");
     expect(result.success).toBeNull();
-    expect(result.error).toContain("trace-capable");
+    expect(result.error).toContain("current threshold");
     expect(port.simulate).not.toHaveBeenCalled();
   });
 
