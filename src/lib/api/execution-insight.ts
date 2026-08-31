@@ -104,10 +104,7 @@ export interface ExecutionEvidenceStores {
 }
 
 export interface PendingExecutionSources {
-  readonly chain: Pick<
-    ChainPort,
-    "getSafeSnapshot" | "getTransactionBlock"
-  >;
+  readonly chain: Pick<ChainPort, "getSafeSnapshot" | "getTransactionBlock">;
   readonly safeData: Pick<SafeDataPort, "getMultisigTransaction">;
 }
 
@@ -454,8 +451,11 @@ export async function resolveExecutionInsight(
   try {
     if (transaction.executedTxHash) {
       let replayTransaction = transaction;
-      let anchorStatus: "not-checked" | "unchanged" | "changed" | "unavailable" =
-        "not-checked";
+      let anchorStatus:
+        | "not-checked"
+        | "unchanged"
+        | "changed"
+        | "unavailable" = "not-checked";
 
       if (pendingSources && transaction.blockHash) {
         try {
@@ -481,9 +481,7 @@ export async function resolveExecutionInsight(
       }
 
       const stored =
-        stores &&
-        anchorStatus !== "changed" &&
-        anchorStatus !== "unavailable"
+        stores && anchorStatus !== "changed" && anchorStatus !== "unavailable"
           ? await findStoredExecutionInsight(stores, transaction)
           : null;
       if (stored) return stored;
