@@ -145,7 +145,8 @@ function assessAddresses(
       address,
       label: record?.label ?? registryEntry?.label ?? null,
       status:
-        record?.trust ?? (registryEntry || isVerifiedTarget ? "known" : "unverified"),
+        record?.trust ??
+        (registryEntry || isVerifiedTarget ? "known" : "unverified"),
       source: record
         ? "profile"
         : registryEntry
@@ -334,9 +335,7 @@ export function evaluateEvidenceVerdict(
     const assessment = addresses.find(
       (item) => addressKey(item.address) === addressKey(address),
     );
-    return assessment &&
-      assessment.status === "unverified" ? [assessment]
-      : [];
+    return assessment && assessment.status === "unverified" ? [assessment] : [];
   });
   if (movementUnresolved.length > 0) {
     findings.push({
@@ -369,8 +368,7 @@ export function evaluateEvidenceVerdict(
     (assessment) =>
       boundedAddresses.some(
         (address) => addressKey(address) === addressKey(assessment.address),
-      ) &&
-      assessment.status === "unverified",
+      ) && assessment.status === "unverified",
   );
   if (boundedUnresolved.length > 0) {
     findings.push({
@@ -390,8 +388,7 @@ export function evaluateEvidenceVerdict(
     (assessment) =>
       internalTargets.some(
         (address) => addressKey(address) === addressKey(assessment.address),
-      ) &&
-      assessment.status === "unverified",
+      ) && assessment.status === "unverified",
   );
   if (unresolvedInternalTargets.length > 0) {
     findings.push({
