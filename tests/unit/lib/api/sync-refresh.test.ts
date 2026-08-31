@@ -117,9 +117,9 @@ describe("on-demand synchronization refresh", () => {
   it("settles only after persisted terminal activity reaches the request", () => {
     const requestedAt = 10_500;
 
-    expect(hasRefreshRequestSettled("queued", requestedAt, 10, "complete")).toBe(
-      true,
-    );
+    expect(
+      hasRefreshRequestSettled("queued", requestedAt, 10, "complete"),
+    ).toBe(true);
     expect(hasRefreshRequestSettled("running", requestedAt, 11, "failed")).toBe(
       true,
     );
