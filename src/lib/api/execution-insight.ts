@@ -502,11 +502,7 @@ export async function resolveExecutionInsight(
       );
     }
 
-    const execution = buildSafeExecutionRequest(
-      transaction,
-      payload,
-      snapshot,
-    );
+    const execution = buildSafeExecutionRequest(transaction, payload, snapshot);
     if (!execution.ok) return unavailable(execution.reason);
 
     return outputView(
