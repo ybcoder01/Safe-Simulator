@@ -12,6 +12,7 @@ import {
   summarizeSyncCursors,
   toBalanceView,
   toTransactionView,
+  transactionMatchesSearch,
   transactionPageQuerySchema,
 } from "../../../../src/lib/api/safe-details";
 
@@ -121,6 +122,34 @@ describe("Safe dashboard API view models", () => {
       pending: [pending],
       history: [executed, replaced],
     });
+  });
+
+  it("searches loaded transactions by address, metadata, and resolved label", () => {
+    const transaction = toTransactionView({
+      safe: safeRef,
+      safeTxHash: `0x${"a".repeat(64)}`,
+      nonce: 42n,
+      to: "0x1111111111111111111111111111111111111111",
+      value: 0n,
+      data: "0x",
+      operation: "delegatecall",
+      status: "executed",
+      confirmations: [],
+      proposedAt: 1_700_000_000,
+      executedAt: 1_700_000_100,
+      executedTxHash: `0x${"b".repeat(64)}`,
+      blockNumber: 12n,
+      blockHash: `0x${"c".repeat(64)}`,
+    } as SafeTransaction);
+
+    expect(transactionMatchesSearch(transaction, "treasury", "Treasury Router")).toBe(
+      true,
+    );
+    expect(transactionMatchesSearch(transaction, "0x111111")).toBe(true);
+    expect(transactionMatchesSearch(transaction, "42")).toBe(true);
+    expect(transactionMatchesSearch(transaction, "delegate")).toBe(true);
+    expect(transactionMatchesSearch(transaction, "no match")).toBe(false);
+    expect(transactionMatchesSearch(transaction, "   ")).toBe(true);
   });
 
   it("uses the oldest completed stream as the conservative full-sync time", () => {
