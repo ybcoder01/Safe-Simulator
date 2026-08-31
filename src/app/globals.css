@@ -535,6 +535,50 @@ select {
   color: #ffad9f;
   font-size: 13px;
 }
+
+.discovery-panel {
+  margin-top: 18px;
+}
+.discovery-results {
+  margin-top: 22px;
+  border-top: 1px solid var(--line);
+}
+.discovery-summary,
+.discovery-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+.discovery-summary {
+  padding: 16px 0 10px;
+}
+.discovery-summary strong {
+  font-size: 12px;
+  font-weight: 560;
+}
+.discovery-summary span {
+  color: var(--faint);
+  font-size: 10px;
+}
+.discovery-row {
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+}
+.discovery-identity {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.discovery-identity span {
+  color: var(--faint);
+  font-size: 10px;
+}
+.discovery-identity code {
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-size: 11px;
+}
 .safe-list {
   margin-top: 54px;
 }
@@ -723,6 +767,11 @@ select {
   }
   .import-controls {
     grid-template-columns: 1fr;
+  }
+  .discovery-summary,
+  .discovery-row {
+    align-items: start;
+    flex-direction: column;
   }
   .safe-card {
     grid-template-columns: auto 1fr auto;
