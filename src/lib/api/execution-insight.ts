@@ -350,7 +350,9 @@ function coverageWarnings(
       "Token facts recognize canonical ERC-20-shaped events; an emitted event does not prove standard compliance.",
     );
   } else {
-    warnings.push("Event logs are not returned by the read-only Safe execution check.");
+    warnings.push(
+      "Event logs are not returned by the read-only Safe execution check.",
+    );
   }
 
   return warnings;
