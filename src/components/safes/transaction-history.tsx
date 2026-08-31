@@ -4,12 +4,17 @@ import Link from "next/link";
 import { useState } from "react";
 
 import {
+  resolveAddressDisplay,
+  type AddressBookView,
+} from "@/lib/api/address-book";
+import {
   groupTransactionViews,
   type TransactionView,
 } from "@/lib/api/safe-details";
 
 interface TransactionHistoryProps {
   readonly address: string;
+  readonly addressBook: readonly AddressBookView[];
   readonly chainId: number;
   readonly initialTransactions: readonly TransactionView[];
   readonly nextCursor: string | null;
@@ -29,10 +34,16 @@ function formatDate(timestamp: number) {
 }
 
 function TransactionSummary({
+  addressBook,
+  chainId,
   transaction,
 }: {
+  readonly addressBook: readonly AddressBookView[];
+  readonly chainId: number;
   readonly transaction: TransactionView;
 }) {
+  const target = resolveAddressDisplay(chainId, transaction.to, addressBook);
+
   return (
     <>
       <strong>
@@ -42,13 +53,22 @@ function TransactionSummary({
             ? "Delegate call"
             : "Contract call")}
       </strong>
-      <span>To {shorten(transaction.to)}</span>
+      <span className="transaction-target">
+        To {target ? `${target.label} · ` : ""}
+        {shorten(transaction.to)}
+        {target ? (
+          <em className={`address-trust address-trust-${target.trust}`}>
+            {target.trust}
+          </em>
+        ) : null}
+      </span>
     </>
   );
 }
 
 export function TransactionHistory({
   address,
+  addressBook,
   chainId,
   initialTransactions,
   nextCursor: initialCursor,
@@ -134,7 +154,11 @@ export function TransactionHistory({
                 >
                   <div className="pending-action-copy">
                     <span className="tx-status tx-pending">Pending</span>
-                    <TransactionSummary transaction={transaction} />
+                    <TransactionSummary
+                      addressBook={addressBook}
+                      chainId={chainId}
+                      transaction={transaction}
+                    />
                     <time
                       dateTime={new Date(
                         transaction.proposedAt * 1_000,
@@ -196,7 +220,11 @@ export function TransactionHistory({
                   {transaction.status}
                 </span>
                 <div>
-                  <TransactionSummary transaction={transaction} />
+                  <TransactionSummary
+                    addressBook={addressBook}
+                    chainId={chainId}
+                    transaction={transaction}
+                  />
                   <span>
                     {transaction.confirmations.length}/{threshold} confirmations
                     reported
