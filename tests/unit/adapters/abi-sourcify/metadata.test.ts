@@ -5,6 +5,8 @@ import type { Address, Hex } from "../../../../src/core/domain";
 import type { ChainPort } from "../../../../src/core/ports";
 
 const target = "0x1111111111111111111111111111111111111111" as Address;
+const registeredSafe =
+  "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762" as Address;
 const implementation = "0x2222222222222222222222222222222222222222" as Address;
 const beacon = "0x3333333333333333333333333333333333333333" as Address;
 const implementationSlot =
@@ -132,6 +134,24 @@ describe("PublicAbiAdapter", () => {
       verified: false,
       abi: null,
       source: "unknown",
+    });
+  });
+
+  it("uses an authoritative registry label when verified metadata is unavailable", async () => {
+    const fetcher = vi.fn().mockResolvedValue(response({}, 404));
+    const adapter = new PublicAbiAdapter(
+      makeChain(),
+      fetcher as unknown as typeof fetch,
+    );
+
+    await expect(
+      adapter.getContractMetadata(50, registeredSafe),
+    ).resolves.toMatchObject({
+      address: registeredSafe,
+      label: "Safe v1.4.1 L2 Singleton",
+      verified: false,
+      abi: null,
+      source: "registry",
     });
   });
 
