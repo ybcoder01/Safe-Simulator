@@ -50,13 +50,14 @@ export function isRefreshActive(
 export function hasRefreshRequestSettled(
   actionStatus: RefreshSyncState["status"],
   requestedAt: number | null,
-  observedRequestAt: number | null,
+  latestActivityAt: number | null,
   syncStatus: SyncRefreshStatus,
 ): boolean {
   return (
     (actionStatus === "queued" || actionStatus === "running") &&
     requestedAt !== null &&
-    observedRequestAt === requestedAt &&
+    latestActivityAt !== null &&
+    latestActivityAt >= Math.floor(requestedAt / 1_000) &&
     (syncStatus === "complete" || syncStatus === "failed")
   );
 }
