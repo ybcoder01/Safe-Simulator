@@ -64,18 +64,21 @@ export async function GET(request: NextRequest, context: RouteContext) {
   }
 
   const profileId = parseProfileId(request.cookies.get(PROFILE_COOKIE)?.value);
+  const chain = getChainPort();
+  const safeData = getSafeDataPort();
   const [insight, execution, addressBook] = await Promise.all([
-    resolveContractInsight(getSafeDataPort(), getAbiPort(), transaction),
-    resolveExecutionInsight(getSimulationPort(), transaction, {
-      cache,
-      persistence,
-    }),
+    resolveContractInsight(safeData, getAbiPort(), transaction),
+    resolveExecutionInsight(
+      getSimulationPort(),
+      transaction,
+      { cache, persistence },
+      { chain, safeData },
+    ),
     profileId
       ? persistence.listAddressBookEntries(profileId, safe.data)
       : Promise.resolve([]),
   ]);
 
-  const chain = getChainPort();
   const [approvalRisk, tokenMetadata] = await Promise.all([
     resolveApprovalRisk(chain, transaction, insight, execution),
     resolveExecutionTokenMetadata(

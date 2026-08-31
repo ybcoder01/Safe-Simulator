@@ -10,6 +10,7 @@ import type {
   ModuleTransaction,
   Operation,
   Page,
+  SafeExecutionPayload,
   SafeMessage,
   SafeRef,
   SafeTransaction,
@@ -228,6 +229,38 @@ export class SafeApiAdapter implements SafeDataPort {
         ? String(offset + response.results.length)
         : null,
       total: response.count,
+    };
+  }
+
+  async getMultisigTransaction(
+    safe: SafeRef,
+    safeTxHash: Hex,
+  ): Promise<SafeExecutionPayload | null> {
+    const item = await this.getClient(safe.chainId).getTransaction(safeTxHash);
+    if (asAddress(item.safe) !== asAddress(safe.address)) return null;
+
+    return {
+      safe,
+      safeTxHash: item.safeTxHash as Hex,
+      nonce: BigInt(item.nonce),
+      to: asAddress(item.to),
+      value: BigInt(item.value),
+      data: asHex(item.data),
+      operation: operation(item.operation),
+      safeTxGas: BigInt(item.safeTxGas),
+      baseGas: BigInt(item.baseGas),
+      gasPrice: BigInt(item.gasPrice),
+      gasToken: item.gasToken ? asAddress(item.gasToken) : null,
+      refundReceiver: item.refundReceiver
+        ? asAddress(item.refundReceiver)
+        : null,
+      confirmations: (item.confirmations ?? []).map<Confirmation>(
+        (confirmation) => ({
+          owner: asAddress(confirmation.owner),
+          signature: confirmation.signature as Hex,
+          signedAt: asUnixTime(confirmation.submissionDate),
+        }),
+      ),
     };
   }
 

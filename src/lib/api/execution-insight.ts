@@ -8,10 +8,17 @@ import type {
 } from "@/core/domain";
 import { extractSafeConfigurationChanges } from "@/core/analysis/safes/event-facts";
 import { extractTokenEventFacts } from "@/core/analysis/tokens/event-facts";
-import type { CachePort, PersistencePort, SimulationPort } from "@/core/ports";
+import type {
+  CachePort,
+  ChainPort,
+  PersistencePort,
+  SafeDataPort,
+  SimulationPort,
+} from "@/core/ports";
+import { buildSafeExecutionRequest } from "@/lib/api/safe-execution";
 
 export interface ExecutionInsight {
-  readonly mode: "executed-replay" | "direct-call-check" | "unavailable";
+  readonly mode: "executed-replay" | "safe-execution-check" | "unavailable";
   readonly success: boolean | null;
   readonly gasUsed: string | null;
   readonly blockNumber: string | null;
@@ -94,6 +101,11 @@ export interface ExecutionEvidenceStores {
     PersistencePort,
     "findExecutionEvidence" | "saveExecutionEvidence"
   >;
+}
+
+export interface PendingExecutionSources {
+  readonly chain: Pick<ChainPort, "getSafeSnapshot">;
+  readonly safeData: Pick<SafeDataPort, "getMultisigTransaction">;
 }
 
 interface CachedExecutionEvidence {
@@ -284,15 +296,22 @@ function internalCallView(root: CallNode): ExecutionInsight["internalCalls"] {
 }
 
 function coverageWarnings(
-  executed: boolean,
+  mode: ExecutionInsight["mode"],
   callTrace: ExecutionInsight["coverage"]["callTrace"],
   storageDiff: ExecutionInsight["coverage"]["storageDiff"],
 ): readonly string[] {
+  const executed = mode === "executed-replay";
   const warnings = [
     executed
       ? "Outcome, gas, block, and event logs come from the mined transaction receipt."
-      : "This is a direct read-only call from the Safe address, not a full Safe signature-path simulation.",
+      : "This is a read-only execution of the complete Safe execTransaction path using the current threshold and collected supported owner signatures.",
   ];
+
+  if (!executed) {
+    warnings.push(
+      "Pending execution evidence uses latest state and can change before the transaction is mined.",
+    );
+  }
 
   if (callTrace === "complete") {
     warnings.push(
@@ -389,7 +408,7 @@ function outputView(
       tokenEvents: executed ? "standard-events" : "unavailable",
       storageDiff: traceCoverage.storageDiff,
     },
-    warnings: coverageWarnings(executed, callTrace, traceCoverage.storageDiff),
+    warnings: coverageWarnings(mode, callTrace, traceCoverage.storageDiff),
   };
 }
 
@@ -425,6 +444,7 @@ export async function resolveExecutionInsight(
   simulation: SimulationPort,
   transaction: SafeTransaction,
   stores?: ExecutionEvidenceStores,
+  pendingSources?: PendingExecutionSources,
 ): Promise<ExecutionInsight> {
   try {
     if (transaction.executedTxHash) {
@@ -463,22 +483,33 @@ export async function resolveExecutionInsight(
       return unavailable("No mined transaction hash is available for replay.");
     }
 
-    if (transaction.operation === "delegatecall") {
+    if (!pendingSources) {
       return unavailable(
-        "Delegatecall simulation requires a trace-capable provider.",
+        "Complete pending Safe execution data is unavailable.",
       );
     }
 
+    const [payload, snapshot] = await Promise.all([
+      pendingSources.safeData.getMultisigTransaction(
+        transaction.safe,
+        transaction.safeTxHash,
+      ),
+      pendingSources.chain.getSafeSnapshot(transaction.safe),
+    ]);
+    if (!payload) {
+      return unavailable(
+        "The Safe Transaction Service did not return this pending transaction.",
+      );
+    }
+
+    const execution = buildSafeExecutionRequest(transaction, payload, snapshot);
+    if (!execution.ok) return unavailable(execution.reason);
+
     return outputView(
-      "direct-call-check",
+      "safe-execution-check",
       await simulation.simulate(
         transaction.safe.chainId,
-        {
-          from: transaction.safe.address,
-          to: transaction.to,
-          data: transaction.data,
-          value: transaction.value,
-        },
+        execution.request,
         [],
       ),
       transaction.safe.address,
