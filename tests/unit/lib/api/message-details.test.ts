@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { SafeMessage } from "../../../../src/core/domain";
 import {
+  appendUniqueMessageViews,
   messageHashSchema,
   messagePageQuerySchema,
   toMessageView,
@@ -38,6 +39,25 @@ describe("signed-message API view models", () => {
     expect(
       messagePageQuerySchema.safeParse({ cursor: null, limit: "101" }).success,
     ).toBe(false);
+  });
+
+  it("appends message pages without duplicating boundary records", () => {
+    const first = toMessageView(message("first", []), 1);
+    const second = {
+      ...toMessageView(message("second", []), 1),
+      messageHash: `0x${"b".repeat(64)}`,
+    };
+    const duplicateWithDifferentCase = {
+      ...first,
+      messageHash: first.messageHash.toUpperCase(),
+    };
+
+    expect(
+      appendUniqueMessageViews(
+        [first],
+        [duplicateWithDifferentCase, second, second],
+      ).map((item) => item.messageHash),
+    ).toEqual([first.messageHash, second.messageHash]);
   });
 
   it("formats structured payloads without changing the stored value", () => {
