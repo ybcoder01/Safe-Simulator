@@ -1,18 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import type {
-  Address,
-  Hex,
-  TransferRecord,
-} from "../../../../src/core/domain";
+import type { Address, Hex, TransferRecord } from "../../../../src/core/domain";
 import {
   appendUniqueTransferViews,
   toTransferView,
   transferPageQuerySchema,
 } from "../../../../src/lib/api/transfer-activity";
 
-const safeAddress =
-  "0xc8bae80ca5c2c9ec3bd4ac16c422220a33b6b173" as Address;
+const safeAddress = "0xc8bae80ca5c2c9ec3bd4ac16c422220a33b6b173" as Address;
 const other = "0x1111111111111111111111111111111111111111" as Address;
 
 function transfer(from: Address, to: Address): TransferRecord {
@@ -44,23 +39,21 @@ describe("transfer activity API views", () => {
         .success,
     ).toBe(false);
     expect(
-      transferPageQuerySchema.safeParse({ cursor: null, limit: "101" })
-        .success,
+      transferPageQuerySchema.safeParse({ cursor: null, limit: "101" }).success,
     ).toBe(false);
   });
 
   it("classifies incoming and outgoing movements case-insensitively", () => {
     expect(
-      toTransferView(
-        transfer(other, safeAddress.toUpperCase() as Address),
-      ).direction,
+      toTransferView(transfer(other, safeAddress.toUpperCase() as Address))
+        .direction,
     ).toBe("incoming");
     expect(toTransferView(transfer(safeAddress, other)).direction).toBe(
       "outgoing",
     );
-    expect(
-      toTransferView(transfer(safeAddress, safeAddress)).direction,
-    ).toBe("self");
+    expect(toTransferView(transfer(safeAddress, safeAddress)).direction).toBe(
+      "self",
+    );
   });
 
   it("serializes raw amounts and block numbers without inventing decimals", () => {
