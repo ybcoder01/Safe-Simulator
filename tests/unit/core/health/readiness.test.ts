@@ -3,9 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ReadinessPort } from "@/core/ports";
 import { checkReadiness } from "@/core/health/readiness";
 
-function readinessPort(
-  overrides: Partial<ReadinessPort> = {},
-): ReadinessPort {
+function readinessPort(overrides: Partial<ReadinessPort> = {}): ReadinessPort {
   return {
     checkDatabase: vi.fn().mockResolvedValue(undefined),
     checkCache: vi.fn().mockResolvedValue(undefined),
