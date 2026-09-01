@@ -1528,12 +1528,33 @@ select {
   color: #9ccff2;
   background: rgba(156, 207, 242, 0.09);
 }
+.tx-transfer-incoming {
+  color: var(--green);
+  background: rgba(101, 242, 172, 0.08);
+}
+.tx-transfer-outgoing {
+  color: var(--amber);
+  background: rgba(246, 200, 111, 0.08);
+}
+.tx-transfer-self,
+.tx-transfer-related {
+  color: #9ccff2;
+  background: rgba(156, 207, 242, 0.09);
+}
 .module-execution-meta {
   display: grid;
   gap: 5px;
   justify-items: end;
 }
 .module-execution-meta .explorer-link {
+  font-size: 9px;
+}
+.transfer-execution-meta {
+  display: grid;
+  gap: 5px;
+  justify-items: end;
+}
+.transfer-execution-meta .explorer-link {
   font-size: 9px;
 }
 .tx-failed,
@@ -1624,7 +1645,8 @@ select {
   .history-row time {
     display: none;
   }
-  .module-history-row > span:nth-child(3) {
+  .module-history-row > span:nth-child(3),
+  .transfer-history-row > span:nth-child(3) {
     display: none;
   }
 }
@@ -1682,7 +1704,8 @@ select {
     grid-column: 1 / -1;
     justify-self: start;
   }
-  .module-execution-meta {
+  .module-execution-meta,
+  .transfer-execution-meta {
     justify-items: end;
   }
   .owner-row code {

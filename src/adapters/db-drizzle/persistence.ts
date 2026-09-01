@@ -506,6 +506,70 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
     }
   }
 
+  async listTransfers(
+    safeRef: SafeRef,
+    cursor: string | null,
+    limit: number,
+  ): Promise<Page<TransferRecord>> {
+    const safe = await this.requireSafeRow(safeRef);
+    let cursorTimestamp: Date | null = null;
+    const cursorId = cursor;
+
+    if (cursorId) {
+      const [cursorRow] = await this.db
+        .select({ timestamp: rawTransfers.timestamp })
+        .from(rawTransfers)
+        .where(
+          and(eq(rawTransfers.safeId, safe.id), eq(rawTransfers.id, cursorId)),
+        )
+        .limit(1);
+      if (!cursorRow) {
+        return { items: [], nextCursor: null, total: null };
+      }
+      cursorTimestamp = cursorRow.timestamp;
+    }
+
+    const predicate =
+      cursorTimestamp === null || cursorId === null
+        ? eq(rawTransfers.safeId, safe.id)
+        : and(
+            eq(rawTransfers.safeId, safe.id),
+            or(
+              lt(rawTransfers.timestamp, cursorTimestamp),
+              and(
+                eq(rawTransfers.timestamp, cursorTimestamp),
+                lt(rawTransfers.id, cursorId),
+              ),
+            ),
+          );
+    const rows = await this.db
+      .select()
+      .from(rawTransfers)
+      .where(predicate)
+      .orderBy(desc(rawTransfers.timestamp), desc(rawTransfers.id))
+      .limit(limit + 1);
+    const hasNext = rows.length > limit;
+    const pageRows = hasNext ? rows.slice(0, limit) : rows;
+
+    return {
+      items: pageRows.map((row) => ({
+        safe: safeRef,
+        transactionHash: row.transactionHash as Hex,
+        token: row.token as Address | null,
+        from: row.from as Address,
+        to: row.to as Address,
+        amount: BigInt(row.amount),
+        blockNumber: row.blockNumber,
+        timestamp: asUnixTime(row.timestamp),
+      })),
+      nextCursor:
+        hasNext && pageRows.length > 0
+          ? pageRows[pageRows.length - 1]!.id
+          : null,
+      total: null,
+    };
+  }
+
   async upsertMessages(items: readonly SafeMessage[]): Promise<void> {
     for (const item of items) {
       const safe = await this.requireSafeRow(item.safe);
