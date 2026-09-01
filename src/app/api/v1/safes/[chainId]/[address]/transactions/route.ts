@@ -3,9 +3,9 @@ import { NextResponse } from "next/server";
 import { getPersistencePort } from "@/container";
 import {
   safeRouteParamsSchema,
-  toTransactionView,
   transactionPageQuerySchema,
 } from "@/lib/api/safe-details";
+import { resolveTransactionViews } from "@/lib/api/transaction-list";
 
 interface RouteContext {
   readonly params: Promise<{ chainId: string; address: string }>;
@@ -44,8 +44,13 @@ export async function GET(request: Request, context: RouteContext) {
     query.data.cursor,
     query.data.limit,
   );
+  const data = await resolveTransactionViews(
+    persistence,
+    safe.data,
+    page.items,
+  );
   return NextResponse.json({
-    data: page.items.map(toTransactionView),
+    data,
     nextCursor: page.nextCursor,
   });
 }
