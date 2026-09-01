@@ -22,6 +22,7 @@ import {
   safeRouteParamsSchema,
   summarizeSyncCursors,
 } from "@/lib/api/safe-details";
+import { TRANSACTION_ANALYSIS_ENGINE_VERSION } from "@/lib/api/transaction-analysis";
 
 interface SafeActionInput {
   readonly chainId: number;
