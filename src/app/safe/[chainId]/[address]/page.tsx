@@ -9,6 +9,7 @@ import { getPersistencePort, getSafeDataPort } from "@/container";
 import { toMessageView } from "@/lib/api/message-details";
 import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
 import { isRefreshActive } from "@/lib/api/sync-refresh";
+import { explorerAddressUrl } from "@/lib/explorer-links";
 import {
   resolveSyncSummary,
   safeRouteParamsSchema,
@@ -79,6 +80,7 @@ export default async function SafeDashboardPage({ params }: PageProps) {
     toMessageView(message, safe.threshold),
   );
   const chainName = safe.chainId === 1 ? "Ethereum" : "XDC Network";
+  const safeExplorerUrl = explorerAddressUrl(safe.chainId, safe.address);
   const refreshAction = requestSafeRefresh.bind(null, {
     chainId: safe.chainId,
     address: safe.address,
@@ -107,7 +109,19 @@ export default async function SafeDashboardPage({ params }: PageProps) {
           <div>
             <p className="eyebrow">{chainName}</p>
             <h1>{shorten(safe.address, 12, 10)}</h1>
-            <p className="full-address">{safe.address}</p>
+            {safeExplorerUrl ? (
+              <a
+                className="full-address explorer-link"
+                href={safeExplorerUrl}
+                rel="noreferrer"
+                target="_blank"
+              >
+                {safe.address}
+                <span aria-hidden="true">↗</span>
+              </a>
+            ) : (
+              <p className="full-address">{safe.address}</p>
+            )}
           </div>
           <div className="sync-summary">
             <span className={`verified-pill sync-${sync.status}`}>
