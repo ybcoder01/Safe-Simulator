@@ -56,10 +56,7 @@ async function loadImmutableSimulation(
   execution: ExecutionInsight,
   persistence: PersistencePort,
 ): Promise<SimulationOutput | null> {
-  if (
-    execution.mode !== "executed-replay" ||
-    execution.blockHash === null
-  ) {
+  if (execution.mode !== "executed-replay" || execution.blockHash === null) {
     return null;
   }
 
