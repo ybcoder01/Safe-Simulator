@@ -7,6 +7,7 @@ import type {
 } from "../../../../src/core/domain";
 import {
   appendUniqueModuleTransactionViews,
+  moduleIsEnabled,
   moduleTransactionPageQuerySchema,
   toModuleTransactionView,
 } from "../../../../src/lib/api/module-activity";
@@ -62,6 +63,17 @@ describe("module activity API views", () => {
       blockNumber: "123",
       executedAt: transaction.executedAt,
     });
+  });
+
+  it("matches current module authority case-insensitively", () => {
+    expect(
+      moduleIsEnabled(transaction.module.toUpperCase(), [transaction.module]),
+    ).toBe(true);
+    expect(
+      moduleIsEnabled(transaction.module, [
+        "0x3333333333333333333333333333333333333333",
+      ]),
+    ).toBe(false);
   });
 
   it("appends pages without duplicate transaction hashes", () => {

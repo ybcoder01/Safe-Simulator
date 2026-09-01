@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import {
   appendUniqueModuleTransactionViews,
+  moduleIsEnabled,
   type ModuleTransactionView,
 } from "@/lib/api/module-activity";
 import { explorerTransactionUrl } from "@/lib/explorer-links";
@@ -11,6 +12,7 @@ import { explorerTransactionUrl } from "@/lib/explorer-links";
 interface ModuleActivityProps {
   readonly address: string;
   readonly chainId: number;
+  readonly enabledModules: readonly string[];
   readonly initialTransactions: readonly ModuleTransactionView[];
   readonly nextCursor: string | null;
 }
@@ -30,6 +32,7 @@ function executedAtLabel(timestamp: number) {
 export function ModuleActivity({
   address,
   chainId,
+  enabledModules,
   initialTransactions,
   nextCursor: initialCursor,
 }: ModuleActivityProps) {
@@ -87,7 +90,7 @@ export function ModuleActivity({
           <h2 id="module-activity-title">Module executions</h2>
         </div>
         <span>
-          {transactions.length}
+          {enabledModules.length} enabled now · {transactions.length}
           {nextCursor ? "+" : ""} loaded
         </span>
       </div>
@@ -111,6 +114,10 @@ export function ModuleActivity({
               chainId,
               transaction.transactionHash,
             );
+            const enabledNow = moduleIsEnabled(
+              transaction.module,
+              enabledModules,
+            );
 
             return (
               <article
@@ -123,7 +130,16 @@ export function ModuleActivity({
                   <span>
                     Via {shorten(transaction.module)} · {transaction.operation}{" "}
                     · value {transaction.value} wei ·{" "}
-                    {transaction.calldataBytes} calldata bytes
+                    {transaction.calldataBytes} calldata bytes{" "}
+                    <em
+                      className={`module-authority ${
+                        enabledNow
+                          ? "module-authority-enabled"
+                          : "module-authority-disabled"
+                      }`}
+                    >
+                      {enabledNow ? "enabled now" : "not enabled now"}
+                    </em>
                   </span>
                 </div>
                 <span>Block {transaction.blockNumber}</span>

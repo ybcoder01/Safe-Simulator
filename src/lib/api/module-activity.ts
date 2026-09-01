@@ -27,6 +27,16 @@ export function toModuleTransactionView(transaction: ModuleTransaction) {
 
 export type ModuleTransactionView = ReturnType<typeof toModuleTransactionView>;
 
+export function moduleIsEnabled(
+  module: string,
+  enabledModules: readonly string[],
+): boolean {
+  const normalized = module.toLowerCase();
+  return enabledModules.some(
+    (candidate) => candidate.toLowerCase() === normalized,
+  );
+}
+
 export function appendUniqueModuleTransactionViews(
   current: readonly ModuleTransactionView[],
   incoming: readonly ModuleTransactionView[],
