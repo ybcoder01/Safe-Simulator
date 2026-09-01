@@ -34,9 +34,7 @@ function snapshot(index: number): SafeSnapshot {
 describe("browser wallet discovery parsing", () => {
   it("normalizes the selected EVM account", () => {
     expect(
-      parseBrowserWalletOwner([
-        "0x000000000000000000000000000000000000dead",
-      ]),
+      parseBrowserWalletOwner(["0x000000000000000000000000000000000000dead"]),
     ).toBe("0x000000000000000000000000000000000000dEaD");
   });
 
