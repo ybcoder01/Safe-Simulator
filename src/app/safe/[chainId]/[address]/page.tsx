@@ -94,9 +94,7 @@ export default async function SafeDashboardPage({ params }: PageProps) {
     safe,
     page.items,
   );
-  const moduleTransactionViews = modulePage.items.map(
-    toModuleTransactionView,
-  );
+  const moduleTransactionViews = modulePage.items.map(toModuleTransactionView);
   const messageViews = messagePage.items.map((message) =>
     toMessageView(message, safe.threshold),
   );
