@@ -1,7 +1,16 @@
 import { verifyQStashRequest } from "@/adapters/queue-qstash/queue";
-import { getPersistencePort, getQueuePort, getSafeDataPort } from "@/container";
+import {
+  getAbiPort,
+  getCachePort,
+  getChainPort,
+  getPersistencePort,
+  getQueuePort,
+  getSafeDataPort,
+  getSimulationPort,
+} from "@/container";
 import { enqueueSafeSync, runBackfillPage } from "@/core/ingestion/backfill";
 import { runSyncSweep } from "@/core/ingestion/sweep";
+import { runAnalyzeJob } from "@/lib/api/analysis-job";
 import { queueJobSchema } from "@/lib/api/jobs";
 
 export async function POST(request: Request) {
@@ -66,9 +75,20 @@ export async function POST(request: Request) {
       );
       return Response.json({ scheduled: 4 });
     case "analyze":
+      return Response.json(
+        await runAnalyzeJob(job, {
+          abi: getAbiPort(),
+          cache: getCachePort(),
+          chain: getChainPort(),
+          persistence,
+          safeData: getSafeDataPort(),
+          simulation: getSimulationPort(),
+          now,
+        }),
+      );
     case "reanalyze":
       return Response.json(
-        { status: "deferred", reason: "analysis_not_enabled" },
+        { status: "deferred", reason: "bulk_reanalysis_not_enabled" },
         { status: 202 },
       );
   }
