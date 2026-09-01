@@ -52,9 +52,7 @@ export function ReanalysisControl({
     return () => window.clearInterval(interval);
   }, [complete, queued, router]);
 
-  const describedBy = state.message
-    ? `${coverageId} ${statusId}`
-    : coverageId;
+  const describedBy = state.message ? `${coverageId} ${statusId}` : coverageId;
 
   return (
     <div className="analysis-coverage">
