@@ -1,5 +1,6 @@
 import { PublicAbiAdapter } from "@/adapters/abi-sourcify/metadata";
 import { UpstashCacheAdapter } from "@/adapters/cache-upstash/cache";
+import { UpstashRateLimitAdapter } from "@/adapters/cache-upstash/rate-limit";
 import { ViemChainAdapter } from "@/adapters/chain-viem/chain";
 import { getDatabase } from "@/adapters/db-drizzle/client";
 import { DrizzlePersistenceAdapter } from "@/adapters/db-drizzle/persistence";
@@ -13,6 +14,7 @@ let chain: ViemChainAdapter | null = null;
 let persistence: DrizzlePersistenceAdapter | null = null;
 let cache: UpstashCacheAdapter | null = null;
 let queue: QStashQueueAdapter | null = null;
+let rateLimit: UpstashRateLimitAdapter | null = null;
 let safeData: SafeApiAdapter | null = null;
 let simulation: RpcSimulationAdapter | null = null;
 
@@ -34,6 +36,11 @@ export function getPersistencePort() {
 export function getCachePort() {
   cache ??= new UpstashCacheAdapter();
   return cache;
+}
+
+export function getRateLimitPort() {
+  rateLimit ??= new UpstashRateLimitAdapter();
+  return rateLimit;
 }
 
 export function getQueuePort() {
