@@ -11,6 +11,7 @@ import type {
   SafeDataPort,
   SimulationPort,
 } from "@/core/ports";
+import { TRANSACTION_ANALYSIS_ENGINE_VERSION } from "@/lib/api/analysis-version";
 import {
   resolveApprovalRisk,
   type ApprovalRiskResult,
@@ -30,7 +31,7 @@ import {
   type StorageChangeAnalysis,
 } from "@/lib/api/storage-changes";
 
-export const TRANSACTION_ANALYSIS_ENGINE_VERSION = "transaction-analysis-v1";
+export { TRANSACTION_ANALYSIS_ENGINE_VERSION };
 
 export interface NeutralTransactionAnalysisPorts {
   readonly abi: AbiPort;
