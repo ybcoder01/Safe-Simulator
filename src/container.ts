@@ -4,6 +4,7 @@ import { UpstashRateLimitAdapter } from "@/adapters/cache-upstash/rate-limit";
 import { ViemChainAdapter } from "@/adapters/chain-viem/chain";
 import { getDatabase } from "@/adapters/db-drizzle/client";
 import { DrizzlePersistenceAdapter } from "@/adapters/db-drizzle/persistence";
+import { HostedReadinessAdapter } from "@/adapters/health-hosted/readiness";
 import { QStashQueueAdapter } from "@/adapters/queue-qstash/queue";
 import { SafeApiAdapter } from "@/adapters/safe-api/safe-data";
 import { RpcSimulationAdapter } from "@/adapters/simulator-rpc/simulation";
@@ -14,6 +15,7 @@ let chain: ViemChainAdapter | null = null;
 let persistence: DrizzlePersistenceAdapter | null = null;
 let cache: UpstashCacheAdapter | null = null;
 let queue: QStashQueueAdapter | null = null;
+let readiness: HostedReadinessAdapter | null = null;
 let rateLimit: UpstashRateLimitAdapter | null = null;
 let safeData: SafeApiAdapter | null = null;
 let simulation: RpcSimulationAdapter | null = null;
@@ -36,6 +38,11 @@ export function getPersistencePort() {
 export function getCachePort() {
   cache ??= new UpstashCacheAdapter();
   return cache;
+}
+
+export function getReadinessPort() {
+  readiness ??= new HostedReadinessAdapter();
+  return readiness;
 }
 
 export function getRateLimitPort() {
