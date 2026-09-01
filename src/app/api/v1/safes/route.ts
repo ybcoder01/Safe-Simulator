@@ -2,8 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 
 import { supportedChainSummaries } from "@/adapters/chain-viem/config";
-import { getImportSafeService, getPersistencePort } from "@/container";
+import {
+  getImportSafeService,
+  getPersistencePort,
+  getRateLimitPort,
+} from "@/container";
 import { SafeImportError } from "@/core/safes/import-safe";
+import {
+  checkRequestRateLimit,
+  rateLimitHeaders,
+  SAFE_IMPORT_RATE_LIMIT,
+} from "@/lib/api/rate-limit";
 import {
   parseProfileId,
   PROFILE_COOKIE,
@@ -68,6 +77,26 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const rateLimit = await checkRequestRateLimit(
+    getRateLimitPort(),
+    request,
+    SAFE_IMPORT_RATE_LIMIT,
+  );
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      {
+        error: {
+          code: "rate_limit_exceeded",
+          message: "Too many Safe import attempts. Try again later.",
+        },
+      },
+      {
+        status: 429,
+        headers: rateLimitHeaders(SAFE_IMPORT_RATE_LIMIT, rateLimit),
+      },
+    );
+  }
+
   try {
     const input = importSafeInputSchema.parse(await request.json());
     const profileId =

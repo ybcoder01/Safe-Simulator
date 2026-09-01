@@ -1,34 +1,9 @@
-import { Redis } from "@upstash/redis";
-
+import { getRedisClient } from "@/adapters/cache-upstash/client";
 import type { CachePort } from "@/core/ports";
-
-function createRedis() {
-  const url =
-    process.env.UPSTASH_REDIS_REST_URL ??
-    process.env.UPSTASH_REDIS_REST_KV_REST_API_URL;
-  const token =
-    process.env.UPSTASH_REDIS_REST_TOKEN ??
-    process.env.UPSTASH_REDIS_REST_KV_REST_API_TOKEN;
-
-  if (!url || !token) {
-    throw new Error(
-      "Upstash Redis is not configured. Provision it through the Vercel Marketplace and connect it to this project.",
-    );
-  }
-
-  return new Redis({ url, token });
-}
-
-let redis: ReturnType<typeof createRedis> | null = null;
-
-function getRedis() {
-  redis ??= createRedis();
-  return redis;
-}
 
 export class UpstashCacheAdapter implements CachePort {
   async get<T>(key: string): Promise<T | null> {
-    return getRedis().get<T>(key);
+    return getRedisClient().get<T>(key);
   }
 
   async set<T>(
@@ -37,14 +12,14 @@ export class UpstashCacheAdapter implements CachePort {
     ttlSeconds: number | null,
   ): Promise<void> {
     if (ttlSeconds === null) {
-      await getRedis().set(key, value);
+      await getRedisClient().set(key, value);
       return;
     }
-    await getRedis().set(key, value, { ex: ttlSeconds });
+    await getRedisClient().set(key, value, { ex: ttlSeconds });
   }
 
   async delete(key: string): Promise<void> {
-    await getRedis().del(key);
+    await getRedisClient().del(key);
   }
 
   async deleteByPrefix(prefix: string): Promise<number> {
@@ -52,12 +27,12 @@ export class UpstashCacheAdapter implements CachePort {
     let deleted = 0;
 
     do {
-      const [nextCursor, keys] = await getRedis().scan(cursor, {
+      const [nextCursor, keys] = await getRedisClient().scan(cursor, {
         match: `${prefix}*`,
         count: 100,
       });
       cursor = Number(nextCursor);
-      if (keys.length > 0) deleted += await getRedis().del(...keys);
+      if (keys.length > 0) deleted += await getRedisClient().del(...keys);
     } while (cursor !== 0);
 
     return deleted;

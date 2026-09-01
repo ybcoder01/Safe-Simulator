@@ -192,6 +192,20 @@ export interface CachePort {
   deleteByPrefix(prefix: string): Promise<number>;
 }
 
+export interface RateLimitDecision {
+  readonly allowed: boolean;
+  readonly remaining: number;
+  readonly retryAfterSeconds: number;
+}
+
+export interface RateLimitPort {
+  consume(
+    key: string,
+    limit: number,
+    windowSeconds: number,
+  ): Promise<RateLimitDecision>;
+}
+
 export interface QueuePort {
   /** Enqueues an idempotent job. Reusing idempotencyKey must not create duplicate work. */
   enqueue(
