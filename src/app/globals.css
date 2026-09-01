@@ -1032,6 +1032,52 @@ select {
 .detail-list .explorer-link {
   justify-content: flex-end;
 }
+.identifier-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+.identifier-actions-end {
+  justify-content: flex-end;
+}
+.dashboard-identifier-actions {
+  margin-top: 15px;
+}
+.dashboard-identifier-actions .full-address {
+  margin: 0;
+}
+.transaction-hash-actions {
+  margin-top: 15px;
+}
+.transaction-hash-actions code {
+  overflow-wrap: anywhere;
+  color: var(--faint);
+  font-family: var(--font-geist-mono);
+  font-size: 11px;
+}
+.copy-identifier-control {
+  display: inline-flex;
+}
+.copy-identifier-button {
+  min-height: 28px;
+  padding: 0 9px;
+  border: 1px solid rgba(101, 242, 172, 0.28);
+  border-radius: 7px;
+  color: var(--green);
+  background: rgba(101, 242, 172, 0.04);
+  cursor: pointer;
+  font: inherit;
+  font-size: 9px;
+  font-weight: 620;
+}
+.copy-identifier-button:hover,
+.copy-identifier-button:focus-visible {
+  outline: none;
+  border-color: rgba(101, 242, 172, 0.58);
+  background: rgba(101, 242, 172, 0.1);
+}
 .dashboard-metrics,
 .detail-grid {
   display: grid;
