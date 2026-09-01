@@ -9,7 +9,7 @@ import {
   type TransactionAnalysisView,
   type TransactionView,
 } from "@/lib/api/safe-details";
-import { TRANSACTION_ANALYSIS_ENGINE_VERSION } from "@/lib/api/transaction-analysis";
+import { TRANSACTION_ANALYSIS_ENGINE_VERSION } from "@/lib/api/analysis-version";
 
 function toAnalysisView(result: AnalysisResult): TransactionAnalysisView {
   return {
