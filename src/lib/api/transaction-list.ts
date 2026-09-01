@@ -24,6 +24,8 @@ export async function resolveTransactionViews(
   safe: SafeRef,
   transactions: readonly SafeTransaction[],
 ): Promise<readonly TransactionView[]> {
+  if (transactions.length === 0) return [];
+
   const analyses = await persistence.findAnalyses(
     safe,
     transactions.map((transaction) => transaction.safeTxHash),
