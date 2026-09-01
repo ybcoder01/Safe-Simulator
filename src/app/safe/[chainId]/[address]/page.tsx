@@ -8,6 +8,7 @@ import { ReanalysisControl } from "@/components/safes/reanalysis-control";
 import { CopyIdentifierButton } from "@/components/shared/copy-identifier-button";
 import { SyncRefreshControl } from "@/components/safes/sync-refresh-control";
 import { TransactionHistory } from "@/components/safes/transaction-history";
+import { TransferActivity } from "@/components/safes/transfer-activity";
 import { getPersistencePort, getSafeDataPort } from "@/container";
 import { toMessageView } from "@/lib/api/message-details";
 import { toModuleTransactionView } from "@/lib/api/module-activity";
@@ -16,6 +17,7 @@ import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
 import { isRefreshActive } from "@/lib/api/sync-refresh";
 import { explorerAddressUrl } from "@/lib/explorer-links";
 import { resolveTransactionViews } from "@/lib/api/transaction-list";
+import { toTransferView } from "@/lib/api/transfer-activity";
 import {
   resolveSyncSummary,
   safeRouteParamsSchema,
@@ -71,6 +73,7 @@ export default async function SafeDashboardPage({ params }: PageProps) {
     sync,
     page,
     modulePage,
+    transferPage,
     messagePage,
     balanceResult,
     addressBook,
@@ -79,6 +82,7 @@ export default async function SafeDashboardPage({ params }: PageProps) {
     resolveSyncSummary(persistence, safe),
     persistence.listTransactions(safe, null, 25),
     persistence.listModuleTransactions(safe, null, 10),
+    persistence.listTransfers(safe, null, 10),
     persistence.listMessages(safe, null, 10),
     getSafeDataPort()
       .getBalances(safe)
@@ -95,6 +99,7 @@ export default async function SafeDashboardPage({ params }: PageProps) {
     page.items,
   );
   const moduleTransactionViews = modulePage.items.map(toModuleTransactionView);
+  const transferViews = transferPage.items.map(toTransferView);
   const messageViews = messagePage.items.map((message) =>
     toMessageView(message, safe.threshold),
   );
@@ -295,6 +300,13 @@ export default async function SafeDashboardPage({ params }: PageProps) {
           chainId={safe.chainId}
           initialTransactions={moduleTransactionViews}
           nextCursor={modulePage.nextCursor}
+        />
+
+        <TransferActivity
+          address={safe.address}
+          chainId={safe.chainId}
+          initialTransfers={transferViews}
+          nextCursor={transferPage.nextCursor}
         />
 
         <MessageHistory
