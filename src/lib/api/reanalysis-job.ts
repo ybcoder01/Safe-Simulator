@@ -27,7 +27,12 @@ export type ReanalysisPageResult =
     };
 
 function safeScope(job: ReanalysisJob) {
-  return `${job.safe.chainId}:${job.safe.address.toLowerCase()}:${job.engineVersion}`;
+  return [
+    job.safe.chainId,
+    job.safe.address.toLowerCase(),
+    job.engineVersion,
+    job.runId,
+  ].join(":");
 }
 
 export async function runReanalysisPage(
