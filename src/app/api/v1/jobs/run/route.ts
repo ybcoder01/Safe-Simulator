@@ -11,6 +11,7 @@ import {
 import { enqueueSafeSync, runBackfillPage } from "@/core/ingestion/backfill";
 import { runSyncSweep } from "@/core/ingestion/sweep";
 import { runAnalyzeJob } from "@/lib/api/analysis-job";
+import { TRANSACTION_ANALYSIS_ENGINE_VERSION } from "@/lib/api/analysis-version";
 import { queueJobSchema } from "@/lib/api/jobs";
 import { runReanalysisPage } from "@/lib/api/reanalysis-job";
 
@@ -61,6 +62,7 @@ export async function POST(request: Request) {
           persistence,
           queue,
           safeData: getSafeDataPort(),
+          analysisEngineVersion: TRANSACTION_ANALYSIS_ENGINE_VERSION,
           now,
         }),
       );
