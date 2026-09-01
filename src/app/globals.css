@@ -1014,6 +1014,24 @@ select {
   font-family: var(--font-geist-mono);
   font-size: 11px;
 }
+.explorer-link {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  max-width: 100%;
+  color: var(--green);
+}
+.explorer-link:hover,
+.explorer-link:focus-visible {
+  outline: none;
+  color: var(--ink);
+}
+.explorer-link code {
+  overflow-wrap: anywhere;
+}
+.detail-list .explorer-link {
+  justify-content: flex-end;
+}
 .dashboard-metrics,
 .detail-grid {
   display: grid;
