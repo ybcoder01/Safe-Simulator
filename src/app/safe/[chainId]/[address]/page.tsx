@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { MessageHistory } from "@/components/safes/message-history";
+import { ReanalysisControl } from "@/components/safes/reanalysis-control";
 import { CopyIdentifierButton } from "@/components/shared/copy-identifier-button";
 import { SyncRefreshControl } from "@/components/safes/sync-refresh-control";
 import { TransactionHistory } from "@/components/safes/transaction-history";
@@ -18,7 +19,7 @@ import {
   toTransactionView,
 } from "@/lib/api/safe-details";
 
-import { requestSafeRefresh } from "./actions";
+import { requestSafeReanalysis, requestSafeRefresh } from "./actions";
 
 interface PageProps {
   readonly params: Promise<{ chainId: string; address: string }>;
@@ -82,10 +83,12 @@ export default async function SafeDashboardPage({ params }: PageProps) {
   );
   const chainName = safe.chainId === 1 ? "Ethereum" : "XDC Network";
   const safeExplorerUrl = explorerAddressUrl(safe.chainId, safe.address);
-  const refreshAction = requestSafeRefresh.bind(null, {
+  const actionInput = {
     chainId: safe.chainId,
     address: safe.address,
-  });
+  };
+  const refreshAction = requestSafeRefresh.bind(null, actionInput);
+  const reanalysisAction = requestSafeReanalysis.bind(null, actionInput);
 
   return (
     <main className="workspace shell">
@@ -166,6 +169,7 @@ export default async function SafeDashboardPage({ params }: PageProps) {
               latestActivityAt={sync.latestActivityAt}
               syncStatus={sync.status}
             />
+            <ReanalysisControl action={reanalysisAction} />
           </div>
         </section>
 
