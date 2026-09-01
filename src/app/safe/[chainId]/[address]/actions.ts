@@ -6,6 +6,10 @@ import { revalidatePath } from "next/cache";
 import { getPersistencePort, getQueuePort } from "@/container";
 import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
 import {
+  reanalysisRequestIdempotencyKey,
+  type ReanalysisRequestState,
+} from "@/lib/api/reanalysis-request";
+import {
   isRefreshActive,
   isSafeBookmarked,
   queuedRefreshCursors,
@@ -18,14 +22,15 @@ import {
   safeRouteParamsSchema,
   summarizeSyncCursors,
 } from "@/lib/api/safe-details";
+import { TRANSACTION_ANALYSIS_ENGINE_VERSION } from "@/lib/api/transaction-analysis";
 
-interface RefreshSafeInput {
+interface SafeActionInput {
   readonly chainId: number;
   readonly address: string;
 }
 
 export async function requestSafeRefresh(
-  input: RefreshSafeInput,
+  input: SafeActionInput,
   previousState: RefreshSyncState,
   formData: FormData,
 ): Promise<RefreshSyncState> {
@@ -123,6 +128,70 @@ export async function requestSafeRefresh(
       status: "error",
       message: "The refresh could not be queued right now.",
       requestedAt,
+    };
+  }
+}
+
+export async function requestSafeReanalysis(
+  input: SafeActionInput,
+  previousState: ReanalysisRequestState,
+  formData: FormData,
+): Promise<ReanalysisRequestState> {
+  void previousState;
+  void formData;
+
+  const parsed = safeRouteParamsSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      status: "error",
+      message: "The Safe reference is invalid.",
+    };
+  }
+
+  const cookieStore = await cookies();
+  const profileId = parseProfileId(cookieStore.get(PROFILE_COOKIE)?.value);
+  if (!profileId) {
+    return {
+      status: "error",
+      message: "This Safe is not available in the current watchlist.",
+    };
+  }
+
+  try {
+    const bookmarkedSafes =
+      await getPersistencePort().listSafesForProfile(profileId);
+    if (!isSafeBookmarked(bookmarkedSafes, parsed.data)) {
+      return {
+        status: "error",
+        message: "This Safe is not available in the current watchlist.",
+      };
+    }
+
+    const requestId = reanalysisRequestIdempotencyKey(
+      parsed.data,
+      TRANSACTION_ANALYSIS_ENGINE_VERSION,
+    );
+    await getQueuePort().enqueue(
+      {
+        type: "reanalyze",
+        safe: parsed.data,
+        engineVersion: TRANSACTION_ANALYSIS_ENGINE_VERSION,
+        runId: requestId,
+        cursor: null,
+        page: 0,
+      },
+      { idempotencyKey: requestId },
+    );
+
+    return {
+      status: "queued",
+      message:
+        "History analysis queued in small batches. Open a transaction later to view its latest evidence.",
+    };
+  } catch {
+    return {
+      status: "error",
+      message: "History analysis could not be queued right now.",
     };
   }
 }

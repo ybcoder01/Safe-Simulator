@@ -113,9 +113,11 @@ Only change the version in a reviewed pull request when evidence semantics chang
 
 A version bump makes old records unreachable through the new lookup key. Opening transaction details produces evidence under the new version when providers return complete supported data.
 
-Signed single-transaction `analyze` jobs are operational and persist a profile-neutral baseline under `TRANSACTION_ANALYSIS_ENGINE_VERSION`. Profile Trust and Flag records are applied only when serving a transaction and are never copied into the shared result. Completed immutable analyses are reused; pending analyses remain refreshable.
+Signed single-transaction `analyze` jobs persist a profile-neutral baseline under `TRANSACTION_ANALYSIS_ENGINE_VERSION`. Profile Trust and Flag records are applied only when serving a transaction and are never copied into the shared result. Completed immutable analyses are reused; pending analyses remain refreshable.
 
-Bulk `reanalyze` jobs remain deferred and must not be described as operational. Do not attempt bulk reanalysis until a bounded cursor, an explicit authorized trigger, and regression coverage are implemented.
+A bookmarked Safe dashboard exposes an explicit **Reanalyze history** request. The request is profile-authorized and deduplicated in a 15-minute window. Its signed `reanalyze` callback reads no more than five persisted transactions per page, spaces individual `analyze` deliveries by three seconds, and delays the next cursor page until the current batch has been published. Only the current transaction-analysis engine version is accepted.
+
+Queue acceptance does not mean the full history has finished. Check QStash deliveries and Vercel runtime logs for the Safe and engine version. Repeating the request inside the deduplication window is safe and does not create a parallel scan. Do not manually construct cursors or send unsigned callback requests.
 
 ## Database precautions
 

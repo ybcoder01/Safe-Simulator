@@ -12,6 +12,7 @@ import { enqueueSafeSync, runBackfillPage } from "@/core/ingestion/backfill";
 import { runSyncSweep } from "@/core/ingestion/sweep";
 import { runAnalyzeJob } from "@/lib/api/analysis-job";
 import { queueJobSchema } from "@/lib/api/jobs";
+import { runReanalysisPage } from "@/lib/api/reanalysis-job";
 
 export async function POST(request: Request) {
   const rawBody = await request.text();
@@ -88,8 +89,7 @@ export async function POST(request: Request) {
       );
     case "reanalyze":
       return Response.json(
-        { status: "deferred", reason: "bulk_reanalysis_not_enabled" },
-        { status: 202 },
+        await runReanalysisPage(job, { persistence, queue }),
       );
   }
 }
