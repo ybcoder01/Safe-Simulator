@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import nextConfig, { securityHeaders } from "../../../next.config";
+import nextConfig, {
+  contentSecurityPolicy,
+  securityHeaders,
+} from "../../../next.config";
 
 describe("security response headers", () => {
   it("applies the hardened policy to every route", async () => {
@@ -9,10 +12,22 @@ describe("security response headers", () => {
     ]);
   });
 
+  it("restricts executable and embeddable content to the application", () => {
+    expect(contentSecurityPolicy).toContain("default-src 'self'");
+    expect(contentSecurityPolicy).toContain("connect-src 'self'");
+    expect(contentSecurityPolicy).toContain("frame-ancestors 'none'");
+    expect(contentSecurityPolicy).toContain("object-src 'none'");
+    expect(contentSecurityPolicy).toContain("script-src-attr 'none'");
+    expect(contentSecurityPolicy).not.toContain("unsafe-eval");
+    expect(contentSecurityPolicy).not.toContain("http:");
+    expect(contentSecurityPolicy).not.toContain("https:");
+  });
+
   it("prevents framing, sniffing, and unnecessary browser capabilities", () => {
     expect(
       Object.fromEntries(securityHeaders.map(({ key, value }) => [key, value])),
     ).toMatchObject({
+      "Content-Security-Policy": contentSecurityPolicy,
       "Cross-Origin-Opener-Policy": "same-origin",
       "Cross-Origin-Resource-Policy": "same-origin",
       "Permissions-Policy":
