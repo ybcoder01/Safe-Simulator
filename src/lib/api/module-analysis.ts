@@ -35,7 +35,9 @@ export interface ModuleAnalysisPorts {
   readonly now: () => number;
 }
 
-const privilegedPathFinding = (module: ModuleTransaction["module"]): Finding => ({
+const privilegedPathFinding = (
+  module: ModuleTransaction["module"],
+): Finding => ({
   code: "module-execution-path",
   severity: "warning",
   title: "Privileged module execution",
@@ -44,10 +46,7 @@ const privilegedPathFinding = (module: ModuleTransaction["module"]): Finding => 
   addresses: [module],
 });
 
-function analysisVerdict(
-  baseline: Verdict,
-  anchorMismatch: boolean,
-): Verdict {
+function analysisVerdict(baseline: Verdict, anchorMismatch: boolean): Verdict {
   if (anchorMismatch || baseline === "flagged") return "flagged";
   return "unverified";
 }
@@ -101,12 +100,12 @@ export async function resolveModuleAnalysis(
   ports: ModuleAnalysisPorts,
 ): Promise<ModuleAnalysisResult> {
   const anchor = await ports.chain
-    .getTransactionBlock(
-      transaction.safe.chainId,
-      transaction.transactionHash,
-    )
+    .getTransactionBlock(transaction.safe.chainId, transaction.transactionHash)
     .catch(() => null);
-  const normalized = executedTransaction(transaction, anchor?.blockHash ?? null);
+  const normalized = executedTransaction(
+    transaction,
+    anchor?.blockHash ?? null,
+  );
   const contractPromise = resolveContractInsight(
     ports.safeData,
     ports.abi,
