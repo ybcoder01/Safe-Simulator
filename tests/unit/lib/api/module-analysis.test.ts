@@ -38,8 +38,7 @@ vi.mock("@/lib/api/storage-changes", () => ({
 }));
 
 const safeAddress = "0x1111111111111111111111111111111111111111" as Address;
-const moduleAddress =
-  "0x2222222222222222222222222222222222222222" as Address;
+const moduleAddress = "0x2222222222222222222222222222222222222222" as Address;
 const target = "0x3333333333333333333333333333333333333333" as Address;
 const transactionHash = `0x${"a".repeat(64)}` as Hex;
 const blockHash = `0x${"b".repeat(64)}` as Hex;
