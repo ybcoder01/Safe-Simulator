@@ -35,6 +35,12 @@ export const transactionPageQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(25),
 });
 
+export interface TransactionAnalysisView {
+  readonly baselineVerdict: "trusted" | "known" | "unverified" | "flagged";
+  readonly analyzedAt: number;
+  readonly immutable: boolean;
+}
+
 export interface TransactionView {
   readonly safeTxHash: string;
   readonly nonce: string;
@@ -54,6 +60,7 @@ export interface TransactionView {
   readonly executedTxHash: string | null;
   readonly blockNumber: string | null;
   readonly blockHash: string | null;
+  readonly analysis: TransactionAnalysisView | null;
 }
 
 export function transactionMatchesSearch(
@@ -107,6 +114,7 @@ export interface BalanceView {
 
 export function toTransactionView(
   transaction: SafeTransaction,
+  analysis: TransactionAnalysisView | null = null,
 ): TransactionView {
   return {
     ...transaction,
@@ -114,6 +122,7 @@ export function toTransactionView(
     summary: knownCallSummary(transaction.data, transaction.operation),
     value: transaction.value.toString(),
     blockNumber: transaction.blockNumber?.toString() ?? null,
+    analysis,
   };
 }
 
