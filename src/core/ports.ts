@@ -192,6 +192,11 @@ export interface CachePort {
   deleteByPrefix(prefix: string): Promise<number>;
 }
 
+export interface ReadinessPort {
+  checkDatabase(): Promise<void>;
+  checkCache(): Promise<void>;
+}
+
 export interface RateLimitDecision {
   readonly allowed: boolean;
   readonly remaining: number;
