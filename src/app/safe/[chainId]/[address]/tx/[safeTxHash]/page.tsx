@@ -21,6 +21,10 @@ import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
 import { resolveStorageChangeAnalysis } from "@/lib/api/storage-changes";
 import { resolveExecutionTokenMetadata } from "@/lib/api/token-metadata";
 import {
+  explorerAddressUrl,
+  explorerTransactionUrl,
+} from "@/lib/explorer-links";
+import {
   safeRouteParamsSchema,
   safeTransactionHashSchema,
   toTransactionView,
@@ -104,6 +108,13 @@ export default async function TransactionDetailPage({ params }: PageProps) {
   const nestedCalls =
     decoded?.parameters.flatMap((parameter) => parameter.nestedCalls) ?? [];
   const safePath = `/safe/${safe.data.chainId}/${safe.data.address}`;
+  const targetExplorerUrl = explorerAddressUrl(
+    safe.data.chainId,
+    transaction.to,
+  );
+  const executedExplorerUrl = transaction.executedTxHash
+    ? explorerTransactionUrl(safe.data.chainId, transaction.executedTxHash)
+    : null;
 
   return (
     <main className="workspace shell">
@@ -774,13 +785,35 @@ export default async function TransactionDetailPage({ params }: PageProps) {
             <div>
               <dt>Target</dt>
               <dd>
-                <code>{transaction.to}</code>
+                {targetExplorerUrl ? (
+                  <a
+                    className="explorer-link"
+                    href={targetExplorerUrl}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    <code>{transaction.to}</code>
+                    <span aria-hidden="true">↗</span>
+                  </a>
+                ) : (
+                  <code>{transaction.to}</code>
+                )}
               </dd>
             </div>
             <div>
               <dt>Executed transaction</dt>
               <dd>
-                {transaction.executedTxHash ? (
+                {transaction.executedTxHash && executedExplorerUrl ? (
+                  <a
+                    className="explorer-link"
+                    href={executedExplorerUrl}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    <code>{transaction.executedTxHash}</code>
+                    <span aria-hidden="true">↗</span>
+                  </a>
+                ) : transaction.executedTxHash ? (
                   <code>{transaction.executedTxHash}</code>
                 ) : (
                   "Pending"
