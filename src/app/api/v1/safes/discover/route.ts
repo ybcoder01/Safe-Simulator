@@ -1,11 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { getPersistencePort, getSafeDataPort } from "@/container";
+import {
+  getPersistencePort,
+  getRateLimitPort,
+  getSafeDataPort,
+} from "@/container";
 import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
+import {
+  checkRequestRateLimit,
+  rateLimitHeaders,
+  SAFE_DISCOVERY_RATE_LIMIT,
+} from "@/lib/api/rate-limit";
 import { resolveSafeDiscovery } from "@/lib/api/safe-discovery";
 import { discoverSafesInputSchema } from "@/lib/api/safes";
 
 export async function GET(request: NextRequest) {
+  const rateLimit = await checkRequestRateLimit(
+    getRateLimitPort(),
+    request,
+    SAFE_DISCOVERY_RATE_LIMIT,
+  );
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      {
+        error: {
+          code: "rate_limit_exceeded",
+          message: "Too many owner discovery requests. Try again later.",
+        },
+      },
+      {
+        status: 429,
+        headers: rateLimitHeaders(SAFE_DISCOVERY_RATE_LIMIT, rateLimit),
+      },
+    );
+  }
+
   const input = discoverSafesInputSchema.safeParse({
     chainId: request.nextUrl.searchParams.get("chainId"),
     owner: request.nextUrl.searchParams.get("owner"),
