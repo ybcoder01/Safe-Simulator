@@ -166,20 +166,20 @@ export async function requestSafeReanalysis(
       };
     }
 
+    const requestId = reanalysisRequestIdempotencyKey(
+      parsed.data,
+      TRANSACTION_ANALYSIS_ENGINE_VERSION,
+    );
     await getQueuePort().enqueue(
       {
         type: "reanalyze",
         safe: parsed.data,
         engineVersion: TRANSACTION_ANALYSIS_ENGINE_VERSION,
+        runId: requestId,
         cursor: null,
         page: 0,
       },
-      {
-        idempotencyKey: reanalysisRequestIdempotencyKey(
-          parsed.data,
-          TRANSACTION_ANALYSIS_ENGINE_VERSION,
-        ),
-      },
+      { idempotencyKey: requestId },
     );
 
     return {
