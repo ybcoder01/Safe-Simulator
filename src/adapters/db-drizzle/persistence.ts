@@ -423,15 +423,16 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
   ): Promise<Page<ModuleTransaction>> {
     const safe = await this.requireSafeRow(safeRef);
     let cursorBlock: bigint | null = null;
+    const cursorHash = cursor;
 
-    if (cursor) {
+    if (cursorHash) {
       const [cursorRow] = await this.db
         .select({ blockNumber: moduleTransactions.blockNumber })
         .from(moduleTransactions)
         .where(
           and(
             eq(moduleTransactions.safeId, safe.id),
-            eq(moduleTransactions.transactionHash, cursor),
+            eq(moduleTransactions.transactionHash, cursorHash),
           ),
         )
         .limit(1);
@@ -442,7 +443,7 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
     }
 
     const predicate =
-      cursorBlock === null
+      cursorBlock === null || cursorHash === null
         ? eq(moduleTransactions.safeId, safe.id)
         : and(
             eq(moduleTransactions.safeId, safe.id),
@@ -450,7 +451,7 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
               lt(moduleTransactions.blockNumber, cursorBlock),
               and(
                 eq(moduleTransactions.blockNumber, cursorBlock),
-                lt(moduleTransactions.transactionHash, cursor!),
+                lt(moduleTransactions.transactionHash, cursorHash),
               ),
             ),
           );
