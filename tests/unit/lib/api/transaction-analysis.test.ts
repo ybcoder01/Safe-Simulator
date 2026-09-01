@@ -39,8 +39,7 @@ vi.mock("@/lib/api/storage-changes", () => ({
   resolveStorageChangeAnalysis: vi.fn(),
 }));
 
-const safeAddress =
-  "0x1111111111111111111111111111111111111111" as Address;
+const safeAddress = "0x1111111111111111111111111111111111111111" as Address;
 const target = "0x2222222222222222222222222222222222222222" as Address;
 const safeTxHash =
   "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" as Hex;
