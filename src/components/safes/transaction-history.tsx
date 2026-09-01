@@ -34,6 +34,35 @@ function formatDate(timestamp: number) {
   }).format(new Date(timestamp * 1_000));
 }
 
+function AnalysisBadge({
+  analysis,
+}: {
+  readonly analysis: TransactionView["analysis"];
+}) {
+  if (!analysis) {
+    return (
+      <em
+        className="analysis-verdict analysis-verdict-pending"
+        title="No profile-neutral analysis is stored for this transaction yet."
+      >
+        Analysis pending
+      </em>
+    );
+  }
+
+  const evidence = analysis.immutable
+    ? "immutable executed evidence"
+    : "refreshable evidence";
+  return (
+    <em
+      className={`analysis-verdict analysis-verdict-${analysis.baselineVerdict}`}
+      title={`Profile-neutral baseline from ${evidence}.`}
+    >
+      Baseline {analysis.baselineVerdict}
+    </em>
+  );
+}
+
 function TransactionSummary({
   addressBook,
   chainId,
@@ -62,6 +91,7 @@ function TransactionSummary({
             {target.trust}
           </em>
         ) : null}
+        <AnalysisBadge analysis={transaction.analysis} />
       </span>
     </>
   );
