@@ -119,6 +119,14 @@ A bookmarked Safe dashboard exposes an explicit **Reanalyze history** request. T
 
 Queue acceptance does not mean the full history has finished. Check QStash deliveries and Vercel runtime logs for the Safe and engine version. Repeating the request inside the deduplication window is safe and does not create a parallel scan. Do not manually construct cursors or send unsigned callback requests.
 
+## Module-execution analysis
+
+Module transactions bypass the normal multisig confirmation path and use the separate `MODULE_ANALYSIS_ENGINE_VERSION` evidence namespace. The first synchronized module page queues no more than five signed `analyze-module` jobs, spaced by three seconds. Later pages do not schedule analysis automatically.
+
+A module result becomes immutable only when replay evidence matches both the canonical transaction anchor and the persisted module block. Missing replay or anchor evidence remains explicitly refreshable. Any anchor conflict is critical and flagged. Even otherwise clean module execution remains unverified because current module authority and historical execution validity are separate questions.
+
+The `0003_module_analysis` migration is additive but required by the module history route and callback. Apply it to Preview before deploying code from this change, verify the module history page and signed callback, then apply it to Production before promoting or merging the code deployment. A code rollback can retain the additive table; do not reverse the migration while module-analysis code is running.
+
 ## Database precautions
 
 Prisma Postgres is authoritative for imported Safe data, cursors, profile bookmarks, address-book records, and persisted execution evidence.
