@@ -8,6 +8,7 @@ import type {
   ExecutionEvidenceRecord,
   DecodedCall,
   Hex,
+  ModuleAnalysisResult,
   ModuleTransaction,
   Page,
   QueueJob,
@@ -45,6 +46,20 @@ export interface SafeDataPort {
     cursor: string | null,
     limit: number,
   ): Promise<Page<ModuleTransaction>>;
+  findModuleTransaction(
+    safe: SafeRef,
+    transactionHash: Hex,
+  ): Promise<ModuleTransaction | null>;
+  saveModuleAnalysis(result: ModuleAnalysisResult): Promise<void>;
+  findModuleAnalysis(
+    transactionHash: Hex,
+    engineVersion: string,
+  ): Promise<ModuleAnalysisResult | null>;
+  findModuleAnalyses(
+    safe: SafeRef,
+    transactionHashes: readonly Hex[],
+    engineVersion: string,
+  ): Promise<readonly ModuleAnalysisResult[]>;
   listTransfers(
     safe: SafeRef,
     cursor: string | null,
