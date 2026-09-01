@@ -131,7 +131,6 @@ export async function requestSafeRefresh(
   }
 }
 
-
 export async function requestSafeReanalysis(
   input: SafeActionInput,
   previousState: ReanalysisRequestState,
