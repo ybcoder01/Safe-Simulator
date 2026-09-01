@@ -11,6 +11,7 @@ import {
   getSimulationPort,
 } from "@/container";
 import { AddressBookEditor } from "@/components/safes/address-book-editor";
+import { CopyIdentifierButton } from "@/components/shared/copy-identifier-button";
 import { decodedCallSummary } from "@/core/analysis/decoding/calldata";
 import { formatTokenAmount } from "@/core/analysis/tokens/metadata";
 import { resolveApprovalRisk } from "@/lib/api/approval-risk";
@@ -139,7 +140,13 @@ export default async function TransactionDetailPage({ params }: PageProps) {
           <div>
             <p className="eyebrow">Safe transaction</p>
             <h1>Nonce {transaction.nonce}</h1>
-            <code>{transaction.safeTxHash}</code>
+            <div className="identifier-actions transaction-hash-actions">
+              <code>{transaction.safeTxHash}</code>
+              <CopyIdentifierButton
+                label="Copy Safe transaction hash"
+                value={transaction.safeTxHash}
+              />
+            </div>
           </div>
           <span className={`tx-status tx-${transaction.status}`}>
             {transaction.status}
@@ -785,36 +792,50 @@ export default async function TransactionDetailPage({ params }: PageProps) {
             <div>
               <dt>Target</dt>
               <dd>
-                {targetExplorerUrl ? (
-                  <a
-                    className="explorer-link"
-                    href={targetExplorerUrl}
-                    rel="noreferrer"
-                    target="_blank"
-                  >
+                <span className="identifier-actions identifier-actions-end">
+                  {targetExplorerUrl ? (
+                    <a
+                      className="explorer-link"
+                      href={targetExplorerUrl}
+                      rel="noreferrer"
+                      target="_blank"
+                    >
+                      <code>{transaction.to}</code>
+                      <span aria-hidden="true">↗</span>
+                    </a>
+                  ) : (
                     <code>{transaction.to}</code>
-                    <span aria-hidden="true">↗</span>
-                  </a>
-                ) : (
-                  <code>{transaction.to}</code>
-                )}
+                  )}
+                  <CopyIdentifierButton
+                    label="Copy transaction target"
+                    value={transaction.to}
+                  />
+                </span>
               </dd>
             </div>
             <div>
               <dt>Executed transaction</dt>
               <dd>
-                {transaction.executedTxHash && executedExplorerUrl ? (
-                  <a
-                    className="explorer-link"
-                    href={executedExplorerUrl}
-                    rel="noreferrer"
-                    target="_blank"
-                  >
-                    <code>{transaction.executedTxHash}</code>
-                    <span aria-hidden="true">↗</span>
-                  </a>
-                ) : transaction.executedTxHash ? (
-                  <code>{transaction.executedTxHash}</code>
+                {transaction.executedTxHash ? (
+                  <span className="identifier-actions identifier-actions-end">
+                    {executedExplorerUrl ? (
+                      <a
+                        className="explorer-link"
+                        href={executedExplorerUrl}
+                        rel="noreferrer"
+                        target="_blank"
+                      >
+                        <code>{transaction.executedTxHash}</code>
+                        <span aria-hidden="true">↗</span>
+                      </a>
+                    ) : (
+                      <code>{transaction.executedTxHash}</code>
+                    )}
+                    <CopyIdentifierButton
+                      label="Copy executed transaction hash"
+                      value={transaction.executedTxHash}
+                    />
+                  </span>
                 ) : (
                   "Pending"
                 )}
