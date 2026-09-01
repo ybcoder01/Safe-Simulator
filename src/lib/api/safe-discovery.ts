@@ -24,10 +24,7 @@ function key(safe: SafeRef): string {
 export function parseBrowserWalletOwner(value: unknown): Address | null {
   if (!Array.isArray(value)) return null;
   const candidate = value[0];
-  if (
-    typeof candidate !== "string" ||
-    !/^0x[0-9a-fA-F]{40}$/.test(candidate)
-  ) {
+  if (typeof candidate !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(candidate)) {
     return null;
   }
 
