@@ -136,9 +136,7 @@ export function TransferActivity({
                   transfer.amount,
                 ].join(":")}
               >
-                <span
-                  className={`tx-status tx-transfer-${transfer.direction}`}
-                >
+                <span className={`tx-status tx-transfer-${transfer.direction}`}>
                   {directionLabel(transfer.direction)}
                 </span>
                 <div>
