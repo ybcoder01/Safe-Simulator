@@ -27,9 +27,7 @@ export function toModuleTransactionView(transaction: ModuleTransaction) {
   };
 }
 
-export type ModuleTransactionView = ReturnType<
-  typeof toModuleTransactionView
->;
+export type ModuleTransactionView = ReturnType<typeof toModuleTransactionView>;
 
 export function appendUniqueModuleTransactionViews(
   current: readonly ModuleTransactionView[],
