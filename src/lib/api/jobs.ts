@@ -25,6 +25,8 @@ export const queueJobSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("reanalyze"),
     safe: safeRefSchema,
-    engineVersion: z.string().min(1),
+    engineVersion: z.string().min(1).max(100),
+    cursor: z.string().max(4_096).nullable(),
+    page: z.number().int().nonnegative(),
   }),
 ]);
