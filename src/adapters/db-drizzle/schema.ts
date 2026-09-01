@@ -167,6 +167,29 @@ export const moduleTransactions = pgTable("module_transactions", {
   executedAt: timestamp("executed_at", { withTimezone: true }).notNull(),
 });
 
+export const moduleAnalysisResults = pgTable(
+  "module_analysis_results",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    transactionHash: varchar("transaction_hash", { length: 66 })
+      .notNull()
+      .references(() => moduleTransactions.transactionHash, {
+        onDelete: "cascade",
+      }),
+    engineVersion: text("engine_version").notNull(),
+    verdict: verdictEnum("verdict").notNull(),
+    findings: jsonb("findings").notNull(),
+    result: jsonb("result").notNull(),
+    createdAt,
+  },
+  (table) => [
+    uniqueIndex("module_analysis_transaction_version_unique").on(
+      table.transactionHash,
+      table.engineVersion,
+    ),
+  ],
+);
+
 export const rawTransfers = pgTable(
   "raw_transfers",
   {
