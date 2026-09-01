@@ -140,7 +140,7 @@ function makePorts(
       analysisEngineVersion: engineVersion,
       moduleAnalysisEngineVersion: moduleEngineVersion,
       now: () => 1_782_000_000,
-    } as unknown as BackfillPorts,
+    } as BackfillPorts,
     persistence,
     safeData,
     queue,
