@@ -2,6 +2,8 @@ import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTypescript from "eslint-config-next/typescript";
 
+import readOnlyBoundary from "./eslint-rules/read-only-boundary.mjs";
+
 const signingKitBan = {
   paths: [
     {
@@ -30,8 +32,14 @@ export default defineConfig([
   ...nextTypescript,
   {
     files: ["src/**/*.{ts,tsx}"],
+    plugins: {
+      safety: {
+        rules: { "read-only-boundary": readOnlyBoundary },
+      },
+    },
     rules: {
       "no-restricted-imports": ["error", signingKitBan],
+      "safety/read-only-boundary": "error",
     },
   },
   {
