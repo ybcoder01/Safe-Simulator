@@ -62,11 +62,10 @@ describe("transaction list analysis metadata", () => {
       .fn()
       .mockResolvedValue([analysis(second.safeTxHash, "flagged")]);
 
-    const result = await resolveTransactionViews(
-      { findAnalyses },
-      safe,
-      [first, second],
-    );
+    const result = await resolveTransactionViews({ findAnalyses }, safe, [
+      first,
+      second,
+    ]);
 
     expect(findAnalyses).toHaveBeenCalledWith(
       safe,
