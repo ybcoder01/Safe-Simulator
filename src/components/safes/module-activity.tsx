@@ -118,6 +118,7 @@ export function ModuleActivity({
               transaction.module,
               enabledModules,
             );
+            const analysis = transaction.analysis;
 
             return (
               <article
@@ -125,7 +126,7 @@ export function ModuleActivity({
                 key={transaction.transactionHash}
               >
                 <span className="tx-status tx-module">module</span>
-                <div>
+                <div className="module-execution-copy">
                   <strong>To {shorten(transaction.to)}</strong>
                   <span>
                     Via {shorten(transaction.module)} · {transaction.operation}{" "}
@@ -141,6 +142,43 @@ export function ModuleActivity({
                       {enabledNow ? "enabled now" : "not enabled now"}
                     </em>
                   </span>
+                  {analysis ? (
+                    <div className="module-analysis">
+                      <div className="module-analysis-summary">
+                        <span
+                          className={`analysis-verdict analysis-verdict-${analysis.verdict}`}
+                        >
+                          {analysis.verdict}
+                        </span>
+                        <span>
+                          {analysis.immutable
+                            ? "Canonical replay · immutable"
+                            : "Evidence incomplete · refreshable"}
+                        </span>
+                        <span>
+                          Trace {analysis.coverage.callTrace} · storage{" "}
+                          {analysis.coverage.storageDiff}
+                        </span>
+                      </div>
+                      {analysis.findings.length > 0 ? (
+                        <ul className="module-findings">
+                          {analysis.findings.map((finding) => (
+                            <li
+                              className={`module-finding module-finding-${finding.severity}`}
+                              key={finding.code}
+                            >
+                              <strong>{finding.title}</strong>
+                              <span>{finding.detail}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <p className="module-analysis-pending">
+                      Analysis queued or temporarily unavailable.
+                    </p>
+                  )}
                 </div>
                 <span>Block {transaction.blockNumber}</span>
                 <div className="module-execution-meta">
