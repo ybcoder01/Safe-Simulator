@@ -176,7 +176,7 @@ const baselineVerdict = {
     },
   ],
   addresses: [],
-  coverage: {},
+  coverage: "target-receipt-and-trace",
   trustBoundary: "",
 } as const;
 
