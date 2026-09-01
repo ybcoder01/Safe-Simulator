@@ -1,8 +1,4 @@
-import type {
-  AnalysisResult,
-  SafeRef,
-  SafeTransaction,
-} from "@/core/domain";
+import type { AnalysisResult, SafeRef, SafeTransaction } from "@/core/domain";
 import type { PersistencePort } from "@/core/ports";
 import {
   toTransactionView,
