@@ -12,6 +12,7 @@ import { TransferActivity } from "@/components/safes/transfer-activity";
 import { getPersistencePort, getSafeDataPort } from "@/container";
 import { toMessageView } from "@/lib/api/message-details";
 import { toModuleTransactionView } from "@/lib/api/module-activity";
+import { MODULE_ANALYSIS_ENGINE_VERSION } from "@/lib/api/module-analysis";
 import { TRANSACTION_ANALYSIS_ENGINE_VERSION } from "@/lib/api/analysis-version";
 import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
 import { isRefreshActive } from "@/lib/api/sync-refresh";
@@ -98,7 +99,24 @@ export default async function SafeDashboardPage({ params }: PageProps) {
     safe,
     page.items,
   );
-  const moduleTransactionViews = modulePage.items.map(toModuleTransactionView);
+  const moduleAnalyses = await persistence.findModuleAnalyses(
+    safe,
+    modulePage.items.map((transaction) => transaction.transactionHash),
+    MODULE_ANALYSIS_ENGINE_VERSION,
+  );
+  const moduleAnalysesByHash = new Map(
+    moduleAnalyses.map((analysis) => [
+      analysis.transactionHash.toLowerCase(),
+      analysis,
+    ]),
+  );
+  const moduleTransactionViews = modulePage.items.map((transaction) =>
+    toModuleTransactionView(
+      transaction,
+      moduleAnalysesByHash.get(transaction.transactionHash.toLowerCase()) ??
+        null,
+    ),
+  );
   const transferViews = transferPage.items.map(toTransferView);
   const messageViews = messagePage.items.map((message) =>
     toMessageView(message, safe.threshold),
