@@ -99,9 +99,9 @@ export function ModuleActivity({
           </div>
           <h3>No module executions imported</h3>
           <p>
-            Transactions executed through enabled modules will appear here
-            after synchronization. They do not use the normal multisig
-            confirmation path.
+            Transactions executed through enabled modules will appear here after
+            synchronization. They do not use the normal multisig confirmation
+            path.
           </p>
         </div>
       ) : (
@@ -121,8 +121,8 @@ export function ModuleActivity({
                 <div>
                   <strong>To {shorten(transaction.to)}</strong>
                   <span>
-                    Via {shorten(transaction.module)} · {transaction.operation} ·
-                    value {transaction.value} wei
+                    Via {shorten(transaction.module)} · {transaction.operation}{" "}
+                    · value {transaction.value} wei
                   </span>
                 </div>
                 <span>Block {transaction.blockNumber}</span>
