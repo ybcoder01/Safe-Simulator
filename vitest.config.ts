@@ -11,6 +11,12 @@ export default defineConfig({
       include: ["src/core/**/*.ts"],
       provider: "v8",
       reporter: ["text", "json-summary"],
+      thresholds: {
+        branches: 68,
+        functions: 92,
+        lines: 79,
+        statements: 77,
+      },
     },
     include: ["tests/unit/**/*.test.ts"],
   },
