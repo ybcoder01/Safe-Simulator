@@ -1,9 +1,16 @@
-import type { Page, QueueJob, SafeRef, SyncCursor } from "../domain";
+import type {
+  Page,
+  QueueJob,
+  SafeRef,
+  SafeTransaction,
+  SyncCursor,
+} from "../domain";
 import type { PersistencePort, QueuePort, SafeDataPort } from "../ports";
 
 type BackfillJob = Extract<QueueJob, { type: "backfill" }>;
 type IngestionPersistence = Pick<
   PersistencePort,
+  | "findAnalyses"
   | "findSyncCursor"
   | "saveSyncCursor"
   | "upsertMessages"
@@ -16,16 +23,78 @@ export interface BackfillPorts {
   readonly safeData: SafeDataPort;
   readonly persistence: IngestionPersistence;
   readonly queue: QueuePort;
+  readonly analysisEngineVersion: string;
   readonly now: () => number;
 }
 
 const PAGE_SIZE = 100;
+export const AUTO_ANALYSIS_LIMIT = 5;
+export const AUTO_ANALYSIS_DELAY_SECONDS = 3;
+const AUTO_ANALYSIS_RETRY_WINDOW_SECONDS = 15 * 60;
+
+interface PersistedPage {
+  readonly page: Page<unknown>;
+  readonly scheduledAnalyses: number;
+}
+
+async function enqueueMissingFirstPageAnalyses(
+  job: BackfillJob,
+  cursor: string | null,
+  items: readonly SafeTransaction[],
+  ports: BackfillPorts,
+): Promise<number> {
+  if (cursor !== null || items.length === 0) return 0;
+
+  const hashes = items.map((transaction) => transaction.safeTxHash);
+  const analyses = await ports.persistence.findAnalyses(
+    job.safe,
+    hashes,
+    ports.analysisEngineVersion,
+  );
+  const analyzedHashes = new Set(
+    analyses.map((analysis) => analysis.safeTxHash.toLowerCase()),
+  );
+  const missing = items
+    .filter(
+      (transaction) =>
+        !analyzedHashes.has(transaction.safeTxHash.toLowerCase()),
+    )
+    .slice(0, AUTO_ANALYSIS_LIMIT);
+  const retryBucket = Math.floor(
+    ports.now() / AUTO_ANALYSIS_RETRY_WINDOW_SECONDS,
+  );
+
+  await Promise.all(
+    missing.map((transaction, index) =>
+      ports.queue.enqueue(
+        {
+          type: "analyze",
+          safe: job.safe,
+          safeTxHash: transaction.safeTxHash,
+        },
+        {
+          idempotencyKey: [
+            "auto-analyze",
+            job.safe.chainId,
+            job.safe.address.toLowerCase(),
+            ports.analysisEngineVersion,
+            transaction.safeTxHash.toLowerCase(),
+            retryBucket,
+          ].join(":"),
+          delaySeconds: index * AUTO_ANALYSIS_DELAY_SECONDS,
+        },
+      ),
+    ),
+  );
+
+  return missing.length;
+}
 
 async function readAndPersistPage(
   job: BackfillJob,
   cursor: string | null,
   ports: BackfillPorts,
-): Promise<Page<unknown>> {
+): Promise<PersistedPage> {
   switch (job.stream) {
     case "multisig": {
       const page = await ports.safeData.listMultisigTransactions(
@@ -34,7 +103,13 @@ async function readAndPersistPage(
         PAGE_SIZE,
       );
       await ports.persistence.upsertTransactions(page.items);
-      return page;
+      const scheduledAnalyses = await enqueueMissingFirstPageAnalyses(
+        job,
+        cursor,
+        page.items,
+        ports,
+      );
+      return { page, scheduledAnalyses };
     }
     case "module": {
       const page = await ports.safeData.listModuleTransactions(
@@ -43,7 +118,7 @@ async function readAndPersistPage(
         PAGE_SIZE,
       );
       await ports.persistence.upsertModuleTransactions(page.items);
-      return page;
+      return { page, scheduledAnalyses: 0 };
     }
     case "transfer": {
       const page = await ports.safeData.listTransfers(
@@ -52,7 +127,7 @@ async function readAndPersistPage(
         PAGE_SIZE,
       );
       await ports.persistence.upsertTransfers(page.items);
-      return page;
+      return { page, scheduledAnalyses: 0 };
     }
     case "message": {
       const page = await ports.safeData.listMessages(
@@ -61,7 +136,7 @@ async function readAndPersistPage(
         PAGE_SIZE,
       );
       await ports.persistence.upsertMessages(page.items);
-      return page;
+      return { page, scheduledAnalyses: 0 };
     }
   }
 }
@@ -83,7 +158,11 @@ export async function runBackfillPage(job: BackfillJob, ports: BackfillPorts) {
   );
 
   try {
-    const page = await readAndPersistPage(job, cursor, ports);
+    const { page, scheduledAnalyses } = await readAndPersistPage(
+      job,
+      cursor,
+      ports,
+    );
     const status = page.nextCursor ? "running" : "complete";
     await ports.persistence.saveSyncCursor(
       cursorState(job, page.nextCursor, status, ports.now()),
@@ -97,6 +176,7 @@ export async function runBackfillPage(job: BackfillJob, ports: BackfillPorts) {
 
     return {
       processed: page.items.length,
+      scheduledAnalyses,
       nextCursor: page.nextCursor,
       status,
     };
