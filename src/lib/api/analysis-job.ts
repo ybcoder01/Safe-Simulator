@@ -1,11 +1,11 @@
-import type { QueueJob } from "@/core/domain";
+import type { Hex, SafeRef } from "@/core/domain";
 import {
   resolveNeutralTransactionAnalysis,
   TRANSACTION_ANALYSIS_ENGINE_VERSION,
   type NeutralTransactionAnalysisPorts,
 } from "@/lib/api/transaction-analysis";
 
-type AnalyzeJob = Extract<QueueJob, { readonly type: "analyze" }>;
+interface AnalyzeJob {\n  readonly type: "analyze";\n  readonly safe: SafeRef;\n  readonly safeTxHash: string;\n}
 
 export type AnalyzeJobResult =
   | {
