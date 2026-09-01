@@ -9,6 +9,7 @@ import { SyncRefreshControl } from "@/components/safes/sync-refresh-control";
 import { TransactionHistory } from "@/components/safes/transaction-history";
 import { getPersistencePort, getSafeDataPort } from "@/container";
 import { toMessageView } from "@/lib/api/message-details";
+import { TRANSACTION_ANALYSIS_ENGINE_VERSION } from "@/lib/api/analysis-version";
 import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
 import { isRefreshActive } from "@/lib/api/sync-refresh";
 import { explorerAddressUrl } from "@/lib/explorer-links";
@@ -64,19 +65,26 @@ export default async function SafeDashboardPage({ params }: PageProps) {
 
   const cookieStore = await cookies();
   const profileId = parseProfileId(cookieStore.get(PROFILE_COOKIE)?.value);
-  const [sync, page, messagePage, balanceResult, addressBook] =
-    await Promise.all([
-      resolveSyncSummary(persistence, safe),
-      persistence.listTransactions(safe, null, 25),
-      persistence.listMessages(safe, null, 10),
-      getSafeDataPort()
-        .getBalances(safe)
-        .then((items) => items.map(toBalanceView))
-        .catch(() => null),
-      profileId
-        ? persistence.listAddressBookEntries(profileId, safe)
-        : Promise.resolve([]),
-    ]);
+  const [
+    sync,
+    page,
+    messagePage,
+    balanceResult,
+    addressBook,
+    analysisCoverage,
+  ] = await Promise.all([
+    resolveSyncSummary(persistence, safe),
+    persistence.listTransactions(safe, null, 25),
+    persistence.listMessages(safe, null, 10),
+    getSafeDataPort()
+      .getBalances(safe)
+      .then((items) => items.map(toBalanceView))
+      .catch(() => null),
+    profileId
+      ? persistence.listAddressBookEntries(profileId, safe)
+      : Promise.resolve([]),
+    persistence.getAnalysisCoverage(safe, TRANSACTION_ANALYSIS_ENGINE_VERSION),
+  ]);
   const transactions = await resolveTransactionViews(
     persistence,
     safe,
@@ -173,7 +181,10 @@ export default async function SafeDashboardPage({ params }: PageProps) {
               latestActivityAt={sync.latestActivityAt}
               syncStatus={sync.status}
             />
-            <ReanalysisControl action={reanalysisAction} />
+            <ReanalysisControl
+              action={reanalysisAction}
+              coverage={analysisCoverage}
+            />
           </div>
         </section>
 

@@ -2,6 +2,26 @@ import type { SafeRef } from "@/core/domain";
 
 export const REANALYSIS_REQUEST_WINDOW_MS = 15 * 60 * 1_000;
 
+export interface ReanalysisCoverage {
+  readonly analyzedTransactions: number;
+  readonly totalTransactions: number;
+}
+
+export function reanalysisCoveragePercent(
+  coverage: ReanalysisCoverage,
+): number {
+  if (coverage.totalTransactions <= 0) return 0;
+
+  return Math.min(
+    100,
+    Math.round(
+      (Math.max(0, coverage.analyzedTransactions) /
+        coverage.totalTransactions) *
+        100,
+    ),
+  );
+}
+
 export type ReanalysisRequestState =
   | {
       readonly status: "idle";
