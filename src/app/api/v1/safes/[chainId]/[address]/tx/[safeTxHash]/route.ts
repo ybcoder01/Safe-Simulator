@@ -8,18 +8,15 @@ import {
   getSafeDataPort,
   getSimulationPort,
 } from "@/container";
-import { resolveApprovalRisk } from "@/lib/api/approval-risk";
-import { resolveContractInsight } from "@/lib/api/contract-insight";
 import { resolveEvidenceVerdict } from "@/lib/api/evidence-verdict";
-import { resolveExecutionInsight } from "@/lib/api/execution-insight";
 import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
-import { resolveStorageChangeAnalysis } from "@/lib/api/storage-changes";
-import { resolveExecutionTokenMetadata } from "@/lib/api/token-metadata";
 import {
   safeRouteParamsSchema,
   safeTransactionHashSchema,
   toTransactionView,
 } from "@/lib/api/safe-details";
+import { resolveExecutionTokenMetadata } from "@/lib/api/token-metadata";
+import { resolveNeutralTransactionAnalysis } from "@/lib/api/transaction-analysis";
 
 interface RouteContext {
   readonly params: Promise<{
@@ -68,46 +65,43 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const chain = getChainPort();
   const safeData = getSafeDataPort();
   const abi = getAbiPort();
-  const [insight, execution, addressBook] = await Promise.all([
-    resolveContractInsight(safeData, abi, transaction),
-    resolveExecutionInsight(
-      getSimulationPort(),
-      transaction,
-      { cache, persistence },
-      { chain, safeData },
-    ),
+  const [analysis, addressBook] = await Promise.all([
+    resolveNeutralTransactionAnalysis(transaction, {
+      abi,
+      cache,
+      chain,
+      persistence,
+      safeData,
+      simulation: getSimulationPort(),
+      now: () => Math.floor(Date.now() / 1_000),
+    }),
     profileId
       ? persistence.listAddressBookEntries(profileId, safe.data)
       : Promise.resolve([]),
   ]);
-
-  const [approvalRisk, tokenMetadata, storageAnalysis] = await Promise.all([
-    resolveApprovalRisk(chain, transaction, insight, execution),
-    resolveExecutionTokenMetadata(
-      chain,
-      cache,
-      transaction.safe.chainId,
-      execution,
-    ),
-    resolveStorageChangeAnalysis(abi, transaction.safe.chainId, execution),
-  ]);
+  const tokenMetadata = await resolveExecutionTokenMetadata(
+    chain,
+    cache,
+    transaction.safe.chainId,
+    analysis.execution,
+  );
   const verdict = resolveEvidenceVerdict(
     transaction,
-    insight,
-    execution,
+    analysis.contract,
+    analysis.execution,
     addressBook,
-    approvalRisk,
-    storageAnalysis,
+    analysis.approvalRisk,
+    analysis.storageAnalysis,
   );
 
   return NextResponse.json({
     data: {
       ...toTransactionView(transaction),
-      insight,
-      execution,
-      approvalRisk,
+      insight: analysis.contract,
+      execution: analysis.execution,
+      approvalRisk: analysis.approvalRisk,
       tokenMetadata,
-      storageAnalysis,
+      storageAnalysis: analysis.storageAnalysis,
       verdict,
     },
   });
