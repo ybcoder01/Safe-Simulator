@@ -1,56 +1,8 @@
-import type { Hex, SafeRef } from "@/core/domain";
-import {
-  resolveNeutralTransactionAnalysis,
-  TRANSACTION_ANALYSIS_ENGINE_VERSION,
-  type NeutralTransactionAnalysisPorts,
-} from "@/lib/api/transaction-analysis";
-
-interface AnalyzeJob {\n  readonly type: "analyze";\n  readonly safe: SafeRef;\n  readonly safeTxHash: string;\n}
-
-export type AnalyzeJobResult =
-  | {
-      readonly status: "skipped";
-      readonly reason: "transaction_not_found";
-    }
-  | {
-      readonly status: "cached";
-      readonly verdict: string;
-      readonly immutable: true;
-    }
-  | {
-      readonly status: "complete";
-      readonly verdict: string;
-      readonly immutable: boolean;
-    };
-
-export async function runAnalyzeJob(
-  job: AnalyzeJob,
-  ports: NeutralTransactionAnalysisPorts,
-): Promise<AnalyzeJobResult> {
-  const transaction = await ports.persistence.findTransaction(
-    job.safe,
-    job.safeTxHash,
-  );
-  if (!transaction) {
-    return { status: "skipped", reason: "transaction_not_found" };
-  }
-
-  const existing = await ports.persistence.findAnalysis(
-    job.safeTxHash,
-    TRANSACTION_ANALYSIS_ENGINE_VERSION,
-  );
-  if (existing?.immutable) {
-    return {
-      status: "cached",
-      verdict: existing.verdict,
-      immutable: true,
-    };
-  }
-
-  const analysis = await resolveNeutralTransactionAnalysis(transaction, ports);
-  return {
-    status: "complete",
-    verdict: analysis.persisted.verdict,
-    immutable: analysis.persisted.immutable,
-  };
-}
+[error] src/lib/api/analysis-job.ts: SyntaxError: Invalid character. (8:23)
+[error]    6 | } from "@/lib/api/transaction-analysis";
+[error]    7 |
+[error] >  8 | interface AnalyzeJob {\n  readonly type: "analyze";\n  readonly safe: SafeRef;\n  readonly safeTxHash: string;\n}
+[error]      |                       ^
+[error]    9 |
+[error]   10 | export type AnalyzeJobResult =
+[error]   11 |   | {
