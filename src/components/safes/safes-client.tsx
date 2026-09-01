@@ -3,7 +3,11 @@
 import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 
-import type { DiscoveredSafeView } from "@/lib/api/safe-discovery";
+import {
+  parseBrowserWalletChainId,
+  parseBrowserWalletOwner,
+  type DiscoveredSafeView,
+} from "@/lib/api/safe-discovery";
 import { withoutSafe, type SafeView } from "@/lib/api/safes";
 
 interface ChainOption {
@@ -13,6 +17,20 @@ interface ChainOption {
 
 interface ApiErrorBody {
   readonly error?: { readonly message?: string };
+}
+
+interface InjectedProvider {
+  request(input: {
+    readonly method: "eth_requestAccounts" | "eth_chainId";
+  }): Promise<unknown>;
+}
+
+function getInjectedProvider(): InjectedProvider | null {
+  if (typeof window === "undefined") return null;
+  return (
+    (window as Window & { readonly ethereum?: InjectedProvider }).ethereum ??
+    null
+  );
 }
 
 interface SafesClientProps {
@@ -44,6 +62,7 @@ export function SafesClient({ chains, removeSafe }: SafesClientProps) {
   const [discoveryTotal, setDiscoveryTotal] = useState(0);
   const [discoveryLimited, setDiscoveryLimited] = useState(false);
   const [discovering, setDiscovering] = useState(false);
+  const [walletLoading, setWalletLoading] = useState(false);
   const [discoveryImporting, setDiscoveryImporting] = useState<string | null>(
     null,
   );
@@ -136,6 +155,56 @@ export function SafesClient({ chains, removeSafe }: SafesClientProps) {
       );
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function fillFromBrowserWallet() {
+    setWalletLoading(true);
+    setDiscoveryError(null);
+
+    try {
+      const provider = getInjectedProvider();
+      if (!provider) {
+        throw new Error("No injected browser wallet was found.");
+      }
+
+      let accounts: unknown;
+      try {
+        accounts = await provider.request({ method: "eth_requestAccounts" });
+      } catch {
+        throw new Error("Browser wallet access was not granted.");
+      }
+
+      const selectedOwner = parseBrowserWalletOwner(accounts);
+      if (!selectedOwner) {
+        throw new Error(
+          "The browser wallet did not return a valid EVM account.",
+        );
+      }
+      setOwner(selectedOwner);
+
+      const unsupportedNetworkMessage =
+        "Account loaded. Select Ethereum or XDC before discovery; the wallet network is unsupported.";
+      try {
+        const walletChainId = parseBrowserWalletChainId(
+          await provider.request({ method: "eth_chainId" }),
+        );
+        if (!walletChainId) {
+          setDiscoveryError(unsupportedNetworkMessage);
+          return;
+        }
+        setDiscoveryChainId(walletChainId);
+      } catch {
+        setDiscoveryError(unsupportedNetworkMessage);
+      }
+    } catch (cause) {
+      setDiscoveryError(
+        cause instanceof Error
+          ? cause.message
+          : "The browser wallet could not provide an account.",
+      );
+    } finally {
+      setWalletLoading(false);
     }
   }
 
@@ -335,10 +404,26 @@ export function SafesClient({ chains, removeSafe }: SafesClientProps) {
               value={owner}
             />
           </label>
-          <button className="button" disabled={discovering} type="submit">
+          <button
+            className="button"
+            disabled={discovering || walletLoading}
+            type="submit"
+          >
             {discovering ? "Discovering…" : "Discover Safes"}
           </button>
+          <button
+            aria-describedby="browser-wallet-discovery-note"
+            className="wallet-discovery-button"
+            disabled={discovering || walletLoading}
+            onClick={() => void fillFromBrowserWallet()}
+            type="button"
+          >
+            {walletLoading ? "Reading wallet…" : "Use browser wallet"}
+          </button>
         </div>
+        <p className="wallet-discovery-note" id="browser-wallet-discovery-note">
+          Public account and network only · no signature or transaction request.
+        </p>
         {discoveryError ? (
           <p className="form-error" role="alert">
             {discoveryError}

@@ -1,3 +1,5 @@
+import { getAddress } from "viem";
+
 import type { Address, ChainId, SafeRef, SafeSnapshot } from "@/core/domain";
 import type { PersistencePort, SafeDataPort } from "@/core/ports";
 
@@ -17,6 +19,29 @@ export interface SafeDiscoveryResult {
 
 function key(safe: SafeRef): string {
   return `${safe.chainId}:${safe.address.toLowerCase()}`;
+}
+
+export function parseBrowserWalletOwner(value: unknown): Address | null {
+  if (!Array.isArray(value)) return null;
+  const candidate = value[0];
+  if (typeof candidate !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(candidate)) {
+    return null;
+  }
+
+  try {
+    return getAddress(candidate) as Address;
+  } catch {
+    return null;
+  }
+}
+
+export function parseBrowserWalletChainId(value: unknown): ChainId | null {
+  if (typeof value !== "string" || !/^0x[0-9a-fA-F]+$/.test(value)) {
+    return null;
+  }
+
+  const chainId = Number.parseInt(value.slice(2), 16);
+  return chainId === 1 || chainId === 50 ? chainId : null;
 }
 
 export async function resolveSafeDiscovery(

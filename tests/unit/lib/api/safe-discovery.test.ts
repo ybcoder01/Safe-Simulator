@@ -5,7 +5,11 @@ import type {
   SafeRef,
   SafeSnapshot,
 } from "../../../../src/core/domain";
-import { resolveSafeDiscovery } from "../../../../src/lib/api/safe-discovery";
+import {
+  parseBrowserWalletChainId,
+  parseBrowserWalletOwner,
+  resolveSafeDiscovery,
+} from "../../../../src/lib/api/safe-discovery";
 import { discoverSafesInputSchema } from "../../../../src/lib/api/safes";
 
 function address(index: number): Address {
@@ -26,6 +30,33 @@ function snapshot(index: number): SafeSnapshot {
     observedAt: 1,
   };
 }
+
+describe("browser wallet discovery parsing", () => {
+  it("normalizes the selected EVM account", () => {
+    expect(
+      parseBrowserWalletOwner(["0x000000000000000000000000000000000000dead"]),
+    ).toBe("0x000000000000000000000000000000000000dEaD");
+  });
+
+  it("rejects missing and malformed selected accounts", () => {
+    expect(parseBrowserWalletOwner(null)).toBeNull();
+    expect(parseBrowserWalletOwner([])).toBeNull();
+    expect(
+      parseBrowserWalletOwner([
+        "not-an-address",
+        "0x000000000000000000000000000000000000dead",
+      ]),
+    ).toBeNull();
+  });
+
+  it("accepts only supported browser wallet chains", () => {
+    expect(parseBrowserWalletChainId("0x1")).toBe(1);
+    expect(parseBrowserWalletChainId("0x32")).toBe(50);
+    expect(parseBrowserWalletChainId("0xa")).toBeNull();
+    expect(parseBrowserWalletChainId("1")).toBeNull();
+    expect(parseBrowserWalletChainId(null)).toBeNull();
+  });
+});
 
 describe("resolveSafeDiscovery", () => {
   it("deduplicates, marks imported Safes, and bounds the response", async () => {
