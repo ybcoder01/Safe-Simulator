@@ -79,6 +79,7 @@ export function transactionMatchesSearch(
     transaction.summary,
     transaction.status,
     transaction.operation,
+    transaction.analysis?.baselineVerdict,
     targetLabel,
   ].some((value) => value?.toLowerCase().includes(normalized));
 }
