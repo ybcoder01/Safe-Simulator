@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, inArray, isNull, lt } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, inArray, isNull, lt } from "drizzle-orm";
 
 import type {
   Address,
@@ -758,6 +758,44 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
         ),
       );
     return rows.map((row) => mapAnalysis(row.result));
+  }
+
+  async getAnalysisCoverage(
+    safeRef: SafeRef,
+    engineVersion: string,
+  ): Promise<{
+    readonly analyzedTransactions: number;
+    readonly totalTransactions: number;
+  }> {
+    const safe = await this.findSafeRow(safeRef);
+    if (!safe) {
+      return { analyzedTransactions: 0, totalTransactions: 0 };
+    }
+
+    const [[transactionCount], [analysisCount]] = await Promise.all([
+      this.db
+        .select({ value: count() })
+        .from(transactions)
+        .where(eq(transactions.safeId, safe.id)),
+      this.db
+        .select({ value: count() })
+        .from(analysisResults)
+        .innerJoin(
+          transactions,
+          eq(analysisResults.transactionId, transactions.id),
+        )
+        .where(
+          and(
+            eq(transactions.safeId, safe.id),
+            eq(analysisResults.engineVersion, engineVersion),
+          ),
+        ),
+    ]);
+
+    return {
+      analyzedTransactions: analysisCount?.value ?? 0,
+      totalTransactions: transactionCount?.value ?? 0,
+    };
   }
 
   async saveSyncCursor(cursor: SyncCursor): Promise<void> {
