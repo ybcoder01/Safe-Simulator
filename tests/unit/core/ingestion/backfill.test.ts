@@ -189,9 +189,7 @@ describe("runBackfillPage", () => {
   });
 
   it("caps and spaces automatically scheduled analyses", async () => {
-    const items = ["1", "2", "3", "4", "5", "6", "7"].map(
-      transactionWithDigit,
-    );
+    const items = ["1", "2", "3", "4", "5", "6", "7"].map(transactionWithDigit);
     const { ports, queue } = makePorts({ items });
 
     await runBackfillPage(
