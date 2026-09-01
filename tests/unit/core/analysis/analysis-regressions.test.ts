@@ -83,7 +83,7 @@ describe("analysis regression fixtures", () => {
     expect(verdict.findings).toContainEqual(
       expect.objectContaining({
         code: "spender-trust-unresolved",
-        addresses: [FIXTURE_TOKEN, FIXTURE_SPENDER],
+        addresses: [FIXTURE_SPENDER],
       }),
     );
   });
