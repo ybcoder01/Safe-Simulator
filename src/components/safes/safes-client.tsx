@@ -421,10 +421,7 @@ export function SafesClient({ chains, removeSafe }: SafesClientProps) {
             {walletLoading ? "Reading wallet…" : "Use browser wallet"}
           </button>
         </div>
-        <p
-          className="wallet-discovery-note"
-          id="browser-wallet-discovery-note"
-        >
+        <p className="wallet-discovery-note" id="browser-wallet-discovery-note">
           Public account and network only · no signature or transaction request.
         </p>
         {discoveryError ? (
