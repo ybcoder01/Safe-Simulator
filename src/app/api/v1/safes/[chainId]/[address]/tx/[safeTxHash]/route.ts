@@ -96,7 +96,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
   return NextResponse.json({
     data: {
-      ...toTransactionView(transaction),
+      ...toTransactionView(transaction, {
+        baselineVerdict: analysis.persisted.verdict,
+        analyzedAt: analysis.persisted.createdAt,
+        immutable: analysis.persisted.immutable,
+      }),
       insight: analysis.contract,
       execution: analysis.execution,
       approvalRisk: analysis.approvalRisk,
