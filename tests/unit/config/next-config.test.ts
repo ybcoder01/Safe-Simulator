@@ -10,7 +10,9 @@ describe("security response headers", () => {
   });
 
   it("prevents framing, sniffing, and unnecessary browser capabilities", () => {
-    expect(Object.fromEntries(securityHeaders.map(({ key, value }) => [key, value]))).toMatchObject({
+    expect(
+      Object.fromEntries(securityHeaders.map(({ key, value }) => [key, value])),
+    ).toMatchObject({
       "Cross-Origin-Opener-Policy": "same-origin",
       "Cross-Origin-Resource-Policy": "same-origin",
       "Permissions-Policy":
