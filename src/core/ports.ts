@@ -169,6 +169,13 @@ export interface PersistencePort {
     safeTxHashes: readonly Hex[],
     engineVersion: string,
   ): Promise<readonly AnalysisResult[]>;
+  getAnalysisCoverage(
+    safe: SafeRef,
+    engineVersion: string,
+  ): Promise<{
+    readonly analyzedTransactions: number;
+    readonly totalTransactions: number;
+  }>;
   saveSyncCursor(cursor: SyncCursor): Promise<void>;
   findSyncCursor(
     safe: SafeRef,
