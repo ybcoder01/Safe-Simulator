@@ -158,7 +158,7 @@ export function SafesClient({ chains, removeSafe }: SafesClientProps) {
     }
   }
 
-  async function useBrowserWallet() {
+  async function fillFromBrowserWallet() {
     setWalletLoading(true);
     setDiscoveryError(null);
 
@@ -415,7 +415,7 @@ export function SafesClient({ chains, removeSafe }: SafesClientProps) {
             aria-describedby="browser-wallet-discovery-note"
             className="wallet-discovery-button"
             disabled={discovering || walletLoading}
-            onClick={() => void useBrowserWallet()}
+            onClick={() => void fillFromBrowserWallet()}
             type="button"
           >
             {walletLoading ? "Reading wallet…" : "Use browser wallet"}
