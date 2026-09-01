@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { MessageHistory } from "@/components/safes/message-history";
+import { CopyIdentifierButton } from "@/components/shared/copy-identifier-button";
 import { SyncRefreshControl } from "@/components/safes/sync-refresh-control";
 import { TransactionHistory } from "@/components/safes/transaction-history";
 import { getPersistencePort, getSafeDataPort } from "@/container";
@@ -109,19 +110,25 @@ export default async function SafeDashboardPage({ params }: PageProps) {
           <div>
             <p className="eyebrow">{chainName}</p>
             <h1>{shorten(safe.address, 12, 10)}</h1>
-            {safeExplorerUrl ? (
-              <a
-                className="full-address explorer-link"
-                href={safeExplorerUrl}
-                rel="noreferrer"
-                target="_blank"
-              >
-                {safe.address}
-                <span aria-hidden="true">↗</span>
-              </a>
-            ) : (
-              <p className="full-address">{safe.address}</p>
-            )}
+            <div className="identifier-actions dashboard-identifier-actions">
+              {safeExplorerUrl ? (
+                <a
+                  className="full-address explorer-link"
+                  href={safeExplorerUrl}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  {safe.address}
+                  <span aria-hidden="true">↗</span>
+                </a>
+              ) : (
+                <p className="full-address">{safe.address}</p>
+              )}
+              <CopyIdentifierButton
+                label="Copy Safe address"
+                value={safe.address}
+              />
+            </div>
           </div>
           <div className="sync-summary">
             <span className={`verified-pill sync-${sync.status}`}>
