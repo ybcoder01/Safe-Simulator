@@ -539,6 +539,36 @@ select {
 .discovery-panel {
   margin-top: 18px;
 }
+.discovery-panel .import-controls {
+  grid-template-columns: 180px minmax(250px, 1fr) auto auto;
+}
+.wallet-discovery-button {
+  min-height: 48px;
+  padding: 0 16px;
+  border: 1px solid rgba(101, 242, 172, 0.3);
+  border-radius: 9px;
+  color: var(--green);
+  background: rgba(101, 242, 172, 0.05);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 620;
+}
+.wallet-discovery-button:hover:not(:disabled),
+.wallet-discovery-button:focus-visible {
+  outline: none;
+  border-color: rgba(101, 242, 172, 0.58);
+  background: rgba(101, 242, 172, 0.1);
+}
+.wallet-discovery-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.wallet-discovery-note {
+  margin: 10px 0 0;
+  color: var(--faint);
+  font-size: 10px;
+}
 .discovery-results {
   margin-top: 22px;
   border-top: 1px solid var(--line);
@@ -797,7 +827,8 @@ select {
   .import-preview {
     grid-template-columns: 1fr;
   }
-  .import-controls {
+  .import-controls,
+  .discovery-panel .import-controls {
     grid-template-columns: 1fr;
   }
   .discovery-summary,
