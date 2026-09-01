@@ -54,6 +54,7 @@ function job(overrides: Record<string, unknown> = {}) {
     type: "reanalyze",
     safe,
     engineVersion: TRANSACTION_ANALYSIS_ENGINE_VERSION,
+    runId: "reanalyze:request:50:safe:1",
     cursor: null,
     page: 0,
     ...overrides,
