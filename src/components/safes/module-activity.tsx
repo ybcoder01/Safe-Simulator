@@ -122,7 +122,8 @@ export function ModuleActivity({
                   <strong>To {shorten(transaction.to)}</strong>
                   <span>
                     Via {shorten(transaction.module)} · {transaction.operation}{" "}
-                    · value {transaction.value} wei
+                    · value {transaction.value} wei · {transaction.calldataBytes}{" "}
+                    calldata bytes
                   </span>
                 </div>
                 <span>Block {transaction.blockNumber}</span>
