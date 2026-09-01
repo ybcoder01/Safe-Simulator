@@ -53,13 +53,11 @@ describe("module activity API views", () => {
 
   it("serializes bigint fields without weakening execution context", () => {
     expect(toModuleTransactionView(transaction)).toEqual({
-      chainId: 50,
-      safeAddress: transaction.safe.address,
       module: transaction.module,
       transactionHash: transaction.transactionHash,
       to: transaction.to,
       value: "42",
-      data: transaction.data,
+      calldataBytes: 2,
       operation: "delegatecall",
       blockNumber: "123",
       executedAt: transaction.executedAt,
