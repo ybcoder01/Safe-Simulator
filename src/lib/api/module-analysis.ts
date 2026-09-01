@@ -20,6 +20,7 @@ import { resolveEvidenceVerdict } from "@/lib/api/evidence-verdict";
 import {
   executionInsightFromReplay,
   unavailableExecutionInsight,
+  type ExecutionInsight,
 } from "@/lib/api/execution-insight";
 import { resolveStorageChangeAnalysis } from "@/lib/api/storage-changes";
 
@@ -112,7 +113,7 @@ export async function resolveModuleAnalysis(
     normalized,
   );
   let simulation: SimulationOutput | null = null;
-  let execution;
+  let execution: ExecutionInsight;
 
   try {
     simulation = await ports.simulation.replay(
@@ -148,8 +149,8 @@ export async function resolveModuleAnalysis(
   );
   const anchorMismatch =
     simulation !== null &&
-    (anchor === null ||
-      anchor.blockNumber !== transaction.blockNumber ||
+    anchor !== null &&
+    (anchor.blockNumber !== transaction.blockNumber ||
       anchor.blockHash.toLowerCase() !== simulation.blockHash.toLowerCase() ||
       simulation.blockNumber !== transaction.blockNumber);
   const findings: Finding[] = [privilegedPathFinding(transaction.module)];
