@@ -57,7 +57,7 @@ function calledName(callee) {
   return null;
 }
 
-export default {
+const readOnlyBoundary = {
   meta: {
     type: "problem",
     docs: {
@@ -126,3 +126,5 @@ export default {
     };
   },
 };
+
+export default readOnlyBoundary;
