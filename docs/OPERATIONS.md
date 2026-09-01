@@ -113,7 +113,7 @@ Only change the version in a reviewed pull request when evidence semantics chang
 
 A version bump makes old records unreachable through the new lookup key. Opening transaction details produces evidence under the new version when providers return complete supported data.
 
-Bulk `analyze` and `reanalyze` queue jobs are currently deferred and must not be described as operational. Do not attempt a bulk reanalysis until the job handler, bounds, authorization, and tests are implemented.
+Signed single-transaction `analyze` jobs are operational and persist a profile-neutral baseline under `TRANSACTION_ANALYSIS_ENGINE_VERSION`. Profile Trust and Flag records are applied only when serving a transaction and are never copied into the shared result. Completed immutable analyses are reused; pending analyses remain refreshable.\n\nBulk `reanalyze` jobs remain deferred and must not be described as operational. Do not attempt bulk reanalysis until a bounded cursor, an explicit authorized trigger, and regression coverage are implemented.
 
 ## Database precautions
 
