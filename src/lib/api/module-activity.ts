@@ -14,13 +14,11 @@ export const moduleTransactionPageQuerySchema = z.object({
 
 export function toModuleTransactionView(transaction: ModuleTransaction) {
   return {
-    chainId: transaction.safe.chainId,
-    safeAddress: transaction.safe.address,
     module: transaction.module,
     transactionHash: transaction.transactionHash,
     to: transaction.to,
     value: transaction.value.toString(),
-    data: transaction.data,
+    calldataBytes: Math.max(0, (transaction.data.length - 2) / 2),
     operation: transaction.operation,
     blockNumber: transaction.blockNumber.toString(),
     executedAt: transaction.executedAt,
