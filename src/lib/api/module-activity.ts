@@ -1,6 +1,10 @@
 import { z } from "zod";
 
-import type { Hex, ModuleTransaction } from "@/core/domain";
+import type {
+  Hex,
+  ModuleAnalysisResult,
+  ModuleTransaction,
+} from "@/core/domain";
 
 const transactionHashSchema = z
   .string()
@@ -12,7 +16,10 @@ export const moduleTransactionPageQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100),
 });
 
-export function toModuleTransactionView(transaction: ModuleTransaction) {
+export function toModuleTransactionView(
+  transaction: ModuleTransaction,
+  analysis: ModuleAnalysisResult | null = null,
+) {
   return {
     module: transaction.module,
     transactionHash: transaction.transactionHash,
@@ -22,6 +29,24 @@ export function toModuleTransactionView(transaction: ModuleTransaction) {
     operation: transaction.operation,
     blockNumber: transaction.blockNumber.toString(),
     executedAt: transaction.executedAt,
+    analysis: analysis
+      ? {
+          verdict: analysis.verdict,
+          immutable: analysis.immutable,
+          findings: analysis.findings.slice(0, 5).map((finding) => ({
+            code: finding.code,
+            severity: finding.severity,
+            title: finding.title,
+            detail: finding.detail,
+          })),
+          coverage: {
+            callTrace:
+              analysis.simulation?.traceCoverage?.callTrace ?? "unavailable",
+            storageDiff:
+              analysis.simulation?.traceCoverage?.storageDiff ?? "unavailable",
+          },
+        }
+      : null,
   };
 }
 
