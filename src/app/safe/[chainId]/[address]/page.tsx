@@ -17,7 +17,6 @@ import {
   resolveSyncSummary,
   safeRouteParamsSchema,
   toBalanceView,
-  toTransactionView,
 } from "@/lib/api/safe-details";
 
 import { requestSafeReanalysis, requestSafeRefresh } from "./actions";
@@ -78,7 +77,11 @@ export default async function SafeDashboardPage({ params }: PageProps) {
         ? persistence.listAddressBookEntries(profileId, safe)
         : Promise.resolve([]),
     ]);
-  const transactions = await resolveTransactionViews(\n    persistence,\n    safe,\n    page.items,\n  );
+  const transactions = await resolveTransactionViews(
+    persistence,
+    safe,
+    page.items,
+  );
   const messageViews = messagePage.items.map((message) =>
     toMessageView(message, safe.threshold),
   );
