@@ -158,7 +158,7 @@ function makePorts(
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(resolveContractInsight).mockResolvedValue(
-    contract as Awaited<ReturnType<typeof resolveContractInsight>>,
+    contract as unknown as Awaited<ReturnType<typeof resolveContractInsight>>,
   );
   vi.mocked(executionInsightFromReplay).mockReturnValue(
     execution as ReturnType<typeof executionInsightFromReplay>,
@@ -167,7 +167,7 @@ beforeEach(() => {
     execution as ReturnType<typeof unavailableExecutionInsight>,
   );
   vi.mocked(resolveApprovalRisk).mockResolvedValue(
-    approvalRisk as Awaited<ReturnType<typeof resolveApprovalRisk>>,
+    approvalRisk as unknown as Awaited<ReturnType<typeof resolveApprovalRisk>>,
   );
   vi.mocked(resolveStorageChangeAnalysis).mockResolvedValue(
     storageAnalysis as Awaited<ReturnType<typeof resolveStorageChangeAnalysis>>,
