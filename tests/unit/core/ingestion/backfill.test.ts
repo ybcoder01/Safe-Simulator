@@ -102,9 +102,7 @@ function makePorts(
 ) {
   const persistence = {
     findAnalyses: vi.fn().mockResolvedValue(options.analyses ?? []),
-    findModuleAnalyses: vi
-      .fn()
-      .mockResolvedValue(options.moduleAnalyses ?? []),
+    findModuleAnalyses: vi.fn().mockResolvedValue(options.moduleAnalyses ?? []),
     findSyncCursor: vi.fn().mockResolvedValue(options.cursor ?? null),
     saveSyncCursor: vi.fn().mockResolvedValue(undefined),
     upsertTransactions: options.persistenceFails
