@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type {
   Address,
   Hex,
+  ModuleAnalysisResult,
   ModuleTransaction,
 } from "../../../../src/core/domain";
 import {
@@ -25,6 +26,39 @@ const transaction: ModuleTransaction = {
   operation: "delegatecall",
   blockNumber: 123n,
   executedAt: 1_700_000_000,
+};
+
+const analysis: ModuleAnalysisResult = {
+  transactionHash: transaction.transactionHash,
+  module: transaction.module,
+  engineVersion: "module-analysis-v1",
+  verdict: "flagged",
+  findings: [
+    {
+      code: "module-execution-path",
+      severity: "warning",
+      title: "Privileged module execution",
+      detail: "Module authority must be reviewed independently.",
+      addresses: [transaction.module],
+    },
+  ],
+  simulation: {
+    success: true,
+    gasUsed: 21_000n,
+    logs: [],
+    assetDeltas: [],
+    approvals: [],
+    calls: [],
+    stateChanges: [],
+    blockNumber: 123n,
+    blockHash: `0x${"b".repeat(64)}` as Hex,
+    traceCoverage: {
+      callTrace: "complete",
+      storageDiff: "partial",
+    },
+  },
+  createdAt: 1_700_000_100,
+  immutable: true,
 };
 
 describe("module activity API views", () => {
@@ -62,6 +96,26 @@ describe("module activity API views", () => {
       operation: "delegatecall",
       blockNumber: "123",
       executedAt: transaction.executedAt,
+      analysis: null,
+    });
+  });
+
+  it("exposes bounded module evidence without raw replay data", () => {
+    expect(toModuleTransactionView(transaction, analysis).analysis).toEqual({
+      verdict: "flagged",
+      immutable: true,
+      findings: [
+        {
+          code: "module-execution-path",
+          severity: "warning",
+          title: "Privileged module execution",
+          detail: "Module authority must be reviewed independently.",
+        },
+      ],
+      coverage: {
+        callTrace: "complete",
+        storageDiff: "partial",
+      },
     });
   });
 
@@ -77,7 +131,7 @@ describe("module activity API views", () => {
   });
 
   it("appends pages without duplicate transaction hashes", () => {
-    const first = toModuleTransactionView(transaction);
+    const first = toModuleTransactionView(transaction, analysis);
     const second = {
       ...first,
       transactionHash: `0x${"b".repeat(64)}` as Hex,
@@ -85,13 +139,14 @@ describe("module activity API views", () => {
     const duplicateWithDifferentCase = {
       ...first,
       transactionHash: first.transactionHash.toUpperCase() as Hex,
+      analysis: null,
     };
 
     expect(
       appendUniqueModuleTransactionViews(
         [first],
         [duplicateWithDifferentCase, second, second],
-      ).map((item) => item.transactionHash),
-    ).toEqual([first.transactionHash, second.transactionHash]);
+      ),
+    ).toEqual([first, second]);
   });
 });
