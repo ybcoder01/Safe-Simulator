@@ -51,7 +51,7 @@ The same command sequence enforced by CI is available through:
 pnpm check
 ```
 
-It runs formatting checks, linting, TypeScript, unit tests, and a production build. Hosted previews and production deployments receive their runtime configuration from Vercel; secrets must never be copied into source files, pull requests, or issue comments.
+It runs formatting checks, linting, TypeScript, unit and regression tests with core coverage reporting, and a production build. Hosted previews and production deployments receive their runtime configuration from Vercel; secrets must never be copied into source files, pull requests, or issue comments.
 
 ## Operations
 
