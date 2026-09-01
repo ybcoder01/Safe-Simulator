@@ -3,12 +3,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { MessageHistory } from "@/components/safes/message-history";
+import { ModuleActivity } from "@/components/safes/module-activity";
 import { ReanalysisControl } from "@/components/safes/reanalysis-control";
 import { CopyIdentifierButton } from "@/components/shared/copy-identifier-button";
 import { SyncRefreshControl } from "@/components/safes/sync-refresh-control";
 import { TransactionHistory } from "@/components/safes/transaction-history";
 import { getPersistencePort, getSafeDataPort } from "@/container";
 import { toMessageView } from "@/lib/api/message-details";
+import { toModuleTransactionView } from "@/lib/api/module-activity";
 import { TRANSACTION_ANALYSIS_ENGINE_VERSION } from "@/lib/api/analysis-version";
 import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
 import { isRefreshActive } from "@/lib/api/sync-refresh";
@@ -68,6 +70,7 @@ export default async function SafeDashboardPage({ params }: PageProps) {
   const [
     sync,
     page,
+    modulePage,
     messagePage,
     balanceResult,
     addressBook,
@@ -75,6 +78,7 @@ export default async function SafeDashboardPage({ params }: PageProps) {
   ] = await Promise.all([
     resolveSyncSummary(persistence, safe),
     persistence.listTransactions(safe, null, 25),
+    persistence.listModuleTransactions(safe, null, 10),
     persistence.listMessages(safe, null, 10),
     getSafeDataPort()
       .getBalances(safe)
@@ -90,6 +94,7 @@ export default async function SafeDashboardPage({ params }: PageProps) {
     safe,
     page.items,
   );
+  const moduleTransactionViews = modulePage.items.map(toModuleTransactionView);
   const messageViews = messagePage.items.map((message) =>
     toMessageView(message, safe.threshold),
   );
@@ -283,6 +288,13 @@ export default async function SafeDashboardPage({ params }: PageProps) {
           initialTransactions={transactions}
           nextCursor={page.nextCursor}
           threshold={safe.threshold}
+        />
+
+        <ModuleActivity
+          address={safe.address}
+          chainId={safe.chainId}
+          initialTransactions={moduleTransactionViews}
+          nextCursor={modulePage.nextCursor}
         />
 
         <MessageHistory

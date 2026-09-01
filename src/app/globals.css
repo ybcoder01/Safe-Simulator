@@ -1524,6 +1524,18 @@ select {
   color: var(--amber);
   background: rgba(246, 200, 111, 0.08);
 }
+.tx-module {
+  color: #9ccff2;
+  background: rgba(156, 207, 242, 0.09);
+}
+.module-execution-meta {
+  display: grid;
+  gap: 5px;
+  justify-items: end;
+}
+.module-execution-meta .explorer-link {
+  font-size: 9px;
+}
 .tx-failed,
 .tx-replaced {
   color: #ffad9f;
@@ -1612,6 +1624,9 @@ select {
   .history-row time {
     display: none;
   }
+  .module-history-row > span:nth-child(3) {
+    display: none;
+  }
 }
 
 @media (max-width: 560px) {
@@ -1666,6 +1681,9 @@ select {
   .history-row .tx-status {
     grid-column: 1 / -1;
     justify-self: start;
+  }
+  .module-execution-meta {
+    justify-items: end;
   }
   .owner-row code {
     font-size: 9px;

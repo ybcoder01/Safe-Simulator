@@ -8,6 +8,7 @@ import {
   inArray,
   isNull,
   lt,
+  or,
 } from "drizzle-orm";
 
 import type {
@@ -413,6 +414,77 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
         })
         .onConflictDoNothing();
     }
+  }
+
+  async listModuleTransactions(
+    safeRef: SafeRef,
+    cursor: string | null,
+    limit: number,
+  ): Promise<Page<ModuleTransaction>> {
+    const safe = await this.requireSafeRow(safeRef);
+    let cursorBlock: bigint | null = null;
+    const cursorHash = cursor;
+
+    if (cursorHash) {
+      const [cursorRow] = await this.db
+        .select({ blockNumber: moduleTransactions.blockNumber })
+        .from(moduleTransactions)
+        .where(
+          and(
+            eq(moduleTransactions.safeId, safe.id),
+            eq(moduleTransactions.transactionHash, cursorHash),
+          ),
+        )
+        .limit(1);
+      if (!cursorRow) {
+        return { items: [], nextCursor: null, total: null };
+      }
+      cursorBlock = cursorRow.blockNumber;
+    }
+
+    const predicate =
+      cursorBlock === null || cursorHash === null
+        ? eq(moduleTransactions.safeId, safe.id)
+        : and(
+            eq(moduleTransactions.safeId, safe.id),
+            or(
+              lt(moduleTransactions.blockNumber, cursorBlock),
+              and(
+                eq(moduleTransactions.blockNumber, cursorBlock),
+                lt(moduleTransactions.transactionHash, cursorHash),
+              ),
+            ),
+          );
+    const rows = await this.db
+      .select()
+      .from(moduleTransactions)
+      .where(predicate)
+      .orderBy(
+        desc(moduleTransactions.blockNumber),
+        desc(moduleTransactions.transactionHash),
+      )
+      .limit(limit + 1);
+    const hasNext = rows.length > limit;
+    const pageRows = hasNext ? rows.slice(0, limit) : rows;
+
+    return {
+      items: pageRows.map((row) => ({
+        safe: safeRef,
+        module: row.module as Address,
+        transactionHash: row.transactionHash as Hex,
+        to: row.to as Address,
+        value: BigInt(row.value),
+        data: row.data as Hex,
+        operation: row.operation,
+        blockNumber: row.blockNumber,
+        executedAt: asUnixTime(row.executedAt),
+      })),
+      nextCursor:
+        hasNext && pageRows.length > 0
+          ? pageRows[pageRows.length - 1]!.transactionHash
+          : null,
+      total: null,
+    };
   }
 
   async upsertTransfers(items: readonly TransferRecord[]): Promise<void> {

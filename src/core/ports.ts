@@ -135,6 +135,11 @@ export interface PersistencePort {
   ): Promise<readonly AddressBookEntry[]>;
   upsertTransactions(items: readonly SafeTransaction[]): Promise<void>;
   upsertModuleTransactions(items: readonly ModuleTransaction[]): Promise<void>;
+  listModuleTransactions(
+    safe: SafeRef,
+    cursor: string | null,
+    limit: number,
+  ): Promise<Page<ModuleTransaction>>;
   upsertTransfers(items: readonly TransferRecord[]): Promise<void>;
   upsertMessages(items: readonly SafeMessage[]): Promise<void>;
   listMessages(
