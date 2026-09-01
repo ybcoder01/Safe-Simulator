@@ -1,8 +1,4 @@
-import type {
-  Address,
-  Hex,
-  SafeTransaction,
-} from "../../src/core/domain";
+import type { Address, Hex, SafeTransaction } from "../../src/core/domain";
 
 export const IMPORTED_XDC_SAFE =
   "0xc8bae80ca5c2c9ec3bd4ac16c422220a33b6b173" as Address;
