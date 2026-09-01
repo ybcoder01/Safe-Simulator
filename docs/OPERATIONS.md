@@ -22,7 +22,7 @@ Every pull request must complete both checks before merge:
 After merging:
 
 1. Confirm the production deployment is Ready in Vercel.
-2. Open `/api/health`; expect `status: "ok"` and a current timestamp.
+2. Open `/api/health`; expect HTTP `200`, `status: "ok"`, `checks.database: "ok"`, `checks.cache: "ok"`, and a current timestamp. HTTP `503` with `status: "degraded"` means at least one hosted dependency is unavailable.
 3. Open `/safes`; confirm the current browser profile can load its watchlist.
 4. Open one Safe dashboard; confirm synchronization status and current balances render.
 5. Open one executed transaction and one pending transaction when available.
@@ -146,6 +146,7 @@ Do not roll back across an incompatible schema change without a reviewed databas
 Start with the narrowest affected layer:
 
 - **Whole site unavailable:** Vercel deployment status and runtime logs.
+- **Health probe degraded:** use the non-secret `checks` map to identify PostgreSQL or Redis, then inspect that provider and Vercel runtime logs.
 - **Watchlist unavailable:** Prisma Postgres connectivity and `DATABASE_URL`.
 - **Refresh not queued:** QStash token, production callback URL, and dashboard authorization.
 - **Job callback rejected:** QStash current and next signing keys.
