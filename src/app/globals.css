@@ -1361,6 +1361,37 @@ select {
   color: #ffad9f;
 }
 
+.analysis-verdict {
+  padding: 2px 6px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  font-style: normal;
+  font-size: 8px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.analysis-verdict-trusted {
+  border-color: rgba(101, 242, 172, 0.28);
+  color: var(--green);
+}
+
+.analysis-verdict-known {
+  border-color: rgba(156, 207, 242, 0.32);
+  color: #9ccff2;
+}
+
+.analysis-verdict-unverified,
+.analysis-verdict-pending {
+  border-color: rgba(246, 200, 111, 0.32);
+  color: var(--amber);
+}
+
+.analysis-verdict-flagged {
+  border-color: rgba(255, 173, 159, 0.4);
+  color: #ffad9f;
+}
+
 .confirmation-progress {
   display: grid;
   gap: 8px;

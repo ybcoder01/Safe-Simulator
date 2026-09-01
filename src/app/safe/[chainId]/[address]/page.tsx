@@ -12,11 +12,11 @@ import { toMessageView } from "@/lib/api/message-details";
 import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
 import { isRefreshActive } from "@/lib/api/sync-refresh";
 import { explorerAddressUrl } from "@/lib/explorer-links";
+import { resolveTransactionViews } from "@/lib/api/transaction-list";
 import {
   resolveSyncSummary,
   safeRouteParamsSchema,
   toBalanceView,
-  toTransactionView,
 } from "@/lib/api/safe-details";
 
 import { requestSafeReanalysis, requestSafeRefresh } from "./actions";
@@ -77,7 +77,11 @@ export default async function SafeDashboardPage({ params }: PageProps) {
         ? persistence.listAddressBookEntries(profileId, safe)
         : Promise.resolve([]),
     ]);
-  const transactions = page.items.map(toTransactionView);
+  const transactions = await resolveTransactionViews(
+    persistence,
+    safe,
+    page.items,
+  );
   const messageViews = messagePage.items.map((message) =>
     toMessageView(message, safe.threshold),
   );

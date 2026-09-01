@@ -164,6 +164,11 @@ export interface PersistencePort {
     safeTxHash: Hex,
     engineVersion: string,
   ): Promise<AnalysisResult | null>;
+  findAnalyses(
+    safe: SafeRef,
+    safeTxHashes: readonly Hex[],
+    engineVersion: string,
+  ): Promise<readonly AnalysisResult[]>;
   saveSyncCursor(cursor: SyncCursor): Promise<void>;
   findSyncCursor(
     safe: SafeRef,

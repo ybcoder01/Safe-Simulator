@@ -5,8 +5,8 @@ import {
   safeRouteParamsSchema,
   toBalanceView,
   toDetailedSafeView,
-  toTransactionView,
 } from "@/lib/api/safe-details";
+import { resolveTransactionViews } from "@/lib/api/transaction-list";
 
 interface RouteContext {
   readonly params: Promise<{ chainId: string; address: string }>;
@@ -39,11 +39,17 @@ export async function GET(_request: Request, context: RouteContext) {
       .catch(() => null),
   ]);
 
+  const transactionViews = await resolveTransactionViews(
+    persistence,
+    safe,
+    transactionPage.items,
+  );
+
   return NextResponse.json({
     data: {
       safe: data,
       balances,
-      transactions: transactionPage.items.map(toTransactionView),
+      transactions: transactionViews,
       nextCursor: transactionPage.nextCursor,
     },
   });
