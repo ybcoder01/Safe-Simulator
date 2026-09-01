@@ -276,4 +276,6 @@ export type QueueJob =
       readonly type: "reanalyze";
       readonly safe: SafeRef;
       readonly engineVersion: string;
+      readonly cursor: string | null;
+      readonly page: number;
     };
