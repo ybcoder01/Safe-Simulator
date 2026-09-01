@@ -250,6 +250,46 @@ export default async function SafeDashboardPage({ params }: PageProps) {
                 </dd>
               </div>
             </dl>
+            <div className="enabled-modules">
+              <div className="enabled-modules-heading">
+                <span>Enabled modules</span>
+                <strong>{safe.modules.length} privileged</strong>
+              </div>
+              {safe.modules.length === 0 ? (
+                <p>No enabled modules reported by the current Safe snapshot.</p>
+              ) : (
+                <div className="enabled-module-list">
+                  {safe.modules.map((module) => {
+                    const explorerUrl = explorerAddressUrl(
+                      safe.chainId,
+                      module,
+                    );
+
+                    return (
+                      <div className="enabled-module-row" key={module}>
+                        {explorerUrl ? (
+                          <a
+                            className="explorer-link"
+                            href={explorerUrl}
+                            rel="noreferrer"
+                            target="_blank"
+                          >
+                            <code>{module}</code>
+                            <span aria-hidden="true">↗</span>
+                          </a>
+                        ) : (
+                          <code>{module}</code>
+                        )}
+                        <CopyIdentifierButton
+                          label="Copy module address"
+                          value={module}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </section>
 
           <section className="dashboard-panel">
@@ -298,6 +338,7 @@ export default async function SafeDashboardPage({ params }: PageProps) {
         <ModuleActivity
           address={safe.address}
           chainId={safe.chainId}
+          enabledModules={safe.modules}
           initialTransactions={moduleTransactionViews}
           nextCursor={modulePage.nextCursor}
         />
