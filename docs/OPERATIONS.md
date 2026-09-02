@@ -174,6 +174,8 @@ Record the affected chain, Safe address, route, UTC time, deployment identifier,
 
 A successful Vercel Preview deployment triggers the GitHub **Preview smoke** workflow. The check accepts only a `.vercel.app` URL, requires an explicit Preview environment marker, and refuses the production domain. GitHub supplies a short-lived OIDC token so Vercel can recognize the protected request without storing a reusable bypass secret.
 
+Preview queue publications use the deployment-specific `VERCEL_URL`. They must never use `VERCEL_PROJECT_PRODUCTION_URL` or a Production `APP_BASE_URL`; Production continues to use its stable public callback URL.
+
 The smoke check verifies:
 
 - the overview and Safe watchlist pages render;
