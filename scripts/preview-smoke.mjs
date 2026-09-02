@@ -17,8 +17,7 @@ const expectedTransaction = {
   token: "0x5aFE3855358E112B5647B952709E6165e1c1eEEe",
   recipient: "0xA1b02d8c67b0FDCF4E379855868DeB470E169cfB",
   amount: "118000000000000000000",
-  summary:
-    "Transfer 118000000000000000000 base units to 0xa1b02d…169cfb",
+  summary: "Transfer 118000000000000000000 base units to 0xa1b02d…169cfb",
 };
 const transactionPollTimeoutMs = 90_000;
 const transactionPollIntervalMs = 3_000;
@@ -215,14 +214,8 @@ try {
   assert.equal(transaction.insight?.provenance, "safe-service");
   assert.equal(transaction.execution?.mode, "executed-replay");
   assert.equal(transaction.execution?.success, true);
-  assert.equal(
-    transaction.execution?.coverage?.outcome,
-    "on-chain-receipt",
-  );
-  assert.equal(
-    transaction.execution?.coverage?.tokenEvents,
-    "standard-events",
-  );
+  assert.equal(transaction.execution?.coverage?.outcome, "on-chain-receipt");
+  assert.equal(transaction.execution?.coverage?.tokenEvents, "standard-events");
   assert.ok(
     ["complete", "partial", "root-only"].includes(
       transaction.execution?.coverage?.callTrace,
