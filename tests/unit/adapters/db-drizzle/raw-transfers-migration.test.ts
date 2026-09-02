@@ -3,7 +3,10 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(
-  new URL("../../../../drizzle/0004_native_transfer_deduplication.sql", import.meta.url),
+  new URL(
+    "../../../../drizzle/0004_native_transfer_deduplication.sql",
+    import.meta.url,
+  ),
   "utf8",
 );
 
