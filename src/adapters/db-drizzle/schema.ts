@@ -206,14 +206,16 @@ export const rawTransfers = pgTable(
     timestamp: timestamp("timestamp", { withTimezone: true }).notNull(),
   },
   (table) => [
-    uniqueIndex("raw_transfers_identity_unique").on(
-      table.safeId,
-      table.transactionHash,
-      table.token,
-      table.from,
-      table.to,
-      table.amount,
-    ),
+    uniqueIndex("raw_transfers_identity_unique")
+      .on(
+        table.safeId,
+        table.transactionHash,
+        table.token,
+        table.from,
+        table.to,
+        table.amount,
+      )
+      .nullsNotDistinct(),
   ],
 );
 
