@@ -5,6 +5,7 @@ import {
   moduleTransactionPageQuerySchema,
   toModuleTransactionView,
 } from "@/lib/api/module-activity";
+import { MODULE_ANALYSIS_ENGINE_VERSION } from "@/lib/api/module-analysis";
 import { safeRouteParamsSchema } from "@/lib/api/safe-details";
 
 interface RouteContext {
@@ -45,8 +46,25 @@ export async function GET(request: Request, context: RouteContext) {
     query.data.cursor,
     query.data.limit,
   );
+  const analyses = await persistence.findModuleAnalyses(
+    safe,
+    page.items.map((transaction) => transaction.transactionHash),
+    MODULE_ANALYSIS_ENGINE_VERSION,
+  );
+  const analysesByHash = new Map(
+    analyses.map((analysis) => [
+      analysis.transactionHash.toLowerCase(),
+      analysis,
+    ]),
+  );
+
   return NextResponse.json({
-    data: page.items.map(toModuleTransactionView),
+    data: page.items.map((transaction) =>
+      toModuleTransactionView(
+        transaction,
+        analysesByHash.get(transaction.transactionHash.toLowerCase()) ?? null,
+      ),
+    ),
     nextCursor: page.nextCursor,
   });
 }

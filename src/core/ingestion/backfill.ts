@@ -1,4 +1,5 @@
 import type {
+  ModuleTransaction,
   Page,
   QueueJob,
   SafeRef,
@@ -11,6 +12,7 @@ type BackfillJob = Extract<QueueJob, { type: "backfill" }>;
 type IngestionPersistence = Pick<
   PersistencePort,
   | "findAnalyses"
+  | "findModuleAnalyses"
   | "findSyncCursor"
   | "saveSyncCursor"
   | "upsertMessages"
@@ -24,6 +26,7 @@ export interface BackfillPorts {
   readonly persistence: IngestionPersistence;
   readonly queue: QueuePort;
   readonly analysisEngineVersion: string;
+  readonly moduleAnalysisEngineVersion: string;
   readonly now: () => number;
 }
 
@@ -90,6 +93,59 @@ async function enqueueMissingFirstPageAnalyses(
   return missing.length;
 }
 
+async function enqueueMissingFirstPageModuleAnalyses(
+  job: BackfillJob,
+  cursor: string | null,
+  items: readonly ModuleTransaction[],
+  ports: BackfillPorts,
+): Promise<number> {
+  if (cursor !== null || items.length === 0) return 0;
+
+  const hashes = items.map((transaction) => transaction.transactionHash);
+  const analyses = await ports.persistence.findModuleAnalyses(
+    job.safe,
+    hashes,
+    ports.moduleAnalysisEngineVersion,
+  );
+  const analyzedHashes = new Set(
+    analyses.map((analysis) => analysis.transactionHash.toLowerCase()),
+  );
+  const missing = items
+    .filter(
+      (transaction) =>
+        !analyzedHashes.has(transaction.transactionHash.toLowerCase()),
+    )
+    .slice(0, AUTO_ANALYSIS_LIMIT);
+  const retryBucket = Math.floor(
+    ports.now() / AUTO_ANALYSIS_RETRY_WINDOW_SECONDS,
+  );
+
+  await Promise.all(
+    missing.map((transaction, index) =>
+      ports.queue.enqueue(
+        {
+          type: "analyze-module",
+          safe: job.safe,
+          transactionHash: transaction.transactionHash,
+        },
+        {
+          idempotencyKey: [
+            "auto-analyze-module",
+            job.safe.chainId,
+            job.safe.address.toLowerCase(),
+            ports.moduleAnalysisEngineVersion,
+            transaction.transactionHash.toLowerCase(),
+            retryBucket,
+          ].join(":"),
+          delaySeconds: index * AUTO_ANALYSIS_DELAY_SECONDS,
+        },
+      ),
+    ),
+  );
+
+  return missing.length;
+}
+
 async function readAndPersistPage(
   job: BackfillJob,
   cursor: string | null,
@@ -118,7 +174,13 @@ async function readAndPersistPage(
         PAGE_SIZE,
       );
       await ports.persistence.upsertModuleTransactions(page.items);
-      return { page, scheduledAnalyses: 0 };
+      const scheduledAnalyses = await enqueueMissingFirstPageModuleAnalyses(
+        job,
+        cursor,
+        page.items,
+        ports,
+      );
+      return { page, scheduledAnalyses };
     }
     case "transfer": {
       const page = await ports.safeData.listTransfers(

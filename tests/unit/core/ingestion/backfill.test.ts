@@ -4,6 +4,8 @@ import type {
   Address,
   AnalysisResult,
   Hex,
+  ModuleAnalysisResult,
+  ModuleTransaction,
   SafeRef,
   SafeTransaction,
   SyncCursor,
@@ -20,6 +22,7 @@ const safe: SafeRef = {
   address: "0x1111111111111111111111111111111111111111" as Address,
 };
 const engineVersion = "transaction-analysis-v1";
+const moduleEngineVersion = "module-analysis-v1";
 
 function hash(digit: string) {
   return `0x${digit.repeat(64)}` as Hex;
@@ -44,7 +47,22 @@ function transactionWithDigit(digit: string): SafeTransaction {
   };
 }
 
+function moduleTransactionWithDigit(digit: string): ModuleTransaction {
+  return {
+    safe,
+    module: "0x3333333333333333333333333333333333333333" as Address,
+    transactionHash: hash(digit),
+    to: "0x2222222222222222222222222222222222222222" as Address,
+    value: 0n,
+    data: "0x",
+    operation: "call",
+    blockNumber: BigInt(digit),
+    executedAt: 1_782_000_000,
+  };
+}
+
 const transaction = transactionWithDigit("1");
+const moduleTransaction = moduleTransactionWithDigit("1");
 
 function analysis(safeTxHash: Hex): AnalysisResult {
   return {
@@ -58,17 +76,33 @@ function analysis(safeTxHash: Hex): AnalysisResult {
   };
 }
 
+function moduleAnalysis(transactionHash: Hex): ModuleAnalysisResult {
+  return {
+    transactionHash,
+    module: moduleTransaction.module,
+    engineVersion: moduleEngineVersion,
+    verdict: "unverified",
+    findings: [],
+    simulation: null,
+    createdAt: 1_782_000_000,
+    immutable: true,
+  };
+}
+
 function makePorts(
   options: {
     cursor?: SyncCursor | null;
     nextCursor?: string | null;
     persistenceFails?: boolean;
     items?: readonly SafeTransaction[];
+    moduleItems?: readonly ModuleTransaction[];
     analyses?: readonly AnalysisResult[];
+    moduleAnalyses?: readonly ModuleAnalysisResult[];
   } = {},
 ) {
   const persistence = {
     findAnalyses: vi.fn().mockResolvedValue(options.analyses ?? []),
+    findModuleAnalyses: vi.fn().mockResolvedValue(options.moduleAnalyses ?? []),
     findSyncCursor: vi.fn().mockResolvedValue(options.cursor ?? null),
     saveSyncCursor: vi.fn().mockResolvedValue(undefined),
     upsertTransactions: options.persistenceFails
@@ -86,7 +120,11 @@ function makePorts(
       nextCursor: options.nextCursor ?? null,
       total: 1,
     }),
-    listModuleTransactions: vi.fn(),
+    listModuleTransactions: vi.fn().mockResolvedValue({
+      items: options.moduleItems ?? [moduleTransaction],
+      nextCursor: options.nextCursor ?? null,
+      total: 1,
+    }),
     listTransfers: vi.fn(),
     listMessages: vi.fn(),
     getBalances: vi.fn(),
@@ -100,6 +138,7 @@ function makePorts(
       safeData,
       queue,
       analysisEngineVersion: engineVersion,
+      moduleAnalysisEngineVersion: moduleEngineVersion,
       now: () => 1_782_000_000,
     } as BackfillPorts,
     persistence,
@@ -212,6 +251,75 @@ describe("runBackfillPage", () => {
         }),
       );
     }
+  });
+
+  it("caps and spaces first-page module analysis jobs", async () => {
+    const moduleItems = ["1", "2", "3", "4", "5", "6", "7"].map(
+      moduleTransactionWithDigit,
+    );
+    const { ports, persistence, queue } = makePorts({ moduleItems });
+
+    await expect(
+      runBackfillPage({ type: "backfill", safe, stream: "module" }, ports),
+    ).resolves.toEqual({
+      processed: 7,
+      scheduledAnalyses: AUTO_ANALYSIS_LIMIT,
+      nextCursor: null,
+      status: "complete",
+    });
+
+    expect(persistence.findModuleAnalyses).toHaveBeenCalledWith(
+      safe,
+      moduleItems.map((item) => item.transactionHash),
+      moduleEngineVersion,
+    );
+    expect(queue.enqueue).toHaveBeenCalledTimes(AUTO_ANALYSIS_LIMIT);
+    for (let index = 0; index < AUTO_ANALYSIS_LIMIT; index += 1) {
+      expect(queue.enqueue).toHaveBeenNthCalledWith(
+        index + 1,
+        {
+          type: "analyze-module",
+          safe,
+          transactionHash: moduleItems[index]?.transactionHash,
+        },
+        expect.objectContaining({
+          delaySeconds: index * AUTO_ANALYSIS_DELAY_SECONDS,
+          idempotencyKey: expect.stringContaining(moduleEngineVersion),
+        }),
+      );
+    }
+  });
+
+  it("does not schedule module analysis for deeper pages", async () => {
+    const cursor: SyncCursor = {
+      safe,
+      stream: "module",
+      cursor: "module-cursor",
+      status: "failed",
+      updatedAt: 1_781_999_000,
+    };
+    const { ports, persistence, queue } = makePorts({ cursor });
+
+    await runBackfillPage({ type: "backfill", safe, stream: "module" }, ports);
+
+    expect(persistence.findModuleAnalyses).not.toHaveBeenCalled();
+    expect(queue.enqueue).not.toHaveBeenCalled();
+  });
+
+  it("does not duplicate a current module analysis", async () => {
+    const { ports, queue } = makePorts({
+      moduleAnalyses: [moduleAnalysis(moduleTransaction.transactionHash)],
+    });
+
+    await expect(
+      runBackfillPage({ type: "backfill", safe, stream: "module" }, ports),
+    ).resolves.toEqual({
+      processed: 1,
+      scheduledAnalyses: 0,
+      nextCursor: null,
+      status: "complete",
+    });
+    expect(queue.enqueue).not.toHaveBeenCalled();
   });
 
   it("does not advance the cursor when persistence fails", async () => {

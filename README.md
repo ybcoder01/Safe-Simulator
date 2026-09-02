@@ -17,6 +17,7 @@ Safe Inspector is a read-only analysis service for public Safe accounts on Ether
 - Quick Trust and Flag actions for addresses identified in a transaction.
 - Browser-local search across loaded Safe activity.
 - Canonical block-anchor checks before immutable execution evidence is reused.
+- Dedicated module-execution replay with separate privileged-path verdicts and findings.
 - Responsive route loading and explicit unavailable states when provider evidence is incomplete.
 
 Safe Inspector never signs, proposes, relays, or broadcasts transactions. Signing and relay libraries are forbidden by the repository lint configuration.

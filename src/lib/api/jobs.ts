@@ -23,6 +23,11 @@ export const queueJobSchema = z.discriminatedUnion("type", [
     safeTxHash: z.string().regex(/^0x[0-9a-fA-F]{64}$/),
   }),
   z.object({
+    type: z.literal("analyze-module"),
+    safe: safeRefSchema,
+    transactionHash: z.string().regex(/^0x[0-9a-fA-F]{64}$/),
+  }),
+  z.object({
     type: z.literal("reanalyze"),
     safe: safeRefSchema,
     engineVersion: z.string().min(1).max(100),

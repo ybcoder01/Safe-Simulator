@@ -19,6 +19,7 @@ import type {
   ContractMetadata,
   ExecutionEvidenceRecord,
   Hex,
+  ModuleAnalysisResult,
   ModuleTransaction,
   Page,
   SafeMessage,
@@ -38,6 +39,7 @@ import {
   contracts,
   executionEvidence,
   messages,
+  moduleAnalysisResults,
   moduleTransactions,
   profiles,
   profileAddressBook,
@@ -99,6 +101,23 @@ function mapSimulation(
     | undefined;
 
   return coverage ? { ...simulation, traceCoverage: coverage } : simulation;
+}
+
+function mapModuleAnalysis(value: unknown): ModuleAnalysisResult {
+  const result = value as Record<string, unknown>;
+
+  return {
+    transactionHash: result.transactionHash as Hex,
+    module: result.module as Address,
+    engineVersion: result.engineVersion as string,
+    verdict: result.verdict as ModuleAnalysisResult["verdict"],
+    findings: result.findings as ModuleAnalysisResult["findings"],
+    simulation: mapSimulation(
+      result.simulation as Record<string, unknown> | null,
+    ),
+    createdAt: result.createdAt as number,
+    immutable: result.immutable as boolean,
+  };
 }
 
 function mapAnalysis(value: unknown): AnalysisResult {
@@ -485,6 +504,121 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
           : null,
       total: null,
     };
+  }
+
+  async findModuleTransaction(
+    safeRef: SafeRef,
+    transactionHash: Hex,
+  ): Promise<ModuleTransaction | null> {
+    const safe = await this.findSafeRow(safeRef);
+    if (!safe) return null;
+
+    const [row] = await this.db
+      .select()
+      .from(moduleTransactions)
+      .where(
+        and(
+          eq(moduleTransactions.safeId, safe.id),
+          eq(moduleTransactions.transactionHash, transactionHash),
+        ),
+      )
+      .limit(1);
+    return row
+      ? {
+          safe: safeRef,
+          module: row.module as Address,
+          transactionHash: row.transactionHash as Hex,
+          to: row.to as Address,
+          value: BigInt(row.value),
+          data: row.data as Hex,
+          operation: row.operation,
+          blockNumber: row.blockNumber,
+          executedAt: asUnixTime(row.executedAt),
+        }
+      : null;
+  }
+
+  async saveModuleAnalysis(result: ModuleAnalysisResult): Promise<void> {
+    const [transaction] = await this.db
+      .select({ transactionHash: moduleTransactions.transactionHash })
+      .from(moduleTransactions)
+      .where(eq(moduleTransactions.transactionHash, result.transactionHash))
+      .limit(1);
+    if (!transaction) {
+      throw new Error(
+        `Cannot persist analysis for unknown module transaction ${result.transactionHash}.`,
+      );
+    }
+
+    await this.db
+      .insert(moduleAnalysisResults)
+      .values({
+        transactionHash: result.transactionHash,
+        engineVersion: result.engineVersion,
+        verdict: result.verdict,
+        findings: jsonWithBigInts(result.findings),
+        result: jsonWithBigInts(result),
+        createdAt: asDate(result.createdAt),
+      })
+      .onConflictDoUpdate({
+        target: [
+          moduleAnalysisResults.transactionHash,
+          moduleAnalysisResults.engineVersion,
+        ],
+        set: {
+          verdict: result.verdict,
+          findings: jsonWithBigInts(result.findings),
+          result: jsonWithBigInts(result),
+          createdAt: asDate(result.createdAt),
+        },
+      });
+  }
+
+  async findModuleAnalysis(
+    transactionHash: Hex,
+    engineVersion: string,
+  ): Promise<ModuleAnalysisResult | null> {
+    const [row] = await this.db
+      .select({ result: moduleAnalysisResults.result })
+      .from(moduleAnalysisResults)
+      .where(
+        and(
+          eq(moduleAnalysisResults.transactionHash, transactionHash),
+          eq(moduleAnalysisResults.engineVersion, engineVersion),
+        ),
+      )
+      .limit(1);
+    return row ? mapModuleAnalysis(row.result) : null;
+  }
+
+  async findModuleAnalyses(
+    safeRef: SafeRef,
+    transactionHashes: readonly Hex[],
+    engineVersion: string,
+  ): Promise<readonly ModuleAnalysisResult[]> {
+    if (transactionHashes.length === 0) return [];
+
+    const safe = await this.findSafeRow(safeRef);
+    if (!safe) return [];
+
+    const rows = await this.db
+      .select({ result: moduleAnalysisResults.result })
+      .from(moduleAnalysisResults)
+      .innerJoin(
+        moduleTransactions,
+        eq(
+          moduleAnalysisResults.transactionHash,
+          moduleTransactions.transactionHash,
+        ),
+      )
+      .where(
+        and(
+          eq(moduleTransactions.safeId, safe.id),
+          inArray(moduleTransactions.transactionHash, [...transactionHashes]),
+          eq(moduleAnalysisResults.engineVersion, engineVersion),
+        ),
+      );
+    return rows.map((row) => mapModuleAnalysis(row.result));
   }
 
   async upsertTransfers(items: readonly TransferRecord[]): Promise<void> {

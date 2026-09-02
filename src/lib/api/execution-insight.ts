@@ -442,6 +442,17 @@ function unavailable(error: string): ExecutionInsight {
   };
 }
 
+export function executionInsightFromReplay(
+  output: SimulationOutput,
+  safe: Address,
+): ExecutionInsight {
+  return outputView("executed-replay", output, safe);
+}
+
+export function unavailableExecutionInsight(error: string): ExecutionInsight {
+  return unavailable(error.slice(0, 240));
+}
+
 export async function resolveExecutionInsight(
   simulation: SimulationPort,
   transaction: SafeTransaction,

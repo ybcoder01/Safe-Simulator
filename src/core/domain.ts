@@ -89,6 +89,17 @@ export interface ModuleTransaction {
   readonly executedAt: UnixTime;
 }
 
+export interface ModuleAnalysisResult {
+  readonly transactionHash: Hex;
+  readonly module: Address;
+  readonly engineVersion: string;
+  readonly verdict: Verdict;
+  readonly findings: readonly Finding[];
+  readonly simulation: SimulationOutput | null;
+  readonly createdAt: UnixTime;
+  readonly immutable: boolean;
+}
+
 export interface TransferRecord {
   readonly safe: SafeRef;
   readonly transactionHash: Hex;
@@ -271,6 +282,11 @@ export type QueueJob =
       readonly type: "analyze";
       readonly safe: SafeRef;
       readonly safeTxHash: Hex;
+    }
+  | {
+      readonly type: "analyze-module";
+      readonly safe: SafeRef;
+      readonly transactionHash: Hex;
     }
   | {
       readonly type: "reanalyze";
