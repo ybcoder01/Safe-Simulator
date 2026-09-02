@@ -169,3 +169,16 @@ Start with the narrowest affected layer:
 - **Cache unavailable:** Upstash Redis configuration; PostgreSQL evidence remains authoritative.
 
 Record the affected chain, Safe address, route, UTC time, deployment identifier, and non-secret error message. Never include credentials.
+
+## Automated Preview smoke check
+
+A successful Vercel Preview deployment triggers the GitHub **Preview smoke** workflow. The check accepts only a `.vercel.app` URL, requires an explicit Preview environment marker, and refuses the production domain.
+
+The smoke check is intentionally non-mutating. It verifies:
+
+- the overview and Safe watchlist pages render;
+- the read-only product language remains present;
+- the core browser security headers remain active;
+- `/api/health` reports healthy PostgreSQL and Redis dependencies.
+
+It does not import a Safe, create a profile, enqueue QStash work, or write application records. Queue delivery testing remains a separately authorized Preview procedure because it creates database, cache, and hosted-queue state.

@@ -21,7 +21,8 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
-    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm build"
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm build",
+    "test:preview:smoke": "node scripts/preview-smoke.mjs"
   },
   "dependencies": {
     "@safe-global/api-kit": "5.0.2",
