@@ -176,6 +176,8 @@ A successful Vercel Preview deployment triggers the GitHub **Preview smoke** wor
 
 Preview queue publications use the deployment-specific `VERCEL_URL`. They must never use `VERCEL_PROJECT_PRODUCTION_URL` or a Production `APP_BASE_URL`; Production continues to use its stable public callback URL.
 
+Protected Preview deployments must enable Vercel **Protection Bypass for Automation** and expose its system variable as `VERCEL_AUTOMATION_BYPASS_SECRET`. The QStash publisher forwards that value only as the `x-vercel-protection-bypass` destination header when `VERCEL_ENV=preview`; Production receives no bypass header. Missing Preview configuration fails closed before publication. Never place this secret in a callback URL, source, logs, pull-request text, or screenshots. Rotate it in Vercel and redeploy if disclosure is suspected.
+
 The smoke check verifies:
 
 - the overview and Safe watchlist pages render;
