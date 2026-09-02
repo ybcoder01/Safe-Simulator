@@ -57,6 +57,21 @@ export function applicationUrl(
   );
 }
 
+export function qstashDestinationHeaders(
+  environment: NodeJS.ProcessEnv = process.env,
+): Record<string, string> {
+  if (environment.VERCEL_ENV !== "preview") return {};
+
+  const bypassSecret = environment.VERCEL_AUTOMATION_BYPASS_SECRET?.trim();
+  if (!bypassSecret) {
+    throw new Error(
+      "VERCEL_AUTOMATION_BYPASS_SECRET is required for protected Preview QStash callbacks.",
+    );
+  }
+
+  return { "x-vercel-protection-bypass": bypassSecret };
+}
+
 export async function toQStashDeduplicationId(value: string): Promise<string> {
   const digest = await crypto.subtle.digest(
     "SHA-256",
@@ -79,6 +94,7 @@ export class QStashQueueAdapter implements QueuePort {
     const result = await client.publishJSON({
       url: `${applicationUrl()}/api/v1/jobs/run`,
       body: job,
+      headers: qstashDestinationHeaders(),
       deduplicationId: await toQStashDeduplicationId(options.idempotencyKey),
       ...(options.delaySeconds === undefined
         ? {}
