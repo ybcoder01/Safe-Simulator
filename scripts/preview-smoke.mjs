@@ -4,6 +4,11 @@ const baseUrl = process.env.SMOKE_BASE_URL;
 const environment = process.env.SMOKE_ENVIRONMENT;
 const timeoutMs = 15_000;
 const oidcToken = process.env.VERCEL_TRUSTED_OIDC_TOKEN;
+const testSafe = {
+  chainId: 50,
+  address: "0xc8bAe80ca5c2C9eC3bd4AC16c422220a33b6B173",
+};
+const profileCookie = `safe-inspector-profile=${crypto.randomUUID()}`;
 
 assert.equal(
   environment,
@@ -25,13 +30,27 @@ assert.notEqual(
   "Refusing to run against the production domain.",
 );
 
-async function request(pathname, { allowFailure = false } = {}) {
+async function request(
+  pathname,
+  {
+    allowFailure = false,
+    method = "GET",
+    json,
+    includeProfile = false,
+  } = {},
+) {
   const url = new URL(pathname, base);
+  const headers = {
+    "User-Agent": "safe-inspector-preview-smoke",
+    "x-vercel-trusted-oidc-idp-token": oidcToken,
+  };
+  if (json !== undefined) headers["Content-Type"] = "application/json";
+  if (includeProfile) headers.Cookie = profileCookie;
+
   const response = await fetch(url, {
-    headers: {
-      "User-Agent": "safe-inspector-preview-smoke",
-      "x-vercel-trusted-oidc-idp-token": oidcToken,
-    },
+    method,
+    headers,
+    body: json === undefined ? undefined : JSON.stringify(json),
     redirect: "follow",
     signal: AbortSignal.timeout(timeoutMs),
   });
@@ -82,10 +101,90 @@ assert.equal(healthBody.status, "ok");
 assert.equal(healthBody.checks?.database, "ok");
 assert.equal(healthBody.checks?.cache, "ok");
 
+const safePath = `/api/v1/safes/${testSafe.chainId}/${testSafe.address}`;
+let imported = false;
+
+try {
+  const importResponse = await request("/api/v1/safes", {
+    allowFailure: true,
+    method: "POST",
+    json: testSafe,
+    includeProfile: true,
+  });
+  imported = importResponse.status === 201;
+  const importBody = await importResponse.json();
+  assert.equal(
+    importResponse.status,
+    201,
+    `Safe import returned HTTP ${importResponse.status}: ${JSON.stringify(importBody)}`,
+  );
+  assert.equal(importBody.data?.chainId, testSafe.chainId);
+  assert.equal(
+    importBody.data?.address?.toLowerCase(),
+    testSafe.address.toLowerCase(),
+  );
+
+  const watchlistResponse = await request("/api/v1/safes", {
+    includeProfile: true,
+  });
+  const watchlistBody = await watchlistResponse.json();
+  assert.ok(
+    watchlistBody.data?.some(
+      (safe) =>
+        safe.chainId === testSafe.chainId &&
+        safe.address.toLowerCase() === testSafe.address.toLowerCase(),
+    ),
+    "The imported Safe was not returned for the temporary Preview profile.",
+  );
+
+  const detailsResponse = await request(safePath, { includeProfile: true });
+  const detailsBody = await detailsResponse.json();
+  assert.equal(detailsBody.data?.safe?.chainId, testSafe.chainId);
+  assert.equal(
+    detailsBody.data?.safe?.address?.toLowerCase(),
+    testSafe.address.toLowerCase(),
+  );
+} finally {
+  if (imported) {
+    const deleteResponse = await request(safePath, {
+      allowFailure: true,
+      method: "DELETE",
+      includeProfile: true,
+    });
+    assert.equal(
+      deleteResponse.status,
+      204,
+      `Safe cleanup returned HTTP ${deleteResponse.status}.`,
+    );
+
+    const cleanedWatchlistResponse = await request("/api/v1/safes", {
+      includeProfile: true,
+    });
+    const cleanedWatchlistBody = await cleanedWatchlistResponse.json();
+    assert.ok(
+      !cleanedWatchlistBody.data?.some(
+        (safe) =>
+          safe.chainId === testSafe.chainId &&
+          safe.address.toLowerCase() === testSafe.address.toLowerCase(),
+      ),
+      "The temporary Preview bookmark still exists after cleanup.",
+    );
+  }
+}
+
 console.log(
   JSON.stringify({
     deployment: base.origin,
-    checks: ["home", "security-headers", "safes", "database", "cache"],
+    checks: [
+      "home",
+      "security-headers",
+      "safes",
+      "database",
+      "cache",
+      "safe-import",
+      "safe-readback",
+      "bookmark-cleanup",
+    ],
     status: "ok",
   }),
 );
