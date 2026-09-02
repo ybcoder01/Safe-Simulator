@@ -1,6 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 import { getPersistencePort, getSafeDataPort } from "@/container";
+import {
+  parseProfileId,
+  PROFILE_COOKIE,
+} from "@/lib/api/profile";
 import {
   safeRouteParamsSchema,
   toBalanceView,
@@ -53,4 +57,36 @@ export async function GET(_request: Request, context: RouteContext) {
       nextCursor: transactionPage.nextCursor,
     },
   });
+}
+
+export async function DELETE(request: NextRequest, context: RouteContext) {
+  const parsed = safeRouteParamsSchema.safeParse(await context.params);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: { code: "invalid_safe", message: "Invalid Safe route." } },
+      { status: 400 },
+    );
+  }
+
+  const profileId = parseProfileId(
+    request.cookies.get(PROFILE_COOKIE)?.value,
+  );
+  if (!profileId) {
+    return new NextResponse(null, { status: 204 });
+  }
+
+  try {
+    await getPersistencePort().unbookmarkSafe(profileId, parsed.data);
+    return new NextResponse(null, { status: 204 });
+  } catch {
+    return NextResponse.json(
+      {
+        error: {
+          code: "upstream_unavailable",
+          message: "The Safe could not be removed from this watchlist right now.",
+        },
+      },
+      { status: 502 },
+    );
+  }
 }
