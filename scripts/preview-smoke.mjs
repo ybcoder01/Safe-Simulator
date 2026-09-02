@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 const baseUrl = process.env.SMOKE_BASE_URL;
 const environment = process.env.SMOKE_ENVIRONMENT;
 const timeoutMs = 15_000;
+const oidcToken = process.env.VERCEL_TRUSTED_OIDC_TOKEN;
 
 assert.equal(
   environment,
@@ -10,6 +11,7 @@ assert.equal(
   "Refusing to run unless SMOKE_ENVIRONMENT is exactly preview.",
 );
 assert.ok(baseUrl, "SMOKE_BASE_URL is required.");
+assert.ok(oidcToken, "VERCEL_TRUSTED_OIDC_TOKEN is required.");
 
 const base = new URL(baseUrl);
 assert.equal(base.protocol, "https:", "Preview smoke tests require HTTPS.");
@@ -26,7 +28,10 @@ assert.notEqual(
 async function request(pathname) {
   const url = new URL(pathname, base);
   const response = await fetch(url, {
-    headers: { "User-Agent": "safe-inspector-preview-smoke" },
+    headers: {
+      "User-Agent": "safe-inspector-preview-smoke",
+      "x-vercel-trusted-oidc-idp-token": oidcToken,
+    },
     redirect: "follow",
     signal: AbortSignal.timeout(timeoutMs),
   });
