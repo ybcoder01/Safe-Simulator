@@ -10,7 +10,6 @@ import {
   refreshSyncStreams,
   restoredRefreshCursors,
   SYNC_REFRESH_ACTIVE_WINDOW_SECONDS,
-  SYNC_REFRESH_WINDOW_MS,
 } from "../../../../src/lib/api/sync-refresh";
 
 const safe: SafeRef = {
@@ -137,15 +136,17 @@ describe("on-demand synchronization refresh", () => {
     );
   });
 
-  it("deduplicates refreshes in one five-minute bucket", () => {
-    const start = SYNC_REFRESH_WINDOW_MS * 10 + 1;
-    expect(refreshIdempotencyKey(safe, start)).toBe(
-      refreshIdempotencyKey(safe, start + SYNC_REFRESH_WINDOW_MS - 2),
+  it("keeps retries stable while allowing a later completed refresh", () => {
+    const firstRequestAt = 3_000_001;
+    const secondRequestAt = firstRequestAt + 10_000;
+
+    expect(refreshIdempotencyKey(safe, firstRequestAt)).toBe(
+      refreshIdempotencyKey(safe, firstRequestAt),
     );
-    expect(refreshIdempotencyKey(safe, start)).not.toBe(
-      refreshIdempotencyKey(safe, start + SYNC_REFRESH_WINDOW_MS),
+    expect(refreshIdempotencyKey(safe, firstRequestAt)).not.toBe(
+      refreshIdempotencyKey(safe, secondRequestAt),
     );
-    expect(refreshIdempotencyKey(safe, start)).toContain(
+    expect(refreshIdempotencyKey(safe, firstRequestAt)).toContain(
       safe.address.toLowerCase(),
     );
   });
