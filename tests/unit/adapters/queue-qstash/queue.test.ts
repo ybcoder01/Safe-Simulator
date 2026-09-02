@@ -57,6 +57,7 @@ describe("qstashDestinationHeaders", () => {
   it("forwards the Vercel automation bypass only in Preview", () => {
     expect(
       qstashDestinationHeaders({
+        NODE_ENV: "production",
         VERCEL_ENV: "preview",
         VERCEL_AUTOMATION_BYPASS_SECRET: "preview-secret",
       }),
@@ -66,6 +67,7 @@ describe("qstashDestinationHeaders", () => {
   it("does not forward a bypass credential in Production", () => {
     expect(
       qstashDestinationHeaders({
+        NODE_ENV: "production",
         VERCEL_ENV: "production",
         VERCEL_AUTOMATION_BYPASS_SECRET: "production-secret",
       }),
