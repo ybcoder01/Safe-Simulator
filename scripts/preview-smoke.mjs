@@ -102,16 +102,16 @@ assert.equal(healthBody.checks?.database, "ok");
 assert.equal(healthBody.checks?.cache, "ok");
 
 const safePath = `/api/v1/safes/${testSafe.chainId}/${testSafe.address}`;
-let imported = false;
+let lifecycleStarted = false;
 
 try {
+  lifecycleStarted = true;
   const importResponse = await request("/api/v1/safes", {
     allowFailure: true,
     method: "POST",
     json: testSafe,
     includeProfile: true,
   });
-  imported = importResponse.status === 201;
   const importBody = await importResponse.json();
   assert.equal(
     importResponse.status,
@@ -145,7 +145,7 @@ try {
     testSafe.address.toLowerCase(),
   );
 } finally {
-  if (imported) {
+  if (lifecycleStarted) {
     const deleteResponse = await request(safePath, {
       allowFailure: true,
       method: "DELETE",
