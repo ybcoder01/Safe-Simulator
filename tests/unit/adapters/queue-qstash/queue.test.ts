@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   applicationUrl,
+  qstashDestinationHeaders,
   toQStashDeduplicationId,
 } from "../../../../src/adapters/queue-qstash/queue";
 
@@ -49,6 +50,37 @@ describe("applicationUrl", () => {
         VERCEL_URL: "safe-simulator-preview.vercel.app",
       }),
     ).toBe("https://safe-simulator-preview.vercel.app");
+  });
+});
+
+describe("qstashDestinationHeaders", () => {
+  it("forwards the Vercel automation bypass only in Preview", () => {
+    expect(
+      qstashDestinationHeaders({
+        NODE_ENV: "production",
+        VERCEL_ENV: "preview",
+        VERCEL_AUTOMATION_BYPASS_SECRET: "preview-secret",
+      }),
+    ).toEqual({ "x-vercel-protection-bypass": "preview-secret" });
+  });
+
+  it("does not forward a bypass credential in Production", () => {
+    expect(
+      qstashDestinationHeaders({
+        NODE_ENV: "production",
+        VERCEL_ENV: "production",
+        VERCEL_AUTOMATION_BYPASS_SECRET: "production-secret",
+      }),
+    ).toEqual({});
+  });
+
+  it("fails closed when a protected Preview has no bypass secret", () => {
+    expect(() =>
+      qstashDestinationHeaders({
+        NODE_ENV: "production",
+        VERCEL_ENV: "preview",
+      }),
+    ).toThrow(/VERCEL_AUTOMATION_BYPASS_SECRET/);
   });
 });
 
