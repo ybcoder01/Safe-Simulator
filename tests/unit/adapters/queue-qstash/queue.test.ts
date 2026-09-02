@@ -75,9 +75,12 @@ describe("qstashDestinationHeaders", () => {
   });
 
   it("fails closed when a protected Preview has no bypass secret", () => {
-    expect(() => qstashDestinationHeaders({ VERCEL_ENV: "preview" })).toThrow(
-      /VERCEL_AUTOMATION_BYPASS_SECRET/,
-    );
+    expect(() =>
+      qstashDestinationHeaders({
+        NODE_ENV: "production",
+        VERCEL_ENV: "preview",
+      }),
+    ).toThrow(/VERCEL_AUTOMATION_BYPASS_SECRET/);
   });
 });
 
