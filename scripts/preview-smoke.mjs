@@ -25,7 +25,7 @@ assert.notEqual(
   "Refusing to run against the production domain.",
 );
 
-async function request(pathname) {
+async function request(pathname, { allowFailure = false } = {}) {
   const url = new URL(pathname, base);
   const response = await fetch(url, {
     headers: {
@@ -36,11 +36,13 @@ async function request(pathname) {
     signal: AbortSignal.timeout(timeoutMs),
   });
 
-  assert.equal(
-    response.status,
-    200,
-    `${pathname} returned HTTP ${response.status}.`,
-  );
+  if (!allowFailure) {
+    assert.equal(
+      response.status,
+      200,
+      `${pathname} returned HTTP ${response.status}.`,
+    );
+  }
   return response;
 }
 
@@ -64,9 +66,17 @@ const safesHtml = await safes.text();
 assert.match(safesHtml, /Safe accounts/);
 assert.match(safesHtml, /Read-only by design/);
 
-const health = await request("/api/health");
+const health = await request("/api/health", { allowFailure: true });
 assert.match(health.headers.get("content-type") ?? "", /application\/json/);
 const healthBody = await health.json();
+assert.equal(
+  health.status,
+  200,
+  `/api/health returned HTTP ${health.status}: ${JSON.stringify({
+    status: healthBody.status,
+    checks: healthBody.checks,
+  })}`,
+);
 assert.equal(healthBody.service, "safe-inspector");
 assert.equal(healthBody.status, "ok");
 assert.equal(healthBody.checks?.database, "ok");
