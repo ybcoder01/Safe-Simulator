@@ -174,11 +174,14 @@ Record the affected chain, Safe address, route, UTC time, deployment identifier,
 
 A successful Vercel Preview deployment triggers the GitHub **Preview smoke** workflow. The check accepts only a `.vercel.app` URL, requires an explicit Preview environment marker, and refuses the production domain. GitHub supplies a short-lived OIDC token so Vercel can recognize the protected request without storing a reusable bypass secret.
 
-The smoke check is intentionally non-mutating. It verifies:
+The smoke check verifies:
 
 - the overview and Safe watchlist pages render;
 - the read-only product language remains present;
 - the core browser security headers remain active;
-- `/api/health` reports healthy PostgreSQL and Redis dependencies.
+- `/api/health` reports healthy PostgreSQL and Redis dependencies;
+- a known public XDC Safe can be verified and imported for a fresh, randomly generated Preview profile;
+- the imported Safe is returned by the watchlist and detail APIs;
+- the temporary profile bookmark is removed in a `finally` cleanup and confirmed absent.
 
-It does not import a Safe, create a profile, enqueue QStash work, or write application records. Queue delivery testing remains a separately authorized Preview procedure because it creates database, cache, and hosted-queue state.
+The lifecycle check never signs, proposes, relays, broadcasts, or modifies blockchain state. Cleanup is deliberately profile-scoped: `DELETE /api/v1/safes/{chainId}/{address}` removes only the requesting profile's bookmark and returns an idempotent `204`; it does not delete shared Safe snapshots, transaction history, cursors, or evidence. The known Safe's import queue keys are stable and deduplicated, so repeated Preview deployments do not create parallel backfills.
