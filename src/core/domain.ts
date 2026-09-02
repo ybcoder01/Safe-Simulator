@@ -277,7 +277,11 @@ export type QueueJob =
       readonly safe: SafeRef;
       readonly stream: SyncCursor["stream"];
     }
-  | { readonly type: "incremental-sync"; readonly safe: SafeRef }
+  | {
+      readonly type: "incremental-sync";
+      readonly safe: SafeRef;
+      readonly runId: string;
+    }
   | {
       readonly type: "analyze";
       readonly safe: SafeRef;

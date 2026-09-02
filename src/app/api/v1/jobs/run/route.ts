@@ -74,11 +74,7 @@ export async function POST(request: Request) {
         await runSyncSweep(job, { persistence, queue, now }),
       );
     case "incremental-sync":
-      await enqueueSafeSync(
-        job.safe,
-        queue,
-        `incremental:${Math.floor(now() / 300)}`,
-      );
+      await enqueueSafeSync(job.safe, queue, job.runId);
       return Response.json({ scheduled: 4 });
     case "analyze":
       return Response.json(
