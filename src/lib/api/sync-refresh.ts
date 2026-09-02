@@ -1,6 +1,5 @@
 import type { SafeRef, SyncCursor } from "@/core/domain";
 
-export const SYNC_REFRESH_WINDOW_MS = 300_000;
 export const SYNC_REFRESH_ACTIVE_WINDOW_SECONDS = 15 * 60;
 
 export const refreshSyncStreams = [
@@ -104,7 +103,9 @@ export function restoredRefreshCursors(
   );
 }
 
-export function refreshIdempotencyKey(safe: SafeRef, now = Date.now()): string {
-  const bucket = Math.floor(now / SYNC_REFRESH_WINDOW_MS);
-  return `sync:refresh:${safe.chainId}:${safe.address.toLowerCase()}:${bucket}`;
+export function refreshIdempotencyKey(
+  safe: SafeRef,
+  requestedAt = Date.now(),
+): string {
+  return `sync:refresh:${safe.chainId}:${safe.address.toLowerCase()}:${requestedAt}`;
 }
