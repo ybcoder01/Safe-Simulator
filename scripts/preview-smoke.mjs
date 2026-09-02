@@ -5,9 +5,23 @@ const environment = process.env.SMOKE_ENVIRONMENT;
 const timeoutMs = 15_000;
 const oidcToken = process.env.VERCEL_TRUSTED_OIDC_TOKEN;
 const testSafe = {
-  chainId: 50,
-  address: "0xc8bAe80ca5c2C9eC3bd4AC16c422220a33b6B173",
+  chainId: 1,
+  address: "0xcd2E72aEBe2A203b84f46DEEC948E6465dB51c75",
 };
+const expectedTransaction = {
+  safeTxHash:
+    "0xe833903006ab324b150a200576489c11a9e066815ed6129468151f68f7753191",
+  executedTxHash:
+    "0xd8380efcc29948d044ca206dd2816c7da85d2bd7b3db7d0512c976647fef79aa",
+  nonce: "53",
+  token: "0x5aFE3855358E112B5647B952709E6165e1c1eEEe",
+  recipient: "0xA1b02d8c67b0FDCF4E379855868DeB470E169cfB",
+  amount: "118000000000000000000",
+  summary:
+    "Transfer 118000000000000000000 base units to 0xa1b02d…169cfb",
+};
+const transactionPollTimeoutMs = 90_000;
+const transactionPollIntervalMs = 3_000;
 const profileCookie = `safe-inspector-profile=${crypto.randomUUID()}`;
 
 assert.equal(
@@ -58,6 +72,33 @@ async function request(
     );
   }
   return response;
+}
+
+async function waitForAnalyzedTransaction(pathname) {
+  const deadline = Date.now() + transactionPollTimeoutMs;
+  let lastState = "not returned";
+
+  while (Date.now() < deadline) {
+    const response = await request(`${pathname}/transactions?limit=25`, {
+      includeProfile: true,
+    });
+    const body = await response.json();
+    const transaction = body.data?.find(
+      (item) =>
+        item.safeTxHash.toLowerCase() ===
+        expectedTransaction.safeTxHash.toLowerCase(),
+    );
+
+    if (transaction?.analysis) return transaction;
+    lastState = transaction ? "returned without analysis" : "not returned";
+    await new Promise((resolve) =>
+      setTimeout(resolve, transactionPollIntervalMs),
+    );
+  }
+
+  assert.fail(
+    `Expected transaction was ${lastState} after ${transactionPollTimeoutMs}ms.`,
+  );
 }
 
 const home = await request("/");
@@ -139,6 +180,94 @@ try {
     detailsBody.data?.safe?.address?.toLowerCase(),
     testSafe.address.toLowerCase(),
   );
+
+  const listedTransaction = await waitForAnalyzedTransaction(safePath);
+  assert.equal(listedTransaction.nonce, expectedTransaction.nonce);
+  assert.equal(
+    listedTransaction.to.toLowerCase(),
+    expectedTransaction.token.toLowerCase(),
+  );
+  assert.equal(listedTransaction.operation, "call");
+  assert.equal(listedTransaction.status, "executed");
+  assert.equal(listedTransaction.summary, expectedTransaction.summary);
+  assert.equal(listedTransaction.analysis?.baselineVerdict, "unverified");
+
+  const transactionResponse = await request(
+    `${safePath}/tx/${expectedTransaction.safeTxHash}`,
+    { includeProfile: true },
+  );
+  const transactionBody = await transactionResponse.json();
+  const transaction = transactionBody.data;
+  assert.equal(
+    transaction.safeTxHash.toLowerCase(),
+    expectedTransaction.safeTxHash.toLowerCase(),
+  );
+  assert.equal(
+    transaction.executedTxHash.toLowerCase(),
+    expectedTransaction.executedTxHash.toLowerCase(),
+  );
+  assert.equal(transaction.confirmations?.length, 1);
+  assert.equal(
+    transaction.confirmations[0]?.owner?.toLowerCase(),
+    expectedTransaction.recipient.toLowerCase(),
+  );
+  assert.equal(transaction.insight?.decoded?.method, "transfer");
+  assert.equal(transaction.insight?.provenance, "safe-service");
+  assert.equal(transaction.execution?.mode, "executed-replay");
+  assert.equal(transaction.execution?.success, true);
+  assert.equal(
+    transaction.execution?.coverage?.outcome,
+    "on-chain-receipt",
+  );
+  assert.equal(
+    transaction.execution?.coverage?.tokenEvents,
+    "standard-events",
+  );
+  assert.ok(
+    ["complete", "partial", "root-only"].includes(
+      transaction.execution?.coverage?.callTrace,
+    ),
+    "Call-trace coverage was not reported explicitly.",
+  );
+  assert.ok(
+    ["complete", "partial", "unavailable"].includes(
+      transaction.execution?.coverage?.storageDiff,
+    ),
+    "Storage-diff coverage was not reported explicitly.",
+  );
+  assert.ok(
+    transaction.execution?.tokenMovements?.some(
+      (movement) =>
+        movement.token.toLowerCase() ===
+          expectedTransaction.token.toLowerCase() &&
+        movement.from.toLowerCase() === testSafe.address.toLowerCase() &&
+        movement.to.toLowerCase() ===
+          expectedTransaction.recipient.toLowerCase() &&
+        movement.amount === expectedTransaction.amount &&
+        movement.direction === "outbound",
+    ),
+    "Expected receipt-backed SAFE token movement was not found.",
+  );
+  assert.deepEqual(transaction.approvalRisk?.requests, []);
+  assert.equal(transaction.verdict?.verdict, "unverified");
+  assert.ok(
+    transaction.verdict?.findings?.some(
+      (finding) => finding.code === "movement-trust-unresolved",
+    ),
+    "The unresolved recipient finding was not preserved.",
+  );
+  assert.ok(
+    transaction.verdict?.findings?.some(
+      (finding) => finding.code === "partial-analysis-coverage",
+    ),
+    "The bounded coverage finding was not preserved.",
+  );
+  assert.ok(
+    !transaction.verdict?.findings?.some(
+      (finding) => finding.severity === "critical",
+    ),
+    "The fixed successful transfer unexpectedly produced critical evidence.",
+  );
 } finally {
   if (lifecycleStarted) {
     const deleteResponse = await request(safePath, {
@@ -178,6 +307,10 @@ console.log(
       "cache",
       "safe-import",
       "safe-readback",
+      "transaction-ingestion",
+      "transaction-analysis",
+      "receipt-evidence",
+      "verdict-boundary",
       "bookmark-cleanup",
     ],
     status: "ok",
