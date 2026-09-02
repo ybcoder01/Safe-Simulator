@@ -18,7 +18,7 @@ describe("applicationUrl", () => {
     ).toBe("https://safe-simulator.vercel.app");
   });
 
-  it("uses the public project URL for preview callbacks", () => {
+  it("uses the deployment URL for preview callbacks", () => {
     expect(
       applicationUrl({
         NODE_ENV: "production",
@@ -26,7 +26,19 @@ describe("applicationUrl", () => {
         VERCEL_PROJECT_PRODUCTION_URL: "safe-simulator.vercel.app",
         VERCEL_URL: "safe-simulator-preview.vercel.app",
       }),
-    ).toBe("https://safe-simulator.vercel.app");
+    ).toBe("https://safe-simulator-preview.vercel.app");
+  });
+
+  it("does not let an explicit production URL override Preview isolation", () => {
+    expect(
+      applicationUrl({
+        NODE_ENV: "production",
+        VERCEL_ENV: "preview",
+        APP_BASE_URL: "https://safe-simulator.vercel.app",
+        VERCEL_PROJECT_PRODUCTION_URL: "safe-simulator.vercel.app",
+        VERCEL_URL: "safe-simulator-preview.vercel.app",
+      }),
+    ).toBe("https://safe-simulator-preview.vercel.app");
   });
 
   it("uses a deployment URL only when the project URL is unavailable", () => {
