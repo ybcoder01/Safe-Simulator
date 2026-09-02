@@ -16,7 +16,11 @@ export const queueJobSchema = z.discriminatedUnion("type", [
     safe: safeRefSchema,
     stream: z.enum(["multisig", "module", "transfer", "message"]),
   }),
-  z.object({ type: z.literal("incremental-sync"), safe: safeRefSchema }),
+  z.object({
+    type: z.literal("incremental-sync"),
+    safe: safeRefSchema,
+    runId: z.string().regex(/^[a-zA-Z0-9:_-]{1,200}$/),
+  }),
   z.object({
     type: z.literal("analyze"),
     safe: safeRefSchema,

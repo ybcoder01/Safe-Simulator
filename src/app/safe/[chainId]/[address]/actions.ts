@@ -98,9 +98,10 @@ export async function requestSafeRefresh(
       await Promise.all(
         queuedCursors.map((cursor) => persistence.saveSyncCursor(cursor)),
       );
+      const requestId = refreshIdempotencyKey(parsed.data, requestedAt);
       await getQueuePort().enqueue(
-        { type: "incremental-sync", safe: parsed.data },
-        { idempotencyKey: refreshIdempotencyKey(parsed.data, requestedAt) },
+        { type: "incremental-sync", safe: parsed.data, runId: requestId },
+        { idempotencyKey: requestId },
       );
     } catch (error) {
       const restoredCursors = restoredRefreshCursors(
