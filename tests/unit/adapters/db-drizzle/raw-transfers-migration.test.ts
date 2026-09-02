@@ -19,10 +19,10 @@ describe("native transfer deduplication migration", () => {
     expect(migration).toContain("duplicate_rank > 1");
   });
 
-  it("treats a null native-token address as part of the unique identity", () => {
+  it("normalizes a null native-token address in the unique identity", () => {
     expect(migration).toContain(
       'CREATE UNIQUE INDEX "raw_transfers_identity_unique"',
     );
-    expect(migration).toContain("NULLS NOT DISTINCT");
+    expect(migration).toContain("COALESCE(\"token\", '')");
   });
 });

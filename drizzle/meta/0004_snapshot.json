@@ -777,8 +777,8 @@
               "nulls": "last"
             },
             {
-              "expression": "token",
-              "isExpression": false,
+              "expression": "coalesce(\"token\", '')",
+              "isExpression": true,
               "asc": true,
               "nulls": "last"
             },
@@ -802,7 +802,6 @@
             }
           ],
           "isUnique": true,
-          "nullsNotDistinct": true,
           "concurrently": false,
           "method": "btree",
           "with": {}

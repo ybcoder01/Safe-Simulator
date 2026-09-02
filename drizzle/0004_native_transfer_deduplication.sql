@@ -24,8 +24,8 @@ CREATE UNIQUE INDEX "raw_transfers_identity_unique"
 ON "raw_transfers" USING btree (
   "safe_id",
   "transaction_hash",
-  "token",
+  COALESCE("token", ''),
   "from",
   "to",
   "amount"
-) NULLS NOT DISTINCT;
+);
