@@ -127,9 +127,7 @@ async function checkEndpoint(endpoint) {
   return latencyMs;
 }
 
-const measurements = new Map(
-  endpoints.map((endpoint) => [endpoint.path, []]),
-);
+const measurements = new Map(endpoints.map((endpoint) => [endpoint.path, []]));
 const endpointFailures = new Map(
   endpoints.map((endpoint) => [endpoint.path, 0]),
 );
