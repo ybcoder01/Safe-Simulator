@@ -4,7 +4,7 @@ import { resolveTokenPresentation } from "@/lib/api/token-presentation";
 interface Props {
   readonly amount?: string | null;
   readonly chainId: number;
-  readonly symbol?: string | null;
+  readonly symbol?: string | null | undefined;
   readonly token: string | null;
 }
 
