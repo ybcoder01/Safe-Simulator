@@ -111,7 +111,7 @@ describe("resolveEvidenceVerdict", () => {
             to: registeredSafe,
             input: "0x",
             value: "0",
-            operation: "call",
+            operation: "delegatecall",
             reverted: false,
             error: null,
           },
@@ -127,6 +127,16 @@ describe("resolveEvidenceVerdict", () => {
         source: "registry",
         status: "known",
       }),
+    );
+    expect(result.findings).toContainEqual(
+      expect.objectContaining({
+        code: "expected-safe-proxy-delegation",
+        severity: "info",
+        addresses: [registeredSafe],
+      }),
+    );
+    expect(result.findings.map((finding) => finding.code)).not.toContain(
+      "internal-delegatecall",
     );
   });
 
