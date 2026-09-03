@@ -547,7 +547,730 @@ const groups: readonly ProtocolDeploymentGroup[] = [
         "internal"
       ]
     ]
+  },
+
+  {
+    "protocol": "silo",
+    "reference": "https://github.com/silo-finance/silo-contracts-v3/tree/31b98b3b899494ebfbd6306d17f50666480967bd/silo-core/deployments/xdc",
+    "logoKey": "silo",
+    "deployments": [
+      [
+        "0x504B8ca9C664AFe72324388122caBAFb72F9269f",
+        "Silo Dynamic Kink Model Factory",
+        "interest-rate-model",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0x4FD711B72Df2f568682a62Ff9f95448BAaE2dCD2",
+        "Silo Global Pause",
+        "control",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0xb1d1B13015c116D3814646c687EA9280374603d4",
+        "Silo Interest Rate Model V2",
+        "interest-rate-model",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0x6ac197a9Dea6E956e5591fA25Ce27848832cfB30",
+        "Silo Interest Rate Model V2 Factory",
+        "interest-rate-model",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0xe3aE3f11D2aFD7031D3C92774166571b057E8A87",
+        "Silo Leverage Router",
+        "lending-router",
+        "protocol-whitelist",
+        "active"
+      ],
+      [
+        "0xCEdbCa44a243fF5F67857AA242aAf039465e52Ab",
+        "Silo Liquidation Helper LI FI",
+        "liquidation-helper",
+        "protocol-whitelist",
+        "active"
+      ],
+      [
+        "0x08A52Ec31E0E981bBd64082224185e420d3f9849",
+        "Silo Manual Liquidation Helper",
+        "liquidation-helper",
+        "protocol-whitelist",
+        "active"
+      ],
+      [
+        "0xa5478C6dB3d9c25051bCad3dC23BA0a165b82189",
+        "Silo Permissioned Liquidation Controller Factory",
+        "liquidation-helper",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0xe07783619264e1AffBB309b6aa4C54139B1356BE",
+        "Silo Share Debt Token",
+        "token",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0x7F736F08A1e0fbA121f7fAe7887Be31dE7B08a47",
+        "Silo Share Protected Collateral Token",
+        "token",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0x72ED066BB31F4a53081fb6Aec8caE602AD039a5d",
+        "Silo Silo",
+        "helper",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0x78330cde63134058D0E6322adc1F893Ce954f944",
+        "Silo Silo Deployer",
+        "lending-factory",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0xf81d90DF1B63d48536E78564d24d5DD8F2BE58aD",
+        "Silo Silo Factory",
+        "lending-factory",
+        "protocol-whitelist",
+        "active"
+      ],
+      [
+        "0x49196144791C7564D56E80C055702AEBeE9A9811",
+        "Silo Silo Hook V1",
+        "implementation",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0x1157dE9f428231DDa3c3Ab282f02259178FBF779",
+        "Silo Silo Hook V2",
+        "implementation",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0xCA1658fe7c04E7CF739c3072A1f60948506Efd83",
+        "Silo Silo Hook V3",
+        "implementation",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0x7BD4d72D14fAD915DF0aCD2564982ea4D853b83f",
+        "Silo Silo Incentives Controller Factory",
+        "lending-factory",
+        "protocol-whitelist",
+        "active"
+      ],
+      [
+        "0xee6845d30c2529BA0a9A1adFfa06C377FE2DDEdd",
+        "Silo Silo Lens",
+        "data-provider",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0x4fFf70C17fb974121a1Ad64C97b04a2e38DbfE7C",
+        "Silo Silo Router V2",
+        "lending-router",
+        "protocol-whitelist",
+        "active"
+      ],
+      [
+        "0x1f39ed01Ac23A1abc4038E87291d4E9FF599B7FE",
+        "Silo Tower",
+        "control",
+        "identity-only",
+        "internal"
+      ]
+    ]
+  },
+  {
+    "protocol": "silo",
+    "reference": "https://github.com/silo-finance/silo-contracts-v3/tree/31b98b3b899494ebfbd6306d17f50666480967bd/silo-oracles/deployments/xdc",
+    "logoKey": "silo",
+    "deployments": [
+      [
+        "0xB477131cf512fE4D2F46888B7A352763a168a30C",
+        "Silo Chainlink V3 Oracle Factory",
+        "oracle-factory",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0xdE3a6c3c7A8F0534aD0756bDc17A9BF6A0da633A",
+        "Silo Custom Method Oracle Factory",
+        "oracle-factory",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0x1A5BbaC2EBb511c1ff60A50A2808b91DB0E30316",
+        "Silo Flat Price Oracle Factory",
+        "oracle-factory",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0xdB91416Ff725FaE365EC92b90806D79cB967C68C",
+        "Silo Manageable Oracle Factory",
+        "oracle-factory",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0x9a5Bb923638A891b212b65bE01AAb3B05160a78b",
+        "Silo Oracle Scaler Factory",
+        "oracle",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0xb49329Bf1d95D51681F4E4F644eB37F58E398Abd",
+        "Silo Reverting Oracle",
+        "oracle",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0x6Ec69E17E1184Ac8209aE03f21939E7960F46BD7",
+        "Silo Silo Virtual Asset BTC",
+        "token",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0x04E209D70F7f834A7a5ab7BD31f48827F0e88049",
+        "Silo Silo Virtual Asset EUR",
+        "token",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0x5992E92a6C8456A25B4718cb74632D72e5b1e494",
+        "Silo Silo Virtual Asset USD",
+        "token",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0xFfD3cB64ec6Fb68432792e4E902F62192a420506",
+        "Silo Supra SValue Oracle Factory",
+        "oracle-factory",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0xdA39759b7A4Fc66bb86C34103f9903253E330B85",
+        "Silo Virtual Token Price",
+        "token",
+        "identity-only",
+        "internal"
+      ]
+    ]
+  },
+  {
+    "protocol": "silo",
+    "reference": "https://github.com/silo-finance/silo-contracts-v3/tree/31b98b3b899494ebfbd6306d17f50666480967bd/silo-vaults/deployments/xdc",
+    "logoKey": "silo",
+    "deployments": [
+      [
+        "0x8c3024280BF126db4bDbA2B5dE5b22ccCb26db98",
+        "Silo Idle Vaults Factory",
+        "vault-factory",
+        "protocol-whitelist",
+        "active"
+      ],
+      [
+        "0x9e6bD1d23339E2719422478cEF4EE4457904301b",
+        "Silo Public Allocator",
+        "adapter",
+        "protocol-whitelist",
+        "active"
+      ],
+      [
+        "0xA59340538B5379511594061f7cAc3863d6d1bBdE",
+        "Silo Silo Incentives Controller CLDeployer",
+        "lending-factory",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0x09402f0f9F490E38413A5d4892d1e927acc0aE55",
+        "Silo Silo Incentives Controller CLFactory",
+        "lending-factory",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0xCa22FB764b77661d8D2c3b969E7Aef856795C51C",
+        "Silo Silo Vault Deployer",
+        "lending-factory",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0x2C650C8A97C9D229c391c48ec995792D9A8A0678",
+        "Silo Silo Vaults Factory",
+        "vault-factory",
+        "protocol-whitelist",
+        "active"
+      ]
+    ]
+  },
+  {
+    "protocol": "fathom",
+    "reference": "https://docs.fathom.fi/lending/deployments/xdc-network",
+    "logoKey": "fathom",
+    "deployments": [
+      [
+        "0x4ccF956B8e601C5958401B4178e3dEA844C0a984",
+        "Fathom ACL Admin / Pool Admin / Emergency Admin / Owner of PoolAddressesProvider / Registry / EmissionManager / FmToken treasuries",
+        "data-provider",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0xDAb3B99eb3569466750c436d6F4c99d57850Cc89",
+        "Fathom PoolAddressesProviderRegistry",
+        "data-provider",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0x37ab83e6a9B99DA3eAF00D1afdC45f50ee7625E5",
+        "Fathom PoolAddressesProvider",
+        "data-provider",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0x70d8005E3c8C7e383FE35Fa40156042F3393449F",
+        "Fathom Pool",
+        "helper",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0x5c756ACD4Cb26a9cA6De7abF9765cE84B5Be9322",
+        "Fathom Pool Implementation",
+        "implementation",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0x56f3A75C71C207a77c3b8c77a34FC89cF1a6DB66",
+        "Fathom PoolConfigurator",
+        "helper",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0xE6525d46ADc3Cd5AF2CfA322504A7C17F8445c8D",
+        "Fathom PoolConfigurator Implementation",
+        "implementation",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0xf73e7d6309A2DaDE5B698eD33dA929d2F2281526",
+        "Fathom ACLManager",
+        "control",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0x7fa488a5C88E9E35B0B86127Ec76B0c1F0933191",
+        "Fathom PoolDataProvider",
+        "data-provider",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0x54348d953Abc4f167cbdeDe648095c1aF7DE355A",
+        "Fathom FathomOracle",
+        "oracle",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0x32A2FdC2A5206320cE697C952c7f4cCDdA2a0294",
+        "Fathom FallbackOracle",
+        "oracle",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0x049F146A33a16e454f3BE28bb0bc18c12C96a894",
+        "Fathom EmissionManager",
+        "control",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0xf5e0C80114C0b0E3c4b55c217643E9a02699bB9b",
+        "Fathom IncentivesController",
+        "helper",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0x32f42b439C63Bc4F27F701CFD5939a5889eA2a00",
+        "Fathom IncentivesV2 Implementation",
+        "implementation",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0x57Ba8bAA7c3Ff6606751859f1CED9f68819C2f41",
+        "Fathom WrappedTokenGatewayV3",
+        "token",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0x7C724DEaD5012Eb4C9e2d1529cF0353e767C82Cd",
+        "Fathom WalletBalanceProvider",
+        "data-provider",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0x5f7001B6Dc957dC5B2F78f0BC3aFbFc1fE628A18",
+        "Fathom UiPoolDataProviderV3",
+        "data-provider",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0xA69c5468Aa4ab263a250fD9dA4322e58370F2bB2",
+        "Fathom UiIncentiveDataProviderV3",
+        "data-provider",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0x5b8483Ab120537A307Df6bB3dD2Bb149091F2AF7",
+        "Fathom ReservesSetupHelper",
+        "helper",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0x5cF8e2326F5c013d568F48E878e9D7ae9557F902",
+        "Fathom FlashLiquidator",
+        "helper",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0x95f2f5fd81815Da3517E1EdfC149EE47c116F904",
+        "Fathom FmTokenV2 Implementation",
+        "token",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0x80e2eA68DB630660eFCa18780F24587967F3071B",
+        "Fathom StableDebtToken Implementation",
+        "token",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0xfaA128B457FC7cBF9763A7Be66bF89662d9777FF",
+        "Fathom VariableDebtToken Implementation",
+        "token",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0xA8f477530036cF1391E5A76A723635be7b28Eff3",
+        "Fathom SupplyLogic",
+        "library",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0x602d170366C4c14c855BAa051A35Ee318564343A",
+        "Fathom BorrowLogic",
+        "library",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0xdf816BB3a1415B4b88365D6Ecb5Fcc52A7ee7729",
+        "Fathom LiquidationLogic",
+        "liquidation-helper",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0x1240f345449Ee3293FEAE9E3e3FbcCe1589e9160",
+        "Fathom EModeLogic",
+        "library",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0x00C1B7ce7703beD7e115833a6c2DbcFeD887a4f1",
+        "Fathom BridgeLogic",
+        "library",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0x373E40f30e7a2CcFfe22fA1926bD71284332a2B9",
+        "Fathom ConfiguratorLogic",
+        "library",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0x57023484830D90027E33e37Abc301A89e1318B30",
+        "Fathom FlashLoanLogic",
+        "library",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0x8c2cf73fB553d9a8a8Dc34A6B5e6078FC023c34F",
+        "Fathom PoolLogic",
+        "library",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0x99E7d2d9B8349B70aae31e5213c54fd022fd5DCF",
+        "Fathom rateStrategyVolatileOne",
+        "interest-rate-model",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0xB34A51D8443219bdA8BFBA5826B7907Bc4032e11",
+        "Fathom rateStrategyStableOne",
+        "interest-rate-model",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0x12936376CCb51877ed2135b985aEe1d011e173CA",
+        "Fathom rateStrategyStableTwo",
+        "interest-rate-model",
+        "identity-only",
+        "internal"
+      ],
+      [
+        "0xDAEf7d4000fb0e511C9f2dEEAE602d9c8fcb28f7",
+        "Fathom WXDC fmToken",
+        "token",
+        "protocol-whitelist",
+        "active"
+      ],
+      [
+        "0x10eB945e14131Fb55B2F432d826F4e09d718276D",
+        "Fathom WXDC VariableDebtToken",
+        "token",
+        "protocol-whitelist",
+        "active"
+      ],
+      [
+        "0xcbf718E6802E646D6d016912453E1ECb1BdB0DcA",
+        "Fathom WXDC StableDebtToken",
+        "token",
+        "protocol-whitelist",
+        "active"
+      ],
+      [
+        "0x8d470BDE66eE52981D7D29Bc2e6FCa3b4DC17879",
+        "Fathom WXDC Oracle source",
+        "oracle",
+        "protocol-whitelist",
+        "active"
+      ],
+      [
+        "0xfA2958CB79b0491CC627c1557F441eF849Ca8eb1",
+        "Fathom USDC Underlying",
+        "helper",
+        "protocol-whitelist",
+        "active"
+      ],
+      [
+        "0xfc751eef339555950A8cb443bb1e3FdD6a3A77eC",
+        "Fathom USDC fmToken",
+        "token",
+        "protocol-whitelist",
+        "active"
+      ],
+      [
+        "0x2c58F972225598dd945fdb2D11a998D63e189509",
+        "Fathom USDC VariableDebtToken",
+        "token",
+        "protocol-whitelist",
+        "active"
+      ],
+      [
+        "0xa2c3C5b95413F486A07897D288B2a7aA10Db1Cc6",
+        "Fathom USDC StableDebtToken",
+        "token",
+        "protocol-whitelist",
+        "active"
+      ],
+      [
+        "0x321F084B78756C5550e6Ab200d88BB2602BCE1A2",
+        "Fathom USDC Oracle source",
+        "oracle",
+        "protocol-whitelist",
+        "active"
+      ],
+      [
+        "0x49d3f7543335cf38Fa10889CCFF10207e22110B5",
+        "Fathom FXD Underlying",
+        "helper",
+        "identity-only",
+        "deprecated"
+      ],
+      [
+        "0xEC826980367dABBAA28F614B8D0e14548dCca37b",
+        "Fathom FXD fmToken",
+        "token",
+        "identity-only",
+        "deprecated"
+      ],
+      [
+        "0xcF5b5C4DfeA09a0Ad129717BfbbCA750c362E795",
+        "Fathom FXD VariableDebtToken",
+        "token",
+        "identity-only",
+        "deprecated"
+      ],
+      [
+        "0xe82b0F5CDf092Bf01Ae56898bB35b1E77fc60aC2",
+        "Fathom FXD StableDebtToken",
+        "token",
+        "identity-only",
+        "deprecated"
+      ],
+      [
+        "0x03396fE4E58A0778679E2731564f064FA5256C6E",
+        "Fathom FXD Oracle source",
+        "oracle",
+        "identity-only",
+        "deprecated"
+      ],
+      [
+        "0xD4B5f10D61916Bd6E0860144a91Ac658dE8a1437",
+        "Fathom xUSDT Underlying",
+        "helper",
+        "identity-only",
+        "deprecated"
+      ],
+      [
+        "0x1C3bBc4FA17128711c238Bc50Bd0AE85D35C2515",
+        "Fathom xUSDT fmToken",
+        "token",
+        "identity-only",
+        "deprecated"
+      ],
+      [
+        "0x98dC1115ADdcdD2eF67c87D35fAF0b835b3F746D",
+        "Fathom xUSDT VariableDebtToken",
+        "token",
+        "identity-only",
+        "deprecated"
+      ],
+      [
+        "0x2F6C3d501cfD528D78c7C1Da3B8Ea37Ba85BDB93",
+        "Fathom xUSDT StableDebtToken",
+        "token",
+        "identity-only",
+        "deprecated"
+      ],
+      [
+        "0x8f9920283470F52128bF11B0c14E798bE704fD15",
+        "Fathom CGO Underlying",
+        "helper",
+        "identity-only",
+        "deprecated"
+      ],
+      [
+        "0x0947617c830307957FAc8d51b1a9488e756Cf2Cf",
+        "Fathom CGO fmToken",
+        "token",
+        "identity-only",
+        "deprecated"
+      ],
+      [
+        "0xa8aFc7a05E54F3027Eb77727d77cc5D3Fe7Bf4Af",
+        "Fathom CGO VariableDebtToken",
+        "token",
+        "identity-only",
+        "deprecated"
+      ],
+      [
+        "0x474C64774703f8e5132cc8400d77FA854cA6e219",
+        "Fathom CGO StableDebtToken",
+        "token",
+        "identity-only",
+        "deprecated"
+      ],
+      [
+        "0x90473A2Fa1d9eB8fe6C45072D933218f828AF834",
+        "Fathom CGO Oracle source",
+        "oracle",
+        "identity-only",
+        "deprecated"
+      ],
+      [
+        "0x3279dBEfABF3C6ac29d7ff24A6c46645f3F4403c",
+        "Fathom FTHM Underlying",
+        "helper",
+        "identity-only",
+        "deprecated"
+      ],
+      [
+        "0x103Df67779bf7F1C5cfa2374049E5666D9686b98",
+        "Fathom FTHM fmToken",
+        "token",
+        "identity-only",
+        "deprecated"
+      ],
+      [
+        "0x31D83E0cae604F6Ce0a06800DAFe0959449b1947",
+        "Fathom FTHM VariableDebtToken",
+        "token",
+        "identity-only",
+        "deprecated"
+      ],
+      [
+        "0x2b0B493CB20C9efAb5b316618D86fe8a790D81dE",
+        "Fathom FTHM StableDebtToken",
+        "token",
+        "identity-only",
+        "deprecated"
+      ],
+      [
+        "0xFc2fd5b24B2baEEa13b42809F582aa083cd29409",
+        "Fathom FTHM Oracle source",
+        "oracle",
+        "identity-only",
+        "deprecated"
+      ]
+    ]
   }
+
 ];
 
 export const xdcProtocolRegistryEntries: readonly ContractRegistryEntry[] =
