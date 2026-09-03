@@ -19,7 +19,10 @@ describe("decoded address fields", () => {
     expect(
       decodedAddressFields(
         50,
-        parameter("address[]", `[${first},0x${first.slice(2).toUpperCase()},${second}]`),
+        parameter(
+          "address[]",
+          `[${first},0x${first.slice(2).toUpperCase()},${second}]`,
+        ),
       ),
     ).toEqual([
       {
@@ -58,7 +61,9 @@ describe("decoded address fields", () => {
     const embedded = "0x1111111111111111111111111111111111111111";
 
     expect(decodedAddressFields(50, parameter("bytes", embedded))).toEqual([]);
-    expect(decodedAddressFields(50, parameter("uint256", embedded))).toEqual([]);
+    expect(decodedAddressFields(50, parameter("uint256", embedded))).toEqual(
+      [],
+    );
   });
 
   it("bounds extracted address arrays", () => {
