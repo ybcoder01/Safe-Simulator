@@ -60,9 +60,19 @@ async function request(
     method,
     headers,
     body: json === undefined ? undefined : JSON.stringify(json),
-    redirect: "follow",
+    redirect: "manual",
     signal: AbortSignal.timeout(timeoutMs),
   });
+
+  assert.ok(
+    response.status < 300 || response.status >= 400,
+    `${pathname} attempted an HTTP redirect.`,
+  );
+  assert.equal(
+    new URL(response.url).origin,
+    base.origin,
+    `${pathname} escaped the selected Preview origin.`,
+  );
 
   if (!allowFailure) {
     assert.equal(
@@ -168,6 +178,18 @@ assert.equal(healthBody.checks?.database, "ok");
 assert.equal(healthBody.checks?.cache, "ok");
 
 const safePath = `/api/v1/safes/${testSafe.chainId}/${testSafe.address}`;
+const refreshPath = `${safePath}/refresh`;
+const unbookmarkedRefresh = await request(refreshPath, {
+  allowFailure: true,
+  method: "POST",
+  includeProfile: true,
+});
+assert.equal(
+  unbookmarkedRefresh.status,
+  404,
+  "A profile without the Safe bookmark was allowed to queue a refresh.",
+);
+
 let lifecycleStarted = false;
 
 try {
@@ -294,7 +316,6 @@ try {
   );
 
   const initialSync = await waitForSyncCompletion(safePath);
-  const refreshPath = `${safePath}/refresh`;
   const refreshResponse = await request(refreshPath, {
     allowFailure: true,
     method: "POST",
@@ -385,6 +406,7 @@ console.log(
       "receipt-evidence",
       "verdict-boundary",
       "four-stream-sync",
+      "refresh-profile-boundary",
       "profile-authorized-refresh",
       "refresh-deduplication",
       "post-refresh-analysis-persistence",
