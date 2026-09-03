@@ -50,6 +50,9 @@ describe("address book schemas", () => {
       label: "Reviewed batch executor",
       trust: "flagged",
       source: "profile",
+      whitelist: null,
+      protocol: null,
+      lifecycle: null,
     });
   });
 
@@ -64,6 +67,62 @@ describe("address book schemas", () => {
       label: "Safe v1.4.1 MultiSend",
       trust: "known",
       source: "registry",
+      whitelist: null,
+      protocol: "safe",
+      lifecycle: "active",
+    });
+  });
+
+  it("distinguishes active protocol whitelists from identity-only records", () => {
+    expect(
+      resolveAddressDisplay(
+        50,
+        "0xf9c5E4f6E627201aB2d6FB6391239738Cf4bDcf9",
+        [],
+      ),
+    ).toMatchObject({
+      label: "XSwap V2 Router",
+      trust: "known",
+      source: "registry",
+      whitelist: "protocol",
+      protocol: "xswap",
+      lifecycle: "active",
+    });
+
+    expect(
+      resolveAddressDisplay(
+        50,
+        "0xBaF6cacFfFb6D57d548F0FAff486E9884a0D1747",
+        [],
+      ),
+    ).toMatchObject({
+      label: "Curve Governance Vault",
+      trust: "known",
+      source: "registry",
+      whitelist: null,
+      protocol: "curve",
+      lifecycle: "internal",
+    });
+  });
+
+  it("gives an explicit personal classification precedence over protocol policy", () => {
+    const protocolAddress = "0xf9c5E4f6E627201aB2d6FB6391239738Cf4bDcf9";
+
+    expect(
+      resolveAddressDisplay(50, protocolAddress, [
+        {
+          address: protocolAddress,
+          label: "Do not use",
+          trust: "flagged",
+        },
+      ]),
+    ).toEqual({
+      label: "Do not use",
+      trust: "flagged",
+      source: "profile",
+      whitelist: null,
+      protocol: null,
+      lifecycle: null,
     });
   });
 
