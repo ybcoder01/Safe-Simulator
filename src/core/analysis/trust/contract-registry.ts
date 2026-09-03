@@ -21,7 +21,9 @@ export type ContractRegistryProtocol =
   | "morpho"
   | "fathom"
   | "oku-uniswap"
-  | "stargate";
+  | "stargate"
+  | "yieldnest"
+  | "reservoir";
 export type ContractRegistryCategory = "infrastructure" | "protocol";
 export type ContractRegistryVerification =
   | "specification"
