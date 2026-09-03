@@ -62,7 +62,7 @@ export function resolveTokenPresentation(
       (identity.kind === "liquidity-position"
         ? "Unreviewed liquidity-position token"
         : "Unknown token"),
-    symbol: identity.symbol ?? symbol?.trim() ?? "Unknown",
+    symbol: identity.symbol ?? (symbol?.trim() || "Unknown"),
     kind: identity.kind,
     logoKey: identity.logoKey,
     known: identity.known,
