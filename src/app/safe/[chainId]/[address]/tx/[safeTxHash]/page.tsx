@@ -990,8 +990,8 @@ export default async function TransactionDetailPage({ params }: PageProps) {
         <section className="detail-panel confirmation-evidence-panel">
           <div className="panel-heading">
             <div>
-              <p className="eyebrow">Approvals</p>
-              <h2>Confirmations</h2>
+              <p className="eyebrow">Owner attestations</p>
+              <h2>Confirmations and raw signatures</h2>
             </div>
             <span>{transaction.confirmations.length} collected</span>
           </div>
