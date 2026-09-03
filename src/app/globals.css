@@ -2587,3 +2587,109 @@ select {
     justify-items: start;
   }
 }
+
+/* Raw and decoded transaction evidence */
+.raw-transaction-fields {
+  grid-template-columns: 1fr;
+}
+
+.raw-transaction-fields > div {
+  align-items: start;
+}
+
+.raw-transaction-fields dd {
+  max-width: min(760px, 72%);
+}
+
+.raw-transaction-fields dd > code,
+.raw-transaction-fields .identifier-actions {
+  max-width: 100%;
+}
+
+.raw-evidence-warning {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border: 1px solid rgba(246, 200, 111, 0.28);
+  border-radius: 9px;
+  color: var(--amber);
+  background: rgba(246, 200, 111, 0.05);
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.decoded-parameter-value {
+  display: grid;
+  gap: 9px;
+  justify-items: end;
+}
+
+.decoded-parameter-value > code {
+  max-width: min(680px, 70vw);
+  overflow: auto;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.decoded-address-field {
+  display: grid;
+  gap: 5px;
+  justify-items: end;
+  padding: 9px;
+  border: 1px solid rgba(200, 230, 215, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.decoded-address-field > span:first-child {
+  color: var(--faint);
+  font-size: 8px;
+  text-transform: capitalize;
+}
+
+.confirmation-signature {
+  flex-basis: 100%;
+  margin-left: 23px;
+}
+
+.confirmation-signature summary {
+  cursor: pointer;
+  color: var(--faint);
+  font-size: 9px;
+}
+
+.confirmation-signature code {
+  display: block;
+  max-height: 160px;
+  margin-top: 8px;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  color: #b9cdc2;
+  font-size: 9px;
+  white-space: pre-wrap;
+}
+
+.raw-evidence-panel .owner-row {
+  flex-wrap: wrap;
+}
+
+@media (max-width: 560px) {
+  .raw-transaction-fields > div {
+    display: grid;
+  }
+
+  .raw-transaction-fields dd {
+    max-width: 100%;
+    text-align: left;
+  }
+
+  .raw-transaction-fields .address-identity,
+  .decoded-parameter-value,
+  .decoded-address-field {
+    justify-content: flex-start;
+    justify-items: start;
+  }
+
+  .decoded-parameter-value > code {
+    max-width: 78vw;
+  }
+}
