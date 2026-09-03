@@ -24,10 +24,7 @@ import { resolveExecutionInsight } from "@/lib/api/execution-insight";
 import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
 import { resolveStorageChangeAnalysis } from "@/lib/api/storage-changes";
 import { resolveExecutionTokenMetadata } from "@/lib/api/token-metadata";
-import {
-  explorerAddressUrl,
-  explorerTransactionUrl,
-} from "@/lib/explorer-links";
+import { explorerTransactionUrl } from "@/lib/explorer-links";
 import {
   safeRouteParamsSchema,
   safeTransactionHashSchema,
@@ -116,11 +113,7 @@ export default async function TransactionDetailPage({ params }: PageProps) {
   const nestedCalls =
     decoded?.parameters.flatMap((parameter) => parameter.nestedCalls) ?? [];
   const safePath = `/safe/${safe.data.chainId}/${safe.data.address}`;
-  const targetExplorerUrl = explorerAddressUrl(
-    safe.data.chainId,
-    transaction.to,
-  );
-  const executedExplorerUrl = transaction.executedTxHash
+   const executedExplorerUrl = transaction.executedTxHash
     ? explorerTransactionUrl(safe.data.chainId, transaction.executedTxHash)
     : null;
 
@@ -1009,12 +1002,21 @@ export default async function TransactionDetailPage({ params }: PageProps) {
               {transaction.confirmations.map((confirmation, index) => (
                 <div className="owner-row" key={confirmation.owner}>
                   <span>{String(index + 1).padStart(2, "0")}</span>
-                  <code>{confirmation.owner}</code>
+                  <AddressIdentity
+                    address={confirmation.owner}
+                    addressBook={addressBook}
+                    chainId={safe.data.chainId}
+                    compact
+                  />
                   <time>
                     {confirmation.signedAt
                       ? formatDate(confirmation.signedAt)
                       : "Time unavailable"}
                   </time>
+                  <details className="confirmation-signature">
+                    <summary>Raw signature</summary>
+                    <code>{confirmation.signature}</code>
+                  </details>
                 </div>
               ))}
             </div>
