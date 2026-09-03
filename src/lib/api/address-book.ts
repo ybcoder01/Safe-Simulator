@@ -68,6 +68,9 @@ export interface AddressDisplay {
   readonly label: string;
   readonly trust: "trusted" | "flagged" | "known";
   readonly source: "profile" | "registry";
+  readonly whitelist: "personal" | "protocol" | null;
+  readonly protocol: string | null;
+  readonly lifecycle: "active" | "internal" | "deprecated" | null;
 }
 
 export function resolveAddressDisplay(
@@ -86,6 +89,9 @@ export function resolveAddressDisplay(
       label: profileEntry.label,
       trust: profileEntry.trust,
       source: "profile",
+      whitelist: profileEntry.trust === "trusted" ? "personal" : null,
+      protocol: null,
+      lifecycle: null,
     };
   }
 
@@ -99,6 +105,13 @@ export function resolveAddressDisplay(
         label: registryEntry.label,
         trust: "known",
         source: "registry",
+        whitelist:
+          registryEntry.trustPolicy === "protocol-whitelist" &&
+          registryEntry.lifecycle === "active"
+            ? "protocol"
+            : null,
+        protocol: registryEntry.protocol,
+        lifecycle: registryEntry.lifecycle,
       }
     : null;
 }
