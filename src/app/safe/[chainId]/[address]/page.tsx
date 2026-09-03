@@ -7,6 +7,7 @@ import { ModuleActivity } from "@/components/safes/module-activity";
 import { ReanalysisControl } from "@/components/safes/reanalysis-control";
 import { AddressIdentity } from "@/components/shared/address-identity";
 import { CopyIdentifierButton } from "@/components/shared/copy-identifier-button";
+import { TokenIdentity } from "@/components/shared/token-identity";
 import { SyncRefreshControl } from "@/components/safes/sync-refresh-control";
 import { TransactionHistory } from "@/components/safes/transaction-history";
 import { TransferActivity } from "@/components/safes/transfer-activity";
@@ -342,15 +343,15 @@ export default async function SafeDashboardPage({ params }: PageProps) {
               <div className="balance-list">
                 {balanceResult.map((balance) => (
                   <div className="balance-row" key={balance.token ?? "native"}>
-                    <div>
-                      <strong>{balance.symbol}</strong>
-                      <span>
-                        {balance.token ? shorten(balance.token) : "Native"}
-                      </span>
-                    </div>
-                    <code>
-                      {formatTokenAmount(balance.amount, balance.decimals)}
-                    </code>
+                    <TokenIdentity
+                      amount={formatTokenAmount(
+                        balance.amount,
+                        balance.decimals,
+                      )}
+                      chainId={safe.chainId}
+                      symbol={balance.symbol}
+                      token={balance.token}
+                    />
                   </div>
                 ))}
               </div>
