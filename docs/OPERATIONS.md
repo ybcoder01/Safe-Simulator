@@ -163,6 +163,8 @@ Prisma Postgres is authoritative for imported Safe data, cursors, profile bookma
 - Apply migrations before code that requires the new schema becomes production.
 - Verify preview behavior before applying an equivalent production change.
 - Treat profile identifiers as sensitive application data even though tracked chain data is public.
+- Keep each serverless runtime limited to one short-lived PostgreSQL connection. Prepared statements remain disabled for pooled runtime compatibility.
+- Treat PostgreSQL error `53300` as connection saturation: inspect deployment and queue concurrency, wait for idle connections to drain, and verify recovery through `/api/health`. Do not raise the client pool limit as a first response.
 
 ## Rollback
 
