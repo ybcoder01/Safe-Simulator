@@ -149,9 +149,17 @@ export default async function TransactionDetailPage({ params }: PageProps) {
               />
             </div>
           </div>
-          <span className={`tx-status tx-${transaction.status}`}>
-            {transaction.status}
-          </span>
+          <div className="transaction-title-labels">
+            <span
+              className={`tx-activity tx-activity-${transaction.activity.type}`}
+              title={`Classified from ${transaction.activity.basis.replaceAll("-", " ")} evidence.`}
+            >
+              {transaction.activity.label}
+            </span>
+            <span className={`tx-status tx-${transaction.status}`}>
+              {transaction.status}
+            </span>
+          </div>
         </header>
 
         <section className="detail-panel">

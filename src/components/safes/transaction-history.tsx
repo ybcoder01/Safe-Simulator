@@ -76,6 +76,12 @@ function TransactionSummary({
 
   return (
     <>
+      <span
+        className={`tx-activity tx-activity-${transaction.activity.type}`}
+        title={`Classified from ${transaction.activity.basis.replaceAll("-", " ")} evidence.`}
+      >
+        {transaction.activity.label}
+      </span>
       <strong>
         Nonce {transaction.nonce} ·{" "}
         {transaction.summary ??

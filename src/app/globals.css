@@ -2521,3 +2521,69 @@ select {
     height: 34px;
   }
 }
+
+/* Deterministic transaction activity labels */
+.tx-activity {
+  display: inline-flex;
+  justify-self: start;
+  padding: 4px 7px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  color: #b9cdc2;
+  background: rgba(200, 230, 215, 0.035);
+  font-family: var(--font-geist-mono);
+  font-size: 8px;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+
+.tx-activity-approval {
+  border-color: rgba(246, 200, 111, 0.34);
+  color: var(--amber);
+  background: rgba(246, 200, 111, 0.06);
+}
+
+.tx-activity-transfer {
+  border-color: rgba(101, 242, 172, 0.3);
+  color: var(--green);
+  background: rgba(101, 242, 172, 0.05);
+}
+
+.tx-activity-swap,
+.tx-activity-liquidity {
+  border-color: rgba(156, 207, 242, 0.34);
+  color: #9ccff2;
+  background: rgba(156, 207, 242, 0.06);
+}
+
+.tx-activity-lending {
+  border-color: rgba(126, 225, 218, 0.34);
+  color: #7ee1da;
+  background: rgba(126, 225, 218, 0.06);
+}
+
+.tx-activity-bridge,
+.tx-activity-safe-configuration {
+  border-color: rgba(190, 157, 255, 0.36);
+  color: #be9dff;
+  background: rgba(190, 157, 255, 0.06);
+}
+
+.tx-activity-batch,
+.tx-activity-delegatecall {
+  border-color: rgba(255, 173, 159, 0.36);
+  color: #ffad9f;
+  background: rgba(255, 173, 159, 0.05);
+}
+
+.transaction-title-labels {
+  display: grid;
+  gap: 8px;
+  justify-items: end;
+}
+
+@media (max-width: 560px) {
+  .transaction-title-labels {
+    justify-items: start;
+  }
+}

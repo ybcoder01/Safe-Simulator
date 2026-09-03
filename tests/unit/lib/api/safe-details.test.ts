@@ -147,6 +147,7 @@ describe("Safe dashboard API view models", () => {
     ).toBe(true);
     expect(transactionMatchesSearch(transaction, "0x111111")).toBe(true);
     expect(transactionMatchesSearch(transaction, "42")).toBe(true);
+    expect(transaction.activity.label).toBe("Delegate call");
     expect(transactionMatchesSearch(transaction, "delegate")).toBe(true);
     expect(transactionMatchesSearch(transaction, "no match")).toBe(false);
     expect(transactionMatchesSearch(transaction, "   ")).toBe(true);

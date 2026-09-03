@@ -1,6 +1,8 @@
 import { getAddress } from "viem";
 import { z } from "zod";
 
+import { classifyTransactionActivity } from "@/core/analysis/decoding/activity";
+import type { TransactionActivity } from "@/core/analysis/decoding/activity";
 import type {
   DecodedCall,
   Hex,
@@ -42,6 +44,7 @@ export interface TransactionAnalysisView {
 }
 
 export interface TransactionView {
+  readonly activity: TransactionActivity;
   readonly safeTxHash: string;
   readonly nonce: string;
   readonly to: string;
@@ -80,6 +83,8 @@ export function transactionMatchesSearch(
     transaction.status,
     transaction.operation,
     transaction.analysis?.baselineVerdict,
+    transaction.activity.label,
+    transaction.activity.type,
     targetLabel,
   ].some((value) => value?.toLowerCase().includes(normalized));
 }
@@ -119,6 +124,7 @@ export function toTransactionView(
 ): TransactionView {
   return {
     ...transaction,
+    activity: classifyTransactionActivity(transaction),
     nonce: transaction.nonce.toString(),
     summary: knownCallSummary(transaction.data, transaction.operation),
     value: transaction.value.toString(),
