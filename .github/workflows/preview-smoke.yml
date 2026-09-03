@@ -17,7 +17,7 @@ jobs:
       github.event.deployment_status.state == 'success' &&
       contains(github.event.deployment.environment, 'Preview')
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     env:
       SMOKE_BASE_URL: ${{ github.event.deployment_status.environment_url || github.event.deployment_status.target_url }}
       SMOKE_ENVIRONMENT: preview

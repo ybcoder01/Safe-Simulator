@@ -3,10 +3,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getPersistencePort, getSafeDataPort } from "@/container";
 import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
 import {
+  resolveSyncSummary,
   safeRouteParamsSchema,
   toBalanceView,
-  toDetailedSafeView,
 } from "@/lib/api/safe-details";
+import { toSafeView } from "@/lib/api/safes";
 import { resolveTransactionViews } from "@/lib/api/transaction-list";
 
 interface RouteContext {
@@ -31,8 +32,8 @@ export async function GET(_request: Request, context: RouteContext) {
     );
   }
 
-  const [data, transactionPage, balances] = await Promise.all([
-    toDetailedSafeView(persistence, safe),
+  const [sync, transactionPage, balances] = await Promise.all([
+    resolveSyncSummary(persistence, safe),
     persistence.listTransactions(safe, null, 25),
     getSafeDataPort()
       .getBalances(safe)
@@ -48,7 +49,8 @@ export async function GET(_request: Request, context: RouteContext) {
 
   return NextResponse.json({
     data: {
-      safe: data,
+      safe: toSafeView(safe, sync.status),
+      sync,
       balances,
       transactions: transactionViews,
       nextCursor: transactionPage.nextCursor,

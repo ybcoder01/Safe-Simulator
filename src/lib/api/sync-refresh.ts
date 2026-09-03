@@ -1,4 +1,6 @@
 import type { SafeRef, SyncCursor } from "@/core/domain";
+import type { PersistencePort, QueuePort } from "@/core/ports";
+import { summarizeSyncCursors } from "@/lib/api/safe-details";
 
 export const SYNC_REFRESH_ACTIVE_WINDOW_SECONDS = 15 * 60;
 
@@ -108,4 +110,68 @@ export function refreshIdempotencyKey(
   requestedAt = Date.now(),
 ): string {
   return `sync:refresh:${safe.chainId}:${safe.address.toLowerCase()}:${requestedAt}`;
+}
+
+type RefreshPersistence = Pick<
+  PersistencePort,
+  "findSyncCursor" | "saveSyncCursor"
+>;
+type RefreshQueue = Pick<QueuePort, "enqueue">;
+
+export interface QueuedSafeRefresh {
+  readonly status: "queued" | "running";
+  readonly requestedAt: number;
+}
+
+export async function queueSafeRefresh(
+  persistence: RefreshPersistence,
+  queue: RefreshQueue,
+  safe: SafeRef,
+  requestedAt = Date.now(),
+): Promise<QueuedSafeRefresh> {
+  const currentCursors = await Promise.all(
+    refreshSyncStreams.map((stream) =>
+      persistence.findSyncCursor(safe, stream),
+    ),
+  );
+  const sync = summarizeSyncCursors(currentCursors);
+  if (
+    isRefreshActive(
+      sync.status,
+      sync.latestActivityAt,
+      Math.floor(requestedAt / 1_000),
+    )
+  ) {
+    return { status: "running", requestedAt };
+  }
+
+  const requestedAtSeconds = Math.floor(requestedAt / 1_000);
+  const queuedCursors = queuedRefreshCursors(
+    safe,
+    currentCursors,
+    requestedAtSeconds,
+  );
+
+  try {
+    await Promise.all(
+      queuedCursors.map((cursor) => persistence.saveSyncCursor(cursor)),
+    );
+    const requestId = refreshIdempotencyKey(safe, requestedAt);
+    await queue.enqueue(
+      { type: "incremental-sync", safe, runId: requestId },
+      { idempotencyKey: requestId },
+    );
+  } catch (error) {
+    const restoredCursors = restoredRefreshCursors(
+      safe,
+      currentCursors,
+      requestedAtSeconds,
+    );
+    await Promise.allSettled(
+      restoredCursors.map((cursor) => persistence.saveSyncCursor(cursor)),
+    );
+    throw error;
+  }
+
+  return { status: "queued", requestedAt };
 }

@@ -1,11 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import type { SafeRef, SyncCursor } from "../../../../src/core/domain";
+import type {
+  QueueJob,
+  SafeRef,
+  SyncCursor,
+} from "../../../../src/core/domain";
 import {
   hasRefreshRequestSettled,
   isRefreshActive,
   isSafeBookmarked,
   queuedRefreshCursors,
+  queueSafeRefresh,
   refreshIdempotencyKey,
   refreshSyncStreams,
   restoredRefreshCursors,
@@ -149,5 +154,97 @@ describe("on-demand synchronization refresh", () => {
     expect(refreshIdempotencyKey(safe, firstRequestAt)).toContain(
       safe.address.toLowerCase(),
     );
+  });
+
+  it("queues one four-stream refresh and joins a duplicate request", async () => {
+    const cursors = new Map<SyncCursor["stream"], SyncCursor>(
+      refreshSyncStreams.map((stream) => [
+        stream,
+        {
+          safe,
+          stream,
+          cursor: `${stream}-cursor`,
+          status: "complete",
+          updatedAt: 10,
+        },
+      ]),
+    );
+    const jobs: QueueJob[] = [];
+    const persistence = {
+      findSyncCursor: async (_safe: SafeRef, stream: SyncCursor["stream"]) =>
+        cursors.get(stream) ?? null,
+      saveSyncCursor: async (cursor: SyncCursor) => {
+        cursors.set(cursor.stream, cursor);
+      },
+    };
+    const queue = {
+      enqueue: async (
+        job: QueueJob,
+        options: { idempotencyKey: string; delaySeconds?: number },
+      ) => {
+        void options;
+        jobs.push(job);
+        return { jobId: "queued" };
+      },
+    };
+
+    await expect(
+      queueSafeRefresh(persistence, queue, safe, 20_000),
+    ).resolves.toEqual({ status: "queued", requestedAt: 20_000 });
+    await expect(
+      queueSafeRefresh(persistence, queue, safe, 20_500),
+    ).resolves.toEqual({ status: "running", requestedAt: 20_500 });
+
+    expect(jobs).toEqual([
+      {
+        type: "incremental-sync",
+        safe,
+        runId: refreshIdempotencyKey(safe, 20_000),
+      },
+    ]);
+    expect([...cursors.values()]).toEqual(
+      refreshSyncStreams.map((stream) => ({
+        safe,
+        stream,
+        cursor: `${stream}-cursor`,
+        status: "idle",
+        updatedAt: 20,
+      })),
+    );
+  });
+
+  it("restores all cursor boundaries when queue publication fails", async () => {
+    const original = refreshSyncStreams.map((stream) => ({
+      safe,
+      stream,
+      cursor: `${stream}-cursor`,
+      status: "complete" as const,
+      updatedAt: 10,
+    }));
+    const cursors = new Map<SyncCursor["stream"], SyncCursor>(
+      original.map((cursor) => [cursor.stream, cursor]),
+    );
+    const persistence = {
+      findSyncCursor: async (_safe: SafeRef, stream: SyncCursor["stream"]) =>
+        cursors.get(stream) ?? null,
+      saveSyncCursor: async (cursor: SyncCursor) => {
+        cursors.set(cursor.stream, cursor);
+      },
+    };
+    const queue = {
+      enqueue: async (
+        job: QueueJob,
+        options: { idempotencyKey: string; delaySeconds?: number },
+      ) => {
+        void job;
+        void options;
+        throw new Error("queue unavailable");
+      },
+    };
+
+    await expect(
+      queueSafeRefresh(persistence, queue, safe, 20_000),
+    ).rejects.toThrow("queue unavailable");
+    expect([...cursors.values()]).toEqual(original);
   });
 });

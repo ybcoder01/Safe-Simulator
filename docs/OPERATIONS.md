@@ -211,8 +211,15 @@ The smoke check verifies:
 - `/api/health` reports healthy PostgreSQL and Redis dependencies;
 - a known public Ethereum Safe can be verified and imported for a fresh, randomly generated Preview profile;
 - the imported Safe is returned by the watchlist and detail APIs;
+- all four ingestion streams reach a persisted complete state;
+- a profile without the Safe bookmark cannot request its refresh;
+- a profile-authorized refresh queues exactly one signed incremental-sync run;
+- an immediate duplicate refresh joins the active run instead of publishing parallel work;
+- the refreshed four-stream state completes and previously persisted transaction analysis remains available;
 - one fixed successful SAFE-token transfer is ingested and receives a persisted baseline analysis;
 - the transaction detail preserves its public confirmation and execution identities, Safe-service decode, receipt-backed outbound token movement, explicit trace/storage coverage, and conservative `unverified` verdict;
 - the temporary profile bookmark is removed in a `finally` cleanup and confirmed absent.
+
+The smoke request client rejects redirects and any final response outside the selected Preview origin. The refresh test uses the same queue helper as the dashboard control. Its HTTP entry point requires the exact profile bookmark, applies a bounded request rate, returns no queue credentials, and cannot target a different Safe than the validated route. A queue-publication failure restores every prior cursor before the request fails.
 
 The lifecycle check never signs, proposes, relays, broadcasts, or modifies blockchain state. Its fixed inputs are public chain and Safe Transaction Service records. It waits no more than 90 seconds for the selected first-page transaction and its bounded background analysis, and fails instead of weakening an assertion when receipt or coverage evidence is unavailable. Cleanup is deliberately profile-scoped: `DELETE /api/v1/safes/{chainId}/{address}` removes only the requesting profile's bookmark and returns an idempotent `204`; it does not delete shared Safe snapshots, transaction history, cursors, or evidence. The known Safe's import queue keys are stable and deduplicated, so repeated Preview deployments do not create parallel backfills.

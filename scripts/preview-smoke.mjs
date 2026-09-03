@@ -21,6 +21,7 @@ const expectedTransaction = {
 };
 const transactionPollTimeoutMs = 90_000;
 const transactionPollIntervalMs = 3_000;
+const syncPollTimeoutMs = 120_000;
 const profileCookie = `safe-inspector-profile=${crypto.randomUUID()}`;
 
 assert.equal(
@@ -59,9 +60,19 @@ async function request(
     method,
     headers,
     body: json === undefined ? undefined : JSON.stringify(json),
-    redirect: "follow",
+    redirect: "manual",
     signal: AbortSignal.timeout(timeoutMs),
   });
+
+  assert.ok(
+    response.status < 300 || response.status >= 400,
+    `${pathname} attempted an HTTP redirect.`,
+  );
+  assert.equal(
+    new URL(response.url).origin,
+    base.origin,
+    `${pathname} escaped the selected Preview origin.`,
+  );
 
   if (!allowFailure) {
     assert.equal(
@@ -97,6 +108,36 @@ async function waitForAnalyzedTransaction(pathname) {
 
   assert.fail(
     `Expected transaction was ${lastState} after ${transactionPollTimeoutMs}ms.`,
+  );
+}
+
+async function waitForSyncCompletion(pathname, after = null) {
+  const deadline = Date.now() + syncPollTimeoutMs;
+  let lastState = "not returned";
+
+  while (Date.now() < deadline) {
+    const response = await request(pathname, { includeProfile: true });
+    const body = await response.json();
+    const sync = body.data?.sync;
+    lastState = JSON.stringify(sync ?? null);
+
+    if (
+      sync?.status === "complete" &&
+      sync.completedStreams === 4 &&
+      sync.totalStreams === 4 &&
+      sync.lastFullSyncAt !== null &&
+      (after === null || sync.lastFullSyncAt >= after)
+    ) {
+      return sync;
+    }
+
+    await new Promise((resolve) =>
+      setTimeout(resolve, transactionPollIntervalMs),
+    );
+  }
+
+  assert.fail(
+    `Four-stream synchronization did not complete after ${syncPollTimeoutMs}ms. Last state: ${lastState}.`,
   );
 }
 
@@ -137,6 +178,18 @@ assert.equal(healthBody.checks?.database, "ok");
 assert.equal(healthBody.checks?.cache, "ok");
 
 const safePath = `/api/v1/safes/${testSafe.chainId}/${testSafe.address}`;
+const refreshPath = `${safePath}/refresh`;
+const unbookmarkedRefresh = await request(refreshPath, {
+  allowFailure: true,
+  method: "POST",
+  includeProfile: true,
+});
+assert.equal(
+  unbookmarkedRefresh.status,
+  404,
+  "A profile without the Safe bookmark was allowed to queue a refresh.",
+);
+
 let lifecycleStarted = false;
 
 try {
@@ -261,6 +314,54 @@ try {
     ),
     "The fixed successful transfer unexpectedly produced critical evidence.",
   );
+
+  const initialSync = await waitForSyncCompletion(safePath);
+  const refreshResponse = await request(refreshPath, {
+    allowFailure: true,
+    method: "POST",
+    includeProfile: true,
+  });
+  const refreshBody = await refreshResponse.json();
+  assert.equal(
+    refreshResponse.status,
+    202,
+    `Safe refresh returned HTTP ${refreshResponse.status}: ${JSON.stringify(refreshBody)}`,
+  );
+  assert.equal(refreshBody.data?.status, "queued");
+  assert.equal(typeof refreshBody.data?.requestedAt, "number");
+
+  const duplicateResponse = await request(refreshPath, {
+    allowFailure: true,
+    method: "POST",
+    includeProfile: true,
+  });
+  const duplicateBody = await duplicateResponse.json();
+  assert.equal(
+    duplicateResponse.status,
+    202,
+    `Duplicate refresh returned HTTP ${duplicateResponse.status}: ${JSON.stringify(duplicateBody)}`,
+  );
+  assert.equal(
+    duplicateBody.data?.status,
+    "running",
+    "A second request created parallel refresh work instead of joining the active run.",
+  );
+
+  const refreshedSync = await waitForSyncCompletion(
+    safePath,
+    Math.floor(refreshBody.data.requestedAt / 1_000),
+  );
+  assert.ok(
+    refreshedSync.lastFullSyncAt >= initialSync.lastFullSyncAt,
+    "Refresh completion moved the full-sync timestamp backwards.",
+  );
+
+  const persistedTransaction = await waitForAnalyzedTransaction(safePath);
+  assert.equal(
+    persistedTransaction.safeTxHash.toLowerCase(),
+    expectedTransaction.safeTxHash.toLowerCase(),
+  );
+  assert.equal(persistedTransaction.analysis?.baselineVerdict, "unverified");
 } finally {
   if (lifecycleStarted) {
     const deleteResponse = await request(safePath, {
@@ -304,6 +405,11 @@ console.log(
       "transaction-analysis",
       "receipt-evidence",
       "verdict-boundary",
+      "four-stream-sync",
+      "refresh-profile-boundary",
+      "profile-authorized-refresh",
+      "refresh-deduplication",
+      "post-refresh-analysis-persistence",
       "bookmark-cleanup",
     ],
     status: "ok",
