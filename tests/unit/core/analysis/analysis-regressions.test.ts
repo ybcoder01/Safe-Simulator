@@ -19,6 +19,7 @@ function verdictInput(
 ): EvidenceVerdictInput {
   return {
     chainId: 50,
+    safeAddress: approvalTransaction(0n).safe.address,
     operation: "call",
     target: FIXTURE_TOKEN,
     targetVerified: true,
@@ -109,7 +110,12 @@ describe("analysis regression fixtures", () => {
       verdictInput({
         callTrace: "complete",
         internalCalls: [
-          { to: UNKNOWN_DELEGATE_TARGET, operation: "delegatecall" },
+          {
+            depth: 2,
+            from: FIXTURE_TOKEN,
+            to: UNKNOWN_DELEGATE_TARGET,
+            operation: "delegatecall",
+          },
         ],
       }),
     );
