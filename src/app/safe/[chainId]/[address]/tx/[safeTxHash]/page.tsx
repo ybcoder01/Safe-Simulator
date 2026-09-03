@@ -11,12 +11,14 @@ import {
   getSimulationPort,
 } from "@/container";
 import { AddressBookEditor } from "@/components/safes/address-book-editor";
+import { AddressIdentity } from "@/components/shared/address-identity";
 import { CopyIdentifierButton } from "@/components/shared/copy-identifier-button";
 import { TokenIdentity } from "@/components/shared/token-identity";
 import { decodedCallSummary } from "@/core/analysis/decoding/calldata";
 import { formatTokenAmount } from "@/core/analysis/tokens/metadata";
 import { resolveApprovalRisk } from "@/lib/api/approval-risk";
 import { resolveContractInsight } from "@/lib/api/contract-insight";
+import { decodedAddressFields } from "@/lib/api/decoded-addresses";
 import { resolveEvidenceVerdict } from "@/lib/api/evidence-verdict";
 import { resolveExecutionInsight } from "@/lib/api/execution-insight";
 import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
@@ -69,7 +71,8 @@ export default async function TransactionDetailPage({ params }: PageProps) {
   const chain = getChainPort();
   const safeData = getSafeDataPort();
   const abi = getAbiPort();
-  const [transaction, insight, execution, addressBook] = await Promise.all([
+  const [transaction, insight, execution, addressBook, rawPayload] =
+    await Promise.all([
     Promise.resolve(toTransactionView(persisted)),
     resolveContractInsight(safeData, abi, persisted),
     resolveExecutionInsight(
@@ -78,10 +81,13 @@ export default async function TransactionDetailPage({ params }: PageProps) {
       { cache, persistence },
       { chain, safeData },
     ),
-    profileId
-      ? persistence.listAddressBookEntries(profileId, safe.data)
-      : Promise.resolve([]),
-  ]);
+      profileId
+        ? persistence.listAddressBookEntries(profileId, safe.data)
+        : Promise.resolve([]),
+      safeData
+        .getMultisigTransaction(safe.data, hash.data)
+        .catch(() => null),
+    ]);
   const [approvalRisk, tokenMetadata, storageAnalysis] = await Promise.all([
     resolveApprovalRisk(chain, persisted, insight, execution),
     resolveExecutionTokenMetadata(
@@ -757,7 +763,28 @@ export default async function TransactionDetailPage({ params }: PageProps) {
                         {parameter.nestedCalls.length > 0 ? (
                           `${parameter.nestedCalls.length} decoded calls`
                         ) : (
-                          <code>{parameter.value}</code>
+                          <span className="decoded-parameter-value">
+                            <code>{parameter.value}</code>
+                            {decodedAddressFields(
+                              safe.data.chainId,
+                              parameter,
+                            ).map((field) => (
+                              <span
+                                className="decoded-address-field"
+                                key={field.address.toLowerCase()}
+                              >
+                                <span>
+                                  {field.role} · {field.source}
+                                </span>
+                                <AddressIdentity
+                                  address={field.address}
+                                  addressBook={addressBook}
+                                  chainId={safe.data.chainId}
+                                  compact
+                                />
+                              </span>
+                            ))}
+                          </span>
                         )}
                       </dd>
                     </div>
@@ -768,10 +795,16 @@ export default async function TransactionDetailPage({ params }: PageProps) {
                 <div className="calldata" key={`${call.to}-${index}`}>
                   <span>Nested call {index + 1}</span>
                   <strong>{decodedCallSummary(call)}</strong>
-                  <code>
-                    {call.to ?? "Unknown target"} ·{" "}
-                    {call.operation ?? "Unknown operation"}
-                  </code>
+                  {call.to ? (
+                    <AddressIdentity
+                      address={call.to}
+                      addressBook={addressBook}
+                      chainId={safe.data.chainId}
+                    />
+                  ) : (
+                    <code>Unknown target</code>
+                  )}
+                  <code>{call.operation ?? "Unknown operation"}</code>
                 </div>
               ))}
             </>
