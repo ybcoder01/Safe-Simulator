@@ -2581,3 +2581,9 @@ select {
   gap: 8px;
   justify-items: end;
 }
+
+@media (max-width: 560px) {
+  .transaction-title-labels {
+    justify-items: start;
+  }
+}
