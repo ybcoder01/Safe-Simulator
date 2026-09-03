@@ -2221,3 +2221,181 @@ select {
     animation: none;
   }
 }
+
+/* Address identity and directory */
+.configuration-address-book-link {
+  display: inline-flex;
+  margin-top: 16px;
+  color: var(--green);
+  font-size: 10px;
+}
+
+.address-identity {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+.address-identity-label {
+  color: var(--text);
+  font-size: 10px;
+  font-weight: 620;
+}
+
+.address-identity-link {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  min-width: 0;
+  color: #c7d8cf;
+}
+
+.address-identity-link code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.address-identity-status {
+  padding: 2px 6px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  font-family: var(--font-geist-mono);
+  font-size: 8px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.address-identity-whitelisted {
+  border-color: rgba(101, 242, 172, 0.32);
+  color: var(--green);
+  background: rgba(101, 242, 172, 0.05);
+}
+
+.address-identity-known {
+  border-color: rgba(156, 207, 242, 0.32);
+  color: #9ccff2;
+}
+
+.address-identity-flagged {
+  border-color: rgba(255, 173, 159, 0.4);
+  color: #ffad9f;
+}
+
+.owner-row .address-identity {
+  flex: 1;
+}
+
+.config-list .address-identity {
+  justify-content: flex-end;
+}
+
+.enabled-module-row .address-identity {
+  flex: 1;
+  overflow: hidden;
+}
+
+.address-book-intro {
+  max-width: 650px;
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.protocol-directory {
+  display: grid;
+  gap: 12px;
+}
+
+.protocol-group {
+  border: 1px solid rgba(200, 230, 215, 0.1);
+  border-radius: 11px;
+  background: #08130f;
+}
+
+.protocol-group summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
+  cursor: pointer;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 620;
+}
+
+.protocol-group summary small {
+  color: var(--faint);
+  font-family: var(--font-geist-mono);
+  font-size: 9px;
+  font-weight: 400;
+}
+
+.protocol-entry-list {
+  display: grid;
+  border-top: 1px solid rgba(200, 230, 215, 0.08);
+}
+
+.protocol-entry {
+  display: grid;
+  grid-template-columns: minmax(170px, 0.8fr) minmax(280px, 1.6fr) auto;
+  gap: 18px;
+  align-items: center;
+  min-width: 0;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(200, 230, 215, 0.07);
+}
+
+.protocol-entry:last-child {
+  border-bottom: 0;
+}
+
+.protocol-entry > div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.protocol-entry strong {
+  font-size: 11px;
+}
+
+.protocol-entry > div > span {
+  color: var(--faint);
+  font-size: 9px;
+  text-transform: capitalize;
+}
+
+.protocol-entry .address-identity {
+  overflow: hidden;
+}
+
+.protocol-source-link {
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+@media (max-width: 850px) {
+  .protocol-entry {
+    grid-template-columns: 1fr auto;
+  }
+
+  .protocol-entry .address-identity {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 560px) {
+  .protocol-group summary,
+  .protocol-entry {
+    grid-template-columns: 1fr;
+  }
+
+  .protocol-group summary {
+    flex-direction: column;
+  }
+}

@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { MessageHistory } from "@/components/safes/message-history";
 import { ModuleActivity } from "@/components/safes/module-activity";
 import { ReanalysisControl } from "@/components/safes/reanalysis-control";
+import { AddressIdentity } from "@/components/shared/address-identity";
 import { CopyIdentifierButton } from "@/components/shared/copy-identifier-button";
 import { SyncRefreshControl } from "@/components/safes/sync-refresh-control";
 import { TransactionHistory } from "@/components/safes/transaction-history";
@@ -246,25 +247,53 @@ export default async function SafeDashboardPage({ params }: PageProps) {
               </div>
               <span>{safe.owners.length} owners</span>
             </div>
+            <Link
+              className="configuration-address-book-link"
+              href={`/safe/${safe.chainId}/${safe.address}/address-book`}
+            >
+              Review personal and protocol addresses →
+            </Link>
             <div className="owner-list">
               {safe.owners.map((owner, index) => (
                 <div className="owner-row" key={owner}>
                   <span>{String(index + 1).padStart(2, "0")}</span>
-                  <code>{owner}</code>
+                  <AddressIdentity
+                    address={owner}
+                    addressBook={addressBook}
+                    chainId={safe.chainId}
+                  />
                 </div>
               ))}
             </div>
             <dl className="config-list">
               <div>
                 <dt>Guard</dt>
-                <dd>{safe.guard ? shorten(safe.guard) : "None"}</dd>
+                <dd>
+                  {safe.guard ? (
+                    <AddressIdentity
+                      address={safe.guard}
+                      addressBook={addressBook}
+                      chainId={safe.chainId}
+                      compact
+                    />
+                  ) : (
+                    "None"
+                  )}
+                </dd>
               </div>
               <div>
                 <dt>Implementation</dt>
                 <dd>
-                  {safe.implementation
-                    ? shorten(safe.implementation)
-                    : "Unknown"}
+                  {safe.implementation ? (
+                    <AddressIdentity
+                      address={safe.implementation}
+                      addressBook={addressBook}
+                      chainId={safe.chainId}
+                      compact
+                    />
+                  ) : (
+                    "Unknown"
+                  )}
                 </dd>
               </div>
             </dl>
@@ -277,34 +306,19 @@ export default async function SafeDashboardPage({ params }: PageProps) {
                 <p>No enabled modules reported by the current Safe snapshot.</p>
               ) : (
                 <div className="enabled-module-list">
-                  {safe.modules.map((module) => {
-                    const explorerUrl = explorerAddressUrl(
-                      safe.chainId,
-                      module,
-                    );
-
-                    return (
-                      <div className="enabled-module-row" key={module}>
-                        {explorerUrl ? (
-                          <a
-                            className="explorer-link"
-                            href={explorerUrl}
-                            rel="noreferrer"
-                            target="_blank"
-                          >
-                            <code>{module}</code>
-                            <span aria-hidden="true">↗</span>
-                          </a>
-                        ) : (
-                          <code>{module}</code>
-                        )}
-                        <CopyIdentifierButton
-                          label="Copy module address"
-                          value={module}
-                        />
-                      </div>
-                    );
-                  })}
+                  {safe.modules.map((module) => (
+                    <div className="enabled-module-row" key={module}>
+                      <AddressIdentity
+                        address={module}
+                        addressBook={addressBook}
+                        chainId={safe.chainId}
+                      />
+                      <CopyIdentifierButton
+                        label="Copy module address"
+                        value={module}
+                      />
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
