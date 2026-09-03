@@ -75,15 +75,13 @@ const bridgeRoles = new Set([
 
 const dexRoles = new Set(["dex-router"]);
 
-const liquidityRoles = new Set([
-  "position-manager",
-  "vault",
-  "staking",
-  "zap",
-]);
+const liquidityRoles = new Set(["position-manager", "vault", "staking", "zap"]);
 
 export function classifyTransactionActivity(
-  transaction: Pick<SafeTransaction, "safe" | "to" | "data" | "operation" | "value">,
+  transaction: Pick<
+    SafeTransaction,
+    "safe" | "to" | "data" | "operation" | "value"
+  >,
 ): TransactionActivity {
   const selector = transaction.data.slice(0, 10).toLowerCase();
   const selected = selectorActivities[selector];
