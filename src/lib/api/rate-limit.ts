@@ -24,6 +24,12 @@ export const SAFE_DISCOVERY_RATE_LIMIT: RateLimitPolicy = {
   windowSeconds: 5 * 60,
 };
 
+export const SAFE_REFRESH_RATE_LIMIT: RateLimitPolicy = {
+  scope: "safe-refresh",
+  limit: 6,
+  windowSeconds: 15 * 60,
+};
+
 function requestIdentity(request: Request) {
   const forwarded =
     request.headers.get("x-vercel-forwarded-for") ??
