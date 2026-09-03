@@ -47,8 +47,7 @@ const entries: readonly TokenRegistryEntry[] = [
     decimals: 18,
     kind: "fungible",
     logoKey: "wxdc",
-    reference:
-      `${TOKEN_LIST_ROOT}/0x951857744785E80e2De051c32EE7b25f9c458C42/info.json`,
+    reference: `${TOKEN_LIST_ROOT}/0x951857744785E80e2De051c32EE7b25f9c458C42/info.json`,
     reviewedAt: REVIEWED_AT,
   },
   {
@@ -59,8 +58,7 @@ const entries: readonly TokenRegistryEntry[] = [
     decimals: 18,
     kind: "fungible",
     logoKey: "xsp",
-    reference:
-      `${TOKEN_LIST_ROOT}/0x36726235dAdbdb4658D33E62a249dCA7c4B2bC68/info.json`,
+    reference: `${TOKEN_LIST_ROOT}/0x36726235dAdbdb4658D33E62a249dCA7c4B2bC68/info.json`,
     reviewedAt: REVIEWED_AT,
   },
   {
@@ -71,8 +69,7 @@ const entries: readonly TokenRegistryEntry[] = [
     decimals: 18,
     kind: "fungible",
     logoKey: "xtt",
-    reference:
-      `${TOKEN_LIST_ROOT}/0x17476dc3eda45aD916cEAdDeA325B240A7FB259D/info.json`,
+    reference: `${TOKEN_LIST_ROOT}/0x17476dc3eda45aD916cEAdDeA325B240A7FB259D/info.json`,
     reviewedAt: REVIEWED_AT,
   },
 ];
