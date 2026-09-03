@@ -1,57 +1,81 @@
 # XDC protocol registry
 
-Registry version: `2026-09-03.1`  
+Registry version: `2026-09-03.2`  
 Review date: 2026-09-03  
 Network: XDC mainnet, chain ID 50
 
 ## Trust boundary
 
-A registry match establishes a known identity. It does not establish that a
-transaction is safe, that a contract is immutable, or that an approval is
-appropriate. Critical execution evidence always takes precedence over a
-registry match.
+A registry match establishes a reviewed identity. It does not establish a safe
+transaction, an immutable contract, or an appropriate approval amount.
+Critical execution evidence always takes precedence.
 
-Protocol entries are accepted only when an official publisher identifies an
-exact chain-50 address and bytecode is present at that address. Explorer labels,
-third-party lists, name similarity, and deterministic cross-chain addresses are
-not sufficient by themselves.
+The registry deliberately separates:
 
-## Included XSwap deployments
+- `protocol-whitelist`: active, publisher-documented contracts intended for
+  user interaction
+- `identity-only`: implementations, libraries, administrative infrastructure,
+  data providers, or retired contracts that should be named but must not receive
+  the protocol whitelist signal
 
-The publisher reference is the
-[XSwap contract list](https://docs.xspswap.finance/xswap-protocol/contracts/xswap-protocol-contracts).
-Bytecode presence was independently checked through an XDC mainnet JSON-RPC
-endpoint at the review date.
+Only active entries can use `protocol-whitelist`. Explorer labels, name
+similarity, symbols, and a matching address on another chain are insufficient
+by themselves.
 
-| Role | Address | Bytecode |
-| --- | --- | ---: |
-| V2 Factory | `0x347D14b13a68457186b2450bb2a6c2Fd7B38352f` | 11,057 bytes |
-| V2 Router | `0xf9c5E4f6E627201aB2d6FB6391239738Cf4bDcf9` | 17,908 bytes |
-| V3 Universal Router | `0xe1bcb1c502a545ee85a1881b95cdd46d394d2b2e` | 13,961 bytes |
-| V3 SwapRouter02 | `0x3b9edecc4286ba33ea6e27119c2a4db99829839d` | 20,238 bytes |
-| V3 Router | `0xecf4ea7907e779b8a7d0f90cb95fe06f43b610fb` | 9,880 bytes |
-| XSP Token | `0x36726235dAdbdb4658D33E62a249dCA7c4B2bC68` | 4,559 bytes |
-| XSwap Treasury Token | `0x17476dc3eda45aD916cEAdDeA325B240A7FB259D` | 3,619 bytes |
-| Wrapped XDC | `0x951857744785E80e2De051c32EE7b25f9c458C42` | 3,449 bytes |
+## Included publisher records
 
-Token names, symbols, decimals, and logo keys for WXDC, XSP, and XTT are pinned
-to commit `b476bed4d722d51e151ab719e2458cfe0db23a00` of the official
-[XSwap XDC token list](https://github.com/XSwapProtocol/xdc-token-list).
+The source-controlled manifest contains 171 unique XDC protocol identities.
 
-## Requested protocols not included
+| Publisher or protocol | Entries | Protocol whitelist | Identity only | Evidence |
+| --- | ---: | ---: | ---: | --- |
+| XSwap | 8 | 8 | 0 | [Publisher evidence](https://docs.xspswap.finance/xswap-protocol/contracts/xswap-protocol-contracts) |
+| Curve | 26 | 8 | 18 | [Publisher evidence](https://github.com/curvefi/curve-core/blob/fdcddede6c0564bb48eba8bbdfff72da8f650024/deployments/prod/xdc.yaml) |
+| Silo | 37 | 9 | 28 | [Publisher evidence](https://github.com/silo-finance/silo-contracts-v3/tree/31b98b3b899494ebfbd6306d17f50666480967bd/silo-core/deployments/xdc) |
+| Morpho | 8 | 6 | 2 | [Publisher evidence](https://docs.morpho.org/developers/contracts/addresses/#morpho-blue/xdc) |
+| Fathom | 62 | 9 | 53 | [Publisher evidence](https://docs.fathom.fi/lending/deployments/xdc-network) |
+| Uniswap-compatible deployment documented by Oku | 17 | 9 | 8 | [Publisher evidence](https://docs.oku.trade/home/extra-information/deployed-contracts#xdc) |
+| Stargate | 11 | 5 | 6 | [Publisher evidence](https://docs.stargate.finance/resources/contracts/mainnet-contracts#xdc-endpointid-30365) |
+| YieldNest | 1 | 1 | 0 | [Publisher evidence](https://github.com/yieldnest/yieldnest-cross-chain/blob/e5c2bac18da7cf1c89767f385ebc15513b995540/deployments/ynRWAx-1-v0.0.1.json) |
+| Reservoir | 1 | 1 | 0 | [Publisher evidence](https://github.com/reservoir-protocol/srusd/blob/cc34c9ecb30eaf13d567df42f6d9bd165e4c2914/FIXED_DEPLOYMENT_GUIDE.md) |
 
-| Protocol | Result |
-| --- | --- |
-| Curve | No official XDC mainnet deployment was found in the publisher's deployment material reviewed on 2026-09-03. |
-| Silo | Official documentation described XDC as forthcoming rather than live when reviewed. |
-| Morpho | The official address catalogue did not identify an XDC mainnet deployment when reviewed. |
-| Aave | XDC was absent from the official list of active Aave deployments when reviewed. |
-| Uniswap through Oku | No official Uniswap chain-50 deployment manifest was found. An interface listing alone is not sufficient registry evidence. |
+Silo records are pinned to commit
+`31b98b3b899494ebfbd6306d17f50666480967bd`. Curve records are pinned to the
+reviewed XDC deployment manifest. Morpho records include Blue, Vault V2, and
+Bundler contracts explicitly listed for XDC. Oku records use the XDC section of
+its deployment page; the registry labels the deployment as Oku-documented and
+does not claim governance by Uniswap Labs.
 
-These rows are deliberate exclusions, not claims that compatible forks or
-third-party deployments do not exist. A future registry update must provide an
-official deployment reference, exact addresses, contract roles, and a fresh
-on-chain bytecode check.
+Fathom is recorded as Fathom, not Aave. Its architecture is Aave-derived, but
+the official Aave deployment catalogue does not establish an Aave deployment
+on XDC.
+
+## Requested token identities
+
+- YieldNest RWA MAX (`ynRWAx`):
+  `0x7054f74d6cB418e987b73c9f3c23e5cEc18217b2`, confirmed by YieldNest's
+  chain-50 deployment manifest.
+- Wrapped Savings rUSD (`wsrUSD`):
+  `0x4809010926aec940b550D34a46A52739f996D75D`, confirmed by Reservoir's
+  source repository and corroborated for XDC by Silo's pinned address manifest.
+
+Both report 18 decimals. Their registry identities do not suppress approval,
+spender, delegate-call, or state-change warnings.
+
+## On-chain verification
+
+Every included chain-50 protocol address returned non-empty deployed bytecode
+during the review. The documented Curve administrative account
+`0xabc336d4C71ad275695744d32DdB1d8266Db1cbF` returned no bytecode and is
+therefore documented as an authority but excluded from the contract registry.
+
+Duplicate appearances across publisher documents are stored once per chain and
+address. This prevents conflicting trust results for a single contract.
+
+## Exclusion
+
+Aave remains excluded because its official active-deployment material does not
+identify XDC mainnet. A future addition requires an official chain-50
+deployment record and a fresh bytecode review.
 
 ## Token fallbacks
 
