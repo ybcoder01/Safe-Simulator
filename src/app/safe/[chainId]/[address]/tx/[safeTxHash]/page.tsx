@@ -987,7 +987,7 @@ export default async function TransactionDetailPage({ params }: PageProps) {
           </div>
         </section>
 
-        <section className="detail-panel">
+        <section className="detail-panel confirmation-evidence-panel">
           <div className="panel-heading">
             <div>
               <p className="eyebrow">Approvals</p>
