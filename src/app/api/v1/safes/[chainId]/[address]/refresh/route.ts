@@ -12,10 +12,7 @@ import {
 } from "@/lib/api/rate-limit";
 import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
 import { safeRouteParamsSchema } from "@/lib/api/safe-details";
-import {
-  isSafeBookmarked,
-  queueSafeRefresh,
-} from "@/lib/api/sync-refresh";
+import { isSafeBookmarked, queueSafeRefresh } from "@/lib/api/sync-refresh";
 
 interface RouteContext {
   readonly params: Promise<{ chainId: string; address: string }>;
