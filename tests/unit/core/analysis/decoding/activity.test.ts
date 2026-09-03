@@ -18,9 +18,7 @@ function transaction(
 ) {
   return {
     safe,
-    to:
-      options.to ??
-      ("0x2222222222222222222222222222222222222222" as Address),
+    to: options.to ?? ("0x2222222222222222222222222222222222222222" as Address),
     data,
     operation: options.operation ?? "call",
     value: options.value ?? 0n,
@@ -29,8 +27,7 @@ function transaction(
 
 describe("transaction activity classification", () => {
   it("labels exact selectors before considering the target role", () => {
-    const morpho =
-      "0xEa49B0fE898aF913A3826F9f462eE2cDcb854fD9" as Address;
+    const morpho = "0xEa49B0fE898aF913A3826F9f462eE2cDcb854fD9" as Address;
 
     expect(
       classifyTransactionActivity(
@@ -59,8 +56,7 @@ describe("transaction activity classification", () => {
   });
 
   it("uses conservative protocol interaction labels for reviewed targets", () => {
-    const morpho =
-      "0xEa49B0fE898aF913A3826F9f462eE2cDcb854fD9" as Address;
+    const morpho = "0xEa49B0fE898aF913A3826F9f462eE2cDcb854fD9" as Address;
 
     expect(
       classifyTransactionActivity(
