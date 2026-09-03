@@ -12,6 +12,7 @@ import {
 } from "@/container";
 import { AddressBookEditor } from "@/components/safes/address-book-editor";
 import { CopyIdentifierButton } from "@/components/shared/copy-identifier-button";
+import { TokenIdentity } from "@/components/shared/token-identity";
 import { decodedCallSummary } from "@/core/analysis/decoding/calldata";
 import { formatTokenAmount } from "@/core/analysis/tokens/metadata";
 import { resolveApprovalRisk } from "@/lib/api/approval-risk";
@@ -477,14 +478,13 @@ export default async function TransactionDetailPage({ params }: PageProps) {
                     {movement.direction} movement ·{" "}
                     {metadata?.status ?? "unavailable"} metadata
                   </span>
-                  <strong>
-                    {formatted === null
-                      ? `${movement.amount} base units`
-                      : `${formatted} ${metadata?.symbol ?? "(symbol unavailable)"}`}
-                  </strong>
-                  <code>
-                    Raw: {movement.amount} base units · token {movement.token}
-                  </code>
+                  <TokenIdentity
+                    amount={formatted}
+                    chainId={safe.data.chainId}
+                    symbol={metadata?.symbol}
+                    token={movement.token}
+                  />
+                  <code>Raw: {movement.amount} base units</code>
                   <code>
                     {movement.from} → {movement.to}
                   </code>
@@ -632,15 +632,13 @@ export default async function TransactionDetailPage({ params }: PageProps) {
                   <strong>
                     {allowance.owner} → {allowance.spender}
                   </strong>
-                  <code>
-                    Amount:{" "}
-                    {formatted === null
-                      ? `${allowance.amount} base units`
-                      : `${formatted} ${metadata?.symbol ?? "(symbol unavailable)"}`}
-                  </code>
-                  <code>
-                    Raw: {allowance.amount} base units · token {allowance.token}
-                  </code>
+                  <TokenIdentity
+                    amount={formatted}
+                    chainId={safe.data.chainId}
+                    symbol={metadata?.symbol}
+                    token={allowance.token}
+                  />
+                  <code>Raw: {allowance.amount} base units</code>
                   <code>
                     Prior allowance: {allowance.priorAmount ?? "Unavailable"} ·
                     new at comparison anchor:{" "}

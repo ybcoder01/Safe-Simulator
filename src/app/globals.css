@@ -2399,3 +2399,125 @@ select {
     flex-direction: column;
   }
 }
+
+/* Token identity */
+.token-identity {
+  display: inline-flex;
+  gap: 12px;
+  align-items: center;
+  min-width: 0;
+}
+
+.token-logo {
+  display: inline-grid;
+  flex: 0 0 38px;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(200, 230, 215, 0.22);
+  border-radius: 50%;
+  color: #06110c;
+  background: #9fb5a9;
+  font-family: var(--font-geist-mono);
+  font-size: 9px;
+  font-weight: 760;
+  letter-spacing: -0.03em;
+}
+
+.token-logo-wxdc {
+  color: #062017;
+  background: linear-gradient(145deg, #65f2ac, #66b9ed);
+}
+
+.token-logo-xsp {
+  color: white;
+  background: linear-gradient(145deg, #3f75ff, #9045f5);
+}
+
+.token-logo-xtt {
+  color: white;
+  background: linear-gradient(145deg, #cf8a37, #7e3c18);
+}
+
+.token-logo-ynrwax {
+  color: #0a1711;
+  background: linear-gradient(145deg, #f3e8c2, #a6dfbf);
+}
+
+.token-logo-wsrusd {
+  color: white;
+  background: linear-gradient(145deg, #424dbf, #141c52);
+}
+
+.token-logo-fallback-lp {
+  border-style: dashed;
+  color: #9ccff2;
+  background: rgba(156, 207, 242, 0.08);
+}
+
+.token-logo-fallback-token {
+  border-style: dashed;
+  color: var(--faint);
+  background: rgba(200, 230, 215, 0.04);
+}
+
+.token-identity-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.token-identity-copy > strong {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.token-identity-copy > span {
+  color: var(--faint);
+  font-size: 9px;
+}
+
+.token-address-link {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  min-width: 0;
+  color: var(--green);
+  font-size: 9px;
+}
+
+.token-address-link code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: inherit;
+  font-size: inherit;
+  white-space: nowrap;
+}
+
+.token-native-label {
+  color: var(--faint);
+  font-family: var(--font-geist-mono);
+  font-size: 9px;
+}
+
+.balance-row {
+  justify-content: flex-start;
+}
+
+.balance-row .token-identity {
+  width: 100%;
+}
+
+.calldata > .token-identity {
+  padding: 3px 0;
+}
+
+@media (max-width: 560px) {
+  .token-logo {
+    flex-basis: 34px;
+    width: 34px;
+    height: 34px;
+  }
+}
