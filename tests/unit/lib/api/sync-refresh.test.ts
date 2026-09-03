@@ -222,7 +222,7 @@ describe("on-demand synchronization refresh", () => {
       status: "complete" as const,
       updatedAt: 10,
     }));
-    const cursors = new Map(
+    const cursors = new Map<SyncCursor["stream"], SyncCursor>(
       original.map((cursor) => [cursor.stream, cursor]),
     );
     const persistence = {
