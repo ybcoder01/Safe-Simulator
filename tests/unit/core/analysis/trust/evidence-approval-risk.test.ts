@@ -15,6 +15,7 @@ function input(
 ): EvidenceVerdictInput {
   return {
     chainId: 50,
+    safeAddress: target,
     operation: "call",
     target,
     targetVerified: true,
