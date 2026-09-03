@@ -171,10 +171,8 @@ describe("on-demand synchronization refresh", () => {
     );
     const jobs: QueueJob[] = [];
     const persistence = {
-      findSyncCursor: async (
-        _safe: SafeRef,
-        stream: SyncCursor["stream"],
-      ) => cursors.get(stream) ?? null,
+      findSyncCursor: async (_safe: SafeRef, stream: SyncCursor["stream"]) =>
+        cursors.get(stream) ?? null,
       saveSyncCursor: async (cursor: SyncCursor) => {
         cursors.set(cursor.stream, cursor);
       },
@@ -226,10 +224,8 @@ describe("on-demand synchronization refresh", () => {
       original.map((cursor) => [cursor.stream, cursor]),
     );
     const persistence = {
-      findSyncCursor: async (
-        _safe: SafeRef,
-        stream: SyncCursor["stream"],
-      ) => cursors.get(stream) ?? null,
+      findSyncCursor: async (_safe: SafeRef, stream: SyncCursor["stream"]) =>
+        cursors.get(stream) ?? null,
       saveSyncCursor: async (cursor: SyncCursor) => {
         cursors.set(cursor.stream, cursor);
       },
