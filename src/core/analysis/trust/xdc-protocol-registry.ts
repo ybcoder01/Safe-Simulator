@@ -548,7 +548,6 @@ const groups: readonly ProtocolDeploymentGroup[] = [
       ]
     ]
   },
-
   {
     "protocol": "silo",
     "reference": "https://github.com/silo-finance/silo-contracts-v3/tree/31b98b3b899494ebfbd6306d17f50666480967bd/silo-core/deployments/xdc",
@@ -858,9 +857,9 @@ const groups: readonly ProtocolDeploymentGroup[] = [
       [
         "0x70d8005E3c8C7e383FE35Fa40156042F3393449F",
         "Fathom Pool",
-        "helper",
-        "identity-only",
-        "internal"
+        "lending-pool",
+        "protocol-whitelist",
+        "active"
       ],
       [
         "0x5c756ACD4Cb26a9cA6De7abF9765cE84B5Be9322",
@@ -872,9 +871,9 @@ const groups: readonly ProtocolDeploymentGroup[] = [
       [
         "0x56f3A75C71C207a77c3b8c77a34FC89cF1a6DB66",
         "Fathom PoolConfigurator",
-        "helper",
-        "identity-only",
-        "internal"
+        "lending-configurator",
+        "protocol-whitelist",
+        "active"
       ],
       [
         "0xE6525d46ADc3Cd5AF2CfA322504A7C17F8445c8D",
@@ -921,9 +920,9 @@ const groups: readonly ProtocolDeploymentGroup[] = [
       [
         "0xf5e0C80114C0b0E3c4b55c217643E9a02699bB9b",
         "Fathom IncentivesController",
-        "helper",
-        "identity-only",
-        "internal"
+        "incentives-controller",
+        "protocol-whitelist",
+        "active"
       ],
       [
         "0x32f42b439C63Bc4F27F701CFD5939a5889eA2a00",
@@ -935,9 +934,9 @@ const groups: readonly ProtocolDeploymentGroup[] = [
       [
         "0x57Ba8bAA7c3Ff6606751859f1CED9f68819C2f41",
         "Fathom WrappedTokenGatewayV3",
-        "token",
-        "identity-only",
-        "internal"
+        "token-gateway",
+        "protocol-whitelist",
+        "active"
       ],
       [
         "0x7C724DEaD5012Eb4C9e2d1529cF0353e767C82Cd",
@@ -970,9 +969,9 @@ const groups: readonly ProtocolDeploymentGroup[] = [
       [
         "0x5cF8e2326F5c013d568F48E878e9D7ae9557F902",
         "Fathom FlashLiquidator",
-        "helper",
-        "identity-only",
-        "internal"
+        "liquidation-helper",
+        "protocol-whitelist",
+        "active"
       ],
       [
         "0x95f2f5fd81815Da3517E1EdfC149EE47c116F904",
@@ -1097,8 +1096,8 @@ const groups: readonly ProtocolDeploymentGroup[] = [
         "0x8d470BDE66eE52981D7D29Bc2e6FCa3b4DC17879",
         "Fathom WXDC Oracle source",
         "oracle",
-        "protocol-whitelist",
-        "active"
+        "identity-only",
+        "internal"
       ],
       [
         "0xfA2958CB79b0491CC627c1557F441eF849Ca8eb1",
@@ -1132,8 +1131,8 @@ const groups: readonly ProtocolDeploymentGroup[] = [
         "0x321F084B78756C5550e6Ab200d88BB2602BCE1A2",
         "Fathom USDC Oracle source",
         "oracle",
-        "protocol-whitelist",
-        "active"
+        "identity-only",
+        "internal"
       ],
       [
         "0x49d3f7543335cf38Fa10889CCFF10207e22110B5",
@@ -1269,9 +1268,7 @@ const groups: readonly ProtocolDeploymentGroup[] = [
         "deprecated"
       ]
     ]
-  }
-,
-
+  },
   {
     "protocol": "yieldnest",
     "reference": "https://github.com/yieldnest/yieldnest-cross-chain/blob/e5c2bac18da7cf1c89767f385ebc15513b995540/deployments/ynRWAx-1-v0.0.1.json",
@@ -1300,7 +1297,6 @@ const groups: readonly ProtocolDeploymentGroup[] = [
       ]
     ]
   }
-
 ];
 
 export const xdcProtocolRegistryEntries: readonly ContractRegistryEntry[] =
