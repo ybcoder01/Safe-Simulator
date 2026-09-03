@@ -46,10 +46,7 @@ export default async function AddressBookPage({ params }: PageProps) {
         left.protocol.localeCompare(right.protocol) ||
         left.label.localeCompare(right.label),
     );
-  const groups = new Map<
-    string,
-    (typeof protocolEntries)[number][]
-  >();
+  const groups = new Map<string, (typeof protocolEntries)[number][]>();
   for (const entry of protocolEntries) {
     groups.set(entry.protocol, [...(groups.get(entry.protocol) ?? []), entry]);
   }
@@ -84,7 +81,8 @@ export default async function AddressBookPage({ params }: PageProps) {
             </p>
           </div>
           <span className="verified-pill">
-            {personalEntries.length} personal · {protocolEntries.length} protocol
+            {personalEntries.length} personal · {protocolEntries.length}{" "}
+            protocol
           </span>
         </header>
 
@@ -149,7 +147,8 @@ export default async function AddressBookPage({ params }: PageProps) {
                         <div>
                           <strong>{entry.label}</strong>
                           <span>
-                            {entry.role.replaceAll("-", " ")} · {entry.lifecycle}
+                            {entry.role.replaceAll("-", " ")} ·{" "}
+                            {entry.lifecycle}
                           </span>
                         </div>
                         <AddressIdentity
