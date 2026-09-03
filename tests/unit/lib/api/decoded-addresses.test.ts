@@ -19,7 +19,7 @@ describe("decoded address fields", () => {
     expect(
       decodedAddressFields(
         50,
-        parameter("address[]", `[${first},${first.toUpperCase()},${second}]`),
+        parameter("address[]", `[${first},0x${first.slice(2).toUpperCase()},${second}]`),
       ),
     ).toEqual([
       {
