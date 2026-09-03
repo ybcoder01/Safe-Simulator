@@ -51,6 +51,7 @@ export function resolveEvidenceVerdict(
       }));
   const input = {
     chainId: transaction.safe.chainId,
+    safeAddress: transaction.safe.address,
     operation: transaction.operation,
     target: transaction.to,
     targetVerified: contract.metadata.verified,
@@ -71,6 +72,8 @@ export function resolveEvidenceVerdict(
         newSpenderAtAnchor: approval.newSpenderAtAnchor,
       })) ?? [],
     internalCalls: execution.internalCalls.map((call) => ({
+      depth: call.depth,
+      from: call.from as Address,
       to: call.to as Address,
       operation: call.operation,
     })),
