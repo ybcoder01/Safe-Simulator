@@ -180,8 +180,9 @@ describe("on-demand synchronization refresh", () => {
     const queue = {
       enqueue: async (
         job: QueueJob,
-        _options: { idempotencyKey: string; delaySeconds?: number },
+        options: { idempotencyKey: string; delaySeconds?: number },
       ) => {
+        void options;
         jobs.push(job);
         return { jobId: "queued" };
       },
@@ -232,9 +233,11 @@ describe("on-demand synchronization refresh", () => {
     };
     const queue = {
       enqueue: async (
-        _job: QueueJob,
-        _options: { idempotencyKey: string; delaySeconds?: number },
+        job: QueueJob,
+        options: { idempotencyKey: string; delaySeconds?: number },
       ) => {
+        void job;
+        void options;
         throw new Error("queue unavailable");
       },
     };
