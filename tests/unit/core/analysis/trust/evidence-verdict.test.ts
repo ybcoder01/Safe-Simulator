@@ -197,7 +197,9 @@ describe("evaluateEvidenceVerdict", () => {
   it("uses registry evidence as known without promoting it to trusted", () => {
     const result = evaluateEvidenceVerdict(
       input({
-        internalCalls: [{ depth: 1, from: safe, to: spender, operation: "call" }],
+        internalCalls: [
+          { depth: 1, from: safe, to: spender, operation: "call" },
+        ],
         registry: [
           {
             chainId: 50,
@@ -229,7 +231,9 @@ describe("evaluateEvidenceVerdict", () => {
   it("ignores registry records from a different chain", () => {
     const result = evaluateEvidenceVerdict(
       input({
-        internalCalls: [{ depth: 1, from: safe, to: spender, operation: "call" }],
+        internalCalls: [
+          { depth: 1, from: safe, to: spender, operation: "call" },
+        ],
         registry: [
           {
             chainId: 1,
