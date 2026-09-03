@@ -62,9 +62,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     );
   }
 
-  const profileId = parseProfileId(
-    request.cookies.get(PROFILE_COOKIE)?.value,
-  );
+  const profileId = parseProfileId(request.cookies.get(PROFILE_COOKIE)?.value);
   if (!profileId) return unavailableToProfile();
 
   try {
