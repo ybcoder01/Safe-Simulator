@@ -70,20 +70,18 @@ export default async function TransactionDetailPage({ params }: PageProps) {
   const abi = getAbiPort();
   const [transaction, insight, execution, addressBook, rawPayload] =
     await Promise.all([
-    Promise.resolve(toTransactionView(persisted)),
-    resolveContractInsight(safeData, abi, persisted),
-    resolveExecutionInsight(
-      getSimulationPort(),
-      persisted,
-      { cache, persistence },
-      { chain, safeData },
-    ),
+      Promise.resolve(toTransactionView(persisted)),
+      resolveContractInsight(safeData, abi, persisted),
+      resolveExecutionInsight(
+        getSimulationPort(),
+        persisted,
+        { cache, persistence },
+        { chain, safeData },
+      ),
       profileId
         ? persistence.listAddressBookEntries(profileId, safe.data)
         : Promise.resolve([]),
-      safeData
-        .getMultisigTransaction(safe.data, hash.data)
-        .catch(() => null),
+      safeData.getMultisigTransaction(safe.data, hash.data).catch(() => null),
     ]);
   const [approvalRisk, tokenMetadata, storageAnalysis] = await Promise.all([
     resolveApprovalRisk(chain, persisted, insight, execution),
@@ -113,7 +111,7 @@ export default async function TransactionDetailPage({ params }: PageProps) {
   const nestedCalls =
     decoded?.parameters.flatMap((parameter) => parameter.nestedCalls) ?? [];
   const safePath = `/safe/${safe.data.chainId}/${safe.data.address}`;
-   const executedExplorerUrl = transaction.executedTxHash
+  const executedExplorerUrl = transaction.executedTxHash
     ? explorerTransactionUrl(safe.data.chainId, transaction.executedTxHash)
     : null;
 
