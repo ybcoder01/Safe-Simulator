@@ -19,6 +19,7 @@ export type AddressRole =
 
 export interface EvidenceVerdictInput {
   readonly chainId: ChainId;
+  readonly safeAddress: Address;
   readonly operation: Operation;
   readonly target: Address;
   readonly targetVerified: boolean;
@@ -47,6 +48,8 @@ export interface EvidenceVerdictInput {
     readonly newSpenderAtAnchor: boolean | null;
   }[];
   readonly internalCalls: readonly {
+    readonly depth: number;
+    readonly from: Address;
     readonly to: Address;
     readonly operation: Operation;
   }[];
@@ -90,6 +93,28 @@ function addressKey(address: Address): string {
 
 function uniqueAddresses(addresses: readonly Address[]): readonly Address[] {
   return [...new Set(addresses.map(addressKey))] as Address[];
+}
+
+function isExpectedSafeProxyDelegation(
+  input: EvidenceVerdictInput,
+  call: EvidenceVerdictInput["internalCalls"][number],
+): boolean {
+  if (
+    call.operation !== "delegatecall" ||
+    call.depth !== 1 ||
+    addressKey(call.from) !== addressKey(input.safeAddress)
+  ) {
+    return false;
+  }
+
+  return (
+    input.registry?.some(
+      (entry) =>
+        entry.chainId === input.chainId &&
+        entry.executionRole === "safe-singleton" &&
+        addressKey(entry.address) === addressKey(call.to),
+    ) ?? false
+  );
 }
 
 function assessAddresses(
@@ -183,8 +208,26 @@ export function evaluateEvidenceVerdict(
     });
   }
 
+  const expectedSafeProxyDelegations = input.internalCalls.filter((call) =>
+    isExpectedSafeProxyDelegation(input, call),
+  );
+  if (expectedSafeProxyDelegations.length > 0) {
+    findings.push({
+      code: "expected-safe-proxy-delegation",
+      severity: "info",
+      title: "Expected Safe proxy delegation observed",
+      detail:
+        "The depth-1 call from the Safe proxy reached a chain-matched singleton in the pinned Safe deployment registry. Other delegate calls remain critical.",
+      addresses: uniqueAddresses(
+        expectedSafeProxyDelegations.map((call) => call.to),
+      ),
+    });
+  }
+
   const internalDelegatecalls = input.internalCalls.filter(
-    (call) => call.operation === "delegatecall",
+    (call) =>
+      call.operation === "delegatecall" &&
+      !isExpectedSafeProxyDelegation(input, call),
   );
   if (internalDelegatecalls.length > 0) {
     findings.push({
@@ -192,7 +235,7 @@ export function evaluateEvidenceVerdict(
       severity: "critical",
       title: "An internal delegate call was traced",
       detail:
-        "The traced target code executed in its caller's storage context. Critical evidence is preserved regardless of address labels.",
+        "The traced target code executed in its caller's storage context. Critical evidence is preserved unless this is the exact Safe proxy-to-singleton boundary.",
       addresses: uniqueAddresses(internalDelegatecalls.map((call) => call.to)),
     });
   }

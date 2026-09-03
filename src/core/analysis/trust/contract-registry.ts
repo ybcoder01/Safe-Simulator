@@ -1,6 +1,7 @@
 import type { Address, ChainId } from "../../domain";
 
 export type ContractRegistrySource = "safe-deployments" | "evm-specification";
+export type ContractRegistryExecutionRole = "safe-singleton" | null;
 
 export interface ContractRegistryEntry {
   readonly chainId: ChainId;
@@ -8,12 +9,14 @@ export interface ContractRegistryEntry {
   readonly label: string;
   readonly source: ContractRegistrySource;
   readonly reference: string;
+  readonly executionRole: ContractRegistryExecutionRole;
 }
 
 interface SafeDeploymentSeed {
   readonly address: Address;
   readonly label: string;
   readonly asset: string;
+  readonly executionRole: ContractRegistryExecutionRole;
 }
 
 const SAFE_DEPLOYMENTS_ROOT =
@@ -27,41 +30,49 @@ const safeDeployments: readonly SafeDeploymentSeed[] = [
     address: "0x41675C099F32341bf84BFc5382aF534df5C7461a" as Address,
     label: "Safe v1.4.1 Singleton",
     asset: "safe.json",
+    executionRole: "safe-singleton",
   },
   {
     address: "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762" as Address,
     label: "Safe v1.4.1 L2 Singleton",
     asset: "safe_l2.json",
+    executionRole: "safe-singleton",
   },
   {
     address: "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99" as Address,
     label: "Safe v1.4.1 Compatibility Fallback Handler",
     asset: "compatibility_fallback_handler.json",
+    executionRole: null,
   },
   {
     address: "0x38869bf66a61cF6bDB996A6aE40D5853Fd43B526" as Address,
     label: "Safe v1.4.1 MultiSend",
     asset: "multi_send.json",
+    executionRole: null,
   },
   {
     address: "0x9641d764fc13c8B624c04430C7356C1C7C8102e2" as Address,
     label: "Safe v1.4.1 MultiSendCallOnly",
     asset: "multi_send_call_only.json",
+    executionRole: null,
   },
   {
     address: "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67" as Address,
     label: "Safe v1.4.1 Proxy Factory",
     asset: "safe_proxy_factory.json",
+    executionRole: null,
   },
   {
     address: "0xd53cd0aB83D845Ac265BE939c57F53AD838012c9" as Address,
     label: "Safe v1.4.1 SignMessageLib",
     asset: "sign_message_lib.json",
+    executionRole: null,
   },
   {
     address: "0x3d4BA2E0884aa488718476ca2FB8Efc291A46199" as Address,
     label: "Safe v1.4.1 SimulateTxAccessor",
     asset: "simulate_tx_accessor.json",
+    executionRole: null,
   },
 ];
 
@@ -73,6 +84,7 @@ const entries: readonly ContractRegistryEntry[] = [
       label: deployment.label,
       source: "safe-deployments" as const,
       reference: `${SAFE_DEPLOYMENTS_ROOT}/${deployment.asset}`,
+      executionRole: deployment.executionRole,
     })),
   ),
   ...SUPPORTED_CHAINS.map((chainId) => ({
@@ -81,6 +93,7 @@ const entries: readonly ContractRegistryEntry[] = [
     label: "ECRECOVER precompile",
     source: "evm-specification" as const,
     reference: EVM_SPECIFICATION_REFERENCE,
+    executionRole: null,
   })),
 ];
 
