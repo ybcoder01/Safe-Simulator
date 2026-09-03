@@ -820,36 +820,87 @@ export default async function TransactionDetailPage({ params }: PageProps) {
           )}
         </section>
 
-        <section className="detail-panel">
+        <section className="detail-panel raw-evidence-panel">
           <div className="panel-heading">
             <div>
-              <p className="eyebrow">Call</p>
-              <h2>Target and calldata</h2>
+              <p className="eyebrow">Public source data</p>
+              <h2>Raw transaction evidence</h2>
             </div>
+            <span>
+              {rawPayload
+                ? "Safe execution fields available"
+                : "Stored fields only"}
+            </span>
           </div>
-          <dl className="detail-list">
+          <p className="trust-copy">
+            These values are presented without reinterpretation. Missing Safe
+            execution fields are shown as unavailable rather than inferred.
+          </p>
+          <dl className="detail-list raw-transaction-fields">
+            <div>
+              <dt>Safe transaction hash</dt>
+              <dd>
+                <span className="identifier-actions identifier-actions-end">
+                  <code>{transaction.safeTxHash}</code>
+                  <CopyIdentifierButton
+                    label="Copy Safe transaction hash"
+                    value={transaction.safeTxHash}
+                  />
+                </span>
+              </dd>
+            </div>
+            <div>
+              <dt>Safe</dt>
+              <dd>
+                <AddressIdentity
+                  address={safe.data.address}
+                  addressBook={addressBook}
+                  chainId={safe.data.chainId}
+                />
+              </dd>
+            </div>
             <div>
               <dt>Target</dt>
               <dd>
                 <span className="identifier-actions identifier-actions-end">
-                  {targetExplorerUrl ? (
-                    <a
-                      className="explorer-link"
-                      href={targetExplorerUrl}
-                      rel="noreferrer"
-                      target="_blank"
-                    >
-                      <code>{transaction.to}</code>
-                      <span aria-hidden="true">↗</span>
-                    </a>
-                  ) : (
-                    <code>{transaction.to}</code>
-                  )}
+                  <AddressIdentity
+                    address={transaction.to}
+                    addressBook={addressBook}
+                    chainId={safe.data.chainId}
+                  />
                   <CopyIdentifierButton
                     label="Copy transaction target"
                     value={transaction.to}
                   />
                 </span>
+              </dd>
+            </div>
+            <div>
+              <dt>Status</dt>
+              <dd>{transaction.status}</dd>
+            </div>
+            <div>
+              <dt>Nonce</dt>
+              <dd>{transaction.nonce}</dd>
+            </div>
+            <div>
+              <dt>Operation</dt>
+              <dd>{transaction.operation}</dd>
+            </div>
+            <div>
+              <dt>Value</dt>
+              <dd>{transaction.value} wei</dd>
+            </div>
+            <div>
+              <dt>Proposed</dt>
+              <dd>{formatDate(transaction.proposedAt)} UTC</dd>
+            </div>
+            <div>
+              <dt>Executed</dt>
+              <dd>
+                {transaction.executedAt === null
+                  ? "Not executed"
+                  : `${formatDate(transaction.executedAt)} UTC`}
               </dd>
             </div>
             <div>
@@ -876,17 +927,69 @@ export default async function TransactionDetailPage({ params }: PageProps) {
                     />
                   </span>
                 ) : (
-                  "Pending"
+                  "Unavailable"
                 )}
               </dd>
             </div>
             <div>
-              <dt>Block</dt>
-              <dd>{transaction.blockNumber ?? "Pending"}</dd>
+              <dt>Block number</dt>
+              <dd>{transaction.blockNumber ?? "Unavailable"}</dd>
+            </div>
+            <div>
+              <dt>Block hash</dt>
+              <dd>
+                <code>{transaction.blockHash ?? "Unavailable"}</code>
+              </dd>
+            </div>
+            <div>
+              <dt>Safe transaction gas</dt>
+              <dd>{rawPayload?.safeTxGas.toString() ?? "Unavailable"}</dd>
+            </div>
+            <div>
+              <dt>Base gas</dt>
+              <dd>{rawPayload?.baseGas.toString() ?? "Unavailable"}</dd>
+            </div>
+            <div>
+              <dt>Gas price</dt>
+              <dd>{rawPayload?.gasPrice.toString() ?? "Unavailable"}</dd>
+            </div>
+            <div>
+              <dt>Gas token</dt>
+              <dd>
+                {rawPayload?.gasToken ? (
+                  <AddressIdentity
+                    address={rawPayload.gasToken}
+                    addressBook={addressBook}
+                    chainId={safe.data.chainId}
+                  />
+                ) : (
+                  "Native or unavailable"
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt>Refund receiver</dt>
+              <dd>
+                {rawPayload?.refundReceiver ? (
+                  <AddressIdentity
+                    address={rawPayload.refundReceiver}
+                    addressBook={addressBook}
+                    chainId={safe.data.chainId}
+                  />
+                ) : (
+                  "Default or unavailable"
+                )}
+              </dd>
             </div>
           </dl>
+          {!rawPayload ? (
+            <div className="raw-evidence-warning">
+              The live Safe payload could not be read. Stored transaction fields
+              remain available above; unavailable gas fields are not inferred.
+            </div>
+          ) : null}
           <div className="calldata">
-            <span>Raw calldata</span>
+            <span>Raw calldata · {transaction.data.length / 2 - 1} bytes</span>
             <code>{transaction.data || "0x"}</code>
           </div>
         </section>
