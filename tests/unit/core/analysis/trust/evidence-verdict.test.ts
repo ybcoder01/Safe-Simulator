@@ -9,12 +9,14 @@ import type { Address } from "../../../../../src/core/domain";
 const target = "0x1111111111111111111111111111111111111111" as Address;
 const token = "0x2222222222222222222222222222222222222222" as Address;
 const spender = "0x3333333333333333333333333333333333333333" as Address;
+const safe = "0x4444444444444444444444444444444444444444" as Address;
 
 function input(
   overrides: Partial<EvidenceVerdictInput> = {},
 ): EvidenceVerdictInput {
   return {
     chainId: 50,
+    safeAddress: safe,
     operation: "call",
     target,
     targetVerified: true,
@@ -63,7 +65,9 @@ describe("evaluateEvidenceVerdict", () => {
     const result = evaluateEvidenceVerdict(
       input({
         callTrace: "complete",
-        internalCalls: [{ to: spender, operation: "delegatecall" }],
+        internalCalls: [
+          { depth: 2, from: token, to: spender, operation: "delegatecall" },
+        ],
       }),
     );
 
@@ -80,6 +84,79 @@ describe("evaluateEvidenceVerdict", () => {
           addresses: [spender],
         }),
       ]),
+    );
+  });
+
+  it("records the exact Safe proxy-to-singleton boundary without making it critical", () => {
+    const result = evaluateEvidenceVerdict(
+      input({
+        callTrace: "complete",
+        internalCalls: [
+          {
+            depth: 1,
+            from: safe,
+            to: spender,
+            operation: "delegatecall",
+          },
+        ],
+        registry: [
+          {
+            chainId: 50,
+            address: spender,
+            label: "Safe singleton",
+            source: "safe-deployments",
+            reference: "https://example.com/pinned-safe-deployment",
+            executionRole: "safe-singleton",
+          },
+        ],
+      }),
+    );
+
+    expect(result.verdict).toBe("known");
+    expect(result.findings).toContainEqual(
+      expect.objectContaining({
+        code: "expected-safe-proxy-delegation",
+        severity: "info",
+        addresses: [spender],
+      }),
+    );
+    expect(result.findings.map((finding) => finding.code)).not.toContain(
+      "internal-delegatecall",
+    );
+  });
+
+  it("keeps a nested delegation to a registered singleton critical", () => {
+    const result = evaluateEvidenceVerdict(
+      input({
+        callTrace: "complete",
+        internalCalls: [
+          {
+            depth: 2,
+            from: token,
+            to: spender,
+            operation: "delegatecall",
+          },
+        ],
+        registry: [
+          {
+            chainId: 50,
+            address: spender,
+            label: "Safe singleton",
+            source: "safe-deployments",
+            reference: "https://example.com/pinned-safe-deployment",
+            executionRole: "safe-singleton",
+          },
+        ],
+      }),
+    );
+
+    expect(result.verdict).toBe("flagged");
+    expect(result.findings).toContainEqual(
+      expect.objectContaining({
+        code: "internal-delegatecall",
+        severity: "critical",
+        addresses: [spender],
+      }),
     );
   });
 
@@ -120,7 +197,7 @@ describe("evaluateEvidenceVerdict", () => {
   it("uses registry evidence as known without promoting it to trusted", () => {
     const result = evaluateEvidenceVerdict(
       input({
-        internalCalls: [{ to: spender, operation: "call" }],
+        internalCalls: [{ depth: 1, from: safe, to: spender, operation: "call" }],
         registry: [
           {
             chainId: 50,
@@ -128,6 +205,7 @@ describe("evaluateEvidenceVerdict", () => {
             label: "Known infrastructure",
             source: "safe-deployments",
             reference: "https://example.com/authoritative-record",
+            executionRole: null,
           },
         ],
         callTrace: "complete",
@@ -151,7 +229,7 @@ describe("evaluateEvidenceVerdict", () => {
   it("ignores registry records from a different chain", () => {
     const result = evaluateEvidenceVerdict(
       input({
-        internalCalls: [{ to: spender, operation: "call" }],
+        internalCalls: [{ depth: 1, from: safe, to: spender, operation: "call" }],
         registry: [
           {
             chainId: 1,
@@ -159,6 +237,7 @@ describe("evaluateEvidenceVerdict", () => {
             label: "Wrong-chain infrastructure",
             source: "safe-deployments",
             reference: "https://example.com/authoritative-record",
+            executionRole: null,
           },
         ],
         callTrace: "complete",
@@ -265,6 +344,7 @@ describe("evaluateEvidenceVerdict", () => {
             label: "Known infrastructure",
             source: "safe-deployments",
             reference: "https://example.com/authoritative-record",
+            executionRole: null,
           },
         ],
       }),
