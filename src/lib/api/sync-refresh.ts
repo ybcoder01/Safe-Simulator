@@ -112,7 +112,6 @@ export function refreshIdempotencyKey(
   return `sync:refresh:${safe.chainId}:${safe.address.toLowerCase()}:${requestedAt}`;
 }
 
-
 type RefreshPersistence = Pick<
   PersistencePort,
   "findSyncCursor" | "saveSyncCursor"
