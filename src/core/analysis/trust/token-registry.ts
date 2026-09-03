@@ -1,12 +1,14 @@
 import type { Address, ChainId } from "../../domain";
 
-export const TOKEN_REGISTRY_VERSION = "2026-09-03.1";
+export const TOKEN_REGISTRY_VERSION = "2026-09-03.2";
 
 export type TokenKind = "fungible" | "liquidity-position" | "unknown";
 export type TokenLogoKey =
   | "wxdc"
   | "xsp"
   | "xtt"
+  | "ynrwax"
+  | "wsrusd"
   | "fallback-token"
   | "fallback-lp";
 
@@ -19,6 +21,7 @@ export interface TokenRegistryEntry {
   readonly kind: "fungible";
   readonly logoKey: Exclude<TokenLogoKey, "fallback-token" | "fallback-lp">;
   readonly reference: string;
+  readonly verification: "publisher-documented";
   readonly reviewedAt: string;
 }
 
@@ -48,6 +51,7 @@ const entries: readonly TokenRegistryEntry[] = [
     kind: "fungible",
     logoKey: "wxdc",
     reference: `${TOKEN_LIST_ROOT}/0x951857744785E80e2De051c32EE7b25f9c458C42/info.json`,
+    verification: "publisher-documented",
     reviewedAt: REVIEWED_AT,
   },
   {
@@ -59,6 +63,7 @@ const entries: readonly TokenRegistryEntry[] = [
     kind: "fungible",
     logoKey: "xsp",
     reference: `${TOKEN_LIST_ROOT}/0x36726235dAdbdb4658D33E62a249dCA7c4B2bC68/info.json`,
+    verification: "publisher-documented",
     reviewedAt: REVIEWED_AT,
   },
   {
@@ -70,6 +75,33 @@ const entries: readonly TokenRegistryEntry[] = [
     kind: "fungible",
     logoKey: "xtt",
     reference: `${TOKEN_LIST_ROOT}/0x17476dc3eda45aD916cEAdDeA325B240A7FB259D/info.json`,
+    verification: "publisher-documented",
+    reviewedAt: REVIEWED_AT,
+  },
+  {
+    chainId: 50,
+    address: "0x7054f74d6cB418e987b73c9f3c23e5cEc18217b2" as Address,
+    name: "YieldNest RWA MAX",
+    symbol: "ynRWAx",
+    decimals: 18,
+    kind: "fungible",
+    logoKey: "ynrwax",
+    reference:
+      "https://github.com/yieldnest/yieldnest-cross-chain/blob/e5c2bac18da7cf1c89767f385ebc15513b995540/deployments/ynRWAx-1-v0.0.1.json",
+    verification: "publisher-documented",
+    reviewedAt: REVIEWED_AT,
+  },
+  {
+    chainId: 50,
+    address: "0x4809010926aec940b550D34a46A52739f996D75D" as Address,
+    name: "Wrapped Savings rUSD",
+    symbol: "wsrUSD",
+    decimals: 18,
+    kind: "fungible",
+    logoKey: "wsrusd",
+    reference:
+      "https://github.com/reservoir-protocol/srusd/blob/cc34c9ecb30eaf13d567df42f6d9bd165e4c2914/FIXED_DEPLOYMENT_GUIDE.md",
+    verification: "publisher-documented",
     reviewedAt: REVIEWED_AT,
   },
 ];
