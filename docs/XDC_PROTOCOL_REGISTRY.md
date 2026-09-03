@@ -26,17 +26,17 @@ by themselves.
 
 The source-controlled manifest contains 171 unique XDC protocol identities.
 
-| Publisher or protocol | Entries | Protocol whitelist | Identity only | Evidence |
-| --- | ---: | ---: | ---: | --- |
-| XSwap | 8 | 8 | 0 | [Publisher evidence](https://docs.xspswap.finance/xswap-protocol/contracts/xswap-protocol-contracts) |
-| Curve | 26 | 8 | 18 | [Publisher evidence](https://github.com/curvefi/curve-core/blob/fdcddede6c0564bb48eba8bbdfff72da8f650024/deployments/prod/xdc.yaml) |
-| Silo | 37 | 9 | 28 | [Publisher evidence](https://github.com/silo-finance/silo-contracts-v3/tree/31b98b3b899494ebfbd6306d17f50666480967bd/silo-core/deployments/xdc) |
-| Morpho | 8 | 6 | 2 | [Publisher evidence](https://docs.morpho.org/developers/contracts/addresses/#morpho-blue/xdc) |
-| Fathom | 62 | 9 | 53 | [Publisher evidence](https://docs.fathom.fi/lending/deployments/xdc-network) |
-| Uniswap-compatible deployment documented by Oku | 17 | 9 | 8 | [Publisher evidence](https://docs.oku.trade/home/extra-information/deployed-contracts#xdc) |
-| Stargate | 11 | 5 | 6 | [Publisher evidence](https://docs.stargate.finance/resources/contracts/mainnet-contracts#xdc-endpointid-30365) |
-| YieldNest | 1 | 1 | 0 | [Publisher evidence](https://github.com/yieldnest/yieldnest-cross-chain/blob/e5c2bac18da7cf1c89767f385ebc15513b995540/deployments/ynRWAx-1-v0.0.1.json) |
-| Reservoir | 1 | 1 | 0 | [Publisher evidence](https://github.com/reservoir-protocol/srusd/blob/cc34c9ecb30eaf13d567df42f6d9bd165e4c2914/FIXED_DEPLOYMENT_GUIDE.md) |
+| Publisher or protocol                           | Entries | Protocol whitelist | Identity only | Evidence                                                                                                                                                |
+| ----------------------------------------------- | ------: | -----------------: | ------------: | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| XSwap                                           |       8 |                  8 |             0 | [Publisher evidence](https://docs.xspswap.finance/xswap-protocol/contracts/xswap-protocol-contracts)                                                    |
+| Curve                                           |      26 |                  8 |            18 | [Publisher evidence](https://github.com/curvefi/curve-core/blob/fdcddede6c0564bb48eba8bbdfff72da8f650024/deployments/prod/xdc.yaml)                     |
+| Silo                                            |      37 |                  9 |            28 | [Publisher evidence](https://github.com/silo-finance/silo-contracts-v3/tree/31b98b3b899494ebfbd6306d17f50666480967bd/silo-core/deployments/xdc)         |
+| Morpho                                          |       8 |                  6 |             2 | [Publisher evidence](https://docs.morpho.org/developers/contracts/addresses/#morpho-blue/xdc)                                                           |
+| Fathom                                          |      62 |                  9 |            53 | [Publisher evidence](https://docs.fathom.fi/lending/deployments/xdc-network)                                                                            |
+| Uniswap-compatible deployment documented by Oku |      17 |                  9 |             8 | [Publisher evidence](https://docs.oku.trade/home/extra-information/deployed-contracts#xdc)                                                              |
+| Stargate                                        |      11 |                  5 |             6 | [Publisher evidence](https://docs.stargate.finance/resources/contracts/mainnet-contracts#xdc-endpointid-30365)                                          |
+| YieldNest                                       |       1 |                  1 |             0 | [Publisher evidence](https://github.com/yieldnest/yieldnest-cross-chain/blob/e5c2bac18da7cf1c89767f385ebc15513b995540/deployments/ynRWAx-1-v0.0.1.json) |
+| Reservoir                                       |       1 |                  1 |             0 | [Publisher evidence](https://github.com/reservoir-protocol/srusd/blob/cc34c9ecb30eaf13d567df42f6d9bd165e4c2914/FIXED_DEPLOYMENT_GUIDE.md)               |
 
 Silo records are pinned to commit
 `31b98b3b899494ebfbd6306d17f50666480967bd`. Curve records are pinned to the
