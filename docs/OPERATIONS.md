@@ -67,6 +67,31 @@ If the scheduled sweep did not run:
 4. Confirm `APP_BASE_URL` points to the stable public production URL when explicitly set.
 5. Use a dashboard refresh for urgent individual Safes while the scheduled path is repaired.
 
+## Production read soak
+
+The **Production read soak** GitHub workflow is manual and runs only from `main`. It checks the public production origin without credentials, cookies, profile creation, imports, refresh requests, queue publication, or transaction writes.
+
+The workflow is intentionally bounded:
+
+- the only requests are `GET /`, `GET /safes`, and `GET /api/health`;
+- duration is restricted to 5, 15, or 30 minutes;
+- one cycle starts every 10 seconds and requests run sequentially;
+- only one workflow run may execute at a time;
+- each request times out after 10 seconds;
+- the script stops early after five total failures or three failures on one route;
+- the health response must report both database and cache checks as `ok`;
+- required security headers and read-only page copy must remain present;
+- any cookie creation, redirect, non-`200` response, validation failure, or latency-threshold breach fails the run.
+
+To run it:
+
+1. Open GitHub **Actions** and select **Production read soak**.
+2. Choose **Run workflow** from `main`.
+3. Use 15 minutes for routine acceptance, 5 minutes for a quick check, or 30 minutes for the maximum permitted run.
+4. Review the final JSON summary for request count, failures, and per-route p95 latency.
+
+After a successful run, inspect the matching Vercel Production window for new `5xx` responses. If the workflow fails, inspect the first affected route and dependency before retrying. Do not loosen the origin lock, methods, request cap, failure limits, or dependency assertions to make a failing run pass.
+
 ## RPC provider rotation
 
 The application accepts comma-separated ranked fallback URLs:

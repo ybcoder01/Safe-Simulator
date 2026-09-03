@@ -1,0 +1,39 @@
+name: Production read soak
+
+on:
+  workflow_dispatch:
+    inputs:
+      duration_minutes:
+        description: Bounded run duration
+        required: true
+        default: "15"
+        type: choice
+        options:
+          - "5"
+          - "15"
+          - "30"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-read-soak
+  cancel-in-progress: false
+
+jobs:
+  soak:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      SOAK_BASE_URL: https://safe-simulator.vercel.app
+      SOAK_ENVIRONMENT: production
+      SOAK_DURATION_MINUTES: ${{ inputs.duration_minutes }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Run bounded GET-only checks
+        run: node scripts/production-read-soak.mjs
