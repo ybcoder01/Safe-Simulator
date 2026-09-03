@@ -2668,7 +2668,7 @@ select {
   white-space: pre-wrap;
 }
 
-.raw-evidence-panel .owner-row {
+.confirmation-evidence-panel .owner-row {
   flex-wrap: wrap;
 }
 
