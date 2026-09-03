@@ -46,7 +46,13 @@ export default async function AddressBookPage({ params }: PageProps) {
         left.protocol.localeCompare(right.protocol) ||
         left.label.localeCompare(right.label),
     );
-  const groups = Map.groupBy(protocolEntries, (entry) => entry.protocol);
+  const groups = new Map<
+    string,
+    (typeof protocolEntries)[number][]
+  >();
+  for (const entry of protocolEntries) {
+    groups.set(entry.protocol, [...(groups.get(entry.protocol) ?? []), entry]);
+  }
   const safePath = `/safe/${safe.chainId}/${safe.address}`;
 
   return (
