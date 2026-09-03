@@ -1,12 +1,27 @@
 import type { Address, ChainId } from "../../domain";
+import { xdcProtocolRegistryEntries } from "./xdc-protocol-registry";
 
-export const CONTRACT_REGISTRY_VERSION = "2026-09-03.1";
+export const CONTRACT_REGISTRY_VERSION = "2026-09-03.2";
 
 export type ContractRegistrySource =
   | "safe-deployments"
   | "evm-specification"
   | "protocol-documentation";
 export type ContractRegistryExecutionRole = "safe-singleton" | null;
+export type ContractRegistryTrustPolicy =
+  | "protocol-whitelist"
+  | "identity-only";
+export type ContractRegistryLifecycle = "active" | "internal" | "deprecated";
+export type ContractRegistryProtocol =
+  | "safe"
+  | "evm"
+  | "xswap"
+  | "curve"
+  | "silo"
+  | "morpho"
+  | "fathom"
+  | "oku-uniswap"
+  | "stargate";
 export type ContractRegistryCategory = "infrastructure" | "protocol";
 export type ContractRegistryVerification =
   | "specification"
@@ -22,13 +37,49 @@ export type ContractRegistryRole =
   | "precompile"
   | "dex-factory"
   | "dex-router"
-  | "token";
+  | "token"
+  | "multicall"
+  | "implementation"
+  | "library"
+  | "data-provider"
+  | "gauge-factory"
+  | "zap"
+  | "vault"
+  | "registry"
+  | "lending-pool"
+  | "interest-rate-model"
+  | "oracle-factory"
+  | "vault-factory"
+  | "adapter-factory"
+  | "bundler"
+  | "adapter"
+  | "proxy-admin"
+  | "position-manager"
+  | "migrator"
+  | "staking"
+  | "quoter"
+  | "permit"
+  | "limit-order"
+  | "keeper"
+  | "bridge-messaging"
+  | "bridge-token"
+  | "bridge-wrapper"
+  | "treasurer"
+  | "lending-router"
+  | "liquidation-helper"
+  | "lending-factory"
+  | "oracle"
+  | "control"
+  | "incentives-controller"
+  | "lending-configurator"
+  | "token-gateway"
+  | "helper";
 
 export interface ContractRegistryEntry {
   readonly chainId: ChainId;
   readonly address: Address;
   readonly label: string;
-  readonly protocol: "safe" | "evm" | "xswap";
+  readonly protocol: ContractRegistryProtocol;
   readonly category: ContractRegistryCategory;
   readonly role: ContractRegistryRole;
   readonly source: ContractRegistrySource;
@@ -37,6 +88,8 @@ export interface ContractRegistryEntry {
   readonly reviewedAt: string;
   readonly logoKey: string | null;
   readonly executionRole: ContractRegistryExecutionRole;
+  readonly trustPolicy: ContractRegistryTrustPolicy;
+  readonly lifecycle: ContractRegistryLifecycle;
 }
 
 interface SafeDeploymentSeed {
@@ -47,20 +100,11 @@ interface SafeDeploymentSeed {
   readonly executionRole: ContractRegistryExecutionRole;
 }
 
-interface XSwapDeploymentSeed {
-  readonly address: Address;
-  readonly label: string;
-  readonly role: "dex-factory" | "dex-router" | "token";
-  readonly logoKey: string | null;
-}
-
 const REVIEWED_AT = "2026-09-03";
 const SAFE_DEPLOYMENTS_ROOT =
   "https://github.com/safe-global/safe-deployments/blob/0974182c16c57ca6fe2b9bba8cffb8a7e55fb83c/src/assets/v1.4.1";
 const EVM_SPECIFICATION_REFERENCE =
   "https://ethereum.github.io/yellowpaper/paper.pdf";
-const XSWAP_CONTRACT_REFERENCE =
-  "https://docs.xspswap.finance/xswap-protocol/contracts/xswap-protocol-contracts";
 const SUPPORTED_CHAINS = [1, 50] as const satisfies readonly ChainId[];
 
 const safeDeployments: readonly SafeDeploymentSeed[] = [
@@ -122,57 +166,6 @@ const safeDeployments: readonly SafeDeploymentSeed[] = [
   },
 ];
 
-const xswapDeployments: readonly XSwapDeploymentSeed[] = [
-  {
-    address: "0x347D14b13a68457186b2450bb2a6c2Fd7B38352f" as Address,
-    label: "XSwap V2 Factory",
-    role: "dex-factory",
-    logoKey: "xswap",
-  },
-  {
-    address: "0xf9c5E4f6E627201aB2d6FB6391239738Cf4bDcf9" as Address,
-    label: "XSwap V2 Router",
-    role: "dex-router",
-    logoKey: "xswap",
-  },
-  {
-    address: "0xe1bcb1c502a545ee85a1881b95cdd46d394d2b2e" as Address,
-    label: "XSwap V3 Universal Router",
-    role: "dex-router",
-    logoKey: "xswap",
-  },
-  {
-    address: "0x3b9edecc4286ba33ea6e27119c2a4db99829839d" as Address,
-    label: "XSwap V3 SwapRouter02",
-    role: "dex-router",
-    logoKey: "xswap",
-  },
-  {
-    address: "0xecf4ea7907e779b8a7d0f90cb95fe06f43b610fb" as Address,
-    label: "XSwap V3 Router",
-    role: "dex-router",
-    logoKey: "xswap",
-  },
-  {
-    address: "0x36726235dAdbdb4658D33E62a249dCA7c4B2bC68" as Address,
-    label: "XSP Token",
-    role: "token",
-    logoKey: "xsp",
-  },
-  {
-    address: "0x17476dc3eda45aD916cEAdDeA325B240A7FB259D" as Address,
-    label: "XSwap Treasury Token",
-    role: "token",
-    logoKey: "xtt",
-  },
-  {
-    address: "0x951857744785E80e2De051c32EE7b25f9c458C42" as Address,
-    label: "Wrapped XDC",
-    role: "token",
-    logoKey: "wxdc",
-  },
-];
-
 const entries: readonly ContractRegistryEntry[] = [
   ...SUPPORTED_CHAINS.flatMap((chainId) =>
     safeDeployments.map((deployment) => ({
@@ -188,6 +181,8 @@ const entries: readonly ContractRegistryEntry[] = [
       reviewedAt: REVIEWED_AT,
       logoKey: "safe",
       executionRole: deployment.executionRole,
+      trustPolicy: "identity-only" as const,
+      lifecycle: "active" as const,
     })),
   ),
   ...SUPPORTED_CHAINS.map((chainId) => ({
@@ -203,21 +198,10 @@ const entries: readonly ContractRegistryEntry[] = [
     reviewedAt: REVIEWED_AT,
     logoKey: null,
     executionRole: null,
+    trustPolicy: "identity-only" as const,
+    lifecycle: "active" as const,
   })),
-  ...xswapDeployments.map((deployment) => ({
-    chainId: 50,
-    address: deployment.address,
-    label: deployment.label,
-    protocol: "xswap" as const,
-    category: "protocol" as const,
-    role: deployment.role,
-    source: "protocol-documentation" as const,
-    reference: XSWAP_CONTRACT_REFERENCE,
-    verification: "publisher-documented-bytecode-present" as const,
-    reviewedAt: REVIEWED_AT,
-    logoKey: deployment.logoKey,
-    executionRole: null,
-  })),
+  ...xdcProtocolRegistryEntries,
 ];
 
 function registryKey(chainId: ChainId, address: Address): string {
