@@ -3,6 +3,14 @@ import postgres from "postgres";
 
 import * as schema from "./schema";
 
+export const databaseConnectionOptions = {
+  max: 1,
+  idle_timeout: 5,
+  connect_timeout: 10,
+  max_lifetime: 60,
+  prepare: false,
+} as const;
+
 function createDatabase() {
   const connectionString = process.env.DATABASE_URL;
 
@@ -12,11 +20,7 @@ function createDatabase() {
     );
   }
 
-  const client = postgres(connectionString, {
-    max: 5,
-    idle_timeout: 20,
-    connect_timeout: 10,
-  });
+  const client = postgres(connectionString, databaseConnectionOptions);
 
   return drizzle(client, { schema });
 }
