@@ -132,7 +132,7 @@ describe("resolveEvidenceVerdict", () => {
       expect.objectContaining({
         code: "expected-safe-proxy-delegation",
         severity: "info",
-        addresses: [registeredSafe],
+        addresses: [registeredSafe.toLowerCase() as Address],
       }),
     );
     expect(result.findings.map((finding) => finding.code)).not.toContain(
