@@ -79,7 +79,7 @@ describe("token identity registry", () => {
     expect(
       entries.every(
         (entry) =>
-          entry.reference.startsWith("https://github.com/") &&
+          /^https:\/\/(?:github\.com|docs\.fathom\.fi)\//.test(entry.reference) &&
           /^\d{4}-\d{2}-\d{2}$/.test(entry.reviewedAt),
       ),
     ).toBe(true);
