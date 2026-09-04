@@ -279,6 +279,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
         { status: 201 },
       );
     } catch (cause) {
+      if (cause instanceof TransactionSummaryProviderError) {
+        console.warn("Transaction summary provider failure", {
+          code: cause.code,
+          providerStatus: cause.providerStatus,
+          model,
+          promptVersion: TRANSACTION_SUMMARY_PROMPT_VERSION,
+        });
+      }
+
       const failureCode =
         cause instanceof TransactionSummaryProviderError
           ? cause.code
