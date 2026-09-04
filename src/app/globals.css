@@ -2430,6 +2430,13 @@ select {
   background: linear-gradient(145deg, #65f2ac, #66b9ed);
 }
 
+.token-logo-usdc {
+  border-color: rgba(255, 255, 255, 0.45);
+  color: white;
+  background: linear-gradient(145deg, #4f9cf9, #2367c9);
+  font-size: 8px;
+}
+
 .token-logo-xsp {
   color: white;
   background: linear-gradient(145deg, #3f75ff, #9045f5);
