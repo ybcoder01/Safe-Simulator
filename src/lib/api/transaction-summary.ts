@@ -282,7 +282,7 @@ export async function requestTransactionSummary(
           zdr: true,
           require_parameters: true,
         },
-        max_tokens: 900,
+        max_completion_tokens: 900,
       }),
       signal: AbortSignal.timeout(20_000),
     });
