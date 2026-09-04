@@ -11,21 +11,20 @@ import {
   getSimulationPort,
 } from "@/container";
 import { AddressBookEditor } from "@/components/safes/address-book-editor";
+import { AddressIdentity } from "@/components/shared/address-identity";
 import { CopyIdentifierButton } from "@/components/shared/copy-identifier-button";
 import { TokenIdentity } from "@/components/shared/token-identity";
 import { decodedCallSummary } from "@/core/analysis/decoding/calldata";
 import { formatTokenAmount } from "@/core/analysis/tokens/metadata";
 import { resolveApprovalRisk } from "@/lib/api/approval-risk";
 import { resolveContractInsight } from "@/lib/api/contract-insight";
+import { decodedAddressFields } from "@/lib/api/decoded-addresses";
 import { resolveEvidenceVerdict } from "@/lib/api/evidence-verdict";
 import { resolveExecutionInsight } from "@/lib/api/execution-insight";
 import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
 import { resolveStorageChangeAnalysis } from "@/lib/api/storage-changes";
 import { resolveExecutionTokenMetadata } from "@/lib/api/token-metadata";
-import {
-  explorerAddressUrl,
-  explorerTransactionUrl,
-} from "@/lib/explorer-links";
+import { explorerTransactionUrl } from "@/lib/explorer-links";
 import {
   safeRouteParamsSchema,
   safeTransactionHashSchema,
@@ -69,19 +68,21 @@ export default async function TransactionDetailPage({ params }: PageProps) {
   const chain = getChainPort();
   const safeData = getSafeDataPort();
   const abi = getAbiPort();
-  const [transaction, insight, execution, addressBook] = await Promise.all([
-    Promise.resolve(toTransactionView(persisted)),
-    resolveContractInsight(safeData, abi, persisted),
-    resolveExecutionInsight(
-      getSimulationPort(),
-      persisted,
-      { cache, persistence },
-      { chain, safeData },
-    ),
-    profileId
-      ? persistence.listAddressBookEntries(profileId, safe.data)
-      : Promise.resolve([]),
-  ]);
+  const [transaction, insight, execution, addressBook, rawPayload] =
+    await Promise.all([
+      Promise.resolve(toTransactionView(persisted)),
+      resolveContractInsight(safeData, abi, persisted),
+      resolveExecutionInsight(
+        getSimulationPort(),
+        persisted,
+        { cache, persistence },
+        { chain, safeData },
+      ),
+      profileId
+        ? persistence.listAddressBookEntries(profileId, safe.data)
+        : Promise.resolve([]),
+      safeData.getMultisigTransaction(safe.data, hash.data).catch(() => null),
+    ]);
   const [approvalRisk, tokenMetadata, storageAnalysis] = await Promise.all([
     resolveApprovalRisk(chain, persisted, insight, execution),
     resolveExecutionTokenMetadata(
@@ -110,10 +111,6 @@ export default async function TransactionDetailPage({ params }: PageProps) {
   const nestedCalls =
     decoded?.parameters.flatMap((parameter) => parameter.nestedCalls) ?? [];
   const safePath = `/safe/${safe.data.chainId}/${safe.data.address}`;
-  const targetExplorerUrl = explorerAddressUrl(
-    safe.data.chainId,
-    transaction.to,
-  );
   const executedExplorerUrl = transaction.executedTxHash
     ? explorerTransactionUrl(safe.data.chainId, transaction.executedTxHash)
     : null;
@@ -757,7 +754,28 @@ export default async function TransactionDetailPage({ params }: PageProps) {
                         {parameter.nestedCalls.length > 0 ? (
                           `${parameter.nestedCalls.length} decoded calls`
                         ) : (
-                          <code>{parameter.value}</code>
+                          <span className="decoded-parameter-value">
+                            <code>{parameter.value}</code>
+                            {decodedAddressFields(
+                              safe.data.chainId,
+                              parameter,
+                            ).map((field) => (
+                              <span
+                                className="decoded-address-field"
+                                key={field.address.toLowerCase()}
+                              >
+                                <span>
+                                  {field.role} · {field.source}
+                                </span>
+                                <AddressIdentity
+                                  address={field.address}
+                                  addressBook={addressBook}
+                                  chainId={safe.data.chainId}
+                                  compact
+                                />
+                              </span>
+                            ))}
+                          </span>
                         )}
                       </dd>
                     </div>
@@ -768,10 +786,16 @@ export default async function TransactionDetailPage({ params }: PageProps) {
                 <div className="calldata" key={`${call.to}-${index}`}>
                   <span>Nested call {index + 1}</span>
                   <strong>{decodedCallSummary(call)}</strong>
-                  <code>
-                    {call.to ?? "Unknown target"} ·{" "}
-                    {call.operation ?? "Unknown operation"}
-                  </code>
+                  {call.to ? (
+                    <AddressIdentity
+                      address={call.to}
+                      addressBook={addressBook}
+                      chainId={safe.data.chainId}
+                    />
+                  ) : (
+                    <code>Unknown target</code>
+                  )}
+                  <code>{call.operation ?? "Unknown operation"}</code>
                 </div>
               ))}
             </>
@@ -787,36 +811,87 @@ export default async function TransactionDetailPage({ params }: PageProps) {
           )}
         </section>
 
-        <section className="detail-panel">
+        <section className="detail-panel raw-evidence-panel">
           <div className="panel-heading">
             <div>
-              <p className="eyebrow">Call</p>
-              <h2>Target and calldata</h2>
+              <p className="eyebrow">Public source data</p>
+              <h2>Raw transaction evidence</h2>
             </div>
+            <span>
+              {rawPayload
+                ? "Safe execution fields available"
+                : "Stored fields only"}
+            </span>
           </div>
-          <dl className="detail-list">
+          <p className="trust-copy">
+            These values are presented without reinterpretation. Missing Safe
+            execution fields are shown as unavailable rather than inferred.
+          </p>
+          <dl className="detail-list raw-transaction-fields">
+            <div>
+              <dt>Safe transaction hash</dt>
+              <dd>
+                <span className="identifier-actions identifier-actions-end">
+                  <code>{transaction.safeTxHash}</code>
+                  <CopyIdentifierButton
+                    label="Copy Safe transaction hash"
+                    value={transaction.safeTxHash}
+                  />
+                </span>
+              </dd>
+            </div>
+            <div>
+              <dt>Safe</dt>
+              <dd>
+                <AddressIdentity
+                  address={safe.data.address}
+                  addressBook={addressBook}
+                  chainId={safe.data.chainId}
+                />
+              </dd>
+            </div>
             <div>
               <dt>Target</dt>
               <dd>
                 <span className="identifier-actions identifier-actions-end">
-                  {targetExplorerUrl ? (
-                    <a
-                      className="explorer-link"
-                      href={targetExplorerUrl}
-                      rel="noreferrer"
-                      target="_blank"
-                    >
-                      <code>{transaction.to}</code>
-                      <span aria-hidden="true">↗</span>
-                    </a>
-                  ) : (
-                    <code>{transaction.to}</code>
-                  )}
+                  <AddressIdentity
+                    address={transaction.to}
+                    addressBook={addressBook}
+                    chainId={safe.data.chainId}
+                  />
                   <CopyIdentifierButton
                     label="Copy transaction target"
                     value={transaction.to}
                   />
                 </span>
+              </dd>
+            </div>
+            <div>
+              <dt>Status</dt>
+              <dd>{transaction.status}</dd>
+            </div>
+            <div>
+              <dt>Nonce</dt>
+              <dd>{transaction.nonce}</dd>
+            </div>
+            <div>
+              <dt>Operation</dt>
+              <dd>{transaction.operation}</dd>
+            </div>
+            <div>
+              <dt>Value</dt>
+              <dd>{transaction.value} wei</dd>
+            </div>
+            <div>
+              <dt>Proposed</dt>
+              <dd>{formatDate(transaction.proposedAt)} UTC</dd>
+            </div>
+            <div>
+              <dt>Executed</dt>
+              <dd>
+                {transaction.executedAt === null
+                  ? "Not executed"
+                  : `${formatDate(transaction.executedAt)} UTC`}
               </dd>
             </div>
             <div>
@@ -843,26 +918,78 @@ export default async function TransactionDetailPage({ params }: PageProps) {
                     />
                   </span>
                 ) : (
-                  "Pending"
+                  "Unavailable"
                 )}
               </dd>
             </div>
             <div>
-              <dt>Block</dt>
-              <dd>{transaction.blockNumber ?? "Pending"}</dd>
+              <dt>Block number</dt>
+              <dd>{transaction.blockNumber ?? "Unavailable"}</dd>
+            </div>
+            <div>
+              <dt>Block hash</dt>
+              <dd>
+                <code>{transaction.blockHash ?? "Unavailable"}</code>
+              </dd>
+            </div>
+            <div>
+              <dt>Safe transaction gas</dt>
+              <dd>{rawPayload?.safeTxGas.toString() ?? "Unavailable"}</dd>
+            </div>
+            <div>
+              <dt>Base gas</dt>
+              <dd>{rawPayload?.baseGas.toString() ?? "Unavailable"}</dd>
+            </div>
+            <div>
+              <dt>Gas price</dt>
+              <dd>{rawPayload?.gasPrice.toString() ?? "Unavailable"}</dd>
+            </div>
+            <div>
+              <dt>Gas token</dt>
+              <dd>
+                {rawPayload?.gasToken ? (
+                  <AddressIdentity
+                    address={rawPayload.gasToken}
+                    addressBook={addressBook}
+                    chainId={safe.data.chainId}
+                  />
+                ) : (
+                  "Native or unavailable"
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt>Refund receiver</dt>
+              <dd>
+                {rawPayload?.refundReceiver ? (
+                  <AddressIdentity
+                    address={rawPayload.refundReceiver}
+                    addressBook={addressBook}
+                    chainId={safe.data.chainId}
+                  />
+                ) : (
+                  "Default or unavailable"
+                )}
+              </dd>
             </div>
           </dl>
+          {!rawPayload ? (
+            <div className="raw-evidence-warning">
+              The live Safe payload could not be read. Stored transaction fields
+              remain available above; unavailable gas fields are not inferred.
+            </div>
+          ) : null}
           <div className="calldata">
-            <span>Raw calldata</span>
+            <span>Raw calldata · {transaction.data.length / 2 - 1} bytes</span>
             <code>{transaction.data || "0x"}</code>
           </div>
         </section>
 
-        <section className="detail-panel">
+        <section className="detail-panel confirmation-evidence-panel">
           <div className="panel-heading">
             <div>
-              <p className="eyebrow">Approvals</p>
-              <h2>Confirmations</h2>
+              <p className="eyebrow">Owner attestations</p>
+              <h2>Confirmations and raw signatures</h2>
             </div>
             <span>{transaction.confirmations.length} collected</span>
           </div>
@@ -873,12 +1000,21 @@ export default async function TransactionDetailPage({ params }: PageProps) {
               {transaction.confirmations.map((confirmation, index) => (
                 <div className="owner-row" key={confirmation.owner}>
                   <span>{String(index + 1).padStart(2, "0")}</span>
-                  <code>{confirmation.owner}</code>
+                  <AddressIdentity
+                    address={confirmation.owner}
+                    addressBook={addressBook}
+                    chainId={safe.data.chainId}
+                    compact
+                  />
                   <time>
                     {confirmation.signedAt
                       ? formatDate(confirmation.signedAt)
                       : "Time unavailable"}
                   </time>
+                  <details className="confirmation-signature">
+                    <summary>Raw signature</summary>
+                    <code>{confirmation.signature}</code>
+                  </details>
                 </div>
               ))}
             </div>
