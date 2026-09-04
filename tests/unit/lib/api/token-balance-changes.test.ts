@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { Address, Hex, SafeTransaction } from "../../../../src/core/domain";
+import type {
+  Address,
+  Hex,
+  SafeTransaction,
+} from "../../../../src/core/domain";
 import type { ExecutionInsight } from "../../../../src/lib/api/execution-insight";
 import { resolveTokenBalanceChanges } from "../../../../src/lib/api/token-balance-changes";
 
