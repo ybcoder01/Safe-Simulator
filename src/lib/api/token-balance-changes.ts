@@ -228,11 +228,7 @@ export async function resolveTokenBalanceChanges(
   if (transaction.status === "pending") {
     const items = await Promise.all(
       selected.map(async (pair): Promise<TokenBalanceChangeView> => {
-        const before = await readBalance(
-          chain,
-          transaction.safe.chainId,
-          pair,
-        );
+        const before = await readBalance(chain, transaction.safe.chainId, pair);
         if (before === null) {
           return unavailableItem(
             pair,
