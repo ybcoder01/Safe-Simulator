@@ -8,7 +8,12 @@ import {
   getSafeDataPort,
   getSimulationPort,
 } from "@/container";
+import { decodedAddressFields } from "@/lib/api/decoded-addresses";
 import { resolveEvidenceVerdict } from "@/lib/api/evidence-verdict";
+import {
+  collectXdcContractReferences,
+  resolveXdcContractVerification,
+} from "@/lib/api/xdcscan-verification";
 import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
 import {
   safeRouteParamsSchema,
@@ -89,6 +94,49 @@ export async function GET(request: NextRequest, context: RouteContext) {
     ),
     resolveTokenBalanceChanges(chain, transaction, analysis.execution),
   ]);
+  const decoded = analysis.contract.decoded;
+  const nestedCalls =
+    decoded?.parameters.flatMap((parameter) => parameter.nestedCalls) ?? [];
+  const decodedAddresses =
+    decoded?.parameters.flatMap((parameter) =>
+      decodedAddressFields(transaction.safe.chainId, parameter).map(
+        (field) => field.address,
+      ),
+    ) ?? [];
+  const contractVerification = await resolveXdcContractVerification(
+    cache,
+    transaction.safe.chainId,
+    collectXdcContractReferences({
+      transactionTarget: transaction.to,
+      decodedAddresses,
+      nestedTargets: nestedCalls.map((call) => call.to),
+      traceTargets: [
+        analysis.execution.rootCall?.to,
+        ...analysis.execution.internalCalls.flatMap((call) => [
+          call.from,
+          call.to,
+        ]),
+      ],
+      logEmitters: analysis.execution.logs.map((log) => log.address),
+      storageContracts: analysis.execution.storageChanges.map(
+        (change) => change.address,
+      ),
+      tokenContracts: analysis.execution.tokenMovements.map(
+        (movement) => movement.token,
+      ),
+      approvalContracts: [
+        ...analysis.approvalRisk.requests.flatMap((approval) => [
+          approval.target,
+          approval.token,
+          approval.spender,
+        ]),
+        ...analysis.execution.allowanceChanges.flatMap((approval) => [
+          approval.token,
+          approval.spender,
+        ]),
+      ],
+    }),
+  );
   const verdict = resolveEvidenceVerdict(
     transaction,
     analysis.contract,
@@ -110,6 +158,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       approvalRisk: analysis.approvalRisk,
       tokenMetadata,
       balanceChanges,
+      contractVerification,
       storageAnalysis: analysis.storageAnalysis,
       verdict,
     },

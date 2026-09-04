@@ -20,6 +20,10 @@ import { resolveApprovalRisk } from "@/lib/api/approval-risk";
 import { resolveContractInsight } from "@/lib/api/contract-insight";
 import { decodedAddressFields } from "@/lib/api/decoded-addresses";
 import { resolveEvidenceVerdict } from "@/lib/api/evidence-verdict";
+import {
+  collectXdcContractReferences,
+  resolveXdcContractVerification,
+} from "@/lib/api/xdcscan-verification";
 import { resolveExecutionInsight } from "@/lib/api/execution-insight";
 import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
 import { resolveStorageChangeAnalysis } from "@/lib/api/storage-changes";
@@ -84,6 +88,15 @@ export default async function TransactionDetailPage({ params }: PageProps) {
         : Promise.resolve([]),
       safeData.getMultisigTransaction(safe.data, hash.data).catch(() => null),
     ]);
+  const decoded = insight.decoded;
+  const nestedCalls =
+    decoded?.parameters.flatMap((parameter) => parameter.nestedCalls) ?? [];
+  const decodedAddresses =
+    decoded?.parameters.flatMap((parameter) =>
+      decodedAddressFields(safe.data.chainId, parameter).map(
+        (field) => field.address,
+      ),
+    ) ?? [];
   const [approvalRisk, tokenMetadata, storageAnalysis, balanceChanges] =
     await Promise.all([
       resolveApprovalRisk(chain, persisted, insight, execution),
@@ -96,6 +109,37 @@ export default async function TransactionDetailPage({ params }: PageProps) {
       resolveStorageChangeAnalysis(abi, persisted.safe.chainId, execution),
       resolveTokenBalanceChanges(chain, persisted, execution),
     ]);
+  const contractVerification = await resolveXdcContractVerification(
+    cache,
+    safe.data.chainId,
+    collectXdcContractReferences({
+      transactionTarget: persisted.to,
+      decodedAddresses,
+      nestedTargets: nestedCalls.map((call) => call.to),
+      traceTargets: [
+        execution.rootCall?.to,
+        ...execution.internalCalls.flatMap((call) => [call.from, call.to]),
+      ],
+      logEmitters: execution.logs.map((log) => log.address),
+      storageContracts: execution.storageChanges.map(
+        (change) => change.address,
+      ),
+      tokenContracts: execution.tokenMovements.map(
+        (movement) => movement.token,
+      ),
+      approvalContracts: [
+        ...approvalRisk.requests.flatMap((approval) => [
+          approval.target,
+          approval.token,
+          approval.spender,
+        ]),
+        ...execution.allowanceChanges.flatMap((approval) => [
+          approval.token,
+          approval.spender,
+        ]),
+      ],
+    }),
+  );
   const verdict = resolveEvidenceVerdict(
     persisted,
     insight,
@@ -110,9 +154,6 @@ export default async function TransactionDetailPage({ params }: PageProps) {
       metadata,
     ]),
   );
-  const decoded = insight.decoded;
-  const nestedCalls =
-    decoded?.parameters.flatMap((parameter) => parameter.nestedCalls) ?? [];
   const safePath = `/safe/${safe.data.chainId}/${safe.data.address}`;
   const executedExplorerUrl = transaction.executedTxHash
     ? explorerTransactionUrl(safe.data.chainId, transaction.executedTxHash)
@@ -218,6 +259,84 @@ export default async function TransactionDetailPage({ params }: PageProps) {
               roles: assessment.roles,
             }))}
           />
+        ) : null}
+
+        {safe.data.chainId === 50 ? (
+          <section className="detail-panel">
+            <div className="panel-heading">
+              <div>
+                <p className="eyebrow">XDCScan source evidence</p>
+                <h2>Referenced contract verification</h2>
+              </div>
+              <span>
+                {
+                  contractVerification.items.filter(
+                    (item) => item.status === "verified",
+                  ).length
+                }{" "}
+                verified · {contractVerification.items.length} checked
+              </span>
+            </div>
+            {contractVerification.items.length === 0 ? (
+              <div className="panel-empty">
+                No valid contract references were available for an XDCScan
+                source lookup.
+              </div>
+            ) : (
+              <div className="verification-list">
+                {contractVerification.items.map((item) => (
+                  <div
+                    className={
+                      "calldata verification-card verification-" + item.status
+                    }
+                    key={"xdcscan-verification-" + item.address}
+                  >
+                    <span>
+                      {item.status === "verified"
+                        ? "Verified source"
+                        : item.status === "unverified"
+                          ? "No verified source"
+                          : "Lookup unavailable"}
+                      {item.isProxy === true
+                        ? " · proxy"
+                        : item.isProxy === false
+                          ? " · contract"
+                          : ""}
+                    </span>
+                    <AddressIdentity
+                      address={item.address}
+                      addressBook={addressBook}
+                      chainId={safe.data.chainId}
+                    />
+                    {item.contractName || item.compilerVersion ? (
+                      <code>
+                        {item.contractName ?? "Unnamed contract"}
+                        {item.compilerVersion
+                          ? " · " + item.compilerVersion
+                          : ""}
+                      </code>
+                    ) : null}
+                    {item.implementation ? (
+                      <div className="approval-party">
+                        <span>Proxy implementation reference</span>
+                        <AddressIdentity
+                          address={item.implementation}
+                          addressBook={addressBook}
+                          chainId={safe.data.chainId}
+                        />
+                      </div>
+                    ) : null}
+                    {item.warning ? <code>{item.warning}</code> : null}
+                  </div>
+                ))}
+              </div>
+            )}
+            {contractVerification.warnings.map((warning) => (
+              <div className="panel-empty" key={warning}>
+                {warning}
+              </div>
+            ))}
+          </section>
         ) : null}
 
         <section className="detail-grid">

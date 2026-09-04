@@ -2657,6 +2657,38 @@ select {
   }
 }
 
+/* XDCScan source verification */
+.verification-list {
+  display: grid;
+  gap: 10px;
+}
+
+.verification-card {
+  border-left-width: 3px;
+}
+
+.verification-verified {
+  border-color: rgba(101, 242, 172, 0.38);
+}
+
+.verification-unverified {
+  border-color: rgba(246, 200, 111, 0.46);
+  background: rgba(246, 200, 111, 0.025);
+}
+
+.verification-unavailable {
+  border-color: rgba(255, 173, 159, 0.4);
+}
+
+.verification-card > .address-identity {
+  justify-content: space-between;
+  width: 100%;
+}
+
+.verification-card .approval-party {
+  margin-top: 2px;
+}
+
 /* Approval safety review */
 .approval-review-card {
   position: relative;
