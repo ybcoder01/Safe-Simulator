@@ -6,6 +6,7 @@ export const CANONICAL_PERMIT2_ADDRESS =
 const ERC20_APPROVE_SELECTOR = "0x095ea7b3";
 const ERC20_INCREASE_ALLOWANCE_SELECTOR = "0x39509351";
 const ERC20_DECREASE_ALLOWANCE_SELECTOR = "0xa457c2d7";
+const OPERATOR_APPROVAL_SELECTOR = "0xa22cb465";
 const PERMIT2_APPROVE_SELECTOR = "0x87517c45";
 const PERMIT2_PERMIT_SINGLE_SELECTOR = "0x2b67b570";
 const PERMIT2_PERMIT_BATCH_SELECTOR = "0x2a2d80d1";
@@ -22,6 +23,7 @@ const HEX_PATTERN = /^0x[0-9a-fA-F]*$/;
 
 export type ApprovalStandard =
   | "erc20"
+  | "operator-all"
   | "permit2-allowance"
   | "permit2-signature-transfer";
 export type ApprovalAmountMode = "absolute" | "increase" | "decrease";
@@ -264,6 +266,33 @@ function decodeRaw(
     ];
   }
 
+  if (callSelector === OPERATOR_APPROVAL_SELECTOR) {
+    const operator = wordAddress(data, 0, 4);
+    const enabledValue = wordUint(data, 1, 4);
+    if (!operator || (enabledValue !== 0n && enabledValue !== 1n)) {
+      return [];
+    }
+    const enabled = enabledValue === 1n;
+    return [
+      request({
+        standard: "operator-all",
+        source,
+        method: "setApprovalForAll",
+        depth,
+        target,
+        token: target,
+        owner,
+        spender: operator,
+        amount: enabled ? MAX_UINT256 : 0n,
+        infinite: enabled,
+        expiration: null,
+        warning: enabled
+          ? "This grants the operator control over every compatible token owned now or later."
+          : null,
+      }),
+    ];
+  }
+
   if (!isPermit2(target)) return [];
 
   if (callSelector === PERMIT2_APPROVE_SELECTOR) {
@@ -479,6 +508,36 @@ function decodedFallback(
     } catch {
       return [];
     }
+  }
+
+  if (method === "setapprovalforall") {
+    const operator = normalizedAddress(parameter(call, ["operator"], 0));
+    const enabledValue = parameter(call, ["approved", "enabled"], 1);
+    const enabled =
+      enabledValue === "true" || enabledValue === "1"
+        ? true
+        : enabledValue === "false" || enabledValue === "0"
+          ? false
+          : null;
+    if (!operator || enabled === null) return [];
+    return [
+      request({
+        standard: "operator-all",
+        source,
+        method: "setApprovalForAll",
+        depth,
+        target,
+        token: target,
+        owner: null,
+        spender: operator,
+        amount: enabled ? MAX_UINT256 : 0n,
+        infinite: enabled,
+        expiration: null,
+        warning: enabled
+          ? "This grants the operator control over every compatible token owned now or later. The approval owner cannot be established from this decoded call alone."
+          : "The approval owner cannot be established from this decoded call alone.",
+      }),
+    ];
   }
 
   if (isPermit2(target) && method === "permit") {

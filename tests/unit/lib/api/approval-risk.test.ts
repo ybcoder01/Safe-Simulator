@@ -35,6 +35,10 @@ function adjustmentData(
   return (selector + word(spender) + word(amount)) as Hex;
 }
 
+function operatorApprovalData(enabled: boolean): Hex {
+  return ("0xa22cb465" + word(spender) + word(enabled ? 1n : 0n)) as Hex;
+}
+
 function transaction(
   status: SafeTransaction["status"],
   to: Address = token,
@@ -259,6 +263,34 @@ describe("resolveApprovalRisk", () => {
       resultingAmount: "0",
       newSpenderAtAnchor: false,
     });
+  });
+
+  it("checks prior full-operator access through isApprovedForAll", async () => {
+    const chain = {
+      call: vi.fn().mockResolvedValue(("0x" + word(0n)) as Hex),
+    };
+
+    const result = await resolveApprovalRisk(
+      chain,
+      transaction("pending", token, operatorApprovalData(true)),
+      contract,
+      execution(),
+    );
+
+    expect(result.requests[0]).toMatchObject({
+      standard: "operator-all",
+      infinite: true,
+      priorAmount: "0",
+      newSpenderAtAnchor: true,
+    });
+    expect(chain.call).toHaveBeenCalledWith(
+      50,
+      expect.objectContaining({
+        to: token,
+        data: expect.stringMatching(/^0xe985e9c5/),
+      }),
+      undefined,
+    );
   });
 
   it("queries Permit2 allowance state through the canonical contract", async () => {

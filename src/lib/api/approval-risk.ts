@@ -11,6 +11,7 @@ import type { ExecutionInsight } from "@/lib/api/execution-insight";
 
 const ERC20_ALLOWANCE_SELECTOR = "0xdd62ed3e";
 const PERMIT2_ALLOWANCE_SELECTOR = "0x927da105";
+const OPERATOR_APPROVAL_STATE_SELECTOR = "0xe985e9c5";
 const WORD_PATTERN = /^0x[0-9a-fA-F]{64,}$/;
 const MAX_STATE_READS = 24;
 const MAX_UINT256 = (1n << 256n) - 1n;
@@ -58,7 +59,7 @@ export interface ApprovalRiskResult {
 }
 
 interface AllowanceLookup {
-  readonly standard: "erc20" | "permit2-allowance";
+  readonly standard: "erc20" | "operator-all" | "permit2-allowance";
   readonly token: Address;
   readonly owner: Address;
   readonly spender: Address;
@@ -76,7 +77,11 @@ function allowanceData(lookup: AllowanceLookup): Hex {
       paddedAddress(lookup.spender)) as Hex;
   }
 
-  return (ERC20_ALLOWANCE_SELECTOR +
+  const selector =
+    lookup.standard === "operator-all"
+      ? OPERATOR_APPROVAL_STATE_SELECTOR
+      : ERC20_ALLOWANCE_SELECTOR;
+  return (selector +
     paddedAddress(lookup.owner) +
     paddedAddress(lookup.spender)) as Hex;
 }
