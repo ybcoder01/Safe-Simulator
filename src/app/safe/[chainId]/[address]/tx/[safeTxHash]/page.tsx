@@ -545,19 +545,19 @@ export default async function TransactionDetailPage({ params }: PageProps) {
               request was recognized.
             </div>
           ) : (
-            approvalRisk.requests.map((approval, index) => (
-              <div
-                className="calldata"
-                key={`approval-request-${index}-${approval.target}`}
-              >
-                <span>
-                  requested · {approval.standard} · {approval.method}
-                  {approval.depth > 0
-                    ? ` · nested depth ${approval.depth}`
-                    : ""}
-                </span>
-                <strong>
-                  {approval.infinite === true
+            approvalRisk.requests.map((approval, index) => {
+              const severity =
+                approval.infinite === true || approval.spender === null
+                  ? "critical"
+                  : approval.newSpenderAtAnchor !== false
+                    ? "warning"
+                    : "bounded";
+              const headline =
+                approval.standard === "operator-all"
+                  ? approval.infinite
+                    ? "Full token operator access requested"
+                    : "Full token operator access revoked"
+                  : approval.infinite === true
                     ? "Infinite resulting allowance requested"
                     : approval.amount !== null &&
                         approval.amountMode === "increase"
@@ -567,37 +567,70 @@ export default async function TransactionDetailPage({ params }: PageProps) {
                         ? `Decrease allowance by ${approval.amount} base units`
                         : approval.amount !== null
                           ? `${approval.amount} base units requested`
-                          : "Authorization request detected"}
-                </strong>
-                <code>
-                  Token: {approval.token ?? "Unavailable"} · spender:{" "}
-                  {approval.spender ?? "Caller-dependent or unavailable"}
-                </code>
-                <code>
-                  Owner: {approval.owner ?? "Unavailable"} · target:{" "}
-                  {approval.target}
-                </code>
-                <code>
-                  Prior allowance: {approval.priorAmount ?? "Unavailable"} · new
-                  at comparison anchor:{" "}
-                  {approval.newSpenderAtAnchor === null
-                    ? "unknown"
-                    : approval.newSpenderAtAnchor
-                      ? "yes"
-                      : "no"}
-                </code>
-                {approval.amountMode !== "absolute" ? (
+                          : "Authorization request detected";
+
+              return (
+                <div
+                  className={`calldata approval-review-card approval-review-${severity}`}
+                  key={`approval-request-${index}-${approval.target}`}
+                >
+                  <div className="approval-review-heading">
+                    <span>
+                      requested · {approval.standard} · {approval.method}
+                      {approval.depth > 0
+                        ? ` · nested depth ${approval.depth}`
+                        : ""}
+                    </span>
+                    <strong>{headline}</strong>
+                    <em>{severity}</em>
+                  </div>
+                  {approval.token ? (
+                    <TokenIdentity
+                      chainId={safe.data.chainId}
+                      token={approval.token}
+                    />
+                  ) : (
+                    <code>Token contract unavailable</code>
+                  )}
+                  <div className="approval-party">
+                    <span>Spender or operator</span>
+                    {approval.spender ? (
+                      <AddressIdentity
+                        address={approval.spender}
+                        addressBook={addressBook}
+                        chainId={safe.data.chainId}
+                      />
+                    ) : (
+                      <strong>Cannot be established from this call</strong>
+                    )}
+                  </div>
                   <code>
-                    Projected resulting allowance:{" "}
-                    {approval.resultingAmount ?? "Unavailable"}
+                    Owner: {approval.owner ?? "Unavailable"} · target:{" "}
+                    {approval.target}
                   </code>
-                ) : null}
-                {approval.expiration !== null ? (
-                  <code>Expiration: {approval.expiration}</code>
-                ) : null}
-                {approval.warning ? <code>{approval.warning}</code> : null}
-              </div>
-            ))
+                  <code>
+                    Prior authorization:{" "}
+                    {approval.priorAmount ?? "Unavailable"} · new spender at
+                    comparison anchor:{" "}
+                    {approval.newSpenderAtAnchor === null
+                      ? "unknown"
+                      : approval.newSpenderAtAnchor
+                        ? "yes"
+                        : "no"}
+                  </code>
+                  {approval.amountMode !== "absolute" ? (
+                    <code>
+                      Projected resulting allowance:{" "}
+                      {approval.resultingAmount ?? "Unavailable"}
+                    </code>
+                  ) : null}
+                  {approval.expiration !== null ? (
+                    <code>Expiration: {approval.expiration}</code>
+                  ) : null}
+                  {approval.warning ? <code>{approval.warning}</code> : null}
+                </div>
+              );
+            })
           )}
 
           <div className="calldata">
@@ -634,9 +667,15 @@ export default async function TransactionDetailPage({ params }: PageProps) {
                       : "bounded allowance"}{" "}
                     · {metadata?.status ?? "unavailable"} metadata
                   </span>
-                  <strong>
-                    {allowance.owner} → {allowance.spender}
-                  </strong>
+                  <div className="approval-party">
+                    <span>Receipt-proven spender</span>
+                    <AddressIdentity
+                      address={allowance.spender}
+                      addressBook={addressBook}
+                      chainId={safe.data.chainId}
+                    />
+                  </div>
+                  <code>Owner: {allowance.owner}</code>
                   <TokenIdentity
                     amount={formatted}
                     chainId={safe.data.chainId}
