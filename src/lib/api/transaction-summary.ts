@@ -58,7 +58,10 @@ const summaryAmountFactSchema = z.object({
   baseUnits: z.string().regex(/^[0-9]+$/),
   decimals: z.number().int().min(0).max(36).nullable(),
   symbol: z.string().min(1).max(32).nullable(),
-  displayAmount: z.string().regex(/^[0-9]+(?:\.[0-9]+)?$/).nullable(),
+  displayAmount: z
+    .string()
+    .regex(/^[0-9]+(?:\.[0-9]+)?$/)
+    .nullable(),
   displayLabel: z.string().min(1).max(160),
 });
 
@@ -390,10 +393,7 @@ function hasDeterministicAmountLanguage(
   }
 
   for (const fact of parsed.data) {
-    if (
-      fact.displayAmount === null ||
-      fact.displayAmount === fact.baseUnits
-    ) {
+    if (fact.displayAmount === null || fact.displayAmount === fact.baseUnits) {
       continue;
     }
     for (const raw of new Set([
@@ -407,7 +407,6 @@ function hasDeterministicAmountLanguage(
   }
   return true;
 }
-
 
 export async function requestTransactionSummary(
   evidence: Readonly<Record<string, unknown>>,
