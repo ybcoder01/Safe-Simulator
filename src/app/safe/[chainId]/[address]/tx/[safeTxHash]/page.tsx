@@ -23,6 +23,7 @@ import { resolveEvidenceVerdict } from "@/lib/api/evidence-verdict";
 import { resolveExecutionInsight } from "@/lib/api/execution-insight";
 import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
 import { resolveStorageChangeAnalysis } from "@/lib/api/storage-changes";
+import { resolveTokenBalanceChanges } from "@/lib/api/token-balance-changes";
 import { resolveExecutionTokenMetadata } from "@/lib/api/token-metadata";
 import { explorerTransactionUrl } from "@/lib/explorer-links";
 import {
@@ -83,7 +84,8 @@ export default async function TransactionDetailPage({ params }: PageProps) {
         : Promise.resolve([]),
       safeData.getMultisigTransaction(safe.data, hash.data).catch(() => null),
     ]);
-  const [approvalRisk, tokenMetadata, storageAnalysis] = await Promise.all([
+  const [approvalRisk, tokenMetadata, storageAnalysis, balanceChanges] =
+    await Promise.all([
     resolveApprovalRisk(chain, persisted, insight, execution),
     resolveExecutionTokenMetadata(
       chain,
@@ -91,8 +93,9 @@ export default async function TransactionDetailPage({ params }: PageProps) {
       persisted.safe.chainId,
       execution,
     ),
-    resolveStorageChangeAnalysis(abi, persisted.safe.chainId, execution),
-  ]);
+      resolveStorageChangeAnalysis(abi, persisted.safe.chainId, execution),
+      resolveTokenBalanceChanges(chain, persisted, execution),
+    ]);
   const verdict = resolveEvidenceVerdict(
     persisted,
     insight,
@@ -518,6 +521,100 @@ export default async function TransactionDetailPage({ params }: PageProps) {
             Derived from canonical event shape. The emitting contract is not
             independently proven to implement ERC-20.
           </div>
+        </section>
+
+        <section className="detail-panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Token state changes</p>
+              <h2>Before and after balances</h2>
+            </div>
+            <span>
+              {balanceChanges.anchor.type === "exact-blocks"
+                ? `Blocks ${balanceChanges.anchor.beforeBlock} → ${balanceChanges.anchor.afterBlock}`
+                : balanceChanges.anchor.type === "latest-state-projection"
+                  ? "Pending projection"
+                  : "Unavailable"}
+            </span>
+          </div>
+          {balanceChanges.items.length === 0 ? (
+            <div className="panel-empty">
+              No token-account pairs were identified from Transfer-shaped event
+              evidence.
+            </div>
+          ) : (
+            balanceChanges.items.map((change, index) => {
+              const metadata = tokenMetadataByAddress.get(
+                change.token.toLowerCase(),
+              );
+              const before = formatTokenAmount(
+                change.before,
+                metadata?.decimals ?? null,
+              );
+              const after = formatTokenAmount(
+                change.after,
+                metadata?.decimals ?? null,
+              );
+              const delta = formatTokenAmount(
+                change.delta,
+                metadata?.decimals ?? null,
+              );
+
+              return (
+                <div
+                  className={`calldata balance-change balance-change-${change.status}`}
+                  key={`balance-change-${index}-${change.token}-${change.account}`}
+                >
+                  <span>
+                    {change.status.replaceAll("-", " ")}
+                    {change.consistentWithEvents === true
+                      ? " · matches Transfer events"
+                      : change.consistentWithEvents === false
+                        ? " · differs from Transfer events"
+                        : ""}
+                  </span>
+                  <TokenIdentity
+                    chainId={safe.data.chainId}
+                    symbol={metadata?.symbol}
+                    token={change.token}
+                  />
+                  <div className="approval-party">
+                    <span>Affected account</span>
+                    <AddressIdentity
+                      address={change.account}
+                      addressBook={addressBook}
+                      chainId={safe.data.chainId}
+                    />
+                  </div>
+                  <dl className="balance-change-values">
+                    <div>
+                      <dt>Before</dt>
+                      <dd>{before}</dd>
+                    </div>
+                    <div>
+                      <dt>After</dt>
+                      <dd>{after}</dd>
+                    </div>
+                    <div>
+                      <dt>Net change</dt>
+                      <dd>{delta}</dd>
+                    </div>
+                  </dl>
+                  <code>
+                    Raw: {change.before ?? "unavailable"} →{" "}
+                    {change.after ?? "unavailable"} · event delta{" "}
+                    {change.eventDelta}
+                  </code>
+                  {change.warning ? <code>{change.warning}</code> : null}
+                </div>
+              );
+            })
+          )}
+          {balanceChanges.warnings.map((warning) => (
+            <div className="panel-empty" key={warning}>
+              {warning}
+            </div>
+          ))}
         </section>
 
         <section className="detail-panel">
