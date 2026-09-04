@@ -42,6 +42,7 @@ describe("transaction summary privacy and provider boundary", () => {
         const body = JSON.parse(String(init?.body)) as {
           provider: Record<string, unknown>;
           response_format: { type: string; json_schema: { strict: boolean } };
+          temperature?: unknown;
         };
 
         expect(body.provider).toEqual({
@@ -51,6 +52,7 @@ describe("transaction summary privacy and provider boundary", () => {
         });
         expect(body.response_format.type).toBe("json_schema");
         expect(body.response_format.json_schema.strict).toBe(true);
+        expect(body).not.toHaveProperty("temperature");
         expect(init?.signal).toBeInstanceOf(AbortSignal);
 
         return new Response(

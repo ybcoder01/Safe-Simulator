@@ -282,7 +282,6 @@ export async function requestTransactionSummary(
           zdr: true,
           require_parameters: true,
         },
-        temperature: 0,
         max_tokens: 900,
       }),
       signal: AbortSignal.timeout(20_000),
