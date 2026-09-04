@@ -58,7 +58,7 @@ const summaryAmountFactSchema = z.object({
   baseUnits: z.string().regex(/^[0-9]+$/),
   decimals: z.number().int().min(0).max(36).nullable(),
   symbol: z.string().min(1).max(32).nullable(),
-  displayAmount: z.string().regex(/^[0-9]+(?:\\.[0-9]+)?$/).nullable(),
+  displayAmount: z.string().regex(/^[0-9]+(?:\.[0-9]+)?$/).nullable(),
   displayLabel: z.string().min(1).max(160),
 });
 
@@ -326,15 +326,11 @@ type FetchLike = (
 ) => Promise<Response>;
 
 function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^\${}()|[\\]\\]/g, "\\type FetchLike = (
-  input: string | URL | Request,
-  init?: RequestInit,
-) => Promise<Response>;
-");
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function groupedInteger(value: string): string {
-  return value.replace(/\\B(?=(\\d{3})+(?!\\d))/g, ",");
+  return value.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
 function summaryText(summary: TransactionSummaryContent): string {
