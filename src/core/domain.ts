@@ -253,6 +253,44 @@ export interface AnalysisResult {
   readonly immutable: boolean;
 }
 
+export type TransactionSummaryStatus = "pending" | "complete" | "failed";
+export type TransactionSummaryStance =
+  | "avoid"
+  | "manual-review"
+  | "appears-consistent";
+
+export interface TransactionSummaryContent {
+  readonly headline: string;
+  readonly plainLanguage: string;
+  readonly stance: TransactionSummaryStance;
+  readonly keyActions: readonly string[];
+  readonly risks: readonly string[];
+  readonly checksBeforeSigning: readonly string[];
+  readonly limitations: readonly string[];
+}
+
+export interface TransactionSummaryUsage {
+  readonly promptTokens: number | null;
+  readonly completionTokens: number | null;
+  readonly totalTokens: number | null;
+}
+
+export interface TransactionSummaryRecord {
+  readonly id: string;
+  readonly safe: SafeRef;
+  readonly safeTxHash: Hex;
+  readonly evidenceFingerprint: string;
+  readonly evidence: Readonly<Record<string, unknown>>;
+  readonly promptVersion: string;
+  readonly model: string;
+  readonly status: TransactionSummaryStatus;
+  readonly summary: TransactionSummaryContent | null;
+  readonly usage: TransactionSummaryUsage | null;
+  readonly failureCode: string | null;
+  readonly createdAt: UnixTime;
+  readonly completedAt: UnixTime | null;
+}
+
 export interface ExecutionEvidenceRecord {
   readonly safe: SafeRef;
   readonly safeTxHash: Hex;

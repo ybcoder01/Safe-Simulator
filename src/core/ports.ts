@@ -22,6 +22,7 @@ import type {
   SyncCursor,
   TokenBalance,
   TransferRecord,
+  TransactionSummaryRecord,
 } from "./domain";
 
 export interface SafeDataPort {
@@ -194,6 +195,14 @@ export interface PersistencePort {
     safeTxHashes: readonly Hex[],
     engineVersion: string,
   ): Promise<readonly AnalysisResult[]>;
+  saveTransactionSummary(record: TransactionSummaryRecord): Promise<void>;
+  findTransactionSummary(
+    safe: SafeRef,
+    safeTxHash: Hex,
+    evidenceFingerprint: string,
+    promptVersion: string,
+    model: string,
+  ): Promise<TransactionSummaryRecord | null>;
   getAnalysisCoverage(
     safe: SafeRef,
     engineVersion: string,

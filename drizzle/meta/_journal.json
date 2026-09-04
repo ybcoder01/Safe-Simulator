@@ -36,6 +36,13 @@
       "when": 1788345600000,
       "tag": "0004_native_transfer_deduplication",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788512400000,
+      "tag": "0005_transaction_summaries",
+      "breakpoints": true
     }
   ]
 }
