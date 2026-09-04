@@ -55,7 +55,10 @@ function error(
   code: string,
   headers?: HeadersInit,
 ) {
-  return NextResponse.json({ error: { code, message } }, { status, headers });
+  return NextResponse.json(
+    { error: { code, message } },
+    headers ? { status, headers } : { status },
+  );
 }
 
 function sameOrigin(request: NextRequest): boolean {

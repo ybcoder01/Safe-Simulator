@@ -98,8 +98,8 @@ describe("transaction summary privacy and provider boundary", () => {
         {},
         { apiKey: "test-key", model: "openai/gpt-5.4-mini", fetcher },
       ),
-    ).rejects.toMatchObject<TransactionSummaryProviderError>({
+    ).rejects.toMatchObject({
       code: "invalid_response",
-    });
+    } satisfies Partial<TransactionSummaryProviderError>);
   });
 });
