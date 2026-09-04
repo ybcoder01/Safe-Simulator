@@ -80,6 +80,26 @@ describe("transaction summary privacy and provider boundary", () => {
     );
   });
 
+  it("keeps provider rejection diagnostics bounded to the HTTP status", async () => {
+    const fetcher = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ error: { message: "untrusted detail" } }), {
+          status: 404,
+        }),
+    );
+
+    await expect(
+      requestTransactionSummary(
+        {},
+        { apiKey: "test-key", model: "openai/gpt-5.4-mini", fetcher },
+      ),
+    ).rejects.toMatchObject({
+      code: "provider_rejected",
+      message: "The summary provider returned HTTP 404.",
+      providerStatus: 404,
+    } satisfies Partial<TransactionSummaryProviderError>);
+  });
+
   it("rejects provider content outside the required schema", async () => {
     const fetcher = vi.fn(
       async () =>
