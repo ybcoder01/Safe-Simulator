@@ -316,6 +316,36 @@ describe("evaluateEvidenceVerdict", () => {
     );
   });
 
+  it("keeps full operator access critical even for a known operator", () => {
+    const result = evaluateEvidenceVerdict(
+      input({
+        approvalRequests: [
+          {
+            standard: "operator-all",
+            token,
+            spender,
+            amount: ((1n << 256n) - 1n).toString(),
+            infinite: true,
+            newSpenderAtAnchor: true,
+          },
+        ],
+        addressBook: [
+          { address: token, label: "Collection", trust: "trusted" },
+          { address: spender, label: "Known operator", trust: "trusted" },
+        ],
+      }),
+    );
+
+    expect(result.verdict).toBe("flagged");
+    expect(result.findings).toContainEqual(
+      expect.objectContaining({
+        code: "requested-operator-all",
+        severity: "critical",
+        addresses: [token, spender],
+      }),
+    );
+  });
+
   it("flags delegate calls even when target source is verified", () => {
     const result = evaluateEvidenceVerdict(
       input({ operation: "delegatecall" }),
