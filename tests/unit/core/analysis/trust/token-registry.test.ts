@@ -79,8 +79,9 @@ describe("token identity registry", () => {
     expect(
       entries.every(
         (entry) =>
-          /^https:\/\/(?:github\.com|docs\.fathom\.fi)\//.test(entry.reference) &&
-          /^\d{4}-\d{2}-\d{2}$/.test(entry.reviewedAt),
+          /^https:\/\/(?:github\.com|docs\.fathom\.fi)\//.test(
+            entry.reference,
+          ) && /^\d{4}-\d{2}-\d{2}$/.test(entry.reviewedAt),
       ),
     ).toBe(true);
   });
