@@ -557,17 +557,11 @@ export default async function TransactionDetailPage({ params }: PageProps) {
               const after =
                 change.after === null
                   ? "Unavailable"
-                  : formatTokenAmount(
-                      change.after,
-                      metadata?.decimals ?? null,
-                    );
+                  : formatTokenAmount(change.after, metadata?.decimals ?? null);
               const delta =
                 change.delta === null
                   ? "Unavailable"
-                  : formatTokenAmount(
-                      change.delta,
-                      metadata?.decimals ?? null,
-                    );
+                  : formatTokenAmount(change.delta, metadata?.decimals ?? null);
 
               return (
                 <div
