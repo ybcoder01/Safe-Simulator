@@ -32,7 +32,9 @@ const approvalAmountEvidence = {
   ],
 } as const;
 
-function providerResponse(summary: Readonly<Record<string, unknown>>): Response {
+function providerResponse(
+  summary: Readonly<Record<string, unknown>>,
+): Response {
   return new Response(
     JSON.stringify({
       choices: [{ message: { content: JSON.stringify(summary) } }],
@@ -200,8 +202,7 @@ describe("transaction summary privacy and provider boundary", () => {
   it("accepts the exact normalized token label with raw-unit evidence", async () => {
     const summary = {
       ...validSummary,
-      plainLanguage:
-        "Approves 1 USDC (1000000 base units) for the spender.",
+      plainLanguage: "Approves 1 USDC (1000000 base units) for the spender.",
     };
     const fetcher = vi.fn(async () => providerResponse(summary));
 
@@ -213,5 +214,4 @@ describe("transaction summary privacy and provider boundary", () => {
       }),
     ).resolves.toMatchObject({ summary });
   });
-
 });
