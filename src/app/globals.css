@@ -2588,6 +2588,75 @@ select {
   }
 }
 
+/* Token balance evidence */
+.balance-change {
+  border-left-width: 3px;
+}
+
+.balance-change-exact-blocks {
+  border-color: rgba(101, 242, 172, 0.32);
+}
+
+.balance-change-projected-events {
+  border-color: rgba(246, 200, 111, 0.42);
+  background: rgba(246, 200, 111, 0.025);
+}
+
+.balance-change-unavailable {
+  border-color: rgba(255, 173, 159, 0.4);
+}
+
+.balance-change-values {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid rgba(200, 230, 215, 0.1);
+  border-radius: 8px;
+}
+
+.balance-change-values > div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 10px 12px;
+  border-right: 1px solid rgba(200, 230, 215, 0.1);
+}
+
+.balance-change-values > div:last-child {
+  border-right: 0;
+}
+
+.balance-change-values dt {
+  color: var(--faint);
+  font-size: 8px;
+  text-transform: uppercase;
+}
+
+.balance-change-values dd {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text);
+  font-family: var(--font-geist-mono);
+  font-size: 10px;
+}
+
+@media (max-width: 560px) {
+  .balance-change-values {
+    grid-template-columns: 1fr;
+  }
+
+  .balance-change-values > div {
+    border-right: 0;
+    border-bottom: 1px solid rgba(200, 230, 215, 0.1);
+  }
+
+  .balance-change-values > div:last-child {
+    border-bottom: 0;
+  }
+}
+
 /* Approval safety review */
 .approval-review-card {
   position: relative;

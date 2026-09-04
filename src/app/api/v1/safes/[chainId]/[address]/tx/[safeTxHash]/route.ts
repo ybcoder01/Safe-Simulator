@@ -15,6 +15,7 @@ import {
   safeTransactionHashSchema,
   toTransactionView,
 } from "@/lib/api/safe-details";
+import { resolveTokenBalanceChanges } from "@/lib/api/token-balance-changes";
 import { resolveExecutionTokenMetadata } from "@/lib/api/token-metadata";
 import { resolveNeutralTransactionAnalysis } from "@/lib/api/transaction-analysis";
 
@@ -79,12 +80,15 @@ export async function GET(request: NextRequest, context: RouteContext) {
       ? persistence.listAddressBookEntries(profileId, safe.data)
       : Promise.resolve([]),
   ]);
-  const tokenMetadata = await resolveExecutionTokenMetadata(
-    chain,
-    cache,
-    transaction.safe.chainId,
-    analysis.execution,
-  );
+  const [tokenMetadata, balanceChanges] = await Promise.all([
+    resolveExecutionTokenMetadata(
+      chain,
+      cache,
+      transaction.safe.chainId,
+      analysis.execution,
+    ),
+    resolveTokenBalanceChanges(chain, transaction, analysis.execution),
+  ]);
   const verdict = resolveEvidenceVerdict(
     transaction,
     analysis.contract,
@@ -105,6 +109,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       execution: analysis.execution,
       approvalRisk: analysis.approvalRisk,
       tokenMetadata,
+      balanceChanges,
       storageAnalysis: analysis.storageAnalysis,
       verdict,
     },
