@@ -2588,6 +2588,85 @@ select {
   }
 }
 
+/* Approval safety review */
+.approval-review-card {
+  position: relative;
+  border-left-width: 3px;
+}
+
+.approval-review-critical {
+  border-color: rgba(255, 173, 159, 0.46);
+  background: rgba(255, 108, 88, 0.045);
+}
+
+.approval-review-warning {
+  border-color: rgba(246, 200, 111, 0.42);
+  background: rgba(246, 200, 111, 0.035);
+}
+
+.approval-review-bounded {
+  border-color: rgba(101, 242, 172, 0.32);
+}
+
+.approval-review-heading {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 5px 16px;
+  align-items: center;
+}
+
+.approval-review-heading > span {
+  grid-column: 1 / -1;
+}
+
+.approval-review-heading > strong {
+  font-size: 13px;
+}
+
+.approval-review-heading > em {
+  padding: 3px 7px;
+  border: 1px solid currentColor;
+  border-radius: 99px;
+  color: var(--amber);
+  font-family: var(--font-geist-mono);
+  font-size: 8px;
+  font-style: normal;
+  text-transform: uppercase;
+}
+
+.approval-review-critical .approval-review-heading > em {
+  color: #ffad9f;
+}
+
+.approval-review-bounded .approval-review-heading > em {
+  color: var(--green);
+}
+
+.approval-party {
+  display: grid;
+  gap: 7px;
+  padding: 11px 12px;
+  border: 1px solid rgba(200, 230, 215, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.approval-party > span {
+  color: var(--faint);
+  font-size: 8px;
+  text-transform: uppercase;
+}
+
+@media (max-width: 560px) {
+  .approval-review-heading {
+    grid-template-columns: 1fr;
+  }
+
+  .approval-review-heading > em {
+    justify-self: start;
+  }
+}
+
 /* Raw and decoded transaction evidence */
 .raw-transaction-fields {
   grid-template-columns: 1fr;
