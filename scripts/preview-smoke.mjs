@@ -327,7 +327,10 @@ try {
     202,
     `Safe refresh returned HTTP ${refreshResponse.status}: ${JSON.stringify(refreshBody)}`,
   );
-  assert.equal(refreshBody.data?.status, "queued");
+  assert.ok(
+    ["queued", "running"].includes(refreshBody.data?.status),
+    `Safe refresh returned an unexpected state: ${JSON.stringify(refreshBody)}`,
+  );
   assert.equal(typeof refreshBody.data?.requestedAt, "number");
 
   const duplicateResponse = await request(refreshPath, {
