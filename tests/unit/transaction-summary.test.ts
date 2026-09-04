@@ -83,9 +83,10 @@ describe("transaction summary privacy and provider boundary", () => {
   it("keeps provider rejection diagnostics bounded to the HTTP status", async () => {
     const fetcher = vi.fn(
       async () =>
-        new Response(JSON.stringify({ error: { message: "untrusted detail" } }), {
-          status: 404,
-        }),
+        new Response(
+          JSON.stringify({ error: { message: "untrusted detail" } }),
+          { status: 404 },
+        ),
     );
 
     await expect(
