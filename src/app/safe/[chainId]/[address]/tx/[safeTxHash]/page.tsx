@@ -86,13 +86,13 @@ export default async function TransactionDetailPage({ params }: PageProps) {
     ]);
   const [approvalRisk, tokenMetadata, storageAnalysis, balanceChanges] =
     await Promise.all([
-    resolveApprovalRisk(chain, persisted, insight, execution),
-    resolveExecutionTokenMetadata(
-      chain,
-      cache,
-      persisted.safe.chainId,
-      execution,
-    ),
+      resolveApprovalRisk(chain, persisted, insight, execution),
+      resolveExecutionTokenMetadata(
+        chain,
+        cache,
+        persisted.safe.chainId,
+        execution,
+      ),
       resolveStorageChangeAnalysis(abi, persisted.safe.chainId, execution),
       resolveTokenBalanceChanges(chain, persisted, execution),
     ]);
