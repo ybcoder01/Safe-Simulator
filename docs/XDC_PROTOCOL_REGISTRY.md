@@ -1,7 +1,8 @@
 # XDC protocol registry
 
-Registry version: `2026-09-03.2`  
-Review date: 2026-09-03  
+Contract registry version: `2026-09-03.2`  
+Token registry version: `2026-09-04.1`  
+Latest token identity review: 2026-09-04  
 Network: XDC mainnet, chain ID 50
 
 ## Trust boundary
@@ -51,6 +52,9 @@ on XDC.
 
 ## Requested token identities
 
+- Fathom USDC Underlying (`USDC`):
+  `0xfA2958CB79b0491CC627c1557F441eF849Ca8eb1`, confirmed by Fathom's
+  XDC lending deployment record and resolved on-chain with 6 decimals.
 - YieldNest RWA MAX (`ynRWAx`):
   `0x7054f74d6cB418e987b73c9f3c23e5cEc18217b2`, confirmed by YieldNest's
   chain-50 deployment manifest.
@@ -58,8 +62,9 @@ on XDC.
   `0x4809010926aec940b550D34a46A52739f996D75D`, confirmed by Reservoir's
   source repository and corroborated for XDC by Silo's pinned address manifest.
 
-Both report 18 decimals. Their registry identities do not suppress approval,
-spender, delegate-call, or state-change warnings.
+YieldNest RWA MAX and Wrapped Savings rUSD report 18 decimals; Fathom USDC
+reports 6 decimals. Their registry identities do not suppress approval, spender,
+delegate-call, or state-change warnings.
 
 ## On-chain verification
 

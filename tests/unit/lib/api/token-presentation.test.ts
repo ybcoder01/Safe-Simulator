@@ -33,6 +33,22 @@ describe("token presentation", () => {
     });
   });
 
+  it("renders the reviewed Fathom USDC identity instead of a fallback", () => {
+    expect(
+      resolveTokenPresentation(
+        50,
+        "0xfa2958cb79b0491cc627c1557f441ef849ca8eb1",
+        "Untrusted symbol",
+      ),
+    ).toMatchObject({
+      name: "Fathom USDC Underlying",
+      symbol: "USDC",
+      kind: "fungible",
+      logoKey: "usdc",
+      known: true,
+    });
+  });
+
   it("uses a distinct fallback for likely liquidity-position tokens", () => {
     expect(isLikelyLiquidityPosition("XDC-USDC LP")).toBe(true);
     expect(isLikelyLiquidityPosition("POOL SHARE")).toBe(true);

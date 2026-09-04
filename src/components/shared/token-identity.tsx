@@ -10,6 +10,7 @@ interface Props {
 
 const logoText = {
   wxdc: "X",
+  usdc: "USDC",
   xsp: "XSP",
   xtt: "XTT",
   ynrwax: "YN",

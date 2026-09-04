@@ -1,10 +1,11 @@
 import type { Address, ChainId } from "../../domain";
 
-export const TOKEN_REGISTRY_VERSION = "2026-09-03.2";
+export const TOKEN_REGISTRY_VERSION = "2026-09-04.1";
 
 export type TokenKind = "fungible" | "liquidity-position" | "unknown";
 export type TokenLogoKey =
   | "wxdc"
+  | "usdc"
   | "xsp"
   | "xtt"
   | "ynrwax"
@@ -77,6 +78,18 @@ const entries: readonly TokenRegistryEntry[] = [
     reference: `${TOKEN_LIST_ROOT}/0x17476dc3eda45aD916cEAdDeA325B240A7FB259D/info.json`,
     verification: "publisher-documented",
     reviewedAt: REVIEWED_AT,
+  },
+  {
+    chainId: 50,
+    address: "0xfA2958CB79b0491CC627c1557F441eF849Ca8eb1" as Address,
+    name: "Fathom USDC Underlying",
+    symbol: "USDC",
+    decimals: 6,
+    kind: "fungible",
+    logoKey: "usdc",
+    reference: "https://docs.fathom.fi/lending/deployments/xdc-network",
+    verification: "publisher-documented",
+    reviewedAt: "2026-09-04",
   },
   {
     chainId: 50,
