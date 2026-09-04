@@ -47,6 +47,10 @@ export const syncStreamEnum = pgEnum("sync_stream", [
   "message",
 ]);
 export const trustLevelEnum = pgEnum("trust_level", ["trusted", "flagged"]);
+export const transactionSummaryStatusEnum = pgEnum(
+  "transaction_summary_status",
+  ["pending", "complete", "failed"],
+);
 
 export const safes = pgTable(
   "safes",
@@ -376,4 +380,36 @@ export const syncCursors = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
   },
   (table) => [primaryKey({ columns: [table.safeId, table.stream] })],
+);
+
+export const transactionSummaries = pgTable(
+  "transaction_summaries",
+  {
+    id: uuid("id").primaryKey(),
+    transactionId: uuid("transaction_id")
+      .notNull()
+      .references(() => transactions.id, { onDelete: "cascade" }),
+    evidenceFingerprint: varchar("evidence_fingerprint", {
+      length: 64,
+    }).notNull(),
+    evidence: jsonb("evidence").notNull(),
+    promptVersion: text("prompt_version").notNull(),
+    model: text("model").notNull(),
+    status: transactionSummaryStatusEnum("status").notNull(),
+    summary: jsonb("summary"),
+    usage: jsonb("usage"),
+    failureCode: text("failure_code"),
+    createdAt,
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("transaction_summaries_lookup_idx").on(
+      table.transactionId,
+      table.evidenceFingerprint,
+      table.promptVersion,
+      table.model,
+      table.status,
+      table.createdAt,
+    ),
+  ],
 );

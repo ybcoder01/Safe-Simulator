@@ -29,6 +29,7 @@ import type {
   SimulationOutput,
   SyncCursor,
   TransferRecord,
+  TransactionSummaryRecord,
 } from "@/core/domain";
 import type { PersistencePort } from "@/core/ports";
 
@@ -50,6 +51,7 @@ import {
   safes,
   syncCursors,
   transactions,
+  transactionSummaries,
 } from "./schema";
 
 type SafeRow = typeof safes.$inferSelect;
@@ -133,6 +135,28 @@ function mapAnalysis(value: unknown): AnalysisResult {
     ),
     createdAt: result.createdAt as number,
     immutable: result.immutable as boolean,
+  };
+}
+
+function mapTransactionSummary(
+  row: typeof transactionSummaries.$inferSelect,
+  safe: SafeRef,
+  safeTxHash: Hex,
+): TransactionSummaryRecord {
+  return {
+    id: row.id,
+    safe,
+    safeTxHash,
+    evidenceFingerprint: row.evidenceFingerprint,
+    evidence: row.evidence as Readonly<Record<string, unknown>>,
+    promptVersion: row.promptVersion,
+    model: row.model,
+    status: row.status,
+    summary: row.summary as TransactionSummaryRecord["summary"],
+    usage: row.usage as TransactionSummaryRecord["usage"],
+    failureCode: row.failureCode,
+    createdAt: asUnixTime(row.createdAt),
+    completedAt: row.completedAt ? asUnixTime(row.completedAt) : null,
   };
 }
 
@@ -1038,6 +1062,89 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
         ),
       );
     return rows.map((row) => mapAnalysis(row.result));
+  }
+
+  async saveTransactionSummary(
+    record: TransactionSummaryRecord,
+  ): Promise<void> {
+    const safe = await this.requireSafeRow(record.safe);
+    const [transaction] = await this.db
+      .select({ id: transactions.id })
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.safeId, safe.id),
+          eq(transactions.safeTxHash, record.safeTxHash),
+        ),
+      )
+      .limit(1);
+    if (!transaction) {
+      throw new Error(
+        `Cannot persist summary for unknown transaction ${record.safeTxHash}.`,
+      );
+    }
+
+    await this.db
+      .insert(transactionSummaries)
+      .values({
+        id: record.id,
+        transactionId: transaction.id,
+        evidenceFingerprint: record.evidenceFingerprint,
+        evidence: jsonWithBigInts(record.evidence),
+        promptVersion: record.promptVersion,
+        model: record.model,
+        status: record.status,
+        summary: jsonWithBigInts(record.summary),
+        usage: jsonWithBigInts(record.usage),
+        failureCode: record.failureCode,
+        createdAt: asDate(record.createdAt),
+        completedAt:
+          record.completedAt === null ? null : asDate(record.completedAt),
+      })
+      .onConflictDoUpdate({
+        target: transactionSummaries.id,
+        set: {
+          status: record.status,
+          summary: jsonWithBigInts(record.summary),
+          usage: jsonWithBigInts(record.usage),
+          failureCode: record.failureCode,
+          completedAt:
+            record.completedAt === null ? null : asDate(record.completedAt),
+        },
+      });
+  }
+
+  async findTransactionSummary(
+    safeRef: SafeRef,
+    safeTxHash: Hex,
+    evidenceFingerprint: string,
+    promptVersion: string,
+    model: string,
+  ): Promise<TransactionSummaryRecord | null> {
+    const safe = await this.findSafeRow(safeRef);
+    if (!safe) return null;
+
+    const [row] = await this.db
+      .select({ summary: transactionSummaries })
+      .from(transactionSummaries)
+      .innerJoin(
+        transactions,
+        eq(transactionSummaries.transactionId, transactions.id),
+      )
+      .where(
+        and(
+          eq(transactions.safeId, safe.id),
+          eq(transactions.safeTxHash, safeTxHash),
+          eq(transactionSummaries.evidenceFingerprint, evidenceFingerprint),
+          eq(transactionSummaries.promptVersion, promptVersion),
+          eq(transactionSummaries.model, model),
+          eq(transactionSummaries.status, "complete"),
+        ),
+      )
+      .orderBy(desc(transactionSummaries.createdAt))
+      .limit(1);
+
+    return row ? mapTransactionSummary(row.summary, safeRef, safeTxHash) : null;
   }
 
   async getAnalysisCoverage(

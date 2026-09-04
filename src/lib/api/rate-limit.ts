@@ -30,6 +30,12 @@ export const SAFE_REFRESH_RATE_LIMIT: RateLimitPolicy = {
   windowSeconds: 15 * 60,
 };
 
+export const TRANSACTION_SUMMARY_RATE_LIMIT: RateLimitPolicy = {
+  scope: "transaction-summary",
+  limit: 5,
+  windowSeconds: 60 * 60,
+};
+
 function requestIdentity(request: Request) {
   const forwarded =
     request.headers.get("x-vercel-forwarded-for") ??

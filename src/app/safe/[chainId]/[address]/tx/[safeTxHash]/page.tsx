@@ -11,6 +11,7 @@ import {
   getSimulationPort,
 } from "@/container";
 import { AddressBookEditor } from "@/components/safes/address-book-editor";
+import { TransactionSummaryDialog } from "@/components/safes/transaction-summary-dialog";
 import { AddressIdentity } from "@/components/shared/address-identity";
 import { CopyIdentifierButton } from "@/components/shared/copy-identifier-button";
 import { TokenIdentity } from "@/components/shared/token-identity";
@@ -211,6 +212,11 @@ export default async function TransactionDetailPage({ params }: PageProps) {
             </div>
             <span>{verdict.verdict}</span>
           </div>
+          {profileId ? (
+            <TransactionSummaryDialog
+              endpoint={`/api/v1/safes/${safe.data.chainId}/${safe.data.address}/tx/${hash.data}/summary`}
+            />
+          ) : null}
           <dl className="detail-list">
             <div>
               <dt>Coverage</dt>
