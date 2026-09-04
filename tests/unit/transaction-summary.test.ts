@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  TRANSACTION_SUMMARY_PROMPT_VERSION,
   requestTransactionSummary,
   sanitizePublicTransactionEvidence,
   TransactionSummaryProviderError,
@@ -15,6 +16,30 @@ const validSummary = {
   checksBeforeSigning: ["Confirm the token, amount, and spender."],
   limitations: ["Pending state can change before execution."],
 } as const;
+
+const approvalAmountEvidence = {
+  deterministicApprovalAmounts: [
+    {
+      kind: "receipt-proven",
+      token: "0xfa2958cb79b0491cc627c1557f441ef849ca8eb1",
+      spender: "0x941acf4e2df51bf43c3c4167631dbefa268bc9d7",
+      baseUnits: "1000000",
+      decimals: 6,
+      symbol: "USDC",
+      displayAmount: "1",
+      displayLabel: "1 USDC (1000000 base units)",
+    },
+  ],
+} as const;
+
+function providerResponse(summary: Readonly<Record<string, unknown>>): Response {
+  return new Response(
+    JSON.stringify({
+      choices: [{ message: { content: JSON.stringify(summary) } }],
+    }),
+    { status: 200 },
+  );
+}
 
 describe("transaction summary privacy and provider boundary", () => {
   it("removes signing and profile fields while bounding public values", () => {
@@ -129,4 +154,64 @@ describe("transaction summary privacy and provider boundary", () => {
       code: "invalid_response",
     } satisfies Partial<TransactionSummaryProviderError>);
   });
+
+  it("uses a new prompt version for deterministic token amount labels", () => {
+    expect(TRANSACTION_SUMMARY_PROMPT_VERSION).toBe("transaction-summary-v2");
+  });
+
+  it("rejects raw base units mislabeled as whole-token units", async () => {
+    const fetcher = vi.fn(async () =>
+      providerResponse({
+        ...validSummary,
+        plainLanguage: "Approves 1,000,000 USDC for the spender.",
+      }),
+    );
+
+    await expect(
+      requestTransactionSummary(approvalAmountEvidence, {
+        apiKey: "test-key",
+        model: "openai/gpt-5.4-mini",
+        fetcher,
+      }),
+    ).rejects.toMatchObject({
+      code: "invalid_response",
+    } satisfies Partial<TransactionSummaryProviderError>);
+  });
+
+  it("rejects an unqualified raw approval amount", async () => {
+    const fetcher = vi.fn(async () =>
+      providerResponse({
+        ...validSummary,
+        plainLanguage: "The allowance changed from 0 to 1,000,000.",
+      }),
+    );
+
+    await expect(
+      requestTransactionSummary(approvalAmountEvidence, {
+        apiKey: "test-key",
+        model: "openai/gpt-5.4-mini",
+        fetcher,
+      }),
+    ).rejects.toMatchObject({
+      code: "invalid_response",
+    } satisfies Partial<TransactionSummaryProviderError>);
+  });
+
+  it("accepts the exact normalized token label with raw-unit evidence", async () => {
+    const summary = {
+      ...validSummary,
+      plainLanguage:
+        "Approves 1 USDC (1000000 base units) for the spender.",
+    };
+    const fetcher = vi.fn(async () => providerResponse(summary));
+
+    await expect(
+      requestTransactionSummary(approvalAmountEvidence, {
+        apiKey: "test-key",
+        model: "openai/gpt-5.4-mini",
+        fetcher,
+      }),
+    ).resolves.toMatchObject({ summary });
+  });
+
 });
