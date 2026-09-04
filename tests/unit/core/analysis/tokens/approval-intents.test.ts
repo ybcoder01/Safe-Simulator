@@ -93,6 +93,37 @@ describe("extractApprovalRequests", () => {
     });
   });
 
+  it("flags direct full-collection operator access", () => {
+    const result = extractApprovalRequests(
+      transaction(token, calldata("0xa22cb465", spender, 1n)),
+      null,
+    );
+
+    expect(result.items[0]).toMatchObject({
+      standard: "operator-all",
+      method: "setApprovalForAll",
+      token,
+      owner: safe,
+      spender,
+      infinite: true,
+    });
+    expect(result.items[0]?.warning).toContain("every compatible token");
+  });
+
+  it("recognizes operator-access revocation without flagging it as infinite", () => {
+    const result = extractApprovalRequests(
+      transaction(token, calldata("0xa22cb465", spender, 0n)),
+      null,
+    );
+
+    expect(result.items[0]).toMatchObject({
+      standard: "operator-all",
+      method: "setApprovalForAll",
+      amount: 0n,
+      infinite: false,
+    });
+  });
+
   it("recursively finds an approval in decoded batch calldata", () => {
     const nested: DecodedCall = {
       method: "approve",
