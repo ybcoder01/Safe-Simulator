@@ -227,6 +227,7 @@ export class TransactionSummaryProviderError extends Error {
   constructor(
     readonly code: "timeout" | "provider_rejected" | "invalid_response",
     message: string,
+    readonly providerStatus: number | null = null,
   ) {
     super(message);
     this.name = "TransactionSummaryProviderError";
@@ -297,6 +298,7 @@ export async function requestTransactionSummary(
     throw new TransactionSummaryProviderError(
       "provider_rejected",
       `The summary provider returned HTTP ${response.status}.`,
+      response.status,
     );
   }
 
