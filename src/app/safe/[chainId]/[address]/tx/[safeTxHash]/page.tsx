@@ -547,18 +547,27 @@ export default async function TransactionDetailPage({ params }: PageProps) {
               const metadata = tokenMetadataByAddress.get(
                 change.token.toLowerCase(),
               );
-              const before = formatTokenAmount(
-                change.before,
-                metadata?.decimals ?? null,
-              );
-              const after = formatTokenAmount(
-                change.after,
-                metadata?.decimals ?? null,
-              );
-              const delta = formatTokenAmount(
-                change.delta,
-                metadata?.decimals ?? null,
-              );
+              const before =
+                change.before === null
+                  ? "Unavailable"
+                  : formatTokenAmount(
+                      change.before,
+                      metadata?.decimals ?? null,
+                    );
+              const after =
+                change.after === null
+                  ? "Unavailable"
+                  : formatTokenAmount(
+                      change.after,
+                      metadata?.decimals ?? null,
+                    );
+              const delta =
+                change.delta === null
+                  ? "Unavailable"
+                  : formatTokenAmount(
+                      change.delta,
+                      metadata?.decimals ?? null,
+                    );
 
               return (
                 <div
