@@ -39,6 +39,7 @@ export interface EvidenceVerdictInput {
   readonly approvalRequests?: readonly {
     readonly standard:
       | "erc20"
+      | "operator-all"
       | "permit2-allowance"
       | "permit2-signature-transfer";
     readonly token: Address | null;
@@ -253,7 +254,9 @@ export function evaluateEvidenceVerdict(
   const approvalRequests = input.approvalRequests ?? [];
   for (const approval of approvalRequests.filter(
     (item) =>
-      item.infinite === true && item.standard !== "permit2-signature-transfer",
+      item.infinite === true &&
+      item.standard !== "permit2-signature-transfer" &&
+      item.standard !== "operator-all",
   )) {
     const involved = [approval.token, approval.spender].filter(
       (address): address is Address => address !== null,
@@ -266,6 +269,22 @@ export function evaluateEvidenceVerdict(
         approval.standard === "permit2-allowance"
           ? "The transaction requests a maximum Permit2 allowance. Calldata proves the request; receipt evidence separately proves any emitted change."
           : "The transaction requests a maximum ERC-20 allowance. Calldata proves the request; receipt evidence separately proves any emitted change.",
+      addresses: uniqueAddresses(involved),
+    });
+  }
+
+  for (const approval of approvalRequests.filter(
+    (item) => item.standard === "operator-all" && item.infinite === true,
+  )) {
+    const involved = [approval.token, approval.spender].filter(
+      (address): address is Address => address !== null,
+    );
+    findings.push({
+      code: "requested-operator-all",
+      severity: "critical",
+      title: "Full token operator access requested",
+      detail:
+        "setApprovalForAll grants the operator control over every compatible token owned now or later. Confirm the operator identity before signing.",
       addresses: uniqueAddresses(involved),
     });
   }
