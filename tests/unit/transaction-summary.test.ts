@@ -43,6 +43,8 @@ describe("transaction summary privacy and provider boundary", () => {
           provider: Record<string, unknown>;
           response_format: { type: string; json_schema: { strict: boolean } };
           temperature?: unknown;
+          max_tokens?: unknown;
+          max_completion_tokens?: unknown;
         };
 
         expect(body.provider).toEqual({
@@ -53,6 +55,8 @@ describe("transaction summary privacy and provider boundary", () => {
         expect(body.response_format.type).toBe("json_schema");
         expect(body.response_format.json_schema.strict).toBe(true);
         expect(body).not.toHaveProperty("temperature");
+        expect(body).not.toHaveProperty("max_tokens");
+        expect(body.max_completion_tokens).toBe(900);
         expect(init?.signal).toBeInstanceOf(AbortSignal);
 
         return new Response(
