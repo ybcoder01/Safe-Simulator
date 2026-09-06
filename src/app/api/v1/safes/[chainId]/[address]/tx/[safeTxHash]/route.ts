@@ -146,6 +146,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     analysis.storageAnalysis,
     analysis.targetRuntimeCode.hash,
     analysis.targetRuntimeCode.anchor,
+    analysis.internalProxyBoundaries,
   );
 
   return NextResponse.json({

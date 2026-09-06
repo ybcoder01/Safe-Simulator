@@ -31,6 +31,10 @@ export interface EvidenceVerdictInput {
     | "latest-fallback"
     | "unavailable";
   readonly implementationChain?: readonly Address[];
+  readonly internalProxyBoundaries?: readonly {
+    readonly proxy: Address;
+    readonly implementation: Address;
+  }[];
   readonly decodeConfidence: DecodeConfidence;
   readonly movements: readonly {
     readonly token: Address;
@@ -171,6 +175,21 @@ function isExpectedTargetProxyDelegation(
         addressKey(address) === addressKey(call.from) &&
         addressKey(chain[index + 1] as Address) === addressKey(call.to),
     );
+}
+
+function isExpectedInternalProxyDelegation(
+  input: EvidenceVerdictInput,
+  call: EvidenceVerdictInput["internalCalls"][number],
+): boolean {
+  if (call.operation !== "delegatecall") return false;
+
+  return (
+    input.internalProxyBoundaries?.some(
+      (boundary) =>
+        addressKey(boundary.proxy) === addressKey(call.from) &&
+        addressKey(boundary.implementation) === addressKey(call.to),
+    ) ?? false
+  );
 }
 
 function assessAddresses(
@@ -317,12 +336,31 @@ export function evaluateEvidenceVerdict(
     });
   }
 
+  const expectedInternalProxyDelegations = input.internalCalls.filter(
+    (call) =>
+      isExpectedInternalProxyDelegation(input, call) &&
+      !isExpectedTargetProxyDelegation(input, call),
+  );
+  if (expectedInternalProxyDelegations.length > 0) {
+    findings.push({
+      code: "expected-internal-proxy-delegation",
+      severity: "info",
+      title: "Expected internal proxy delegation observed",
+      detail:
+        "The trace followed a direct proxy-to-implementation pair independently resolved at the analysis anchor. Other delegate calls remain critical.",
+      addresses: uniqueAddresses(
+        expectedInternalProxyDelegations.map((call) => call.to),
+      ),
+    });
+  }
+
   const internalDelegatecalls = input.internalCalls.filter(
     (call) =>
       call.operation === "delegatecall" &&
       !isExpectedSafeProxyDelegation(input, call) &&
       !isExpectedSafeBatchDelegationCall(input, call) &&
-      !isExpectedTargetProxyDelegation(input, call),
+      !isExpectedTargetProxyDelegation(input, call) &&
+      !isExpectedInternalProxyDelegation(input, call),
   );
   if (internalDelegatecalls.length > 0) {
     findings.push({
@@ -330,7 +368,7 @@ export function evaluateEvidenceVerdict(
       severity: "critical",
       title: "An internal delegate call was traced",
       detail:
-        "The traced target code executed in its caller's storage context. Critical evidence is preserved unless this is the exact Safe proxy-to-singleton boundary.",
+        "The traced target code executed in its caller's storage context. Critical evidence is preserved unless an exact, independently resolved proxy boundary explains the call.",
       addresses: uniqueAddresses(internalDelegatecalls.map((call) => call.to)),
     });
   }

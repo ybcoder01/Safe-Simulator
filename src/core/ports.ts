@@ -118,6 +118,7 @@ export interface AbiPort {
   resolveImplementationChain(
     chainId: ChainId,
     address: Address,
+    blockNumber?: bigint,
   ): Promise<readonly Address[]>;
   /** Best-effort selector lookup. A null result means calldata must remain raw. */
   lookupFunctionSignature(selector: Hex): Promise<string | null>;

@@ -726,4 +726,48 @@ describe("evaluateEvidenceVerdict", () => {
       "unrecognized-storage-change",
     );
   });
+  it("recognizes only an exact independently resolved internal proxy boundary", () => {
+    const result = evaluateEvidenceVerdict(
+      input({
+        callTrace: "complete",
+        internalCalls: [
+          { depth: 3, from: token, to: spender, operation: "delegatecall" },
+        ],
+        internalProxyBoundaries: [{ proxy: token, implementation: spender }],
+      }),
+    );
+
+    expect(result.verdict).not.toBe("flagged");
+    expect(result.findings).toContainEqual(
+      expect.objectContaining({
+        code: "expected-internal-proxy-delegation",
+        severity: "info",
+        addresses: [spender],
+      }),
+    );
+    expect(result.findings.map((finding) => finding.code)).not.toContain(
+      "internal-delegatecall",
+    );
+  });
+
+  it("keeps the same implementation critical when the caller does not match", () => {
+    const result = evaluateEvidenceVerdict(
+      input({
+        callTrace: "complete",
+        internalCalls: [
+          { depth: 3, from: target, to: spender, operation: "delegatecall" },
+        ],
+        internalProxyBoundaries: [{ proxy: token, implementation: spender }],
+      }),
+    );
+
+    expect(result.verdict).toBe("flagged");
+    expect(result.findings).toContainEqual(
+      expect.objectContaining({
+        code: "internal-delegatecall",
+        severity: "critical",
+        addresses: [spender],
+      }),
+    );
+  });
 });

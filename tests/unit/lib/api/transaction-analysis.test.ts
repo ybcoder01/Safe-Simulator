@@ -249,6 +249,7 @@ describe("resolveNeutralTransactionAnalysis", () => {
       storageAnalysis,
       null,
       "unavailable",
+      [],
     );
     expect(result.persisted.engineVersion).toBe(
       TRANSACTION_ANALYSIS_ENGINE_VERSION,
@@ -280,6 +281,7 @@ describe("resolveNeutralTransactionAnalysis", () => {
       storageAnalysis,
       keccak256("0x6000"),
       "transaction-block",
+      [],
     );
   });
 
@@ -307,6 +309,7 @@ describe("resolveNeutralTransactionAnalysis", () => {
       storageAnalysis,
       keccak256("0x6000"),
       "latest",
+      [],
     );
   });
 
@@ -338,6 +341,7 @@ describe("resolveNeutralTransactionAnalysis", () => {
       storageAnalysis,
       keccak256("0x6000"),
       "latest-fallback",
+      [],
     );
   });
 

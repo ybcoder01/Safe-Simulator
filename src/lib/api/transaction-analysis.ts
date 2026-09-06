@@ -1,4 +1,5 @@
 import type {
+  Address,
   AnalysisResult,
   Hex,
   SafeTransaction,
@@ -22,6 +23,10 @@ import {
   type ContractInsight,
 } from "@/lib/api/contract-insight";
 import { resolveEvidenceVerdict } from "@/lib/api/evidence-verdict";
+import {
+  resolveInternalProxyBoundaries,
+  type InternalProxyBoundary,
+} from "@/lib/api/internal-proxy-boundaries";
 import {
   EXECUTION_EVIDENCE_ENGINE_VERSION,
   resolveExecutionInsight,
@@ -51,6 +56,7 @@ export interface NeutralTransactionAnalysis {
   readonly approvalRisk: ApprovalRiskResult;
   readonly storageAnalysis: StorageChangeAnalysis;
   readonly targetRuntimeCode: TargetRuntimeCodeEvidence;
+  readonly internalProxyBoundaries: readonly InternalProxyBoundary[];
   readonly baselineVerdict: ReturnType<typeof resolveEvidenceVerdict>;
   readonly persisted: AnalysisResult;
 }
@@ -154,14 +160,26 @@ export async function resolveNeutralTransactionAnalysis(
     ),
     resolveTargetRuntimeCodeEvidence(transaction, ports.chain),
   ]);
-  const [approvalRisk, storageAnalysis] = await Promise.all([
-    resolveApprovalRisk(ports.chain, transaction, contract, execution),
-    resolveStorageChangeAnalysis(
-      ports.abi,
-      transaction.safe.chainId,
-      execution,
-    ),
-  ]);
+  const [approvalRisk, storageAnalysis, internalProxyBoundaries] =
+    await Promise.all([
+      resolveApprovalRisk(ports.chain, transaction, contract, execution),
+      resolveStorageChangeAnalysis(
+        ports.abi,
+        transaction.safe.chainId,
+        execution,
+      ),
+      resolveInternalProxyBoundaries(
+        ports.abi,
+        transaction.safe.chainId,
+        execution.internalCalls,
+        [
+          transaction.safe.address,
+          transaction.to,
+          ...contract.implementationChain.map((address) => address as Address),
+        ],
+        transaction.blockNumber ?? undefined,
+      ),
+    ]);
   const baselineVerdict = resolveEvidenceVerdict(
     transaction,
     contract,
@@ -171,6 +189,7 @@ export async function resolveNeutralTransactionAnalysis(
     storageAnalysis,
     targetRuntimeCode.hash,
     targetRuntimeCode.anchor,
+    internalProxyBoundaries,
   );
   const simulation = await loadImmutableSimulation(
     transaction,
@@ -195,6 +214,7 @@ export async function resolveNeutralTransactionAnalysis(
     approvalRisk,
     storageAnalysis,
     targetRuntimeCode,
+    internalProxyBoundaries,
     baselineVerdict,
     persisted,
   };

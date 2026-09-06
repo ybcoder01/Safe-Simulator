@@ -197,6 +197,7 @@ export class PublicAbiAdapter implements AbiPort {
   async resolveImplementationChain(
     chainId: ChainId,
     address: Address,
+    blockNumber?: bigint,
   ): Promise<readonly Address[]> {
     const implementations: Address[] = [];
     const visited = new Set<string>([address.toLowerCase()]);
@@ -206,11 +207,12 @@ export class PublicAbiAdapter implements AbiPort {
       const implementation = await this.resolveDirectImplementation(
         chainId,
         current,
+        blockNumber,
       );
       if (!implementation || visited.has(implementation.toLowerCase())) break;
 
       const code = await this.chain
-        .getCode(chainId, implementation)
+        .getCode(chainId, implementation, blockNumber)
         .catch(() => "0x" as Hex);
       if (code === "0x") break;
 
@@ -292,36 +294,51 @@ export class PublicAbiAdapter implements AbiPort {
   private async resolveDirectImplementation(
     chainId: ChainId,
     address: Address,
+    blockNumber?: bigint,
   ): Promise<Address | null> {
     const direct = addressFromWord(
       await this.chain
-        .getStorageAt(chainId, address, EIP_1967_IMPLEMENTATION_SLOT)
+        .getStorageAt(
+          chainId,
+          address,
+          EIP_1967_IMPLEMENTATION_SLOT,
+          blockNumber,
+        )
         .catch(() => "0x" as Hex),
     );
     if (direct) return direct;
 
     const legacy = addressFromWord(
       await this.chain
-        .getStorageAt(chainId, address, ZEPPELINOS_IMPLEMENTATION_SLOT)
+        .getStorageAt(
+          chainId,
+          address,
+          ZEPPELINOS_IMPLEMENTATION_SLOT,
+          blockNumber,
+        )
         .catch(() => "0x" as Hex),
     );
     if (legacy) return legacy;
 
     const beacon = addressFromWord(
       await this.chain
-        .getStorageAt(chainId, address, EIP_1967_BEACON_SLOT)
+        .getStorageAt(chainId, address, EIP_1967_BEACON_SLOT, blockNumber)
         .catch(() => "0x" as Hex),
     );
     if (!beacon) return null;
 
     const beaconCode = await this.chain
-      .getCode(chainId, beacon)
+      .getCode(chainId, beacon, blockNumber)
       .catch(() => "0x" as Hex);
     if (beaconCode === "0x") return null;
 
     return addressFromWord(
       await this.chain
-        .call(chainId, { to: beacon, data: BEACON_IMPLEMENTATION_CALL })
+        .call(
+          chainId,
+          { to: beacon, data: BEACON_IMPLEMENTATION_CALL },
+          blockNumber,
+        )
         .catch(() => "0x" as Hex),
     );
   }

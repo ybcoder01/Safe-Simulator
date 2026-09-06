@@ -17,6 +17,7 @@ import { CopyIdentifierButton } from "@/components/shared/copy-identifier-button
 import { TokenIdentity } from "@/components/shared/token-identity";
 import { decodedCallSummary } from "@/core/analysis/decoding/calldata";
 import { formatTokenAmount } from "@/core/analysis/tokens/metadata";
+import type { Address } from "@/core/domain";
 import { resolveApprovalRisk } from "@/lib/api/approval-risk";
 import { resolveContractInsight } from "@/lib/api/contract-insight";
 import { decodedAddressFields } from "@/lib/api/decoded-addresses";
@@ -26,6 +27,7 @@ import {
   resolveXdcContractVerification,
 } from "@/lib/api/xdcscan-verification";
 import { resolveExecutionInsight } from "@/lib/api/execution-insight";
+import { resolveInternalProxyBoundaries } from "@/lib/api/internal-proxy-boundaries";
 import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
 import { resolveStorageChangeAnalysis } from "@/lib/api/storage-changes";
 import { resolveTokenBalanceChanges } from "@/lib/api/token-balance-changes";
@@ -106,18 +108,34 @@ export default async function TransactionDetailPage({ params }: PageProps) {
         (field) => field.address,
       ),
     ) ?? [];
-  const [approvalRisk, tokenMetadata, storageAnalysis, balanceChanges] =
-    await Promise.all([
-      resolveApprovalRisk(chain, persisted, insight, execution),
-      resolveExecutionTokenMetadata(
-        chain,
-        cache,
-        persisted.safe.chainId,
-        execution,
-      ),
-      resolveStorageChangeAnalysis(abi, persisted.safe.chainId, execution),
-      resolveTokenBalanceChanges(chain, persisted, execution),
-    ]);
+  const [
+    approvalRisk,
+    tokenMetadata,
+    storageAnalysis,
+    balanceChanges,
+    internalProxyBoundaries,
+  ] = await Promise.all([
+    resolveApprovalRisk(chain, persisted, insight, execution),
+    resolveExecutionTokenMetadata(
+      chain,
+      cache,
+      persisted.safe.chainId,
+      execution,
+    ),
+    resolveStorageChangeAnalysis(abi, persisted.safe.chainId, execution),
+    resolveTokenBalanceChanges(chain, persisted, execution),
+    resolveInternalProxyBoundaries(
+      abi,
+      persisted.safe.chainId,
+      execution.internalCalls,
+      [
+        persisted.safe.address,
+        persisted.to,
+        ...insight.implementationChain.map((address) => address as Address),
+      ],
+      persisted.blockNumber ?? undefined,
+    ),
+  ]);
   const contractVerification = await resolveXdcContractVerification(
     cache,
     safe.data.chainId,
@@ -158,6 +176,7 @@ export default async function TransactionDetailPage({ params }: PageProps) {
     storageAnalysis,
     targetRuntimeCode.hash,
     targetRuntimeCode.anchor,
+    internalProxyBoundaries,
   );
   const tokenMetadataByAddress = new Map(
     tokenMetadata.items.map((metadata) => [
