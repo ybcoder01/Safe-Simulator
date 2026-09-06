@@ -83,20 +83,20 @@ export default async function TransactionDetailPage({ params }: PageProps) {
     rawPayload,
     targetRuntimeCode,
   ] = await Promise.all([
-      Promise.resolve(toTransactionView(persisted)),
-      resolveContractInsight(safeData, abi, persisted),
-      resolveExecutionInsight(
-        getSimulationPort(),
-        persisted,
-        { cache, persistence },
-        { chain, safeData },
-      ),
-      profileId
-        ? persistence.listAddressBookEntries(profileId, safe.data)
-        : Promise.resolve([]),
-      safeData.getMultisigTransaction(safe.data, hash.data).catch(() => null),
-      resolveTargetRuntimeCodeEvidence(persisted, chain),
-    ]);
+    Promise.resolve(toTransactionView(persisted)),
+    resolveContractInsight(safeData, abi, persisted),
+    resolveExecutionInsight(
+      getSimulationPort(),
+      persisted,
+      { cache, persistence },
+      { chain, safeData },
+    ),
+    profileId
+      ? persistence.listAddressBookEntries(profileId, safe.data)
+      : Promise.resolve([]),
+    safeData.getMultisigTransaction(safe.data, hash.data).catch(() => null),
+    resolveTargetRuntimeCodeEvidence(persisted, chain),
+  ]);
   const decoded = insight.decoded;
   const nestedCalls =
     decoded?.parameters.flatMap((parameter) => parameter.nestedCalls) ?? [];
