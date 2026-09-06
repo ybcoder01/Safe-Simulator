@@ -115,7 +115,11 @@ export async function resolveTargetRuntimeCodeEvidence(
     const historicalHash =
       transaction.blockNumber === null
         ? null
-        : await readRuntimeCodeHash(chain, transaction, transaction.blockNumber);
+        : await readRuntimeCodeHash(
+            chain,
+            transaction,
+            transaction.blockNumber,
+          );
     if (historicalHash) {
       return { hash: historicalHash, anchor: "transaction-block" };
     }
