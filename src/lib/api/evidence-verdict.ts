@@ -5,7 +5,12 @@ import {
   type EvidenceVerdictInput,
 } from "@/core/analysis/trust/evidence-verdict";
 import { contractRegistryEntriesForChain } from "@/core/analysis/trust/contract-registry";
-import type { Address, AddressBookEntry, SafeTransaction } from "@/core/domain";
+import type {
+  Address,
+  AddressBookEntry,
+  Hex,
+  SafeTransaction,
+} from "@/core/domain";
 import type { ApprovalRiskResult } from "@/lib/api/approval-risk";
 import type { ContractInsight } from "@/lib/api/contract-insight";
 import type { ExecutionInsight } from "@/lib/api/execution-insight";
@@ -33,6 +38,7 @@ export function resolveEvidenceVerdict(
   addressBook: readonly AddressBookEntry[],
   approvalRisk: ApprovalRiskResult | null = null,
   storageAnalysis: StorageChangeAnalysis | null = null,
+  targetRuntimeCodeHash: Hex | null = null,
 ): EvidenceVerdict {
   const executedAllowances = approvalRisk
     ? approvalRisk.executedChanges.map((allowance) => ({
@@ -55,6 +61,7 @@ export function resolveEvidenceVerdict(
     operation: transaction.operation,
     target: transaction.to,
     targetVerified: contract.metadata.verified,
+    targetRuntimeCodeHash,
     implementationChain: contract.implementationChain.map(
       (address) => address as Address,
     ),
