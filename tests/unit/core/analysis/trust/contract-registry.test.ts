@@ -10,7 +10,8 @@ import type { Address } from "../../../../../src/core/domain";
 const safeL2 = "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762" as Address;
 const fallbackHandler = "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99" as Address;
 const multiSend = "0x38869bf66a61cF6bDB996A6aE40D5853Fd43B526" as Address;
-const multiSendCallOnly = "0x9641d764fc13c8B624c04430C7356C1C7C8102e2" as Address;
+const multiSendCallOnly =
+  "0x9641d764fc13c8B624c04430C7356C1C7C8102e2" as Address;
 const xswapV3Router = "0xecf4ea7907e779b8a7d0f90cb95fe06f43b610fb" as Address;
 const morphoBlue = "0xEa49B0fE898aF913A3826F9f462eE2cDcb854fD9" as Address;
 const curveAdmin = "0xabc336d4C71ad275695744d32DdB1d8266Db1cbF" as Address;
