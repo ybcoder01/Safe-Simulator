@@ -141,7 +141,7 @@ describe("PublicAbiAdapter", () => {
         return "0x" as Hex;
       },
     );
-    const adapter = new PublicAbiAdapter(makeChainreitlade({ getStorageAt: storage }));
+    const adapter = new PublicAbiAdapter(makeChain({ getStorageAt: storage }));
 
     await expect(
       adapter.resolveImplementationChain(50, target),
