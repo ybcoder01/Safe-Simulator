@@ -1,5 +1,6 @@
 import type {
   AnalysisResult,
+  Hex,
   SafeTransaction,
   SimulationOutput,
 } from "@/core/domain";
@@ -30,6 +31,7 @@ import {
   resolveStorageChangeAnalysis,
   type StorageChangeAnalysis,
 } from "@/lib/api/storage-changes";
+import { keccak256 } from "viem";
 
 export { TRANSACTION_ANALYSIS_ENGINE_VERSION };
 
@@ -74,6 +76,28 @@ async function loadImmutableSimulation(
   }
 }
 
+async function resolveTargetRuntimeCodeHash(
+  transaction: SafeTransaction,
+  chain: ChainPort,
+): Promise<Hex | null> {
+  if (transaction.operation !== "delegatecall") return null;
+
+  try {
+    const blockNumber =
+      transaction.status === "executed"
+        ? (transaction.blockNumber ?? undefined)
+        : undefined;
+    const code = await chain.getCode(
+      transaction.safe.chainId,
+      transaction.to,
+      blockNumber,
+    );
+    return code === "0x" ? null : keccak256(code);
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Builds and persists only profile-neutral evidence. Profile Trust and Flag
  * records must be applied separately when a transaction is served.
@@ -82,7 +106,7 @@ export async function resolveNeutralTransactionAnalysis(
   transaction: SafeTransaction,
   ports: NeutralTransactionAnalysisPorts,
 ): Promise<NeutralTransactionAnalysis> {
-  const [contract, execution] = await Promise.all([
+  const [contract, execution, targetRuntimeCodeHash] = await Promise.all([
     resolveContractInsight(ports.safeData, ports.abi, transaction),
     resolveExecutionInsight(
       ports.simulation,
@@ -90,6 +114,7 @@ export async function resolveNeutralTransactionAnalysis(
       { cache: ports.cache, persistence: ports.persistence },
       { chain: ports.chain, safeData: ports.safeData },
     ),
+    resolveTargetRuntimeCodeHash(transaction, ports.chain),
   ]);
   const [approvalRisk, storageAnalysis] = await Promise.all([
     resolveApprovalRisk(ports.chain, transaction, contract, execution),
@@ -106,6 +131,7 @@ export async function resolveNeutralTransactionAnalysis(
     [],
     approvalRisk,
     storageAnalysis,
+    targetRuntimeCodeHash,
   );
   const simulation = await loadImmutableSimulation(
     transaction,
