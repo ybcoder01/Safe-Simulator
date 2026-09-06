@@ -24,7 +24,7 @@ import {
 } from "@/lib/api/execution-insight";
 import { resolveStorageChangeAnalysis } from "@/lib/api/storage-changes";
 
-export const MODULE_ANALYSIS_ENGINE_VERSION = "module-analysis-v2";
+export const MODULE_ANALYSIS_ENGINE_VERSION = "module-analysis-v3";
 
 export interface ModuleAnalysisPorts {
   readonly abi: AbiPort;

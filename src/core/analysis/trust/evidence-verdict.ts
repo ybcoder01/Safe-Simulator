@@ -23,6 +23,7 @@ export interface EvidenceVerdictInput {
   readonly operation: Operation;
   readonly target: Address;
   readonly targetVerified: boolean;
+  readonly implementationChain?: readonly Address[];
   readonly decodeConfidence: DecodeConfidence;
   readonly movements: readonly {
     readonly token: Address;
@@ -115,6 +116,22 @@ function isExpectedSafeProxyDelegation(
         addressKey(entry.address) === addressKey(call.to),
     ) ?? false
   );
+}
+
+function isExpectedTargetProxyDelegation(
+  input: EvidenceVerdictInput,
+  call: EvidenceVerdictInput["internalCalls"][number],
+): boolean {
+  if (call.operation !== "delegatecall") return false;
+
+  const chain = [input.target, ...(input.implementationChain ?? [])];
+  return chain
+    .slice(0, -1)
+    .some(
+      (address, index) =>
+        addressKey(address) === addressKey(call.from) &&
+        addressKey(chain[index + 1] as Address) === addressKey(call.to),
+    );
 }
 
 function assessAddresses(
@@ -224,10 +241,27 @@ export function evaluateEvidenceVerdict(
     });
   }
 
+  const expectedTargetProxyDelegations = input.internalCalls.filter((call) =>
+    isExpectedTargetProxyDelegation(input, call),
+  );
+  if (expectedTargetProxyDelegations.length > 0) {
+    findings.push({
+      code: "expected-target-proxy-delegation",
+      severity: "info",
+      title: "Expected target proxy delegation observed",
+      detail:
+        "The trace followed an adjacent proxy-to-implementation pair from the independently resolved implementation chain. Other delegate calls remain critical.",
+      addresses: uniqueAddresses(
+        expectedTargetProxyDelegations.map((call) => call.to),
+      ),
+    });
+  }
+
   const internalDelegatecalls = input.internalCalls.filter(
     (call) =>
       call.operation === "delegatecall" &&
-      !isExpectedSafeProxyDelegation(input, call),
+      !isExpectedSafeProxyDelegation(input, call) &&
+      !isExpectedTargetProxyDelegation(input, call),
   );
   if (internalDelegatecalls.length > 0) {
     findings.push({

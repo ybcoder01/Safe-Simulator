@@ -179,6 +179,61 @@ describe("evaluateEvidenceVerdict", () => {
     );
   });
 
+  it("recognizes an adjacent target proxy implementation dispatch", () => {
+    const result = evaluateEvidenceVerdict(
+      input({
+        implementationChain: [spender],
+        callTrace: "complete",
+        internalCalls: [
+          {
+            depth: 4,
+            from: target,
+            to: spender,
+            operation: "delegatecall",
+          },
+        ],
+      }),
+    );
+
+    expect(result.verdict).toBe("unverified");
+    expect(result.findings).toContainEqual(
+      expect.objectContaining({
+        code: "expected-target-proxy-delegation",
+        severity: "info",
+        addresses: [spender],
+      }),
+    );
+    expect(result.findings.map((finding) => finding.code)).not.toContain(
+      "internal-delegatecall",
+    );
+  });
+
+  it("keeps a delegate call that skips an implementation-chain link critical", () => {
+    const result = evaluateEvidenceVerdict(
+      input({
+        implementationChain: [token, spender],
+        callTrace: "complete",
+        internalCalls: [
+          {
+            depth: 4,
+            from: target,
+            to: spender,
+            operation: "delegatecall",
+          },
+        ],
+      }),
+    );
+
+    expect(result.verdict).toBe("flagged");
+    expect(result.findings).toContainEqual(
+      expect.objectContaining({
+        code: "internal-delegatecall",
+        severity: "critical",
+        addresses: [spender],
+      }),
+    );
+  });
+
   it("keeps a nested delegation to a registered singleton critical", () => {
     const result = evaluateEvidenceVerdict(
       input({
