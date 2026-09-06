@@ -248,6 +248,7 @@ describe("resolveNeutralTransactionAnalysis", () => {
       approvalRisk,
       storageAnalysis,
       null,
+      "unavailable",
     );
     expect(result.persisted.engineVersion).toBe(
       TRANSACTION_ANALYSIS_ENGINE_VERSION,
@@ -278,6 +279,7 @@ describe("resolveNeutralTransactionAnalysis", () => {
       approvalRisk,
       storageAnalysis,
       keccak256("0x6000"),
+      "transaction-block",
     );
   });
 
@@ -304,6 +306,38 @@ describe("resolveNeutralTransactionAnalysis", () => {
       approvalRisk,
       storageAnalysis,
       keccak256("0x6000"),
+      "latest",
+    );
+  });
+
+  it("falls back to current bytecode when archive state is unavailable", async () => {
+    const getCode = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("archive unavailable"))
+      .mockResolvedValueOnce("0x6000" as Hex);
+    const state = ports({}, { getCode });
+    const delegateTransaction = transaction({ operation: "delegatecall" });
+
+    const result = await resolveNeutralTransactionAnalysis(
+      delegateTransaction,
+      state.value,
+    );
+
+    expect(getCode).toHaveBeenNthCalledWith(1, 50, target, 3n);
+    expect(getCode).toHaveBeenNthCalledWith(2, 50, target, undefined);
+    expect(result.targetRuntimeCode).toEqual({
+      hash: keccak256("0x6000"),
+      anchor: "latest-fallback",
+    });
+    expect(resolveEvidenceVerdict).toHaveBeenCalledWith(
+      delegateTransaction,
+      contract,
+      executed,
+      [],
+      approvalRisk,
+      storageAnalysis,
+      keccak256("0x6000"),
+      "latest-fallback",
     );
   });
 
