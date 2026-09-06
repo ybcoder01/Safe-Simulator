@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 
-import { type DiscoveredSafeView } from "@/lib/api/safe-discovery";
+import type { DiscoveredSafeView } from "@/lib/api/safe-discovery";
 import { withoutSafe, type SafeView } from "@/lib/api/safes";
 
 interface ChainOption {
@@ -335,11 +335,7 @@ export function SafesClient({ chains, removeSafe }: SafesClientProps) {
               value={owner}
             />
           </label>
-          <button
-            className="button"
-            disabled={discovering}
-            type="submit"
-          >
+          <button className="button" disabled={discovering} type="submit">
             {discovering ? "Discovering…" : "Discover Safes"}
           </button>
         </div>
