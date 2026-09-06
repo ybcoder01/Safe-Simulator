@@ -3,6 +3,7 @@ import type {
   AddressBookEntry,
   ChainId,
   Finding,
+  Hex,
   Operation,
   Verdict,
 } from "../../domain";
@@ -23,6 +24,7 @@ export interface EvidenceVerdictInput {
   readonly operation: Operation;
   readonly target: Address;
   readonly targetVerified: boolean;
+  readonly targetRuntimeCodeHash?: Hex | null;
   readonly implementationChain?: readonly Address[];
   readonly decodeConfidence: DecodeConfidence;
   readonly movements: readonly {
@@ -95,6 +97,28 @@ function addressKey(address: Address): string {
 
 function uniqueAddresses(addresses: readonly Address[]): readonly Address[] {
   return [...new Set(addresses.map(addressKey))] as Address[];
+}
+
+function isExpectedSafeBatchDelegation(
+  input: EvidenceVerdictInput,
+): boolean {
+  if (input.operation !== "delegatecall" || !input.targetRuntimeCodeHash) {
+    return false;
+  }
+
+  return (
+    input.registry?.some(
+      (entry) =>
+        entry.chainId === input.chainId &&
+        entry.protocol === "safe" &&
+        entry.source === "safe-deployments" &&
+        entry.lifecycle === "active" &&
+        entry.executionRole === "safe-batch-executor" &&
+        addressKey(entry.address) === addressKey(input.target) &&
+        entry.runtimeCodeHash?.toLowerCase() ===
+          input.targetRuntimeCodeHash?.toLowerCase(),
+    ) ?? false
+  );
 }
 
 function isExpectedSafeProxyDelegation(
@@ -215,14 +239,25 @@ export function evaluateEvidenceVerdict(
   const addresses = assessAddresses(input);
 
   if (input.operation === "delegatecall") {
-    findings.push({
-      code: "delegatecall-operation",
-      severity: "critical",
-      title: "Delegate call executes with the Safe's storage context",
-      detail:
-        "The target code can modify Safe-owned storage. Full internal behavior requires a trace-capable provider.",
-      addresses: [input.target],
-    });
+    if (isExpectedSafeBatchDelegation(input)) {
+      findings.push({
+        code: "expected-safe-batch-delegation",
+        severity: "info",
+        title: "Expected Safe batch delegation observed",
+        detail:
+          "The target matches a chain-pinned Safe batch executor and its authoritative runtime bytecode hash. Inner calls, approvals, and other evidence remain independently evaluated.",
+        addresses: [input.target],
+      });
+    } else {
+      findings.push({
+        code: "delegatecall-operation",
+        severity: "critical",
+        title: "Delegate call executes with the Safe's storage context",
+        detail:
+          "The target code can modify Safe-owned storage. Full internal behavior requires a trace-capable provider.",
+        addresses: [input.target],
+      });
+    }
   }
 
   const expectedSafeProxyDelegations = input.internalCalls.filter((call) =>
