@@ -21,6 +21,7 @@ const forbiddenOperationNames = new Set([
 ]);
 
 const forbiddenRpcMethods = new Set([
+  "eth_requestAccounts",
   "eth_sendRawTransaction",
   "eth_sendTransaction",
   "eth_sendUserOperation",
@@ -62,7 +63,7 @@ const readOnlyBoundary = {
     type: "problem",
     docs: {
       description:
-        "Preserve the read-only boundary by rejecting signing, writes, and broadcasts.",
+        "Preserve the read-only boundary by rejecting account access, signing, writes, and broadcasts.",
     },
     schema: [],
     messages: {
@@ -71,7 +72,7 @@ const readOnlyBoundary = {
       forbiddenOperation:
         "The read-only boundary forbids the signing or write operation '{{name}}'.",
       forbiddenRpc:
-        "The read-only boundary forbids the signing or broadcast RPC method '{{name}}'.",
+        "The read-only boundary forbids the account access, signing, or broadcast RPC method '{{name}}'.",
     },
   },
   create(context) {
