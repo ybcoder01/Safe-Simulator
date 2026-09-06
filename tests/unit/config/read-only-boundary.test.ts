@@ -69,11 +69,6 @@ describe("read-only boundary lint rule", () => {
         provider.request({ method: "eth_signTypedData_v4" });
         provider.request({ method: "eth_sendRawTransaction" });
       `).map(({ messageId }) => messageId),
-    ).toEqual([
-      "forbiddenRpc",
-      "forbiddenRpc",
-      "forbiddenRpc",
-      "forbiddenRpc",
-    ]);
+    ).toEqual(["forbiddenRpc", "forbiddenRpc", "forbiddenRpc", "forbiddenRpc"]);
   });
 });
