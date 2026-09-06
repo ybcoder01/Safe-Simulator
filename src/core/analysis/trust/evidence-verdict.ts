@@ -102,7 +102,6 @@ function isExpectedSafeProxyDelegation(
 ): boolean {
   if (
     call.operation !== "delegatecall" ||
-    call.depth !== 1 ||
     addressKey(call.from) !== addressKey(input.safeAddress)
   ) {
     return false;
@@ -218,7 +217,7 @@ export function evaluateEvidenceVerdict(
       severity: "info",
       title: "Expected Safe proxy delegation observed",
       detail:
-        "The depth-1 call from the Safe proxy reached a chain-matched singleton in the pinned Safe deployment registry. Other delegate calls remain critical.",
+        "A call from the Safe proxy reached a chain-matched singleton in the pinned Safe deployment registry. Other delegate calls remain critical.",
       addresses: uniqueAddresses(
         expectedSafeProxyDelegations.map((call) => call.to),
       ),
