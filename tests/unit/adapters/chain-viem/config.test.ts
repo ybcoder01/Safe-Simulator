@@ -1,10 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mainnet, xdc } from "viem/chains";
 
-import {
-  getArchiveRpcUrls,
-  getRpcUrls,
-} from "@/adapters/chain-viem/config";
+import { getArchiveRpcUrls, getRpcUrls } from "@/adapters/chain-viem/config";
 
 const rpcKey = `RPC_URL_${xdc.id}`;
 const archiveKey = `ARCHIVE_RPC_URL_${xdc.id}`;
