@@ -39,6 +39,11 @@ export function resolveEvidenceVerdict(
   approvalRisk: ApprovalRiskResult | null = null,
   storageAnalysis: StorageChangeAnalysis | null = null,
   targetRuntimeCodeHash: Hex | null = null,
+  targetRuntimeCodeAnchor:
+    | "transaction-block"
+    | "latest"
+    | "latest-fallback"
+    | "unavailable" = "unavailable",
 ): EvidenceVerdict {
   const executedAllowances = approvalRisk
     ? approvalRisk.executedChanges.map((allowance) => ({
@@ -62,6 +67,7 @@ export function resolveEvidenceVerdict(
     target: transaction.to,
     targetVerified: contract.metadata.verified,
     targetRuntimeCodeHash,
+    targetRuntimeCodeAnchor,
     implementationChain: contract.implementationChain.map(
       (address) => address as Address,
     ),
