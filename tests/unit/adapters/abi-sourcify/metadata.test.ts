@@ -183,12 +183,7 @@ describe("PublicAbiAdapter", () => {
     await expect(
       adapter.resolveImplementationChain(50, target, 99n),
     ).resolves.toEqual([implementation]);
-    expect(storage).toHaveBeenCalledWith(
-      50,
-      target,
-      implementationSlot,
-      99n,
-    );
+    expect(storage).toHaveBeenCalledWith(50, target, implementationSlot, 99n);
     expect(getCode).toHaveBeenCalledWith(50, implementation, 99n);
   });
 
