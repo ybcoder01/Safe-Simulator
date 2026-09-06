@@ -115,27 +115,27 @@ export default async function TransactionDetailPage({ params }: PageProps) {
     balanceChanges,
     internalProxyBoundaries,
   ] = await Promise.all([
-      resolveApprovalRisk(chain, persisted, insight, execution),
-      resolveExecutionTokenMetadata(
-        chain,
-        cache,
-        persisted.safe.chainId,
-        execution,
-      ),
-      resolveStorageChangeAnalysis(abi, persisted.safe.chainId, execution),
-      resolveTokenBalanceChanges(chain, persisted, execution),
-      resolveInternalProxyBoundaries(
-        abi,
-        persisted.safe.chainId,
-        execution.internalCalls,
-        [
-          persisted.safe.address,
-          persisted.to,
-          ...insight.implementationChain.map((address) => address as Address),
-        ],
-        persisted.blockNumber ?? undefined,
-      ),
-    ]);
+    resolveApprovalRisk(chain, persisted, insight, execution),
+    resolveExecutionTokenMetadata(
+      chain,
+      cache,
+      persisted.safe.chainId,
+      execution,
+    ),
+    resolveStorageChangeAnalysis(abi, persisted.safe.chainId, execution),
+    resolveTokenBalanceChanges(chain, persisted, execution),
+    resolveInternalProxyBoundaries(
+      abi,
+      persisted.safe.chainId,
+      execution.internalCalls,
+      [
+        persisted.safe.address,
+        persisted.to,
+        ...insight.implementationChain.map((address) => address as Address),
+      ],
+      persisted.blockNumber ?? undefined,
+    ),
+  ]);
   const contractVerification = await resolveXdcContractVerification(
     cache,
     safe.data.chainId,
