@@ -337,4 +337,12 @@ export type QueueJob =
       readonly runId: string;
       readonly cursor: string | null;
       readonly page: number;
+    }
+  | {
+      readonly type: "reanalyze-module";
+      readonly safe: SafeRef;
+      readonly engineVersion: string;
+      readonly runId: string;
+      readonly cursor: string | null;
+      readonly page: number;
     };

@@ -27,7 +27,11 @@ import {
   toBalanceView,
 } from "@/lib/api/safe-details";
 
-import { requestSafeReanalysis, requestSafeRefresh } from "./actions";
+import {
+  requestSafeModuleReanalysis,
+  requestSafeReanalysis,
+  requestSafeRefresh,
+} from "./actions";
 
 interface PageProps {
   readonly params: Promise<{ chainId: string; address: string }>;
@@ -81,6 +85,7 @@ export default async function SafeDashboardPage({ params }: PageProps) {
     balanceResult,
     addressBook,
     analysisCoverage,
+    moduleAnalysisCoverage,
   ] = await Promise.all([
     resolveSyncSummary(persistence, safe),
     persistence.listTransactions(safe, null, 25),
@@ -95,6 +100,7 @@ export default async function SafeDashboardPage({ params }: PageProps) {
       ? persistence.listAddressBookEntries(profileId, safe)
       : Promise.resolve([]),
     persistence.getAnalysisCoverage(safe, TRANSACTION_ANALYSIS_ENGINE_VERSION),
+    persistence.getModuleAnalysisCoverage(safe, MODULE_ANALYSIS_ENGINE_VERSION),
   ]);
   const transactions = await resolveTransactionViews(
     persistence,
@@ -131,6 +137,10 @@ export default async function SafeDashboardPage({ params }: PageProps) {
   };
   const refreshAction = requestSafeRefresh.bind(null, actionInput);
   const reanalysisAction = requestSafeReanalysis.bind(null, actionInput);
+  const moduleReanalysisAction = requestSafeModuleReanalysis.bind(
+    null,
+    actionInput,
+  );
 
   return (
     <main className="workspace shell">
@@ -214,6 +224,12 @@ export default async function SafeDashboardPage({ params }: PageProps) {
             <ReanalysisControl
               action={reanalysisAction}
               coverage={analysisCoverage}
+              kind="transactions"
+            />
+            <ReanalysisControl
+              action={moduleReanalysisAction}
+              coverage={moduleAnalysisCoverage}
+              kind="modules"
             />
           </div>
         </section>

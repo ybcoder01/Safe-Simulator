@@ -14,6 +14,7 @@ import {
   queueSafeRefresh,
   type RefreshSyncState,
 } from "@/lib/api/sync-refresh";
+import { MODULE_ANALYSIS_ENGINE_VERSION } from "@/lib/api/module-analysis";
 import { safeRouteParamsSchema } from "@/lib/api/safe-details";
 import { TRANSACTION_ANALYSIS_ENGINE_VERSION } from "@/lib/api/transaction-analysis";
 
@@ -153,6 +154,70 @@ export async function requestSafeReanalysis(
     return {
       status: "error",
       message: "History analysis could not be queued right now.",
+    };
+  }
+}
+
+export async function requestSafeModuleReanalysis(
+  input: SafeActionInput,
+  previousState: ReanalysisRequestState,
+  formData: FormData,
+): Promise<ReanalysisRequestState> {
+  void previousState;
+  void formData;
+
+  const parsed = safeRouteParamsSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      status: "error",
+      message: "The Safe reference is invalid.",
+    };
+  }
+
+  const cookieStore = await cookies();
+  const profileId = parseProfileId(cookieStore.get(PROFILE_COOKIE)?.value);
+  if (!profileId) {
+    return {
+      status: "error",
+      message: "This Safe is not available in the current watchlist.",
+    };
+  }
+
+  try {
+    const bookmarkedSafes =
+      await getPersistencePort().listSafesForProfile(profileId);
+    if (!isSafeBookmarked(bookmarkedSafes, parsed.data)) {
+      return {
+        status: "error",
+        message: "This Safe is not available in the current watchlist.",
+      };
+    }
+
+    const requestId = `module:${reanalysisRequestIdempotencyKey(
+      parsed.data,
+      MODULE_ANALYSIS_ENGINE_VERSION,
+    )}`;
+    await getQueuePort().enqueue(
+      {
+        type: "reanalyze-module",
+        safe: parsed.data,
+        engineVersion: MODULE_ANALYSIS_ENGINE_VERSION,
+        runId: requestId,
+        cursor: null,
+        page: 0,
+      },
+      { idempotencyKey: requestId },
+    );
+
+    return {
+      status: "queued",
+      message:
+        "Module history analysis queued in small batches. Results remain explicitly separate from owner-confirmed transaction analysis.",
+    };
+  } catch {
+    return {
+      status: "error",
+      message: "Module history analysis could not be queued right now.",
     };
   }
 }
