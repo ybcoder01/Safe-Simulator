@@ -133,6 +133,52 @@ describe("evaluateEvidenceVerdict", () => {
     );
   });
 
+  it("recognizes a Safe proxy dispatch below a module entry call", () => {
+    const result = evaluateEvidenceVerdict(
+      input({
+        callTrace: "complete",
+        internalCalls: [
+          {
+            depth: 2,
+            from: safe,
+            to: spender,
+            operation: "delegatecall",
+          },
+        ],
+        registry: [
+          {
+            chainId: 50,
+            address: spender,
+            label: "Safe singleton",
+            protocol: "safe",
+            category: "infrastructure",
+            role: "safe-singleton",
+            source: "safe-deployments",
+            reference: "https://example.com/pinned-safe-deployment",
+            verification: "publisher-documented",
+            reviewedAt: "2026-09-03",
+            logoKey: "safe",
+            executionRole: "safe-singleton",
+            trustPolicy: "identity-only",
+            lifecycle: "active",
+          },
+        ],
+      }),
+    );
+
+    expect(result.verdict).toBe("known");
+    expect(result.findings).toContainEqual(
+      expect.objectContaining({
+        code: "expected-safe-proxy-delegation",
+        severity: "info",
+        addresses: [spender],
+      }),
+    );
+    expect(result.findings.map((finding) => finding.code)).not.toContain(
+      "internal-delegatecall",
+    );
+  });
+
   it("keeps a nested delegation to a registered singleton critical", () => {
     const result = evaluateEvidenceVerdict(
       input({
