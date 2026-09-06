@@ -1,4 +1,4 @@
-import type { Address, ChainId } from "../../domain";
+import type { Address, ChainId, Hex } from "../../domain";
 import { xdcProtocolRegistryEntries } from "./xdc-protocol-registry";
 
 export const CONTRACT_REGISTRY_VERSION = "2026-09-03.2";
@@ -7,7 +7,10 @@ export type ContractRegistrySource =
   | "safe-deployments"
   | "evm-specification"
   | "protocol-documentation";
-export type ContractRegistryExecutionRole = "safe-singleton" | null;
+export type ContractRegistryExecutionRole =
+  | "safe-singleton"
+  | "safe-batch-executor"
+  | null;
 export type ContractRegistryTrustPolicy =
   | "protocol-whitelist"
   | "identity-only";
@@ -90,6 +93,7 @@ export interface ContractRegistryEntry {
   readonly reviewedAt: string;
   readonly logoKey: string | null;
   readonly executionRole: ContractRegistryExecutionRole;
+  readonly runtimeCodeHash?: Hex;
   readonly trustPolicy: ContractRegistryTrustPolicy;
   readonly lifecycle: ContractRegistryLifecycle;
 }
@@ -100,6 +104,7 @@ interface SafeDeploymentSeed {
   readonly asset: string;
   readonly role: ContractRegistryRole;
   readonly executionRole: ContractRegistryExecutionRole;
+  readonly runtimeCodeHash?: Hex;
 }
 
 const REVIEWED_AT = "2026-09-03";
@@ -136,14 +141,18 @@ const safeDeployments: readonly SafeDeploymentSeed[] = [
     label: "Safe v1.4.1 MultiSend",
     asset: "multi_send.json",
     role: "batch-executor",
-    executionRole: null,
+    executionRole: "safe-batch-executor",
+    runtimeCodeHash:
+      "0x0e4f7fc66550a322d1e7688e181b75e217e662a4f3f4d6a29b22bc61217c4b77" as Hex,
   },
   {
     address: "0x9641d764fc13c8B624c04430C7356C1C7C8102e2" as Address,
     label: "Safe v1.4.1 MultiSendCallOnly",
     asset: "multi_send_call_only.json",
     role: "batch-executor",
-    executionRole: null,
+    executionRole: "safe-batch-executor",
+    runtimeCodeHash:
+      "0xecd5bd14a08c5d2122379900b2f272bdf107a7e92423c10dd5fe3254386c9939" as Hex,
   },
   {
     address: "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67" as Address,
@@ -183,6 +192,9 @@ const entries: readonly ContractRegistryEntry[] = [
       reviewedAt: REVIEWED_AT,
       logoKey: "safe",
       executionRole: deployment.executionRole,
+      ...(deployment.runtimeCodeHash
+        ? { runtimeCodeHash: deployment.runtimeCodeHash }
+        : {}),
       trustPolicy: "identity-only" as const,
       lifecycle: "active" as const,
     })),
