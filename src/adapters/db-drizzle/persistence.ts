@@ -1185,6 +1185,47 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
     };
   }
 
+  async getModuleAnalysisCoverage(
+    safeRef: SafeRef,
+    engineVersion: string,
+  ): Promise<{
+    readonly analyzedTransactions: number;
+    readonly totalTransactions: number;
+  }> {
+    const safe = await this.findSafeRow(safeRef);
+    if (!safe) {
+      return { analyzedTransactions: 0, totalTransactions: 0 };
+    }
+
+    const [[transactionCount], [analysisCount]] = await Promise.all([
+      this.db
+        .select({ value: count() })
+        .from(moduleTransactions)
+        .where(eq(moduleTransactions.safeId, safe.id)),
+      this.db
+        .select({ value: count() })
+        .from(moduleAnalysisResults)
+        .innerJoin(
+          moduleTransactions,
+          eq(
+            moduleAnalysisResults.transactionHash,
+            moduleTransactions.transactionHash,
+          ),
+        )
+        .where(
+          and(
+            eq(moduleTransactions.safeId, safe.id),
+            eq(moduleAnalysisResults.engineVersion, engineVersion),
+          ),
+        ),
+    ]);
+
+    return {
+      analyzedTransactions: analysisCount?.value ?? 0,
+      totalTransactions: transactionCount?.value ?? 0,
+    };
+  }
+
   async saveSyncCursor(cursor: SyncCursor): Promise<void> {
     const safe = await this.requireSafeRow(cursor.safe);
     await this.db
