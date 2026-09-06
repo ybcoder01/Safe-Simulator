@@ -733,9 +733,7 @@ describe("evaluateEvidenceVerdict", () => {
         internalCalls: [
           { depth: 3, from: token, to: spender, operation: "delegatecall" },
         ],
-        internalProxyBoundaries: [
-          { proxy: token, implementation: spender },
-        ],
+        internalProxyBoundaries: [{ proxy: token, implementation: spender }],
       }),
     );
 
@@ -759,9 +757,7 @@ describe("evaluateEvidenceVerdict", () => {
         internalCalls: [
           { depth: 3, from: target, to: spender, operation: "delegatecall" },
         ],
-        internalProxyBoundaries: [
-          { proxy: token, implementation: spender },
-        ],
+        internalProxyBoundaries: [{ proxy: token, implementation: spender }],
       }),
     );
 
@@ -774,5 +770,4 @@ describe("evaluateEvidenceVerdict", () => {
       }),
     );
   });
-
 });
