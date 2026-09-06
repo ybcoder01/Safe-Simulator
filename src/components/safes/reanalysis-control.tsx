@@ -13,11 +13,13 @@ import {
 interface ReanalysisControlProps {
   readonly action: ReanalysisRequestAction;
   readonly coverage: ReanalysisCoverage;
+  readonly kind: "transactions" | "modules";
 }
 
 export function ReanalysisControl({
   action,
   coverage,
+  kind,
 }: ReanalysisControlProps) {
   const [state, formAction, pending] = useActionState(
     action,
@@ -30,8 +32,9 @@ export function ReanalysisControl({
     coverage.totalTransactions > 0 &&
     coverage.analyzedTransactions >= coverage.totalTransactions;
   const percentage = reanalysisCoveragePercent(coverage);
-  const statusId = "reanalysis-request-status";
-  const coverageId = "reanalysis-coverage-status";
+  const isModuleHistory = kind === "modules";
+  const statusId = `${kind}-reanalysis-request-status`;
+  const coverageId = `${kind}-reanalysis-coverage-status`;
 
   useEffect(() => {
     if (!queued || complete) {
@@ -53,26 +56,34 @@ export function ReanalysisControl({
   }, [complete, queued, router]);
 
   const describedBy = state.message ? `${coverageId} ${statusId}` : coverageId;
+  const heading = isModuleHistory
+    ? "Module analysis coverage"
+    : "Transaction analysis coverage";
+  const emptyMessage = isModuleHistory
+    ? "No module executions are available for analysis yet."
+    : "No transactions are available for analysis yet.";
+  const completeMessage = isModuleHistory
+    ? "Every module execution has a baseline from the current module engine version."
+    : "Every transaction has a baseline from the current engine version.";
+  const incompleteMessage = `${percentage}% has a current baseline. Queue the remaining ${
+    isModuleHistory ? "module" : "transaction"
+  } history in bounded batches.`;
 
   return (
     <div className="analysis-coverage">
       <div className="analysis-coverage-heading">
-        <span>Analysis coverage</span>
+        <span>{heading}</span>
         <strong>
           {coverage.analyzedTransactions} of {coverage.totalTransactions}
         </strong>
       </div>
-      <progress
-        aria-label="Current analysis coverage"
-        max={100}
-        value={percentage}
-      />
+      <progress aria-label={heading} max={100} value={percentage} />
       <p id={coverageId}>
         {coverage.totalTransactions === 0
-          ? "No transactions are available for analysis yet."
+          ? emptyMessage
           : complete
-            ? "Every transaction has a baseline from the current engine version."
-            : `${percentage}% has a current baseline. Queue the remaining history in bounded batches.`}
+            ? completeMessage
+            : incompleteMessage}
       </p>
       <form action={formAction} className="sync-refresh-form">
         <button
@@ -82,12 +93,20 @@ export function ReanalysisControl({
           type="submit"
         >
           {pending
-            ? "Queueing analysis…"
+            ? isModuleHistory
+              ? "Queueing module analysis…"
+              : "Queueing transaction analysis…"
             : queued
-              ? "Analysis queued"
+              ? isModuleHistory
+                ? "Module analysis queued"
+                : "Transaction analysis queued"
               : complete
-                ? "Reanalyze history"
-                : "Analyze history"}
+                ? isModuleHistory
+                  ? "Reanalyze modules"
+                  : "Reanalyze transactions"
+                : isModuleHistory
+                  ? "Analyze modules"
+                  : "Analyze transactions"}
         </button>
         {state.message ? (
           <p
