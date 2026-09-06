@@ -100,10 +100,7 @@ export default async function SafeDashboardPage({ params }: PageProps) {
       ? persistence.listAddressBookEntries(profileId, safe)
       : Promise.resolve([]),
     persistence.getAnalysisCoverage(safe, TRANSACTION_ANALYSIS_ENGINE_VERSION),
-    persistence.getModuleAnalysisCoverage(
-      safe,
-      MODULE_ANALYSIS_ENGINE_VERSION,
-    ),
+    persistence.getModuleAnalysisCoverage(safe, MODULE_ANALYSIS_ENGINE_VERSION),
   ]);
   const transactions = await resolveTransactionViews(
     persistence,
