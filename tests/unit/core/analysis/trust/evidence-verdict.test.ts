@@ -500,7 +500,10 @@ describe("evaluateEvidenceVerdict", () => {
   });
 
   it.each([
-    ["different runtime bytecode", { targetRuntimeCodeHash: ("0x" + "11".repeat(32)) as Hex }],
+    [
+      "different runtime bytecode",
+      { targetRuntimeCodeHash: ("0x" + "11".repeat(32)) as Hex },
+    ],
     ["different chain", { registry: safeBatchRegistry({ chainId: 1 }) }],
     ["lookalike address", { registry: safeBatchRegistry({ address: spender }) }],
   ])("keeps Safe batch delegation critical for %s", (_label, overrides) => {
