@@ -6,8 +6,7 @@ import type { ExecutionInsight } from "../../../../src/lib/api/execution-insight
 import { resolveInternalProxyBoundaries } from "../../../../src/lib/api/internal-proxy-boundaries";
 
 const proxy = "0x1111111111111111111111111111111111111111" as Address;
-const implementation =
-  "0x2222222222222222222222222222222222222222" as Address;
+const implementation = "0x2222222222222222222222222222222222222222" as Address;
 const other = "0x3333333333333333333333333333333333333333" as Address;
 
 function call(
