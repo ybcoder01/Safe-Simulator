@@ -55,6 +55,9 @@ export function resolveEvidenceVerdict(
     operation: transaction.operation,
     target: transaction.to,
     targetVerified: contract.metadata.verified,
+    implementationChain: contract.implementationChain.map(
+      (address) => address as Address,
+    ),
     decodeConfidence: decodeConfidence(contract.provenance),
     movements: execution.tokenMovements.map((movement) => ({
       token: movement.token as Address,
