@@ -85,7 +85,7 @@ async function resolveTargetRuntimeCodeHash(
   try {
     const blockNumber =
       transaction.status === "executed"
-        ? transaction.blockNumber ?? undefined
+        ? (transaction.blockNumber ?? undefined)
         : undefined;
     const code = await chain.getCode(
       transaction.safe.chainId,
