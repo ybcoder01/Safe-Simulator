@@ -482,7 +482,16 @@ describe("evaluateEvidenceVerdict", () => {
         operation: "delegatecall",
         target: multiSend,
         targetRuntimeCodeHash: multiSendCodeHash,
+        targetRuntimeCodeAnchor: "latest",
         registry: safeBatchRegistry(),
+        internalCalls: [
+          {
+            depth: 2,
+            from: safe,
+            to: multiSend,
+            operation: "delegatecall",
+          },
+        ],
       }),
     );
 
@@ -496,6 +505,29 @@ describe("evaluateEvidenceVerdict", () => {
     );
     expect(result.findings.map((finding) => finding.code)).not.toContain(
       "delegatecall-operation",
+    );
+    expect(result.findings.map((finding) => finding.code)).not.toContain(
+      "internal-delegatecall",
+    );
+  });
+
+  it("keeps a latest-only historical batch match explicit", () => {
+    const result = evaluateEvidenceVerdict(
+      input({
+        operation: "delegatecall",
+        target: multiSend,
+        targetRuntimeCodeHash: multiSendCodeHash,
+        targetRuntimeCodeAnchor: "latest-fallback",
+        registry: safeBatchRegistry(),
+      }),
+    );
+
+    expect(result.verdict).toBe("unverified");
+    expect(result.findings).toContainEqual(
+      expect.objectContaining({
+        code: "safe-batch-latest-bytecode-fallback",
+        severity: "warning",
+      }),
     );
   });
 

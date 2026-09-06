@@ -29,6 +29,7 @@ import { resolveExecutionInsight } from "@/lib/api/execution-insight";
 import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
 import { resolveStorageChangeAnalysis } from "@/lib/api/storage-changes";
 import { resolveTokenBalanceChanges } from "@/lib/api/token-balance-changes";
+import { resolveTargetRuntimeCodeEvidence } from "@/lib/api/transaction-analysis";
 import { resolveExecutionTokenMetadata } from "@/lib/api/token-metadata";
 import { explorerTransactionUrl } from "@/lib/explorer-links";
 import {
@@ -74,21 +75,28 @@ export default async function TransactionDetailPage({ params }: PageProps) {
   const chain = getChainPort();
   const safeData = getSafeDataPort();
   const abi = getAbiPort();
-  const [transaction, insight, execution, addressBook, rawPayload] =
-    await Promise.all([
-      Promise.resolve(toTransactionView(persisted)),
-      resolveContractInsight(safeData, abi, persisted),
-      resolveExecutionInsight(
-        getSimulationPort(),
-        persisted,
-        { cache, persistence },
-        { chain, safeData },
-      ),
-      profileId
-        ? persistence.listAddressBookEntries(profileId, safe.data)
-        : Promise.resolve([]),
-      safeData.getMultisigTransaction(safe.data, hash.data).catch(() => null),
-    ]);
+  const [
+    transaction,
+    insight,
+    execution,
+    addressBook,
+    rawPayload,
+    targetRuntimeCode,
+  ] = await Promise.all([
+    Promise.resolve(toTransactionView(persisted)),
+    resolveContractInsight(safeData, abi, persisted),
+    resolveExecutionInsight(
+      getSimulationPort(),
+      persisted,
+      { cache, persistence },
+      { chain, safeData },
+    ),
+    profileId
+      ? persistence.listAddressBookEntries(profileId, safe.data)
+      : Promise.resolve([]),
+    safeData.getMultisigTransaction(safe.data, hash.data).catch(() => null),
+    resolveTargetRuntimeCodeEvidence(persisted, chain),
+  ]);
   const decoded = insight.decoded;
   const nestedCalls =
     decoded?.parameters.flatMap((parameter) => parameter.nestedCalls) ?? [];
@@ -148,6 +156,8 @@ export default async function TransactionDetailPage({ params }: PageProps) {
     addressBook,
     approvalRisk,
     storageAnalysis,
+    targetRuntimeCode.hash,
+    targetRuntimeCode.anchor,
   );
   const tokenMetadataByAddress = new Map(
     tokenMetadata.items.map((metadata) => [

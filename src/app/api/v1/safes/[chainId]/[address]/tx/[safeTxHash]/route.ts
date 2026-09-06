@@ -144,6 +144,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
     addressBook,
     analysis.approvalRisk,
     analysis.storageAnalysis,
+    analysis.targetRuntimeCode.hash,
+    analysis.targetRuntimeCode.anchor,
   );
 
   return NextResponse.json({

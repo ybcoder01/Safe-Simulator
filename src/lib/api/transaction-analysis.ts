@@ -50,6 +50,7 @@ export interface NeutralTransactionAnalysis {
   readonly execution: ExecutionInsight;
   readonly approvalRisk: ApprovalRiskResult;
   readonly storageAnalysis: StorageChangeAnalysis;
+  readonly targetRuntimeCode: TargetRuntimeCodeEvidence;
   readonly baselineVerdict: ReturnType<typeof resolveEvidenceVerdict>;
   readonly persisted: AnalysisResult;
 }
@@ -76,17 +77,21 @@ async function loadImmutableSimulation(
   }
 }
 
-async function resolveTargetRuntimeCodeHash(
-  transaction: SafeTransaction,
-  chain: ChainPort,
-): Promise<Hex | null> {
-  if (transaction.operation !== "delegatecall") return null;
+export interface TargetRuntimeCodeEvidence {
+  readonly hash: Hex | null;
+  readonly anchor:
+    | "transaction-block"
+    | "latest"
+    | "latest-fallback"
+    | "unavailable";
+}
 
+async function readRuntimeCodeHash(
+  chain: ChainPort,
+  transaction: SafeTransaction,
+  blockNumber?: bigint,
+): Promise<Hex | null> {
   try {
-    const blockNumber =
-      transaction.status === "executed"
-        ? (transaction.blockNumber ?? undefined)
-        : undefined;
     const code = await chain.getCode(
       transaction.safe.chainId,
       transaction.to,
@@ -98,6 +103,39 @@ async function resolveTargetRuntimeCodeHash(
   }
 }
 
+export async function resolveTargetRuntimeCodeEvidence(
+  transaction: SafeTransaction,
+  chain: ChainPort,
+): Promise<TargetRuntimeCodeEvidence> {
+  if (transaction.operation !== "delegatecall") {
+    return { hash: null, anchor: "unavailable" };
+  }
+
+  if (transaction.status === "executed") {
+    const historicalHash =
+      transaction.blockNumber === null
+        ? null
+        : await readRuntimeCodeHash(
+            chain,
+            transaction,
+            transaction.blockNumber,
+          );
+    if (historicalHash) {
+      return { hash: historicalHash, anchor: "transaction-block" };
+    }
+
+    const latestHash = await readRuntimeCodeHash(chain, transaction);
+    return latestHash
+      ? { hash: latestHash, anchor: "latest-fallback" }
+      : { hash: null, anchor: "unavailable" };
+  }
+
+  const latestHash = await readRuntimeCodeHash(chain, transaction);
+  return latestHash
+    ? { hash: latestHash, anchor: "latest" }
+    : { hash: null, anchor: "unavailable" };
+}
+
 /**
  * Builds and persists only profile-neutral evidence. Profile Trust and Flag
  * records must be applied separately when a transaction is served.
@@ -106,7 +144,7 @@ export async function resolveNeutralTransactionAnalysis(
   transaction: SafeTransaction,
   ports: NeutralTransactionAnalysisPorts,
 ): Promise<NeutralTransactionAnalysis> {
-  const [contract, execution, targetRuntimeCodeHash] = await Promise.all([
+  const [contract, execution, targetRuntimeCode] = await Promise.all([
     resolveContractInsight(ports.safeData, ports.abi, transaction),
     resolveExecutionInsight(
       ports.simulation,
@@ -114,7 +152,7 @@ export async function resolveNeutralTransactionAnalysis(
       { cache: ports.cache, persistence: ports.persistence },
       { chain: ports.chain, safeData: ports.safeData },
     ),
-    resolveTargetRuntimeCodeHash(transaction, ports.chain),
+    resolveTargetRuntimeCodeEvidence(transaction, ports.chain),
   ]);
   const [approvalRisk, storageAnalysis] = await Promise.all([
     resolveApprovalRisk(ports.chain, transaction, contract, execution),
@@ -131,7 +169,8 @@ export async function resolveNeutralTransactionAnalysis(
     [],
     approvalRisk,
     storageAnalysis,
-    targetRuntimeCodeHash,
+    targetRuntimeCode.hash,
+    targetRuntimeCode.anchor,
   );
   const simulation = await loadImmutableSimulation(
     transaction,
@@ -155,6 +194,7 @@ export async function resolveNeutralTransactionAnalysis(
     execution,
     approvalRisk,
     storageAnalysis,
+    targetRuntimeCode,
     baselineVerdict,
     persisted,
   };
