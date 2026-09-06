@@ -1,3 +1,4 @@
+import { keccak256 } from "viem";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type {
@@ -180,7 +181,10 @@ const baselineVerdict = {
   trustBoundary: "",
 } as const;
 
-function ports(overrides: Record<string, unknown> = {}) {
+function ports(
+  overrides: Record<string, unknown> = {},
+  chainOverrides: Record<string, unknown> = {},
+) {
   const persistence = {
     findTransaction: vi.fn(),
     findAnalysis: vi.fn(),
@@ -189,17 +193,22 @@ function ports(overrides: Record<string, unknown> = {}) {
     saveExecutionEvidence: vi.fn(),
     ...overrides,
   };
+  const chain = {
+    getCode: vi.fn().mockResolvedValue("0x6000" as Hex),
+    ...chainOverrides,
+  };
   return {
     value: {
       abi: {},
       cache: {},
-      chain: {},
+      chain,
       persistence,
       safeData: {},
       simulation: {},
       now: () => 99,
     } as unknown as NeutralTransactionAnalysisPorts,
     persistence,
+    chain,
   };
 }
 
@@ -238,6 +247,7 @@ describe("resolveNeutralTransactionAnalysis", () => {
       [],
       approvalRisk,
       storageAnalysis,
+      null,
     );
     expect(result.persisted.engineVersion).toBe(
       TRANSACTION_ANALYSIS_ENGINE_VERSION,
@@ -251,6 +261,50 @@ describe("resolveNeutralTransactionAnalysis", () => {
       createdAt: 99,
       immutable: true,
     });
+  });
+
+  it("anchors delegate target bytecode to the executed block", async () => {
+    const state = ports();
+    const delegateTransaction = transaction({ operation: "delegatecall" });
+
+    await resolveNeutralTransactionAnalysis(delegateTransaction, state.value);
+
+    expect(state.chain.getCode).toHaveBeenCalledWith(50, target, 3n);
+    expect(resolveEvidenceVerdict).toHaveBeenCalledWith(
+      delegateTransaction,
+      contract,
+      executed,
+      [],
+      approvalRisk,
+      storageAnalysis,
+      keccak256("0x6000"),
+    );
+  });
+
+  it("uses latest bytecode for a pending delegate target", async () => {
+    vi.mocked(resolveExecutionInsight).mockResolvedValue(pending);
+    const state = ports();
+    const pendingTransaction = transaction({
+      operation: "delegatecall",
+      status: "pending",
+      executedAt: null,
+      executedTxHash: null,
+      blockNumber: null,
+      blockHash: null,
+    });
+
+    await resolveNeutralTransactionAnalysis(pendingTransaction, state.value);
+
+    expect(state.chain.getCode).toHaveBeenCalledWith(50, target, undefined);
+    expect(resolveEvidenceVerdict).toHaveBeenCalledWith(
+      pendingTransaction,
+      contract,
+      pending,
+      [],
+      approvalRisk,
+      storageAnalysis,
+      keccak256("0x6000"),
+    );
   });
 
   it("keeps pending results refreshable and does not claim immutable evidence", async () => {
