@@ -195,7 +195,7 @@ describe("evaluateEvidenceVerdict", () => {
       }),
     );
 
-    expect(result.verdict).toBe("known");
+    expect(result.verdict).toBe("unverified");
     expect(result.findings).toContainEqual(
       expect.objectContaining({
         code: "expected-target-proxy-delegation",
