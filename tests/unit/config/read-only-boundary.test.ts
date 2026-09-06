@@ -26,11 +26,10 @@ function verify(code: string) {
 }
 
 describe("read-only boundary lint rule", () => {
-  it("allows public reads and account discovery", () => {
+  it("allows public reads", () => {
     expect(
       verify(`
         import { createPublicClient } from "viem";
-        provider.request({ method: "eth_requestAccounts" });
         provider.request({ method: "eth_call" });
         createPublicClient({});
       `),
@@ -62,13 +61,14 @@ describe("read-only boundary lint rule", () => {
     ]);
   });
 
-  it("rejects raw signing and broadcast RPC methods", () => {
+  it("rejects account access, raw signing, and broadcast RPC methods", () => {
     expect(
       verify(`
+        provider.request({ method: "eth_requestAccounts" });
         provider.request({ method: "personal_sign" });
         provider.request({ method: "eth_signTypedData_v4" });
         provider.request({ method: "eth_sendRawTransaction" });
       `).map(({ messageId }) => messageId),
-    ).toEqual(["forbiddenRpc", "forbiddenRpc", "forbiddenRpc"]);
+    ).toEqual(["forbiddenRpc", "forbiddenRpc", "forbiddenRpc", "forbiddenRpc"]);
   });
 });
