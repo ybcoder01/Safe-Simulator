@@ -25,6 +25,11 @@ export interface EvidenceVerdictInput {
   readonly target: Address;
   readonly targetVerified: boolean;
   readonly targetRuntimeCodeHash?: Hex | null;
+  readonly targetRuntimeCodeAnchor?:
+    | "transaction-block"
+    | "latest"
+    | "latest-fallback"
+    | "unavailable";
   readonly implementationChain?: readonly Address[];
   readonly decodeConfidence: DecodeConfidence;
   readonly movements: readonly {
@@ -116,6 +121,18 @@ function isExpectedSafeBatchDelegation(input: EvidenceVerdictInput): boolean {
         entry.runtimeCodeHash?.toLowerCase() ===
           input.targetRuntimeCodeHash?.toLowerCase(),
     ) ?? false
+  );
+}
+
+function isExpectedSafeBatchDelegationCall(
+  input: EvidenceVerdictInput,
+  call: EvidenceVerdictInput["internalCalls"][number],
+): boolean {
+  return (
+    isExpectedSafeBatchDelegation(input) &&
+    call.operation === "delegatecall" &&
+    addressKey(call.from) === addressKey(input.safeAddress) &&
+    addressKey(call.to) === addressKey(input.target)
   );
 }
 
@@ -246,6 +263,16 @@ export function evaluateEvidenceVerdict(
           "The target matches a chain-pinned Safe batch executor and its authoritative runtime bytecode hash. Inner calls, approvals, and other evidence remain independently evaluated.",
         addresses: [input.target],
       });
+      if (input.targetRuntimeCodeAnchor === "latest-fallback") {
+        findings.push({
+          code: "safe-batch-latest-bytecode-fallback",
+          severity: "warning",
+          title: "Historical batch bytecode was unavailable",
+          detail:
+            "The archive RPC could not return target bytecode at the transaction block. Current runtime bytecode exactly matches the pinned Safe deployment, but the historical identity remains an explicit coverage limit.",
+          addresses: [input.target],
+        });
+      }
     } else {
       findings.push({
         code: "delegatecall-operation",
@@ -294,6 +321,7 @@ export function evaluateEvidenceVerdict(
     (call) =>
       call.operation === "delegatecall" &&
       !isExpectedSafeProxyDelegation(input, call) &&
+      !isExpectedSafeBatchDelegationCall(input, call) &&
       !isExpectedTargetProxyDelegation(input, call),
   );
   if (internalDelegatecalls.length > 0) {
