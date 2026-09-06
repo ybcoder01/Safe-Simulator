@@ -32,20 +32,17 @@ describe("RPC URL configuration", () => {
     expect(getRpcUrls(xdc)).toEqual(xdc.rpcUrls.default.http);
   });
 
-  it("keeps configured endpoints first and appends unique defaults", () => {
-    const defaultUrl = xdc.rpcUrls.default.http[0];
+  it("uses only unique configured endpoints when an override is present", () => {
     process.env[rpcKey] =
-      ` https://custom-one.example , ${defaultUrl}, https://custom-two.example `;
+      " https://custom-one.example , https://custom-one.example, https://custom-two.example ";
 
     expect(getRpcUrls(xdc)).toEqual([
       "https://custom-one.example",
-      defaultUrl,
       "https://custom-two.example",
     ]);
   });
 
   it("uses the archive override before the public XDC archive fallback", () => {
-    const defaultUrl = xdc.rpcUrls.default.http[0];
     process.env[archiveKey] =
       " https://archive-one.example , https://rpc.ankr.com/xdc ";
     process.env[rpcKey] = "https://current.example";
@@ -54,7 +51,6 @@ describe("RPC URL configuration", () => {
       "https://archive-one.example",
       "https://rpc.ankr.com/xdc",
       "https://current.example",
-      defaultUrl,
     ]);
   });
 

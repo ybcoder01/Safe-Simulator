@@ -21,12 +21,8 @@ export function getSupportedChain(chainId: ChainId): Chain {
 }
 
 export function getRpcUrls(chain: Chain): readonly string[] {
-  return [
-    ...new Set([
-      ...configuredUrls(`RPC_URL_${chain.id}`),
-      ...chain.rpcUrls.default.http,
-    ]),
-  ];
+  const urls = configuredUrls(`RPC_URL_${chain.id}`);
+  return urls.length > 0 ? [...new Set(urls)] : chain.rpcUrls.default.http;
 }
 
 export function getArchiveRpcUrls(chain: Chain): readonly string[] {
