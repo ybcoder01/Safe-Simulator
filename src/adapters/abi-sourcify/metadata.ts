@@ -19,6 +19,8 @@ const EIP_1967_IMPLEMENTATION_SLOT =
   "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc" as Hex;
 const EIP_1967_BEACON_SLOT =
   "0xa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b35133d50" as Hex;
+const ZEPPELINOS_IMPLEMENTATION_SLOT =
+  "0x7050c9e0f4ca769c69bd3a8ef740bc37934f8e2c036e5a723fd8ee048ed3f8c3" as Hex;
 const BEACON_IMPLEMENTATION_CALL = "0x5c60da1b" as Hex;
 const MAX_IMPLEMENTATION_DEPTH = 8;
 
@@ -297,6 +299,13 @@ export class PublicAbiAdapter implements AbiPort {
         .catch(() => "0x" as Hex),
     );
     if (direct) return direct;
+
+    const legacy = addressFromWord(
+      await this.chain
+        .getStorageAt(chainId, address, ZEPPELINOS_IMPLEMENTATION_SLOT)
+        .catch(() => "0x" as Hex),
+    );
+    if (legacy) return legacy;
 
     const beacon = addressFromWord(
       await this.chain

@@ -12,6 +12,8 @@ const implementationSlot =
   "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc";
 const beaconSlot =
   "0xa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b35133d50";
+const zeppelinOsImplementationSlot =
+  "0x7050c9e0f4ca769c69bd3a8ef740bc37934f8e2c036e5a723fd8ee048ed3f8c3";
 
 function word(address: Address): Hex {
   return `0x${address.slice(2).padStart(64, "0")}`;
@@ -119,6 +121,22 @@ describe("PublicAbiAdapter", () => {
         }
         if (address === implementation && slot === implementationSlot) {
           return word(target);
+        }
+        return "0x" as Hex;
+      },
+    );
+    const adapter = new PublicAbiAdapter(makeChain({ getStorageAt: storage }));
+
+    await expect(
+      adapter.resolveImplementationChain(50, target),
+    ).resolves.toEqual([implementation]);
+  });
+
+  it("resolves a legacy ZeppelinOS implementation slot", async () => {
+    const storage = vi.fn(
+      async (_chainId: number, address: Address, slot: Hex) => {
+        if (address === target && slot === zeppelinOsImplementationSlot) {
+          return word(implementation);
         }
         return "0x" as Hex;
       },
