@@ -15,6 +15,7 @@ import { TRANSACTION_ANALYSIS_ENGINE_VERSION } from "@/lib/api/analysis-version"
 import { queueJobSchema } from "@/lib/api/jobs";
 import { MODULE_ANALYSIS_ENGINE_VERSION } from "@/lib/api/module-analysis";
 import { runAnalyzeModuleJob } from "@/lib/api/module-analysis-job";
+import { runModuleReanalysisPage } from "@/lib/api/module-reanalysis-job";
 import { runReanalysisPage } from "@/lib/api/reanalysis-job";
 
 export async function POST(request: Request) {
@@ -102,6 +103,10 @@ export async function POST(request: Request) {
     case "reanalyze":
       return Response.json(
         await runReanalysisPage(job, { persistence, queue }),
+      );
+    case "reanalyze-module":
+      return Response.json(
+        await runModuleReanalysisPage(job, { persistence, queue }),
       );
   }
 }
