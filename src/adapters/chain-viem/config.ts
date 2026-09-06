@@ -12,14 +12,13 @@ export function getSupportedChain(chainId: ChainId): Chain {
 }
 
 export function getRpcUrls(chain: Chain): readonly string[] {
-  const configured = process.env[`RPC_URL_${chain.id}`]
-    ?.split(",")
-    .map((url) => url.trim())
-    .filter(Boolean);
+  const configured =
+    process.env[`RPC_URL_${chain.id}`]
+      ?.split(",")
+      .map((url) => url.trim())
+      .filter(Boolean) ?? [];
 
-  return configured && configured.length > 0
-    ? configured
-    : chain.rpcUrls.default.http;
+  return [...new Set([...configured, ...chain.rpcUrls.default.http])];
 }
 
 export const supportedChainSummaries = supportedChains.map((chain) => ({
