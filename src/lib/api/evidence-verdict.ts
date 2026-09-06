@@ -14,6 +14,7 @@ import type {
 import type { ApprovalRiskResult } from "@/lib/api/approval-risk";
 import type { ContractInsight } from "@/lib/api/contract-insight";
 import type { ExecutionInsight } from "@/lib/api/execution-insight";
+import type { InternalProxyBoundary } from "@/lib/api/internal-proxy-boundaries";
 import type { StorageChangeAnalysis } from "@/lib/api/storage-changes";
 
 function decodeConfidence(
@@ -44,6 +45,7 @@ export function resolveEvidenceVerdict(
     | "latest"
     | "latest-fallback"
     | "unavailable" = "unavailable",
+  internalProxyBoundaries: readonly InternalProxyBoundary[] = [],
 ): EvidenceVerdict {
   const executedAllowances = approvalRisk
     ? approvalRisk.executedChanges.map((allowance) => ({
@@ -71,6 +73,7 @@ export function resolveEvidenceVerdict(
     implementationChain: contract.implementationChain.map(
       (address) => address as Address,
     ),
+    internalProxyBoundaries,
     decodeConfidence: decodeConfidence(contract.provenance),
     movements: execution.tokenMovements.map((movement) => ({
       token: movement.token as Address,
