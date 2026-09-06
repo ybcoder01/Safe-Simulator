@@ -163,10 +163,33 @@ describe("PublicAbiAdapter", () => {
     await expect(
       adapter.resolveImplementationChain(50, target),
     ).resolves.toEqual([implementation]);
-    expect(call).toHaveBeenCalledWith(50, {
-      to: beacon,
-      data: "0x5c60da1b",
-    });
+    expect(call).toHaveBeenCalledWith(
+      50,
+      {
+        to: beacon,
+        data: "0x5c60da1b",
+      },
+      undefined,
+    );
+  });
+
+  it("anchors proxy storage and code reads to the supplied block", async () => {
+    const storage = vi.fn().mockResolvedValueOnce(word(implementation));
+    const getCode = vi.fn().mockResolvedValue("0x6000");
+    const adapter = new PublicAbiAdapter(
+      makeChain({ getStorageAt: storage, getCode }),
+    );
+
+    await expect(
+      adapter.resolveImplementationChain(50, target, 99n),
+    ).resolves.toEqual([implementation]);
+    expect(storage).toHaveBeenCalledWith(
+      50,
+      target,
+      implementationSlot,
+      99n,
+    );
+    expect(getCode).toHaveBeenCalledWith(50, implementation, 99n);
   });
 
   it("returns unknown metadata when no verified contract is available", async () => {
