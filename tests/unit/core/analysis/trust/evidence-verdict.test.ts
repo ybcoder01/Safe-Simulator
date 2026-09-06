@@ -4,12 +4,41 @@ import {
   evaluateEvidenceVerdict,
   type EvidenceVerdictInput,
 } from "../../../../../src/core/analysis/trust/evidence-verdict";
-import type { Address } from "../../../../../src/core/domain";
+import type { ContractRegistryEntry } from "../../../../../src/core/analysis/trust/contract-registry";
+import type { Address, Hex } from "../../../../../src/core/domain";
 
 const target = "0x1111111111111111111111111111111111111111" as Address;
 const token = "0x2222222222222222222222222222222222222222" as Address;
 const spender = "0x3333333333333333333333333333333333333333" as Address;
 const safe = "0x4444444444444444444444444444444444444444" as Address;
+const multiSend = "0x38869bf66a61cF6bDB996A6aE40D5853Fd43B526" as Address;
+const multiSendCodeHash =
+  "0x0e4f7fc66550a322d1e7688e181b75e217e662a4f3f4d6a29b22bc61217c4b77" as Hex;
+
+function safeBatchRegistry(
+  overrides: Partial<ContractRegistryEntry> = {},
+): readonly ContractRegistryEntry[] {
+  return [
+    {
+      chainId: 50,
+      address: multiSend,
+      label: "Safe v1.4.1 MultiSend",
+      protocol: "safe",
+      category: "infrastructure",
+      role: "batch-executor",
+      source: "safe-deployments",
+      reference: "https://example.com/pinned-safe-deployment",
+      verification: "publisher-documented",
+      reviewedAt: "2026-09-03",
+      logoKey: "safe",
+      executionRole: "safe-batch-executor",
+      runtimeCodeHash: multiSendCodeHash,
+      trustPolicy: "identity-only",
+      lifecycle: "active",
+      ...overrides,
+    },
+  ];
+}
 
 function input(
   overrides: Partial<EvidenceVerdictInput> = {},
@@ -444,6 +473,80 @@ describe("evaluateEvidenceVerdict", () => {
         severity: "critical",
         addresses: [token, spender],
       }),
+    );
+  });
+
+  it("recognizes a Safe batch delegation only with exact pinned bytecode", () => {
+    const result = evaluateEvidenceVerdict(
+      input({
+        operation: "delegatecall",
+        target: multiSend,
+        targetRuntimeCodeHash: multiSendCodeHash,
+        registry: safeBatchRegistry(),
+      }),
+    );
+
+    expect(result.verdict).not.toBe("flagged");
+    expect(result.findings).toContainEqual(
+      expect.objectContaining({
+        code: "expected-safe-batch-delegation",
+        severity: "info",
+        addresses: [multiSend],
+      }),
+    );
+    expect(result.findings.map((finding) => finding.code)).not.toContain(
+      "delegatecall-operation",
+    );
+  });
+
+  it.each([
+    ["different runtime bytecode", { targetRuntimeCodeHash: ("0x" + "11".repeat(32)) as Hex }],
+    ["different chain", { registry: safeBatchRegistry({ chainId: 1 }) }],
+    ["lookalike address", { registry: safeBatchRegistry({ address: spender }) }],
+  ])("keeps Safe batch delegation critical for %s", (_label, overrides) => {
+    const result = evaluateEvidenceVerdict(
+      input({
+        operation: "delegatecall",
+        target: multiSend,
+        targetRuntimeCodeHash: multiSendCodeHash,
+        registry: safeBatchRegistry(),
+        ...overrides,
+      }),
+    );
+
+    expect(result.verdict).toBe("flagged");
+    expect(result.findings).toContainEqual(
+      expect.objectContaining({
+        code: "delegatecall-operation",
+        severity: "critical",
+      }),
+    );
+  });
+
+  it("keeps independent approval risk critical inside a verified Safe batch", () => {
+    const result = evaluateEvidenceVerdict(
+      input({
+        operation: "delegatecall",
+        target: multiSend,
+        targetRuntimeCodeHash: multiSendCodeHash,
+        registry: safeBatchRegistry(),
+        allowances: [
+          {
+            token,
+            spender,
+            amount: ((1n << 256n) - 1n).toString(),
+            infinite: true,
+          },
+        ],
+      }),
+    );
+
+    expect(result.verdict).toBe("flagged");
+    expect(result.findings.map((finding) => finding.code)).toEqual(
+      expect.arrayContaining([
+        "expected-safe-batch-delegation",
+        "infinite-allowance",
+      ]),
     );
   });
 
