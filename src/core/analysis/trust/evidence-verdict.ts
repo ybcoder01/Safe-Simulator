@@ -239,8 +239,8 @@ export function evaluateEvidenceVerdict(
     });
   }
 
-  const expectedTargetProxyDelegations = input.internalCalls.filter((call) =>
-    isExpectedTargetProxyDelegation(input, call),
+  const expectedTargetProxyDelegations = input.internalCalls.filter(
+    (call) => isExpectedTargetProxyDelegation(input, call),
   );
   if (expectedTargetProxyDelegations.length > 0) {
     findings.push({
