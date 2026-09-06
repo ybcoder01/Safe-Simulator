@@ -99,9 +99,7 @@ function uniqueAddresses(addresses: readonly Address[]): readonly Address[] {
   return [...new Set(addresses.map(addressKey))] as Address[];
 }
 
-function isExpectedSafeBatchDelegation(
-  input: EvidenceVerdictInput,
-): boolean {
+function isExpectedSafeBatchDelegation(input: EvidenceVerdictInput): boolean {
   if (input.operation !== "delegatecall" || !input.targetRuntimeCodeHash) {
     return false;
   }
