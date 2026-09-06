@@ -98,12 +98,13 @@ The application accepts comma-separated ranked fallback URLs:
 
 - `RPC_URL_1` and `TRACE_RPC_URL_1` for Ethereum.
 - `RPC_URL_50` and `TRACE_RPC_URL_50` for XDC.
+- `ARCHIVE_RPC_URL_1` and `ARCHIVE_RPC_URL_50` optionally override historical block reads.
 
-Standard RPC URLs provide reads and receipt evidence. Trace RPC URLs are optional; unsupported trace methods must degrade explicitly.
+Standard RPC URLs provide current reads and receipt evidence. Historical reads use the archive list first, then the standard list. XDC includes a public Ankr archive fallback so block-anchored proxy evidence does not depend on a pruned default endpoint. Trace RPC URLs are optional; unsupported trace methods must degrade explicitly.
 
 To rotate or add a provider:
 
-1. Add the new URL first in the appropriate Vercel Preview environment variable.
+1. Add the new URL first in the appropriate Vercel Preview environment variable. Use the archive variable when historical storage or code reads are required.
 2. Deploy a preview and verify Safe import, dashboard balances, an executed transaction, and a pending transaction.
 3. For a trace provider, verify the call-trace and storage-diff coverage labels on a known transaction.
 4. Add the new URL to Production ahead of the old URL.

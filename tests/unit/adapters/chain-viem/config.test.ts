@@ -1,21 +1,30 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { xdc } from "viem/chains";
+import { mainnet, xdc } from "viem/chains";
 
-import { getRpcUrls } from "@/adapters/chain-viem/config";
+import { getArchiveRpcUrls, getRpcUrls } from "@/adapters/chain-viem/config";
 
-const key = `RPC_URL_${xdc.id}`;
-const original = process.env[key];
+const rpcKey = `RPC_URL_${xdc.id}`;
+const archiveKey = `ARCHIVE_RPC_URL_${xdc.id}`;
+const originalRpc = process.env[rpcKey];
+const originalArchive = process.env[archiveKey];
 
-describe("getRpcUrls", () => {
+describe("RPC URL configuration", () => {
   beforeEach(() => {
-    delete process.env[key];
+    delete process.env[rpcKey];
+    delete process.env[archiveKey];
   });
 
   afterEach(() => {
-    if (original === undefined) {
-      delete process.env[key];
+    if (originalRpc === undefined) {
+      delete process.env[rpcKey];
     } else {
-      process.env[key] = original;
+      process.env[rpcKey] = originalRpc;
+    }
+
+    if (originalArchive === undefined) {
+      delete process.env[archiveKey];
+    } else {
+      process.env[archiveKey] = originalArchive;
     }
   });
 
@@ -23,15 +32,29 @@ describe("getRpcUrls", () => {
     expect(getRpcUrls(xdc)).toEqual(xdc.rpcUrls.default.http);
   });
 
-  it("keeps configured endpoints first and appends unique defaults", () => {
-    const defaultUrl = xdc.rpcUrls.default.http[0];
-    process.env[key] =
-      ` https://custom-one.example , ${defaultUrl}, https://custom-two.example `;
+  it("uses only unique configured endpoints when an override is present", () => {
+    process.env[rpcKey] =
+      " https://custom-one.example , https://custom-one.example, https://custom-two.example ";
 
     expect(getRpcUrls(xdc)).toEqual([
       "https://custom-one.example",
-      defaultUrl,
       "https://custom-two.example",
     ]);
+  });
+
+  it("uses the archive override before the public XDC archive fallback", () => {
+    process.env[archiveKey] =
+      " https://archive-one.example , https://rpc.ankr.com/xdc ";
+    process.env[rpcKey] = "https://current.example";
+
+    expect(getArchiveRpcUrls(xdc)).toEqual([
+      "https://archive-one.example",
+      "https://rpc.ankr.com/xdc",
+      "https://current.example",
+    ]);
+  });
+
+  it("does not add the XDC archive fallback to other chains", () => {
+    expect(getArchiveRpcUrls(mainnet)).toEqual(mainnet.rpcUrls.default.http);
   });
 });

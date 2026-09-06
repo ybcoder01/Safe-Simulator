@@ -5,6 +5,15 @@ import type { ChainId } from "@/core/domain";
 
 export const supportedChains = [mainnet, xdc] as const;
 
+const XDC_PUBLIC_ARCHIVE_RPC_URLS = ["https://rpc.ankr.com/xdc"] as const;
+
+function configuredUrls(key: string): readonly string[] {
+  return (process.env[key] ?? "")
+    .split(",")
+    .map((url) => url.trim())
+    .filter(Boolean);
+}
+
 export function getSupportedChain(chainId: ChainId): Chain {
   const chain = supportedChains.find((candidate) => candidate.id === chainId);
   if (!chain) throw new Error(`Unsupported chain ${chainId}.`);
@@ -12,13 +21,21 @@ export function getSupportedChain(chainId: ChainId): Chain {
 }
 
 export function getRpcUrls(chain: Chain): readonly string[] {
-  const configured =
-    process.env[`RPC_URL_${chain.id}`]
-      ?.split(",")
-      .map((url) => url.trim())
-      .filter(Boolean) ?? [];
+  const urls = configuredUrls(`RPC_URL_${chain.id}`);
+  return urls.length > 0 ? [...new Set(urls)] : chain.rpcUrls.default.http;
+}
 
-  return [...new Set([...configured, ...chain.rpcUrls.default.http])];
+export function getArchiveRpcUrls(chain: Chain): readonly string[] {
+  const publicFallbacks =
+    chain.id === xdc.id ? XDC_PUBLIC_ARCHIVE_RPC_URLS : [];
+
+  return [
+    ...new Set([
+      ...configuredUrls(`ARCHIVE_RPC_URL_${chain.id}`),
+      ...publicFallbacks,
+      ...getRpcUrls(chain),
+    ]),
+  ];
 }
 
 export const supportedChainSummaries = supportedChains.map((chain) => ({

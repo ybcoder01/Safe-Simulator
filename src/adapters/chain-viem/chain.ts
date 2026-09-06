@@ -18,7 +18,7 @@ import type {
 } from "@/core/domain";
 import type { ChainPort } from "@/core/ports";
 
-import { getRpcUrls, getSupportedChain } from "./config";
+import { getArchiveRpcUrls, getRpcUrls, getSupportedChain } from "./config";
 import { safeReadAbi } from "./safe-abi";
 
 const EIP_1967_IMPLEMENTATION_SLOT =
@@ -28,20 +28,26 @@ const SAFE_MODULE_SENTINEL =
 
 export class ViemChainAdapter implements ChainPort {
   private readonly clients = new Map<ChainId, PublicClient>();
+  private readonly archiveClients = new Map<ChainId, PublicClient>();
 
-  private getClient(chainId: ChainId): PublicClient {
-    const existing = this.clients.get(chainId);
+  private getClient(chainId: ChainId, historical = false): PublicClient {
+    const clients = historical ? this.archiveClients : this.clients;
+    const existing = clients.get(chainId);
     if (existing) return existing;
 
     const chain = getSupportedChain(chainId);
-    const transports = getRpcUrls(chain).map((url) =>
-      http(url, { timeout: 12_000 }),
+    const urls = historical ? getArchiveRpcUrls(chain) : getRpcUrls(chain);
+    const transports = urls.map((url) =>
+      http(url, { timeout: historical ? 8_000 : 12_000 }),
     );
     const client = createPublicClient({
       chain,
-      transport: fallback(transports, { rank: true, retryCount: 2 }),
+      transport: fallback(transports, {
+        rank: !historical,
+        retryCount: historical ? 1 : 2,
+      }),
     });
-    this.clients.set(chainId, client);
+    clients.set(chainId, client);
     return client;
   }
 
@@ -51,7 +57,7 @@ export class ViemChainAdapter implements ChainPort {
     blockNumber?: bigint,
   ): Promise<Hex> {
     return (
-      (await this.getClient(chainId).getCode({
+      (await this.getClient(chainId, blockNumber !== undefined).getCode({
         address: address as ViemAddress,
         blockNumber,
       })) ?? "0x"
@@ -65,7 +71,7 @@ export class ViemChainAdapter implements ChainPort {
     blockNumber?: bigint,
   ): Promise<Hex> {
     return (
-      (await this.getClient(chainId).getStorageAt({
+      (await this.getClient(chainId, blockNumber !== undefined).getStorageAt({
         address: address as ViemAddress,
         slot: slot as ViemHex,
         blockNumber,
@@ -77,7 +83,7 @@ export class ViemChainAdapter implements ChainPort {
     safe: SafeRef,
     blockNumber?: bigint,
   ): Promise<SafeSnapshot> {
-    const client = this.getClient(safe.chainId);
+    const client = this.getClient(safe.chainId, blockNumber !== undefined);
     const contract = {
       address: safe.address as ViemAddress,
       abi: safeReadAbi,
@@ -134,7 +140,7 @@ export class ViemChainAdapter implements ChainPort {
     request: CallRequest,
     blockNumber?: bigint,
   ): Promise<Hex> {
-    return this.getClient(chainId)
+    return this.getClient(chainId, blockNumber !== undefined)
       .call({
         account: request.from as ViemAddress | undefined,
         to: request.to as ViemAddress,
