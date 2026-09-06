@@ -174,7 +174,12 @@ describe("PublicAbiAdapter", () => {
   });
 
   it("anchors proxy storage and code reads to the supplied block", async () => {
-    const storage = vi.fn().mockResolvedValueOnce(word(implementation));
+    const storage = vi.fn(
+      async (_chainId: number, address: Address, slot: Hex) =>
+        address === target && slot === implementationSlot
+          ? word(implementation)
+          : ("0x" as Hex),
+    );
     const getCode = vi.fn().mockResolvedValue("0x6000");
     const adapter = new PublicAbiAdapter(
       makeChain({ getStorageAt: storage, getCode }),
