@@ -125,11 +125,13 @@ function isExpectedTargetProxyDelegation(
   if (call.operation !== "delegatecall") return false;
 
   const chain = [input.target, ...(input.implementationChain ?? [])];
-  return chain.slice(0, -1).some(
-    (address, index) =>
-      addressKey(address) === addressKey(call.from) &&
-      addressKey(chain[index + 1] as Address) === addressKey(call.to),
-  );
+  return chain
+    .slice(0, -1)
+    .some(
+      (address, index) =>
+        addressKey(address) === addressKey(call.from) &&
+        addressKey(chain[index + 1] as Address) === addressKey(call.to),
+    );
 }
 
 function assessAddresses(
@@ -239,8 +241,8 @@ export function evaluateEvidenceVerdict(
     });
   }
 
-  const expectedTargetProxyDelegations = input.internalCalls.filter(
-    (call) => isExpectedTargetProxyDelegation(input, call),
+  const expectedTargetProxyDelegations = input.internalCalls.filter((call) =>
+    isExpectedTargetProxyDelegation(input, call),
   );
   if (expectedTargetProxyDelegations.length > 0) {
     findings.push({
