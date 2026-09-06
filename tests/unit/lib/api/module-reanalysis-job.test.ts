@@ -19,8 +19,7 @@ const safe: SafeRef = {
   chainId: 50,
   address: "0xc8bAe80ca5c2C9eC3bd4AC16c422220a33b6B173",
 };
-const moduleAddress =
-  "0x1111111111111111111111111111111111111111" as Address;
+const moduleAddress = "0x1111111111111111111111111111111111111111" as Address;
 const target = "0x2222222222222222222222222222222222222222" as Address;
 
 function hash(digit: string) {
@@ -79,9 +78,7 @@ describe("bounded module reanalysis", () => {
   it("paces one module page and schedules the next cursor", async () => {
     const state = ports([transaction(1), transaction(2)], "next-cursor");
 
-    await expect(
-      runModuleReanalysisPage(job(), state.value),
-    ).resolves.toEqual({
+    await expect(runModuleReanalysisPage(job(), state.value)).resolves.toEqual({
       status: "complete",
       scanned: 2,
       scheduled: 2,
@@ -128,9 +125,7 @@ describe("bounded module reanalysis", () => {
   it("finishes the final page without scheduling another scan", async () => {
     const state = ports([transaction(1)], null);
 
-    await expect(
-      runModuleReanalysisPage(job(), state.value),
-    ).resolves.toEqual({
+    await expect(runModuleReanalysisPage(job(), state.value)).resolves.toEqual({
       status: "complete",
       scanned: 1,
       scheduled: 1,
@@ -143,10 +138,7 @@ describe("bounded module reanalysis", () => {
     const state = ports([], null);
 
     await expect(
-      runModuleReanalysisPage(
-        job({ engineVersion: "obsolete" }),
-        state.value,
-      ),
+      runModuleReanalysisPage(job({ engineVersion: "obsolete" }), state.value),
     ).resolves.toEqual({
       status: "skipped",
       reason: "unsupported_engine_version",
