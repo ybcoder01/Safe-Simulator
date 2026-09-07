@@ -34,6 +34,11 @@ jobs:
             const token = await core.getIDToken();
             core.setSecret(token);
             core.setOutput("token", token);
-      - run: node scripts/preview-smoke.mjs
+      - name: Run API and lifecycle smoke checks
+        run: node scripts/preview-smoke.mjs
+        env:
+          VERCEL_TRUSTED_OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
+      - name: Run rendered browser acceptance checks
+        run: node scripts/preview-browser-smoke.mjs
         env:
           VERCEL_TRUSTED_OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
