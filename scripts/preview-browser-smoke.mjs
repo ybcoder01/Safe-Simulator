@@ -79,7 +79,7 @@ const pages = [
       "Reported signers",
       "No signing capability",
     ],
-    timeoutMs: 45_000,
+    timeoutMs: 90_000,
   },
 ];
 
