@@ -11,15 +11,29 @@ export const databaseConnectionOptions = {
   prepare: false,
 } as const;
 
-function createDatabase() {
-  const connectionString = process.env.DATABASE_URL;
+type DatabaseEnvironment = Pick<
+  NodeJS.ProcessEnv,
+  "DATABASE_URL" | "NEON_DATABASE_URL"
+>;
+
+export function resolveDatabaseConnectionString(
+  environment: DatabaseEnvironment = process.env,
+) {
+  const connectionString =
+    environment.NEON_DATABASE_URL?.trim() ||
+    environment.DATABASE_URL?.trim();
 
   if (!connectionString) {
     throw new Error(
-      "DATABASE_URL is not configured. Connect a PostgreSQL database to this project.",
+      "NEON_DATABASE_URL or DATABASE_URL is not configured. Connect a PostgreSQL database to this project.",
     );
   }
 
+  return connectionString;
+}
+
+function createDatabase() {
+  const connectionString = resolveDatabaseConnectionString();
   const client = postgres(connectionString, databaseConnectionOptions);
 
   return drizzle(client, { schema });
