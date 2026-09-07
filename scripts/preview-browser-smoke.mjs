@@ -391,8 +391,20 @@ try {
     chrome.kill("SIGTERM");
     await Promise.race([
       new Promise((resolve) => chrome.once("exit", resolve)),
-      new Promise((resolve) => setTimeout(resolve, 5_000)),
+      new Promise((resolve) => setTimeout(resolve, 2_000)),
     ]);
   }
-  await rm(profileDirectory, { recursive: true, force: true });
+  if (chrome.exitCode === null) {
+    chrome.kill("SIGKILL");
+    await Promise.race([
+      new Promise((resolve) => chrome.once("exit", resolve)),
+      new Promise((resolve) => setTimeout(resolve, 2_000)),
+    ]);
+  }
+  await rm(profileDirectory, {
+    recursive: true,
+    force: true,
+    maxRetries: 5,
+    retryDelay: 200,
+  });
 }
