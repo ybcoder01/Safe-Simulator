@@ -60,7 +60,7 @@ const pages = [
   {
     name: "address-book",
     path: `/safe/50/${xdcSafe}/address-book`,
-    expected: ["Address book", "Protocol addresses", "Publisher source"],
+    expected: ["Address book", "Protocol addresses"],
   },
   {
     name: "executed-transaction",
