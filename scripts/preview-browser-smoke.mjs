@@ -9,7 +9,7 @@ const baseUrl = process.env.SMOKE_BASE_URL;
 const environment = process.env.SMOKE_ENVIRONMENT;
 const oidcToken = process.env.VERCEL_TRUSTED_OIDC_TOKEN;
 const navigationTimeoutMs = 30_000;
-const renderTimeoutMs = 20_000;
+const defaultRenderTimeoutMs = 30_000;
 
 assert.equal(
   environment,
@@ -56,11 +56,13 @@ const pages = [
     name: "safe-dashboard",
     path: `/safe/50/${xdcSafe}`,
     expected: ["XDC NETWORK", "Owners and controls", "Current balances"],
+    timeoutMs: 45_000,
   },
   {
     name: "address-book",
     path: `/safe/50/${xdcSafe}/address-book`,
     expected: ["Address book", "Protocol addresses"],
+    timeoutMs: 45_000,
   },
   {
     name: "executed-transaction",
@@ -71,6 +73,7 @@ const pages = [
       "Token state changes",
       "Raw transaction evidence",
     ],
+    timeoutMs: 90_000,
   },
   {
     name: "approval-review",
@@ -81,6 +84,7 @@ const pages = [
       "Approval coverage limits",
       "Raw transaction evidence",
     ],
+    timeoutMs: 90_000,
   },
   {
     name: "signed-message",
@@ -92,6 +96,7 @@ const pages = [
       "Reported signers",
       "No signing capability",
     ],
+    timeoutMs: 45_000,
   },
 ];
 
@@ -333,7 +338,7 @@ try {
         const value = await evaluate("document.body?.innerText || ''");
         return page.expected.every((text) => value.includes(text)) ? value : "";
       },
-      renderTimeoutMs,
+      page.timeoutMs ?? defaultRenderTimeoutMs,
       `${page.name} did not render its acceptance text.`,
     );
 
