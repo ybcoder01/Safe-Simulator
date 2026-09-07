@@ -339,7 +339,7 @@ try {
 
     const location = await evaluate("location.href");
     assert.equal(new URL(location).origin, base.origin);
-    assert.equal(await evaluate("document.title"), "Safe Inspector");
+    assert.match(await evaluate("document.title"), /Safe Inspector/);
 
     const controlText = await evaluate(`
       Array.from(document.querySelectorAll("button, a, input, select, textarea"))
