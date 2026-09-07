@@ -52,7 +52,15 @@ const pages = [
   {
     name: "safe-dashboard",
     path: `/safe/50/${xdcSafe}`,
-    expected: ["XDC NETWORK", "Owners and controls", "Current balances"],
+    expected: [
+      "XDC NETWORK",
+      "Owners and controls",
+      "Current balances",
+      "Pending actions",
+      "Transaction history",
+      "Module executions",
+      "Signed messages",
+    ],
     timeoutMs: 45_000,
   },
   {
@@ -60,17 +68,6 @@ const pages = [
     path: `/safe/50/${xdcSafe}/address-book`,
     expected: ["Address book", "Protocol addresses"],
     timeoutMs: 45_000,
-  },
-  {
-    name: "executed-approval-review",
-    path: `/safe/50/${approvalSafe}/tx/${approvalHash}?analysis=v6`,
-    expected: [
-      "Approval risk",
-      "Prior allowance",
-      "Approval coverage limits",
-      "Raw transaction evidence",
-    ],
-    timeoutMs: 90_000,
   },
   {
     name: "signed-message",
@@ -195,6 +192,46 @@ async function waitForText(during, timeoutMs, failureMessage) {
     `${failureMessage} Last value: ${String(lastValue).slice(0, 500)}`,
   );
 }
+
+async function requestJson(pathname) {
+  const url = new URL(pathname, base);
+  assert.equal(url.origin, base.origin);
+
+  const response = await fetch(url, {
+    headers: {
+      Accept: "application/json",
+      "x-vercel-trusted-oidc-idp-token": oidcToken,
+    },
+    redirect: "error",
+    signal: AbortSignal.timeout(navigationTimeoutMs),
+  });
+  assert.equal(
+    response.status,
+    200,
+    `${pathname} returned HTTP ${response.status}.`,
+  );
+  assert.equal(new URL(response.url).origin, base.origin);
+  assert.match(
+    response.headers.get("content-type") ?? "",
+    /application[/]json/,
+  );
+  return response.json();
+}
+
+const approvalResponse = await requestJson(
+  `/api/v1/safes/50/${approvalSafe}/tx/${approvalHash}`,
+);
+const approval = approvalResponse.data;
+assert.equal(approval.status, "executed");
+assert.equal(approval.verdict?.verdict, "unverified");
+assert.ok(approval.approvalRisk?.requests?.length > 0);
+assert.ok(approval.approvalRisk?.executedChanges?.length > 0);
+assert.equal(approval.approvalRisk.requests[0]?.standard, "erc20");
+assert.equal(approval.approvalRisk.requests[0]?.infinite, false);
+assert.match(
+  approval.approvalRisk.requests[0]?.spender ?? "",
+  /^0x[0-9a-f]{40}$/i,
+);
 
 const profileDirectory = await mkdtemp(
   join(tmpdir(), "safe-inspector-preview-browser-"),
