@@ -1,6 +1,6 @@
 # Safe Inspector Operations Runbook
 
-This runbook covers the currently deployed Vercel, Prisma Postgres, Upstash Redis, QStash, Ethereum, and XDC topology. It does not authorize signing, proposing, relaying, broadcasting, or destructive database operations.
+This runbook covers the currently deployed Vercel, Neon Postgres, Upstash Redis, QStash, Ethereum, and XDC topology. It does not authorize signing, proposing, relaying, broadcasting, or destructive database operations.
 
 ## Safety invariants
 
@@ -155,7 +155,7 @@ The `0003_module_analysis` migration is additive but required by the module hist
 
 ## Database precautions
 
-Prisma Postgres is authoritative for imported Safe data, cursors, profile bookmarks, address-book records, and persisted execution evidence.
+Neon Postgres, selected through the server-only `NEON_DATABASE_URL`, is authoritative for imported Safe data, cursors, profile bookmarks, address-book records, and persisted execution evidence. The legacy `DATABASE_URL` connection is a temporary rollback fallback and must not be treated as a second writable source.
 
 - Use the provider console for read-only diagnosis where possible.
 - Never edit or delete transaction rows to clear an evidence problem.
@@ -166,6 +166,26 @@ Prisma Postgres is authoritative for imported Safe data, cursors, profile bookma
 - Treat profile identifiers as sensitive application data even though tracked chain data is public.
 - Keep each serverless runtime limited to one short-lived PostgreSQL connection. Prepared statements remain disabled for pooled runtime compatibility.
 - Treat PostgreSQL error `53300` as connection saturation: inspect deployment and queue concurrency, wait for idle connections to drain, and verify recovery through `/api/health`. Do not raise the client pool limit as a first response.
+
+### Neon production cutover
+
+The production application prefers `NEON_DATABASE_URL` when it is present and falls back to `DATABASE_URL` only when the Neon override is absent or blank.
+
+The September 7, 2026 cutover was validated in this order:
+
+1. Apply every repository migration to an isolated Neon Preview database.
+2. Validate the expected tables, enums, and foreign keys.
+3. Import and fully synchronize a known XDC Safe in Preview.
+4. Require green CI, Preview smoke, and a Ready Vercel Preview.
+5. Add the same sensitive `NEON_` integration variables to Production.
+6. Redeploy the merged `main` revision.
+7. Require HTTP `200` from `/api/health`, with database and cache checks both `ok`.
+8. Re-import the approved Safe bookmarks without deleting shared history or resetting cursors.
+9. Run the bounded 15-minute Production read soak. The cutover acceptance run completed 90 cycles and 270 requests with zero failures.
+
+During the stabilization window, keep the legacy Prisma resource and Production connection intact but do not write to it. To roll back, remove or disconnect only the Production-scoped `NEON_DATABASE_URL`, redeploy the current compatible revision, and repeat the health, watchlist, dashboard, callback, and runtime-log checks. Never delete either database as part of application rollback.
+
+After the agreed stabilization window, disconnect the legacy Prisma project connection to prevent obsolete credentials and provisioning failures. Retain the resource until a separate, reviewed retention decision is made.
 
 ## Rollback
 
@@ -187,7 +207,7 @@ Start with the narrowest affected layer:
 
 - **Whole site unavailable:** Vercel deployment status and runtime logs.
 - **Health probe degraded:** use the non-secret `checks` map to identify PostgreSQL or Redis, then inspect that provider and Vercel runtime logs.
-- **Watchlist unavailable:** Prisma Postgres connectivity and `DATABASE_URL`.
+- **Watchlist unavailable:** Neon Postgres connectivity and `NEON_DATABASE_URL`; check `DATABASE_URL` only when intentionally exercising the documented rollback.
 - **Refresh not queued:** QStash token, production callback URL, and dashboard authorization.
 - **Job callback rejected:** QStash current and next signing keys.
 - **History stale:** Safe Transaction Service endpoint, stream cursor status, and QStash deliveries.
