@@ -20,8 +20,7 @@ export function resolveDatabaseConnectionString(
   environment: DatabaseEnvironment = process.env,
 ) {
   const connectionString =
-    environment.NEON_DATABASE_URL?.trim() ||
-    environment.DATABASE_URL?.trim();
+    environment.NEON_DATABASE_URL?.trim() || environment.DATABASE_URL?.trim();
 
   if (!connectionString) {
     throw new Error(
