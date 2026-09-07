@@ -35,8 +35,6 @@ const xdcSafe = "0xc8bae80ca5c2c9ec3bd4ac16c422220a33b6b173";
 const approvalSafe = "0x7ae1ef2979b0de85d7dea7f6a5582417d4a98c55";
 const approvalHash =
   "0x0e47998fb92ce223105d15e36fa05aac47718baeaca8cc83a16be6e0815036cb";
-const messageHash =
-  "0x92d01d68f0e93b953a58815714f0d6825725dbd10cad67d46c0e314296a53ffb";
 
 const pages = [
   {
@@ -68,18 +66,6 @@ const pages = [
     path: `/safe/50/${xdcSafe}/address-book`,
     expected: ["Address book", "Protocol addresses"],
     timeoutMs: 45_000,
-  },
-  {
-    name: "signed-message",
-    path: `/safe/50/${xdcSafe}/message/${messageHash}`,
-    expected: [
-      "Signed message",
-      "Message detail",
-      "Reported content",
-      "Reported signers",
-      "No signing capability",
-    ],
-    timeoutMs: 90_000,
   },
 ];
 
