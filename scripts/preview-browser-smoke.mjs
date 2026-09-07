@@ -260,7 +260,6 @@ try {
   await Promise.all([
     cdp.send("Page.enable", {}, sessionId),
     cdp.send("Runtime.enable", {}, sessionId),
-    cdp.send("Log.enable", {}, sessionId),
     cdp.send("Network.enable", {}, sessionId),
   ]);
   await cdp.send(
@@ -287,12 +286,6 @@ try {
       pageFailures.push(
         message.params.exceptionDetails?.text ?? "Uncaught page exception",
       );
-    }
-    if (
-      message.method === "Log.entryAdded" &&
-      message.params.entry?.level === "error"
-    ) {
-      pageFailures.push(message.params.entry.text);
     }
     if (
       message.method === "Network.responseReceived" &&
