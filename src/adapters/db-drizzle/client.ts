@@ -11,10 +11,10 @@ export const databaseConnectionOptions = {
   prepare: false,
 } as const;
 
-type DatabaseEnvironment = Pick<
-  NodeJS.ProcessEnv,
-  "DATABASE_URL" | "NEON_DATABASE_URL"
->;
+type DatabaseEnvironment = {
+  DATABASE_URL?: string;
+  NEON_DATABASE_URL?: string;
+};
 
 export function resolveDatabaseConnectionString(
   environment: DatabaseEnvironment = process.env,
