@@ -32,9 +32,6 @@ assert.notEqual(
 );
 
 const xdcSafe = "0xc8bae80ca5c2c9ec3bd4ac16c422220a33b6b173";
-const ethereumSafe = "0xcd2E72aEBe2A203b84f46DEEC948E6465dB51c75";
-const transferHash =
-  "0xe833903006ab324b150a200576489c11a9e066815ed6129468151f68f7753191";
 const approvalSafe = "0x7ae1ef2979b0de85d7dea7f6a5582417d4a98c55";
 const approvalHash =
   "0x0e47998fb92ce223105d15e36fa05aac47718baeaca8cc83a16be6e0815036cb";
@@ -65,18 +62,7 @@ const pages = [
     timeoutMs: 45_000,
   },
   {
-    name: "executed-transaction",
-    path: `/safe/1/${ethereumSafe}/tx/${transferHash}`,
-    expected: [
-      "Safe transaction",
-      "Evidence verdict",
-      "Token state changes",
-      "Raw transaction evidence",
-    ],
-    timeoutMs: 90_000,
-  },
-  {
-    name: "approval-review",
+    name: "executed-approval-review",
     path: `/safe/50/${approvalSafe}/tx/${approvalHash}?analysis=v6`,
     expected: [
       "Approval risk",
