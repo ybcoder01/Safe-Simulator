@@ -147,7 +147,8 @@ class CdpConnection {
       }, timeoutMs);
 
       const listener = (message) => {
-        if (message.method !== method || message.sessionId !== sessionId) return;
+        if (message.method !== method || message.sessionId !== sessionId)
+          return;
         clearTimeout(timeout);
         this.listeners.delete(listener);
         resolve(message.params);
@@ -199,7 +200,9 @@ async function waitForText(during, timeoutMs, failureMessage) {
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
 
-  assert.fail(`${failureMessage} Last value: ${String(lastValue).slice(0, 500)}`);
+  assert.fail(
+    `${failureMessage} Last value: ${String(lastValue).slice(0, 500)}`,
+  );
 }
 
 const profileDirectory = await mkdtemp(
