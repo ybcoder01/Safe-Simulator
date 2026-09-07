@@ -12,6 +12,7 @@ export const databaseConnectionOptions = {
 } as const;
 
 type DatabaseEnvironment = {
+  [key: string]: string | undefined;
   DATABASE_URL?: string;
   NEON_DATABASE_URL?: string;
 };
