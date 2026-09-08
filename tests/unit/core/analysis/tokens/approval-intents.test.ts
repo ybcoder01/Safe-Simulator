@@ -284,8 +284,7 @@ describe("extractApprovalRequests", () => {
   });
 
   it("decodes every entry in a bounded Permit2 allowance batch", () => {
-    const secondToken =
-      "0x5555555555555555555555555555555555555555" as Address;
+    const secondToken = "0x5555555555555555555555555555555555555555" as Address;
     const data = ("0x2a2d80d1" +
       word(owner) +
       word(64n) +
@@ -368,5 +367,4 @@ describe("extractApprovalRequests", () => {
 
     expect(result).toEqual({ items: [], limited: true });
   });
-
 });
