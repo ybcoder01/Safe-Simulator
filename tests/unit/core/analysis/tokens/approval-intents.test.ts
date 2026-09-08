@@ -282,4 +282,99 @@ describe("extractApprovalRequests", () => {
 
     expect(result.items).toEqual([]);
   });
+
+  it("decodes every entry in a bounded Permit2 allowance batch", () => {
+    const secondToken = "0x5555555555555555555555555555555555555555" as Address;
+    const data = ("0x2a2d80d1" +
+      word(owner) +
+      word(64n) +
+      word(64n) +
+      word(spender) +
+      word(2n) +
+      word(token) +
+      word(100n) +
+      word(1_000n) +
+      word(0n) +
+      word(secondToken) +
+      word((1n << 160n) - 1n) +
+      word(2_000n) +
+      word(1n)) as Hex;
+
+    const result = extractApprovalRequests(
+      transaction(CANONICAL_PERMIT2_ADDRESS, data),
+      null,
+    );
+
+    expect(result.limited).toBe(false);
+    expect(result.items).toEqual([
+      expect.objectContaining({
+        standard: "permit2-allowance",
+        method: "permitBatch",
+        token,
+        owner,
+        spender,
+        amount: 100n,
+        infinite: false,
+      }),
+      expect.objectContaining({
+        standard: "permit2-allowance",
+        method: "permitBatch",
+        token: secondToken,
+        owner,
+        spender,
+        amount: (1n << 160n) - 1n,
+        infinite: true,
+      }),
+    ]);
+  });
+
+  it("marks an oversized direct Permit2 allowance batch as incomplete", () => {
+    const data = ("0x2a2d80d1" +
+      word(owner) +
+      word(64n) +
+      word(64n) +
+      word(spender) +
+      word(25n)) as Hex;
+
+    const result = extractApprovalRequests(
+      transaction(CANONICAL_PERMIT2_ADDRESS, data),
+      null,
+    );
+
+    expect(result).toEqual({ items: [], limited: true });
+  });
+
+  it("marks an oversized nested Permit2 signature-transfer batch as incomplete", () => {
+    const data = ("0xedd9444b" +
+      word(96n) +
+      word(0n) +
+      word(owner) +
+      word(32n) +
+      word(25n)) as Hex;
+    const nested: DecodedCall = {
+      method: "permitTransferFrom",
+      parameters: [],
+      to: CANONICAL_PERMIT2_ADDRESS,
+      value: "0",
+      data,
+      operation: "call",
+    };
+
+    const result = extractApprovalRequests(
+      transaction(safe, "0x12345678"),
+      decodedWithNested(nested),
+    );
+
+    expect(result.limited).toBe(true);
+    expect(result.items).toEqual([
+      expect.objectContaining({
+        standard: "permit2-signature-transfer",
+        method: "permitTransferFrom",
+        token: null,
+        spender: null,
+        warning:
+          "Permit2 signature-transfer parameters could not be normalized from this decoded call.",
+      }),
+    ]);
+  });
 });
