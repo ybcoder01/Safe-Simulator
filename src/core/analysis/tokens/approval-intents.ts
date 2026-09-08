@@ -90,10 +90,7 @@ function permit2BatchExceedsLimit(target: Address, data: Hex): boolean {
 
   if (callSelector === PERMIT2_PERMIT_BATCH_SELECTOR) {
     const tupleOffset = wordUint(data, 1, 4);
-    if (
-      tupleOffset === null ||
-      tupleOffset > BigInt(Number.MAX_SAFE_INTEGER)
-    ) {
+    if (tupleOffset === null || tupleOffset > BigInt(Number.MAX_SAFE_INTEGER)) {
       return false;
     }
     const tupleStart = 4 + Number(tupleOffset);
