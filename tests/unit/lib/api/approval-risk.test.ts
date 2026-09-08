@@ -326,4 +326,31 @@ describe("resolveApprovalRisk", () => {
       undefined,
     );
   });
+
+  it("surfaces an oversized Permit2 batch as incomplete without state reads", async () => {
+    const data = ("0x2a2d80d1" +
+      word(safe) +
+      word(64n) +
+      word(64n) +
+      word(spender) +
+      word(25n)) as Hex;
+    const chain = {
+      call: vi.fn(),
+    };
+
+    const result = await resolveApprovalRisk(
+      chain,
+      transaction("pending", CANONICAL_PERMIT2_ADDRESS, data),
+      contract,
+      execution(),
+    );
+
+    expect(result.requests).toEqual([]);
+    expect(result.limited).toBe(true);
+    expect(result.warnings).toContain(
+      "Approval inspection reached its safety bound; additional requests or state reads remain unenriched.",
+    );
+    expect(chain.call).not.toHaveBeenCalled();
+  });
+
 });
