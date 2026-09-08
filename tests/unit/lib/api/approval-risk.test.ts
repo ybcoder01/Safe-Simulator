@@ -352,5 +352,4 @@ describe("resolveApprovalRisk", () => {
     );
     expect(chain.call).not.toHaveBeenCalled();
   });
-
 });
