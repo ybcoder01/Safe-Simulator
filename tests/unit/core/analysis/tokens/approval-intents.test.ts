@@ -365,6 +365,16 @@ describe("extractApprovalRequests", () => {
       decodedWithNested(nested),
     );
 
-    expect(result).toEqual({ items: [], limited: true });
+    expect(result.limited).toBe(true);
+    expect(result.items).toEqual([
+      expect.objectContaining({
+        standard: "permit2-signature-transfer",
+        method: "permitTransferFrom",
+        token: null,
+        spender: null,
+        warning:
+          "Permit2 signature-transfer parameters could not be normalized from this decoded call.",
+      }),
+    ]);
   });
 });
