@@ -82,6 +82,56 @@ function isPermit2(target: Address): boolean {
   return target.toLowerCase() === CANONICAL_PERMIT2_ADDRESS;
 }
 
+function permit2BatchExceedsLimit(target: Address, data: Hex): boolean {
+  if (!isPermit2(target)) return false;
+
+  const callSelector = selector(data);
+  let arrayStart: number | null = null;
+
+  if (callSelector === PERMIT2_PERMIT_BATCH_SELECTOR) {
+    const tupleOffset = wordUint(data, 1, 4);
+    if (
+      tupleOffset === null ||
+      tupleOffset > BigInt(Number.MAX_SAFE_INTEGER)
+    ) {
+      return false;
+    }
+    const tupleStart = 4 + Number(tupleOffset);
+    const detailsOffset = wordUint(data, 0, tupleStart);
+    if (
+      detailsOffset === null ||
+      detailsOffset > BigInt(Number.MAX_SAFE_INTEGER)
+    ) {
+      return false;
+    }
+    arrayStart = tupleStart + Number(detailsOffset);
+  } else if (
+    callSelector === PERMIT2_TRANSFER_BATCH_SELECTOR ||
+    callSelector === PERMIT2_WITNESS_BATCH_SELECTOR
+  ) {
+    const permitOffset = wordUint(data, 0, 4);
+    if (
+      permitOffset === null ||
+      permitOffset > BigInt(Number.MAX_SAFE_INTEGER)
+    ) {
+      return false;
+    }
+    const permitStart = 4 + Number(permitOffset);
+    const permissionsOffset = wordUint(data, 0, permitStart);
+    if (
+      permissionsOffset === null ||
+      permissionsOffset > BigInt(Number.MAX_SAFE_INTEGER)
+    ) {
+      return false;
+    }
+    arrayStart = permitStart + Number(permissionsOffset);
+  }
+
+  if (arrayStart === null) return false;
+  const length = wordUint(data, 0, arrayStart);
+  return length !== null && length > BigInt(MAX_REQUESTS);
+}
+
 function request(
   values: Omit<ApprovalRequest, "warning" | "amountMode"> & {
     readonly amountMode?: ApprovalAmountMode;
@@ -621,7 +671,7 @@ export function extractApprovalRequests(
     ),
   ];
   let visited = 0;
-  let limited = false;
+  let limited = permit2BatchExceedsLimit(transaction.to, transaction.data);
 
   function visit(call: DecodedCall, depth: number) {
     if (depth > MAX_NESTED_DEPTH || visited >= MAX_REQUESTS) {
@@ -631,6 +681,9 @@ export function extractApprovalRequests(
     visited += 1;
 
     const target = call.to ? normalizedAddress(call.to) : null;
+    if (target && call.data && permit2BatchExceedsLimit(target, call.data)) {
+      limited = true;
+    }
     const raw =
       target && call.data
         ? decodeRaw(target, call.data, null, "nested-calldata", depth)
