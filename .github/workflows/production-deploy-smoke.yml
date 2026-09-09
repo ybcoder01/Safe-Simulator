@@ -1,0 +1,33 @@
+name: Production deploy smoke
+
+on:
+  deployment_status:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deploy-smoke-${{ github.event.deployment.id }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    if: >-
+      github.event.deployment_status.state == 'success' &&
+      github.event.deployment.environment == 'Production'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      SOAK_BASE_URL: https://safe-simulator.vercel.app
+      SOAK_ENVIRONMENT: production
+      SOAK_DURATION_MINUTES: "5"
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.deployment.sha }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Run bounded GET-only production checks
+        run: node scripts/production-read-soak.mjs
