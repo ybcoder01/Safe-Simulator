@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { Address, SafeSnapshot } from "../../../../src/core/domain";
+import type {
+  Address,
+  QueueJob,
+  SafeSnapshot,
+} from "../../../../src/core/domain";
 import { runSyncSweep } from "../../../../src/core/ingestion/sweep";
 
 const snapshot = (address: Address): SafeSnapshot => ({
@@ -29,7 +33,10 @@ describe("runSyncSweep", () => {
       }),
     };
     const queue = {
-      enqueue: vi.fn().mockResolvedValue({ jobId: "job_test" }),
+      enqueue: vi.fn().mockImplementation(async (job: QueueJob) => {
+        JSON.stringify(job);
+        return { jobId: "job_test" };
+      }),
     };
 
     await expect(

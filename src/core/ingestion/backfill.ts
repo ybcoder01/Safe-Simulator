@@ -255,6 +255,10 @@ export async function enqueueSafeSync(
   queue: QueuePort,
   idempotencyScope: string,
 ) {
+  const safeRef: SafeRef = {
+    chainId: safe.chainId,
+    address: safe.address,
+  };
   const streams: readonly SyncCursor["stream"][] = [
     "multisig",
     "module",
@@ -264,9 +268,9 @@ export async function enqueueSafeSync(
   await Promise.all(
     streams.map((stream) =>
       queue.enqueue(
-        { type: "backfill", safe, stream },
+        { type: "backfill", safe: safeRef, stream },
         {
-          idempotencyKey: `sync:${idempotencyScope}:${safe.chainId}:${safe.address}:${stream}`,
+          idempotencyKey: `sync:${idempotencyScope}:${safeRef.chainId}:${safeRef.address}:${stream}`,
         },
       ),
     ),
