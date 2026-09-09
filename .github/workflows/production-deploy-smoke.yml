@@ -22,7 +22,7 @@ jobs:
       SOAK_ENVIRONMENT: production
       SOAK_DURATION_MINUTES: "5"
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.deployment.sha }}
       - uses: actions/setup-node@v6
