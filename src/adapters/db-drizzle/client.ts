@@ -13,19 +13,17 @@ export const databaseConnectionOptions = {
 
 type DatabaseEnvironment = {
   [key: string]: string | undefined;
-  DATABASE_URL?: string;
   NEON_DATABASE_URL?: string;
 };
 
 export function resolveDatabaseConnectionString(
   environment: DatabaseEnvironment = process.env,
 ) {
-  const connectionString =
-    environment.NEON_DATABASE_URL?.trim() || environment.DATABASE_URL?.trim();
+  const connectionString = environment.NEON_DATABASE_URL?.trim();
 
   if (!connectionString) {
     throw new Error(
-      "NEON_DATABASE_URL or DATABASE_URL is not configured. Connect a PostgreSQL database to this project.",
+      "NEON_DATABASE_URL is not configured. Connect the Neon PostgreSQL database to this project.",
     );
   }
 
