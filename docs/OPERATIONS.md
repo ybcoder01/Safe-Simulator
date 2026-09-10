@@ -155,7 +155,7 @@ The `0003_module_analysis` migration is additive but required by the module hist
 
 ## Database precautions
 
-Neon Postgres, selected through the server-only `NEON_DATABASE_URL`, is authoritative for imported Safe data, cursors, profile bookmarks, address-book records, and persisted execution evidence. The legacy `DATABASE_URL` connection is a temporary rollback fallback and must not be treated as a second writable source.
+Neon Postgres, selected through the required server-only `NEON_DATABASE_URL`, is the only runtime persistence source for imported Safe data, cursors, profile bookmarks, address-book records, and persisted execution evidence. `DATABASE_URL` is reserved for local Drizzle migration commands and must point to the same reviewed Neon target.
 
 - Use the provider console for read-only diagnosis where possible.
 - Never edit or delete transaction rows to clear an evidence problem.
@@ -169,7 +169,7 @@ Neon Postgres, selected through the server-only `NEON_DATABASE_URL`, is authorit
 
 ### Neon production cutover
 
-The production application prefers `NEON_DATABASE_URL` when it is present and falls back to `DATABASE_URL` only when the Neon override is absent or blank.
+The production application requires `NEON_DATABASE_URL` and fails closed when it is absent or blank. It never falls back to `DATABASE_URL` at runtime.
 
 The September 7, 2026 cutover was validated in this order:
 
@@ -183,9 +183,9 @@ The September 7, 2026 cutover was validated in this order:
 8. Re-import the approved Safe bookmarks without deleting shared history or resetting cursors.
 9. Run the bounded 15-minute Production read soak. The cutover acceptance run completed 90 cycles and 270 requests with zero failures.
 
-During the stabilization window, keep the legacy Prisma resource and Production connection intact but do not write to it. To roll back, remove or disconnect only the Production-scoped `NEON_DATABASE_URL`, redeploy the current compatible revision, and repeat the health, watchlist, dashboard, callback, and runtime-log checks. Never delete either database as part of application rollback.
+Before merging the Neon-only runtime cleanup, require a clean scheduled production sweep with successful signed callbacks and no new database saturation errors. Until that gate passes, keep the legacy Prisma resource and Production connection intact but do not write to it.
 
-After the agreed stabilization window, disconnect the legacy Prisma project connection to prevent obsolete credentials and provisioning failures. Retain the resource until a separate, reviewed retention decision is made.
+After the cleanup deploys and the post-merge checks pass, disconnect the legacy Prisma project connection to prevent obsolete credentials and provisioning failures. Retain the resource until a separate, reviewed retention decision is made. Roll back unhealthy application code only to a revision compatible with Neon; do not remove `NEON_DATABASE_URL`, switch runtime writes back to Prisma, or delete either database as part of application rollback.
 
 ## Rollback
 
@@ -207,7 +207,7 @@ Start with the narrowest affected layer:
 
 - **Whole site unavailable:** Vercel deployment status and runtime logs.
 - **Health probe degraded:** use the non-secret `checks` map to identify PostgreSQL or Redis, then inspect that provider and Vercel runtime logs.
-- **Watchlist unavailable:** Neon Postgres connectivity and `NEON_DATABASE_URL`; check `DATABASE_URL` only when intentionally exercising the documented rollback.
+- **Watchlist unavailable:** Neon Postgres connectivity and the required `NEON_DATABASE_URL`; runtime fallback to `DATABASE_URL` is not supported.
 - **Refresh not queued:** QStash token, production callback URL, and dashboard authorization.
 - **Job callback rejected:** QStash current and next signing keys.
 - **History stale:** Safe Transaction Service endpoint, stream cursor status, and QStash deliveries.
