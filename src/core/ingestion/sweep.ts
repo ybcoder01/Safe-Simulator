@@ -1,6 +1,10 @@
 import type { QueueJob } from "../domain";
 import type { PersistencePort, QueuePort } from "../ports";
-import { enqueueSafeSync } from "./backfill";
+import {
+  enqueueSafeSync,
+  SAFE_SYNC_STREAM_COUNT,
+  SAFE_SYNC_STREAM_DELAY_SECONDS,
+} from "./backfill";
 
 type SweepJob = Extract<QueueJob, { type: "sync-sweep" }>;
 type SweepPersistence = Pick<PersistencePort, "listSafes">;
@@ -15,8 +19,13 @@ export async function runSyncSweep(
   const bucket = Math.floor(ports.now() / 300);
 
   await Promise.all(
-    page.items.map((safe) =>
-      enqueueSafeSync(safe, ports.queue, `scheduled:${bucket}`),
+    page.items.map((safe, index) =>
+      enqueueSafeSync(
+        safe,
+        ports.queue,
+        `scheduled:${bucket}`,
+        index * SAFE_SYNC_STREAM_COUNT * SAFE_SYNC_STREAM_DELAY_SECONDS,
+      ),
     ),
   );
 
@@ -25,6 +34,10 @@ export async function runSyncSweep(
       { type: "sync-sweep", cursor: page.nextCursor },
       {
         idempotencyKey: `sweep:${bucket}:${page.nextCursor}`,
+        delaySeconds:
+          page.items.length *
+          SAFE_SYNC_STREAM_COUNT *
+          SAFE_SYNC_STREAM_DELAY_SECONDS,
       },
     );
   }

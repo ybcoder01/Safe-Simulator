@@ -69,6 +69,71 @@ const operation = (value: number): Operation =>
 const offsetFromCursor = (cursor: string | null) =>
   cursor ? Number.parseInt(cursor, 10) : 0;
 
+export const SAFE_API_MAX_ATTEMPTS = 3;
+export const SAFE_API_RETRY_BASE_MS = 1_000;
+const SAFE_API_RETRY_MAX_MS = 10_000;
+
+type Sleep = (delayMs: number) => Promise<void>;
+
+function errorDetails(error: unknown) {
+  if (typeof error !== "object" || error === null) return null;
+  return error as {
+    readonly status?: unknown;
+    readonly retryAfter?: unknown;
+    readonly response?: {
+      readonly status?: unknown;
+      readonly headers?: unknown;
+    };
+  };
+}
+
+function headerValue(headers: unknown, name: string): unknown {
+  if (typeof headers !== "object" || headers === null) return undefined;
+  const values = headers as Record<string, unknown>;
+  const get = values.get;
+  if (typeof get === "function") {
+    return get.call(headers, name);
+  }
+  return values[name] ?? values[name.toLowerCase()];
+}
+
+function retryDelayMs(error: unknown, attempt: number): number {
+  const details = errorDetails(error);
+  const retryAfter =
+    details?.retryAfter ??
+    headerValue(details?.response?.headers, "retry-after");
+  if (typeof retryAfter === "string") {
+    const seconds = Number.parseFloat(retryAfter);
+    if (Number.isFinite(seconds) && seconds >= 0) {
+      return Math.min(seconds * 1_000, SAFE_API_RETRY_MAX_MS);
+    }
+  }
+  return Math.min(SAFE_API_RETRY_BASE_MS * 2 ** attempt, SAFE_API_RETRY_MAX_MS);
+}
+
+function isRateLimited(error: unknown): boolean {
+  const details = errorDetails(error);
+  return details?.status === 429 || details?.response?.status === 429;
+}
+
+export async function withSafeApiRetry<T>(
+  operation: () => Promise<T>,
+  sleep: Sleep = (delayMs) =>
+    new Promise((resolve) => setTimeout(resolve, delayMs)),
+): Promise<T> {
+  for (let attempt = 0; attempt < SAFE_API_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      if (!isRateLimited(error) || attempt === SAFE_API_MAX_ATTEMPTS - 1) {
+        throw error;
+      }
+      await sleep(retryDelayMs(error, attempt));
+    }
+  }
+  throw new Error("Safe API retry attempts exhausted.");
+}
+
 interface BalanceResponse {
   readonly tokenAddress: string | null;
   readonly balance: string;
@@ -191,7 +256,9 @@ export class SafeApiAdapter implements SafeDataPort {
     chainId: ChainId,
     owner: Address,
   ): Promise<readonly SafeRef[]> {
-    const response = await this.getClient(chainId).getSafesByOwner(owner);
+    const response = await withSafeApiRetry(() =>
+      this.getClient(chainId).getSafesByOwner(owner),
+    );
     return normalizeDiscoveredSafes(chainId, response.safes);
   }
 
@@ -201,13 +268,12 @@ export class SafeApiAdapter implements SafeDataPort {
     limit: number,
   ): Promise<Page<SafeTransaction>> {
     const offset = offsetFromCursor(cursor);
-    const response = await this.getClient(safe.chainId).getMultisigTransactions(
-      safe.address,
-      {
+    const response = await withSafeApiRetry(() =>
+      this.getClient(safe.chainId).getMultisigTransactions(safe.address, {
         limit,
         offset,
         ordering: "-created",
-      },
+      }),
     );
 
     return {
@@ -249,7 +315,9 @@ export class SafeApiAdapter implements SafeDataPort {
     safe: SafeRef,
     safeTxHash: Hex,
   ): Promise<SafeExecutionPayload | null> {
-    const item = await this.getClient(safe.chainId).getTransaction(safeTxHash);
+    const item = await withSafeApiRetry(() =>
+      this.getClient(safe.chainId).getTransaction(safeTxHash),
+    );
     if (asAddress(item.safe) !== asAddress(safe.address)) return null;
 
     return {
@@ -283,9 +351,11 @@ export class SafeApiAdapter implements SafeDataPort {
     limit: number,
   ): Promise<Page<ModuleTransaction>> {
     const offset = offsetFromCursor(cursor);
-    const response = await this.getClient(safe.chainId).getModuleTransactions(
-      safe.address,
-      { limit, offset },
+    const response = await withSafeApiRetry(() =>
+      this.getClient(safe.chainId).getModuleTransactions(safe.address, {
+        limit,
+        offset,
+      }),
     );
     const items = response.results.flatMap<ModuleTransaction>((item) => {
       if (!item.transactionHash || item.blockNumber === undefined) return [];
@@ -319,9 +389,11 @@ export class SafeApiAdapter implements SafeDataPort {
     limit: number,
   ): Promise<Page<TransferRecord>> {
     const offset = offsetFromCursor(cursor);
-    const response = await this.getClient(safe.chainId).getIncomingTransactions(
-      safe.address,
-      { limit, offset },
+    const response = await withSafeApiRetry(() =>
+      this.getClient(safe.chainId).getIncomingTransactions(safe.address, {
+        limit,
+        offset,
+      }),
     );
 
     return {
@@ -348,9 +420,12 @@ export class SafeApiAdapter implements SafeDataPort {
     limit: number,
   ): Promise<Page<SafeMessage>> {
     const offset = offsetFromCursor(cursor);
-    const response = await this.getClient(safe.chainId).getMessages(
-      safe.address,
-      { limit, offset, ordering: "-created" },
+    const response = await withSafeApiRetry(() =>
+      this.getClient(safe.chainId).getMessages(safe.address, {
+        limit,
+        offset,
+        ordering: "-created",
+      }),
     );
 
     return {
@@ -382,9 +457,8 @@ export class SafeApiAdapter implements SafeDataPort {
   ): Promise<DecodedCall | null> {
     if (data === "0x") return null;
 
-    const decoded = await this.getClient(safe.chainId).decodeData(
-      data,
-      getAddress(to),
+    const decoded = await withSafeApiRetry(() =>
+      this.getClient(safe.chainId).decodeData(data, getAddress(to)),
     );
     return normalizeDecodedData(decoded, { to, data });
   }
@@ -392,9 +466,20 @@ export class SafeApiAdapter implements SafeDataPort {
   async getBalances(safe: SafeRef): Promise<readonly TokenBalance[]> {
     const request = balanceRequestConfig(safe);
 
-    const response = await fetch(request.url, {
-      ...(request.headers ? { headers: request.headers } : {}),
-      signal: AbortSignal.timeout(12_000),
+    const response = await withSafeApiRetry(async () => {
+      const candidate = await fetch(request.url, {
+        ...(request.headers ? { headers: request.headers } : {}),
+        signal: AbortSignal.timeout(12_000),
+      });
+      if (candidate.status === 429) {
+        const error = new Error("Safe balance request was rate limited.");
+        Object.assign(error, {
+          status: candidate.status,
+          retryAfter: candidate.headers.get("retry-after"),
+        });
+        throw error;
+      }
+      return candidate;
     });
     if (!response.ok)
       throw new Error(

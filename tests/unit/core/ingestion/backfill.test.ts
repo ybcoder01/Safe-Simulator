@@ -13,7 +13,9 @@ import type {
 import {
   AUTO_ANALYSIS_DELAY_SECONDS,
   AUTO_ANALYSIS_LIMIT,
+  enqueueSafeSync,
   runBackfillPage,
+  SAFE_SYNC_STREAM_DELAY_SECONDS,
   type BackfillPorts,
 } from "../../../../src/core/ingestion/backfill";
 
@@ -146,6 +148,29 @@ function makePorts(
     queue,
   };
 }
+
+describe("enqueueSafeSync", () => {
+  it("spaces upstream-bound streams from a requested initial delay", async () => {
+    const queue = {
+      enqueue: vi.fn().mockResolvedValue({ jobId: "job_test" }),
+    };
+
+    await enqueueSafeSync(safe, queue, "scheduled:test", 4);
+
+    const streams = ["multisig", "module", "transfer", "message"] as const;
+    expect(queue.enqueue).toHaveBeenCalledTimes(streams.length);
+    for (let index = 0; index < streams.length; index += 1) {
+      expect(queue.enqueue).toHaveBeenNthCalledWith(
+        index + 1,
+        { type: "backfill", safe, stream: streams[index] },
+        expect.objectContaining({
+          delaySeconds: 4 + index * SAFE_SYNC_STREAM_DELAY_SECONDS,
+          idempotencyKey: expect.stringContaining("scheduled:test"),
+        }),
+      );
+    }
+  });
+});
 
 describe("runBackfillPage", () => {
   it("persists a page before advancing and queues analysis plus continuation", async () => {
