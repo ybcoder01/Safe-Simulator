@@ -33,6 +33,8 @@ export interface BackfillPorts {
 const PAGE_SIZE = 100;
 export const AUTO_ANALYSIS_LIMIT = 5;
 export const AUTO_ANALYSIS_DELAY_SECONDS = 3;
+export const SAFE_SYNC_STREAM_DELAY_SECONDS = 1;
+export const SAFE_SYNC_STREAM_COUNT = 4;
 const AUTO_ANALYSIS_RETRY_WINDOW_SECONDS = 15 * 60;
 
 interface PersistedPage {
@@ -254,6 +256,7 @@ export async function enqueueSafeSync(
   safe: SafeRef,
   queue: QueuePort,
   idempotencyScope: string,
+  initialDelaySeconds = 0,
 ) {
   const safeRef: SafeRef = {
     chainId: safe.chainId,
@@ -266,11 +269,13 @@ export async function enqueueSafeSync(
     "message",
   ];
   await Promise.all(
-    streams.map((stream) =>
+    streams.map((stream, index) =>
       queue.enqueue(
         { type: "backfill", safe: safeRef, stream },
         {
           idempotencyKey: `sync:${idempotencyScope}:${safeRef.chainId}:${safeRef.address}:${stream}`,
+          delaySeconds:
+            initialDelaySeconds + index * SAFE_SYNC_STREAM_DELAY_SECONDS,
         },
       ),
     ),
