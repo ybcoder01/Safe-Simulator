@@ -1,12 +1,58 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type { Address, ChainId, SafeRef } from "../../../../src/core/domain";
 import {
   balanceRequestConfig,
   normalizeDecodedData,
   normalizeDiscoveredSafes,
+  SAFE_API_MAX_ATTEMPTS,
+  SAFE_API_RETRY_BASE_MS,
   transactionServiceConfig,
+  withSafeApiRetry,
 } from "../../../../src/adapters/safe-api/safe-data";
+
+describe("withSafeApiRetry", () => {
+  it("honors Retry-After and succeeds after a rate limit", async () => {
+    const operation = vi
+      .fn()
+      .mockRejectedValueOnce({
+        response: { status: 429, headers: { "retry-after": "2" } },
+      })
+      .mockResolvedValue("ok");
+    const sleep = vi.fn().mockResolvedValue(undefined);
+
+    await expect(withSafeApiRetry(operation, sleep)).resolves.toBe("ok");
+
+    expect(operation).toHaveBeenCalledTimes(2);
+    expect(sleep).toHaveBeenCalledOnce();
+    expect(sleep).toHaveBeenCalledWith(2_000);
+  });
+
+  it("uses capped attempts and exponential delays before surfacing a 429", async () => {
+    const rateLimitError = { response: { status: 429 } };
+    const operation = vi.fn().mockRejectedValue(rateLimitError);
+    const sleep = vi.fn().mockResolvedValue(undefined);
+
+    await expect(withSafeApiRetry(operation, sleep)).rejects.toBe(
+      rateLimitError,
+    );
+
+    expect(operation).toHaveBeenCalledTimes(SAFE_API_MAX_ATTEMPTS);
+    expect(sleep).toHaveBeenNthCalledWith(1, SAFE_API_RETRY_BASE_MS);
+    expect(sleep).toHaveBeenNthCalledWith(2, SAFE_API_RETRY_BASE_MS * 2);
+  });
+
+  it("does not retry non-rate-limit failures", async () => {
+    const failure = new Error("upstream unavailable");
+    const operation = vi.fn().mockRejectedValue(failure);
+    const sleep = vi.fn().mockResolvedValue(undefined);
+
+    await expect(withSafeApiRetry(operation, sleep)).rejects.toBe(failure);
+
+    expect(operation).toHaveBeenCalledOnce();
+    expect(sleep).not.toHaveBeenCalled();
+  });
+});
 
 describe("transactionServiceConfig", () => {
   it("uses the SDK-hosted XDC service when an API key is configured", () => {
