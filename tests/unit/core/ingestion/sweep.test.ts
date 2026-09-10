@@ -5,6 +5,10 @@ import type {
   QueueJob,
   SafeSnapshot,
 } from "../../../../src/core/domain";
+import {
+  SAFE_SYNC_STREAM_COUNT,
+  SAFE_SYNC_STREAM_DELAY_SECONDS,
+} from "../../../../src/core/ingestion/backfill";
 import { runSyncSweep } from "../../../../src/core/ingestion/sweep";
 
 const snapshot = (address: Address): SafeSnapshot => ({
@@ -47,10 +51,22 @@ describe("runSyncSweep", () => {
     ).resolves.toEqual({ scheduled: 2, nextCursor: "next-page" });
 
     expect(queue.enqueue).toHaveBeenCalledTimes(9);
-    expect(queue.enqueue).toHaveBeenCalledWith(
+    for (let index = 0; index < 8; index += 1) {
+      expect(queue.enqueue).toHaveBeenNthCalledWith(
+        index + 1,
+        expect.objectContaining({ type: "backfill" }),
+        expect.objectContaining({
+          delaySeconds: index * SAFE_SYNC_STREAM_DELAY_SECONDS,
+        }),
+      );
+    }
+    expect(queue.enqueue).toHaveBeenNthCalledWith(
+      9,
       { type: "sync-sweep", cursor: "next-page" },
       expect.objectContaining({
         idempotencyKey: expect.stringContaining("next-page"),
+        delaySeconds:
+          2 * SAFE_SYNC_STREAM_COUNT * SAFE_SYNC_STREAM_DELAY_SECONDS,
       }),
     );
   });
