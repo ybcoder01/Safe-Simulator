@@ -108,10 +108,7 @@ function retryDelayMs(error: unknown, attempt: number): number {
       return Math.min(seconds * 1_000, SAFE_API_RETRY_MAX_MS);
     }
   }
-  return Math.min(
-    SAFE_API_RETRY_BASE_MS * 2 ** attempt,
-    SAFE_API_RETRY_MAX_MS,
-  );
+  return Math.min(SAFE_API_RETRY_BASE_MS * 2 ** attempt, SAFE_API_RETRY_MAX_MS);
 }
 
 function isRateLimited(error: unknown): boolean {
