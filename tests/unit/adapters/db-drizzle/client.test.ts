@@ -16,31 +16,31 @@ describe("database connection policy", () => {
     });
   });
 
-  it("prefers the isolated Neon connection during a staged migration", () => {
+  it("uses the isolated Neon connection", () => {
     expect(
       resolveDatabaseConnectionString({
-        NEON_DATABASE_URL: "postgres://neon",
-        DATABASE_URL: "postgres://existing",
+        NEON_DATABASE_URL: "  postgres://neon  ",
       }),
     ).toBe("postgres://neon");
   });
 
-  it("falls back to the existing database outside staged environments", () => {
-    expect(
+  it("does not fall back to the legacy database connection", () => {
+    expect(() =>
       resolveDatabaseConnectionString({
         DATABASE_URL: "postgres://existing",
       }),
-    ).toBe("postgres://existing");
+    ).toThrow(
+      "NEON_DATABASE_URL is not configured. Connect the Neon PostgreSQL database to this project.",
+    );
   });
 
-  it("rejects missing or blank database configuration", () => {
+  it("rejects missing or blank Neon configuration", () => {
     expect(() =>
       resolveDatabaseConnectionString({
         NEON_DATABASE_URL: " ",
-        DATABASE_URL: "",
       }),
     ).toThrow(
-      "NEON_DATABASE_URL or DATABASE_URL is not configured. Connect a PostgreSQL database to this project.",
+      "NEON_DATABASE_URL is not configured. Connect the Neon PostgreSQL database to this project.",
     );
   });
 });

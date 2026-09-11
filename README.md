@@ -25,7 +25,7 @@ Safe Inspector never signs, proposes, relays, or broadcasts transactions. Signin
 ## Hosted architecture
 
 - **Application and API:** Next.js App Router on Vercel.
-- **Persistence:** Neon Postgres through the server-only `NEON_DATABASE_URL`, with `DATABASE_URL` retained temporarily as a rollback fallback.
+- **Persistence:** Neon Postgres through the required server-only `NEON_DATABASE_URL`.
 - **Cache:** Upstash Redis.
 - **Queue:** Upstash QStash with signed callback verification.
 - **Scheduling:** Vercel Cron starts the configured sweep; profile-authorized dashboard refreshes can queue a Safe immediately.
