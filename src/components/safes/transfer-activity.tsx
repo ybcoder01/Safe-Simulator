@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { TokenIdentity } from "@/components/shared/token-identity";
 import {
   appendUniqueTransferViews,
   type TransferView,
@@ -16,7 +17,7 @@ interface TransferActivityProps {
 }
 
 function shorten(value: string, start = 10, end = 8) {
-  return `${value.slice(0, start)}…${value.slice(-end)}`;
+  return value.slice(0, start) + "…" + value.slice(-end);
 }
 
 function timestampLabel(timestamp: number) {
@@ -40,6 +41,19 @@ function directionLabel(direction: TransferView["direction"]) {
   }
 }
 
+function routeLabel(transfer: TransferView) {
+  switch (transfer.direction) {
+    case "incoming":
+      return "From " + shorten(transfer.counterparty ?? transfer.from);
+    case "outgoing":
+      return "To " + shorten(transfer.counterparty ?? transfer.to);
+    case "self":
+      return "Moved within this Safe";
+    case "related":
+      return shorten(transfer.from) + " → " + shorten(transfer.to);
+  }
+}
+
 export function TransferActivity({
   address,
   chainId,
@@ -60,7 +74,7 @@ export function TransferActivity({
     try {
       const query = new URLSearchParams({ cursor: nextCursor, limit: "25" });
       const response = await fetch(
-        `/api/v1/safes/${chainId}/${address}/transfers?${query}`,
+        "/api/v1/safes/" + chainId + "/" + address + "/transfers?" + query,
         { cache: "no-store" },
       );
       const body = (await response.json()) as {
@@ -113,8 +127,8 @@ export function TransferActivity({
           <h3>No asset movements imported</h3>
           <p>
             Native and token transfers reported for this Safe will appear here
-            after synchronization. Amounts remain in raw units until token
-            decimals are independently resolved.
+            after synchronization. Reviewed metadata is used when available;
+            unknown assets stay explicitly labeled in raw units.
           </p>
         </div>
       ) : (
@@ -136,16 +150,25 @@ export function TransferActivity({
                   transfer.amount,
                 ].join(":")}
               >
-                <span className={`tx-status tx-transfer-${transfer.direction}`}>
+                <span className={"tx-status tx-transfer-" + transfer.direction}>
                   {directionLabel(transfer.direction)}
                 </span>
                 <div>
-                  <strong>
-                    {transfer.token ? shorten(transfer.token) : "Native asset"}
-                  </strong>
+                  <TokenIdentity
+                    amount={
+                      transfer.amountSource === "raw"
+                        ? null
+                        : transfer.displayAmount
+                    }
+                    chainId={chainId}
+                    symbol={transfer.symbol}
+                    token={transfer.token}
+                  />
                   <span>
-                    {transfer.amount} raw units · {shorten(transfer.from)} →{" "}
-                    {shorten(transfer.to)}
+                    {transfer.amountSource === "raw"
+                      ? transfer.amount + " raw units · "
+                      : ""}
+                    {routeLabel(transfer)}
                   </span>
                 </div>
                 <span>Block {transfer.blockNumber}</span>
