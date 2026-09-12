@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 
-
 import { getCachePort, getChainPort, getPersistencePort } from "@/container";
 import { safeRouteParamsSchema } from "@/lib/api/safe-details";
 import {
@@ -8,11 +7,9 @@ import {
   transferPageQuerySchema,
 } from "@/lib/api/transfer-activity";
 
-
 interface RouteContext {
   readonly params: Promise<{ chainId: string; address: string }>;
 }
-
 
 export async function GET(request: Request, context: RouteContext) {
   const safeRef = safeRouteParamsSchema.safeParse(await context.params);
@@ -21,7 +18,6 @@ export async function GET(request: Request, context: RouteContext) {
     cursor: url.searchParams.get("cursor"),
     limit: url.searchParams.get("limit") ?? 25,
   });
-
 
   if (!safeRef.success || !query.success) {
     return NextResponse.json(
@@ -35,7 +31,6 @@ export async function GET(request: Request, context: RouteContext) {
     );
   }
 
-
   const persistence = getPersistencePort();
   const safe = await persistence.findSafe(safeRef.data);
   if (!safe) {
@@ -44,7 +39,6 @@ export async function GET(request: Request, context: RouteContext) {
       { status: 404 },
     );
   }
-
 
   const page = await persistence.listTransfers(
     safe,
