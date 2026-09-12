@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+
 import type { Address, Hex, TransferRecord } from "../../../../src/core/domain";
 import {
   appendUniqueTransferViews,
@@ -8,10 +9,12 @@ import {
   transferPageQuerySchema,
 } from "../../../../src/lib/api/transfer-activity";
 
+
 const safeAddress = "0xc8bae80ca5c2c9ec3bd4ac16c422220a33b6b173" as Address;
 const other = "0x1111111111111111111111111111111111111111" as Address;
 const reviewedUsdc = "0xfa2958cb79b0491cc627c1557f441ef849ca8eb1" as Address;
 const unknownToken = "0x2222222222222222222222222222222222222222" as Address;
+
 
 function transfer(
   from: Address,
@@ -33,6 +36,7 @@ function transfer(
   };
 }
 
+
 describe("transfer activity API views", () => {
   it("accepts UUID cursors and bounded limits", () => {
     expect(
@@ -53,6 +57,7 @@ describe("transfer activity API views", () => {
     ).toBe(false);
   });
 
+
   it("classifies incoming and outgoing movements case-insensitively", () => {
     expect(
       toTransferView(transfer(other, safeAddress.toUpperCase() as Address))
@@ -66,13 +71,17 @@ describe("transfer activity API views", () => {
     );
   });
 
+
   it("formats native movements with the chain symbol", () => {
     expect(resolveTransferAmount(transfer(other, safeAddress))).toEqual({
       displayAmount: "0.000000000000000042",
       symbol: "XDC",
       amountSource: "native",
+      metadataStatus: null,
+      metadataWarning: null,
     });
   });
+
 
   it("formats reviewed tokens with trusted decimals and symbols", () => {
     expect(
@@ -86,6 +95,33 @@ describe("transfer activity API views", () => {
       displayAmount: "1.5",
       symbol: "USDC",
       amountSource: "reviewed",
+      metadataStatus: null,
+      metadataWarning: null,
+    });
+  });
+
+
+  it("formats unreviewed tokens with clearly sourced on-chain metadata", () => {
+    expect(
+      resolveTransferAmount(
+        transfer(other, safeAddress, {
+          amount: 1_500_000n,
+          token: unknownToken,
+        }),
+        {
+          token: unknownToken,
+          status: "resolved",
+          symbol: "TKN",
+          decimals: 6,
+          warning: null,
+        },
+      ),
+    ).toEqual({
+      displayAmount: "1.5",
+      symbol: "TKN",
+      amountSource: "on-chain",
+      metadataStatus: "resolved",
+      metadataWarning: null,
     });
   });
 
@@ -101,8 +137,11 @@ describe("transfer activity API views", () => {
       displayAmount: "1500000",
       symbol: null,
       amountSource: "raw",
+      metadataStatus: null,
+      metadataWarning: null,
     });
   });
+
 
   it("serializes amounts and block numbers without losing raw evidence", () => {
     expect(toTransferView(transfer(other, safeAddress))).toEqual({
@@ -114,12 +153,15 @@ describe("transfer activity API views", () => {
       displayAmount: "0.000000000000000042",
       symbol: "XDC",
       amountSource: "native",
+      metadataStatus: null,
+      metadataWarning: null,
       blockNumber: "123",
       timestamp: 1_700_000_000,
       direction: "incoming",
       counterparty: other,
     });
   });
+
 
   it("deduplicates the persisted transfer identity, not only transaction hash", () => {
     const first = toTransferView(transfer(other, safeAddress));
@@ -130,6 +172,7 @@ describe("transfer activity API views", () => {
       ...first,
       from: first.from.toUpperCase() as Address,
     };
+
 
     expect(
       appendUniqueTransferViews(
