@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+
 import { MessageHistory } from "@/components/safes/message-history";
 import { ModuleActivity } from "@/components/safes/module-activity";
 import { ReanalysisControl } from "@/components/safes/reanalysis-control";
@@ -11,7 +12,12 @@ import { TokenIdentity } from "@/components/shared/token-identity";
 import { SyncRefreshControl } from "@/components/safes/sync-refresh-control";
 import { TransactionHistory } from "@/components/safes/transaction-history";
 import { TransferActivity } from "@/components/safes/transfer-activity";
-import { getPersistencePort, getSafeDataPort } from "@/container";
+import {
+  getCachePort,
+  getChainPort,
+  getPersistencePort,
+  getSafeDataPort,
+} from "@/container";
 import { toMessageView } from "@/lib/api/message-details";
 import { toModuleTransactionView } from "@/lib/api/module-activity";
 import { MODULE_ANALYSIS_ENGINE_VERSION } from "@/lib/api/module-analysis";
@@ -20,12 +26,13 @@ import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
 import { isRefreshActive } from "@/lib/api/sync-refresh";
 import { explorerAddressUrl } from "@/lib/explorer-links";
 import { resolveTransactionViews } from "@/lib/api/transaction-list";
-import { toTransferView } from "@/lib/api/transfer-activity";
+import { resolveTransferViews } from "@/lib/api/transfer-activity";
 import {
   resolveSyncSummary,
   safeRouteParamsSchema,
   toBalanceView,
 } from "@/lib/api/safe-details";
+
 
 import {
   requestSafeModuleReanalysis,
@@ -33,13 +40,16 @@ import {
   requestSafeRefresh,
 } from "./actions";
 
+
 interface PageProps {
   readonly params: Promise<{ chainId: string; address: string }>;
 }
 
+
 function shorten(value: string, start = 8, end = 6) {
   return `${value.slice(0, start)}…${value.slice(-end)}`;
 }
+
 
 function formatTimestamp(timestamp: number) {
   return new Intl.DateTimeFormat("en", {
@@ -49,9 +59,11 @@ function formatTimestamp(timestamp: number) {
   }).format(new Date(timestamp * 1_000));
 }
 
+
 function timestampDateTime(timestamp: number) {
   return new Date(timestamp * 1_000).toISOString();
 }
+
 
 function formatTokenAmount(amount: string, decimals: number) {
   const value = BigInt(amount);
@@ -66,13 +78,16 @@ function formatTokenAmount(amount: string, decimals: number) {
   return fraction ? `${whole}.${fraction}` : whole.toString();
 }
 
+
 export default async function SafeDashboardPage({ params }: PageProps) {
   const parsed = safeRouteParamsSchema.safeParse(await params);
   if (!parsed.success) notFound();
 
+
   const persistence = getPersistencePort();
   const safe = await persistence.findSafe(parsed.data);
   if (!safe) notFound();
+
 
   const cookieStore = await cookies();
   const profileId = parseProfileId(cookieStore.get(PROFILE_COOKIE)?.value);
@@ -102,16 +117,15 @@ export default async function SafeDashboardPage({ params }: PageProps) {
     persistence.getAnalysisCoverage(safe, TRANSACTION_ANALYSIS_ENGINE_VERSION),
     persistence.getModuleAnalysisCoverage(safe, MODULE_ANALYSIS_ENGINE_VERSION),
   ]);
-  const transactions = await resolveTransactionViews(
-    persistence,
-    safe,
-    page.items,
-  );
-  const moduleAnalyses = await persistence.findModuleAnalyses(
-    safe,
-    modulePage.items.map((transaction) => transaction.transactionHash),
-    MODULE_ANALYSIS_ENGINE_VERSION,
-  );
+  const [transactions, moduleAnalyses, transferViews] = await Promise.all([
+    resolveTransactionViews(persistence, safe, page.items),
+    persistence.findModuleAnalyses(
+      safe,
+      modulePage.items.map((transaction) => transaction.transactionHash),
+      MODULE_ANALYSIS_ENGINE_VERSION,
+    ),
+    resolveTransferViews(getChainPort(), getCachePort(), transferPage.items),
+  ]);
   const moduleAnalysesByHash = new Map(
     moduleAnalyses.map((analysis) => [
       analysis.transactionHash.toLowerCase(),
@@ -125,7 +139,6 @@ export default async function SafeDashboardPage({ params }: PageProps) {
         null,
     ),
   );
-  const transferViews = transferPage.items.map(toTransferView);
   const messageViews = messagePage.items.map((message) =>
     toMessageView(message, safe.threshold),
   );
@@ -142,6 +155,7 @@ export default async function SafeDashboardPage({ params }: PageProps) {
     actionInput,
   );
 
+
   return (
     <main className="workspace shell">
       <header className="workspace-header">
@@ -156,10 +170,12 @@ export default async function SafeDashboardPage({ params }: PageProps) {
         </span>
       </header>
 
+
       <div className="safe-dashboard">
         <Link className="dashboard-back" href="/safes">
           ← All Safe accounts
         </Link>
+
 
         <section className="dashboard-hero">
           <div>
@@ -234,6 +250,7 @@ export default async function SafeDashboardPage({ params }: PageProps) {
           </div>
         </section>
 
+
         <section className="dashboard-metrics" aria-label="Safe configuration">
           <article>
             <span>Signing policy</span>
@@ -254,6 +271,7 @@ export default async function SafeDashboardPage({ params }: PageProps) {
             <strong>{safe.modules.length}</strong>
           </article>
         </section>
+
 
         <div className="dashboard-columns">
           <section className="dashboard-panel">
@@ -341,6 +359,7 @@ export default async function SafeDashboardPage({ params }: PageProps) {
             </div>
           </section>
 
+
           <section className="dashboard-panel">
             <div className="panel-heading">
               <div>
@@ -375,6 +394,7 @@ export default async function SafeDashboardPage({ params }: PageProps) {
           </section>
         </div>
 
+
         <TransactionHistory
           address={safe.address}
           addressBook={addressBook}
@@ -384,6 +404,7 @@ export default async function SafeDashboardPage({ params }: PageProps) {
           threshold={safe.threshold}
         />
 
+
         <ModuleActivity
           address={safe.address}
           chainId={safe.chainId}
@@ -392,12 +413,14 @@ export default async function SafeDashboardPage({ params }: PageProps) {
           nextCursor={modulePage.nextCursor}
         />
 
+
         <TransferActivity
           address={safe.address}
           chainId={safe.chainId}
           initialTransfers={transferViews}
           nextCursor={transferPage.nextCursor}
         />
+
 
         <MessageHistory
           address={safe.address}
@@ -406,6 +429,7 @@ export default async function SafeDashboardPage({ params }: PageProps) {
           nextCursor={messagePage.nextCursor}
         />
       </div>
+
 
       <footer className="workspace-footer">
         <Link className="text-link" href="/safes">
