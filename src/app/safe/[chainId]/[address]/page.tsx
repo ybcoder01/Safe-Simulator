@@ -2,7 +2,6 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-
 import { MessageHistory } from "@/components/safes/message-history";
 import { ModuleActivity } from "@/components/safes/module-activity";
 import { ReanalysisControl } from "@/components/safes/reanalysis-control";
@@ -33,23 +32,19 @@ import {
   toBalanceView,
 } from "@/lib/api/safe-details";
 
-
 import {
   requestSafeModuleReanalysis,
   requestSafeReanalysis,
   requestSafeRefresh,
 } from "./actions";
 
-
 interface PageProps {
   readonly params: Promise<{ chainId: string; address: string }>;
 }
 
-
 function shorten(value: string, start = 8, end = 6) {
   return `${value.slice(0, start)}…${value.slice(-end)}`;
 }
-
 
 function formatTimestamp(timestamp: number) {
   return new Intl.DateTimeFormat("en", {
@@ -59,11 +54,9 @@ function formatTimestamp(timestamp: number) {
   }).format(new Date(timestamp * 1_000));
 }
 
-
 function timestampDateTime(timestamp: number) {
   return new Date(timestamp * 1_000).toISOString();
 }
-
 
 function formatTokenAmount(amount: string, decimals: number) {
   const value = BigInt(amount);
@@ -78,16 +71,13 @@ function formatTokenAmount(amount: string, decimals: number) {
   return fraction ? `${whole}.${fraction}` : whole.toString();
 }
 
-
 export default async function SafeDashboardPage({ params }: PageProps) {
   const parsed = safeRouteParamsSchema.safeParse(await params);
   if (!parsed.success) notFound();
 
-
   const persistence = getPersistencePort();
   const safe = await persistence.findSafe(parsed.data);
   if (!safe) notFound();
-
 
   const cookieStore = await cookies();
   const profileId = parseProfileId(cookieStore.get(PROFILE_COOKIE)?.value);
@@ -155,7 +145,6 @@ export default async function SafeDashboardPage({ params }: PageProps) {
     actionInput,
   );
 
-
   return (
     <main className="workspace shell">
       <header className="workspace-header">
@@ -170,12 +159,10 @@ export default async function SafeDashboardPage({ params }: PageProps) {
         </span>
       </header>
 
-
       <div className="safe-dashboard">
         <Link className="dashboard-back" href="/safes">
           ← All Safe accounts
         </Link>
-
 
         <section className="dashboard-hero">
           <div>
@@ -250,7 +237,6 @@ export default async function SafeDashboardPage({ params }: PageProps) {
           </div>
         </section>
 
-
         <section className="dashboard-metrics" aria-label="Safe configuration">
           <article>
             <span>Signing policy</span>
@@ -271,7 +257,6 @@ export default async function SafeDashboardPage({ params }: PageProps) {
             <strong>{safe.modules.length}</strong>
           </article>
         </section>
-
 
         <div className="dashboard-columns">
           <section className="dashboard-panel">
@@ -359,7 +344,6 @@ export default async function SafeDashboardPage({ params }: PageProps) {
             </div>
           </section>
 
-
           <section className="dashboard-panel">
             <div className="panel-heading">
               <div>
@@ -394,7 +378,6 @@ export default async function SafeDashboardPage({ params }: PageProps) {
           </section>
         </div>
 
-
         <TransactionHistory
           address={safe.address}
           addressBook={addressBook}
@@ -404,7 +387,6 @@ export default async function SafeDashboardPage({ params }: PageProps) {
           threshold={safe.threshold}
         />
 
-
         <ModuleActivity
           address={safe.address}
           chainId={safe.chainId}
@@ -413,14 +395,12 @@ export default async function SafeDashboardPage({ params }: PageProps) {
           nextCursor={modulePage.nextCursor}
         />
 
-
         <TransferActivity
           address={safe.address}
           chainId={safe.chainId}
           initialTransfers={transferViews}
           nextCursor={transferPage.nextCursor}
         />
-
 
         <MessageHistory
           address={safe.address}
@@ -429,7 +409,6 @@ export default async function SafeDashboardPage({ params }: PageProps) {
           nextCursor={messagePage.nextCursor}
         />
       </div>
-
 
       <footer className="workspace-footer">
         <Link className="text-link" href="/safes">
