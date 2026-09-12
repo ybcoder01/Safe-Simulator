@@ -1,5 +1,4 @@
 version: 2
-
 updates:
   - package-ecosystem: "npm"
     directory: "/"
@@ -13,6 +12,11 @@ updates:
       npm-minor-and-patch:
         patterns:
           - "*"
+        exclude-patterns:
+          - "@safe-global/api-kit"
+          - "viem"
+          - "zod"
+          - "prettier"
         update-types:
           - "minor"
           - "patch"
