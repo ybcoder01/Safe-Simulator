@@ -140,7 +140,7 @@ export async function resolveTransferViews(
       blockHash: null,
     });
     const metadataByToken = new Map(
-      metadata.map((entry) => [entry.token.toLowerCase(), entry]),
+      metadata.items.map((entry) => [entry.token.toLowerCase(), entry]),
     );
 
     return transfers.map((transfer) =>
