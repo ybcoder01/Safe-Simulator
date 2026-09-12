@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-
 import type { Address, Hex, TransferRecord } from "../../../../src/core/domain";
 import {
   appendUniqueTransferViews,
@@ -9,12 +8,10 @@ import {
   transferPageQuerySchema,
 } from "../../../../src/lib/api/transfer-activity";
 
-
 const safeAddress = "0xc8bae80ca5c2c9ec3bd4ac16c422220a33b6b173" as Address;
 const other = "0x1111111111111111111111111111111111111111" as Address;
 const reviewedUsdc = "0xfa2958cb79b0491cc627c1557f441ef849ca8eb1" as Address;
 const unknownToken = "0x2222222222222222222222222222222222222222" as Address;
-
 
 function transfer(
   from: Address,
@@ -36,7 +33,6 @@ function transfer(
   };
 }
 
-
 describe("transfer activity API views", () => {
   it("accepts UUID cursors and bounded limits", () => {
     expect(
@@ -57,7 +53,6 @@ describe("transfer activity API views", () => {
     ).toBe(false);
   });
 
-
   it("classifies incoming and outgoing movements case-insensitively", () => {
     expect(
       toTransferView(transfer(other, safeAddress.toUpperCase() as Address))
@@ -71,7 +66,6 @@ describe("transfer activity API views", () => {
     );
   });
 
-
   it("formats native movements with the chain symbol", () => {
     expect(resolveTransferAmount(transfer(other, safeAddress))).toEqual({
       displayAmount: "0.000000000000000042",
@@ -81,7 +75,6 @@ describe("transfer activity API views", () => {
       metadataWarning: null,
     });
   });
-
 
   it("formats reviewed tokens with trusted decimals and symbols", () => {
     expect(
@@ -99,7 +92,6 @@ describe("transfer activity API views", () => {
       metadataWarning: null,
     });
   });
-
 
   it("formats unreviewed tokens with clearly sourced on-chain metadata", () => {
     expect(
@@ -142,7 +134,6 @@ describe("transfer activity API views", () => {
     });
   });
 
-
   it("serializes amounts and block numbers without losing raw evidence", () => {
     expect(toTransferView(transfer(other, safeAddress))).toEqual({
       transactionHash: ("0x" + "a".repeat(64)) as Hex,
@@ -162,7 +153,6 @@ describe("transfer activity API views", () => {
     });
   });
 
-
   it("deduplicates the persisted transfer identity, not only transaction hash", () => {
     const first = toTransferView(transfer(other, safeAddress));
     const second = toTransferView(
@@ -172,7 +162,6 @@ describe("transfer activity API views", () => {
       ...first,
       from: first.from.toUpperCase() as Address,
     };
-
 
     expect(
       appendUniqueTransferViews(
