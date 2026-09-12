@@ -58,7 +58,10 @@ export function resolveTransferAmount(
       ? metadata
       : null;
 
-  if (matchingMetadata?.decimals !== null && matchingMetadata?.decimals !== undefined) {
+  if (
+    matchingMetadata?.decimals !== null &&
+    matchingMetadata?.decimals !== undefined
+  ) {
     return {
       displayAmount:
         formatTokenAmount(rawAmount, matchingMetadata.decimals) ?? rawAmount,
@@ -83,16 +86,15 @@ export function toTransferView(
   metadata: TokenMetadataView | null = null,
 ) {
   const safeAddress = transfer.safe.address.toLowerCase();
-  const from = transfer.from.toLowerCase();
-  const to = transfer.to.toLowerCase();
-  const direction =
-    from === safeAddress
-      ? to === safeAddress
-        ? "self"
-        : "outgoing"
-      : to === safeAddress
-        ? "incoming"
-        : "external";
+  const fromSafe = transfer.from.toLowerCase() === safeAddress;
+  const toSafe = transfer.to.toLowerCase() === safeAddress;
+  const direction = fromSafe
+    ? toSafe
+      ? ("self" as const)
+      : ("outgoing" as const)
+    : toSafe
+      ? ("incoming" as const)
+      : ("related" as const);
   const counterparty =
     direction === "incoming"
       ? transfer.from
@@ -108,7 +110,7 @@ export function toTransferView(
     amount: transfer.amount.toString(),
     ...resolveTransferAmount(transfer, metadata),
     blockNumber: transfer.blockNumber.toString(),
-    timestamp: transfer.timestamp.toISOString(),
+    timestamp: transfer.timestamp,
     direction,
     counterparty,
   };
@@ -154,31 +156,31 @@ export async function resolveTransferViews(
   }
 }
 
-export function transferIdentity(transfer: TransferView): string {
+function transferIdentity(transfer: TransferView): string {
   return [
-    transfer.transactionHash.toLowerCase(),
-    transfer.token?.toLowerCase() ?? "native",
-    transfer.from.toLowerCase(),
-    transfer.to.toLowerCase(),
+    transfer.transactionHash,
+    transfer.token ?? "native",
+    transfer.from,
+    transfer.to,
     transfer.amount,
-    transfer.blockNumber,
-  ].join(":");
+  ]
+    .join(":")
+    .toLowerCase();
 }
 
 export function appendUniqueTransferViews(
   current: readonly TransferView[],
   incoming: readonly TransferView[],
 ): readonly TransferView[] {
-  const seen = new Set(current.map(transferIdentity));
-  const appended = [...current];
+  const known = new Set(current.map(transferIdentity));
+  const merged = [...current];
 
   for (const transfer of incoming) {
-    const identity = transferIdentity(transfer);
-    if (!seen.has(identity)) {
-      seen.add(identity);
-      appended.push(transfer);
-    }
+    const key = transferIdentity(transfer);
+    if (known.has(key)) continue;
+    known.add(key);
+    merged.push(transfer);
   }
 
-  return appended;
+  return merged;
 }
