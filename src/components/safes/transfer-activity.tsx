@@ -74,12 +74,7 @@ export function TransferActivity({
     try {
       const query = new URLSearchParams({ cursor: nextCursor, limit: "25" });
       const response = await fetch(
-        "/api/v1/safes/" +
-          chainId +
-          "/" +
-          address +
-          "/transfers?" +
-          query,
+        "/api/v1/safes/" + chainId + "/" + address + "/transfers?" + query,
         { cache: "no-store" },
       );
       const body = (await response.json()) as {
@@ -155,9 +150,7 @@ export function TransferActivity({
                   transfer.amount,
                 ].join(":")}
               >
-                <span
-                  className={"tx-status tx-transfer-" + transfer.direction}
-                >
+                <span className={"tx-status tx-transfer-" + transfer.direction}>
                   {directionLabel(transfer.direction)}
                 </span>
                 <div>
