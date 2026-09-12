@@ -11,7 +11,12 @@ import { TokenIdentity } from "@/components/shared/token-identity";
 import { SyncRefreshControl } from "@/components/safes/sync-refresh-control";
 import { TransactionHistory } from "@/components/safes/transaction-history";
 import { TransferActivity } from "@/components/safes/transfer-activity";
-import { getPersistencePort, getSafeDataPort } from "@/container";
+import {
+  getCachePort,
+  getChainPort,
+  getPersistencePort,
+  getSafeDataPort,
+} from "@/container";
 import { toMessageView } from "@/lib/api/message-details";
 import { toModuleTransactionView } from "@/lib/api/module-activity";
 import { MODULE_ANALYSIS_ENGINE_VERSION } from "@/lib/api/module-analysis";
@@ -20,7 +25,7 @@ import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
 import { isRefreshActive } from "@/lib/api/sync-refresh";
 import { explorerAddressUrl } from "@/lib/explorer-links";
 import { resolveTransactionViews } from "@/lib/api/transaction-list";
-import { toTransferView } from "@/lib/api/transfer-activity";
+import { resolveTransferViews } from "@/lib/api/transfer-activity";
 import {
   resolveSyncSummary,
   safeRouteParamsSchema,
@@ -102,16 +107,15 @@ export default async function SafeDashboardPage({ params }: PageProps) {
     persistence.getAnalysisCoverage(safe, TRANSACTION_ANALYSIS_ENGINE_VERSION),
     persistence.getModuleAnalysisCoverage(safe, MODULE_ANALYSIS_ENGINE_VERSION),
   ]);
-  const transactions = await resolveTransactionViews(
-    persistence,
-    safe,
-    page.items,
-  );
-  const moduleAnalyses = await persistence.findModuleAnalyses(
-    safe,
-    modulePage.items.map((transaction) => transaction.transactionHash),
-    MODULE_ANALYSIS_ENGINE_VERSION,
-  );
+  const [transactions, moduleAnalyses, transferViews] = await Promise.all([
+    resolveTransactionViews(persistence, safe, page.items),
+    persistence.findModuleAnalyses(
+      safe,
+      modulePage.items.map((transaction) => transaction.transactionHash),
+      MODULE_ANALYSIS_ENGINE_VERSION,
+    ),
+    resolveTransferViews(getChainPort(), getCachePort(), transferPage.items),
+  ]);
   const moduleAnalysesByHash = new Map(
     moduleAnalyses.map((analysis) => [
       analysis.transactionHash.toLowerCase(),
@@ -125,7 +129,6 @@ export default async function SafeDashboardPage({ params }: PageProps) {
         null,
     ),
   );
-  const transferViews = transferPage.items.map(toTransferView);
   const messageViews = messagePage.items.map((message) =>
     toMessageView(message, safe.threshold),
   );

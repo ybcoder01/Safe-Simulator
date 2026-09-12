@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 
-import { getPersistencePort } from "@/container";
+import { getCachePort, getChainPort, getPersistencePort } from "@/container";
 import { safeRouteParamsSchema } from "@/lib/api/safe-details";
 import {
-  toTransferView,
+  resolveTransferViews,
   transferPageQuerySchema,
 } from "@/lib/api/transfer-activity";
 
@@ -45,8 +45,13 @@ export async function GET(request: Request, context: RouteContext) {
     query.data.cursor,
     query.data.limit,
   );
+  const data = await resolveTransferViews(
+    getChainPort(),
+    getCachePort(),
+    page.items,
+  );
   return NextResponse.json({
-    data: page.items.map(toTransferView),
+    data,
     nextCursor: page.nextCursor,
   });
 }

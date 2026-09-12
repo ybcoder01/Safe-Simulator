@@ -71,6 +71,8 @@ describe("transfer activity API views", () => {
       displayAmount: "0.000000000000000042",
       symbol: "XDC",
       amountSource: "native",
+      metadataStatus: null,
+      metadataWarning: null,
     });
   });
 
@@ -86,6 +88,32 @@ describe("transfer activity API views", () => {
       displayAmount: "1.5",
       symbol: "USDC",
       amountSource: "reviewed",
+      metadataStatus: null,
+      metadataWarning: null,
+    });
+  });
+
+  it("formats unreviewed tokens with clearly sourced on-chain metadata", () => {
+    expect(
+      resolveTransferAmount(
+        transfer(other, safeAddress, {
+          amount: 1_500_000n,
+          token: unknownToken,
+        }),
+        {
+          token: unknownToken,
+          status: "resolved",
+          symbol: "TKN",
+          decimals: 6,
+          warning: null,
+        },
+      ),
+    ).toEqual({
+      displayAmount: "1.5",
+      symbol: "TKN",
+      amountSource: "on-chain",
+      metadataStatus: "resolved",
+      metadataWarning: null,
     });
   });
 
@@ -101,6 +129,8 @@ describe("transfer activity API views", () => {
       displayAmount: "1500000",
       symbol: null,
       amountSource: "raw",
+      metadataStatus: null,
+      metadataWarning: null,
     });
   });
 
@@ -114,6 +144,8 @@ describe("transfer activity API views", () => {
       displayAmount: "0.000000000000000042",
       symbol: "XDC",
       amountSource: "native",
+      metadataStatus: null,
+      metadataWarning: null,
       blockNumber: "123",
       timestamp: 1_700_000_000,
       direction: "incoming",

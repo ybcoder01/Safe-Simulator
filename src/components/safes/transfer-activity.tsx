@@ -127,8 +127,9 @@ export function TransferActivity({
           <h3>No asset movements imported</h3>
           <p>
             Native and token transfers reported for this Safe will appear here
-            after synchronization. Reviewed metadata is used when available;
-            unknown assets stay explicitly labeled in raw units.
+            after synchronization. Reviewed metadata is preferred; unknown
+            assets use cached read-only on-chain metadata when available and
+            stay explicitly labeled as unreviewed.
           </p>
         </div>
       ) : (
@@ -167,6 +168,10 @@ export function TransferActivity({
                   <span>
                     {transfer.amountSource === "raw"
                       ? transfer.amount + " raw units · "
+                      : ""}
+                    {transfer.amountSource === "on-chain" ||
+                    transfer.metadataStatus === "partial"
+                      ? "On-chain metadata · unreviewed · "
                       : ""}
                     {routeLabel(transfer)}
                   </span>
