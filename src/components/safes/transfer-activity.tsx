@@ -1,8 +1,6 @@
 "use client";
 
-
 import { useState } from "react";
-
 
 import { TokenIdentity } from "@/components/shared/token-identity";
 import {
@@ -11,7 +9,6 @@ import {
 } from "@/lib/api/transfer-activity";
 import { explorerTransactionUrl } from "@/lib/explorer-links";
 
-
 interface TransferActivityProps {
   readonly address: string;
   readonly chainId: number;
@@ -19,11 +16,9 @@ interface TransferActivityProps {
   readonly nextCursor: string | null;
 }
 
-
 function shorten(value: string, start = 10, end = 8) {
   return value.slice(0, start) + "…" + value.slice(-end);
 }
-
 
 function timestampLabel(timestamp: number) {
   return new Date(timestamp * 1_000).toLocaleString("en-US", {
@@ -32,7 +27,6 @@ function timestampLabel(timestamp: number) {
     timeZone: "UTC",
   });
 }
-
 
 function directionLabel(direction: TransferView["direction"]) {
   switch (direction) {
@@ -47,7 +41,6 @@ function directionLabel(direction: TransferView["direction"]) {
   }
 }
 
-
 function routeLabel(transfer: TransferView) {
   switch (transfer.direction) {
     case "incoming":
@@ -61,7 +54,6 @@ function routeLabel(transfer: TransferView) {
   }
 }
 
-
 export function TransferActivity({
   address,
   chainId,
@@ -74,12 +66,10 @@ export function TransferActivity({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-
   async function loadMore() {
     if (!nextCursor || loading) return;
     setLoading(true);
     setError(null);
-
 
     try {
       const query = new URLSearchParams({ cursor: nextCursor, limit: "25" });
@@ -98,7 +88,6 @@ export function TransferActivity({
         );
       }
 
-
       setTransfers((current) =>
         appendUniqueTransferViews(current, body.data ?? []),
       );
@@ -113,7 +102,6 @@ export function TransferActivity({
       setLoading(false);
     }
   }
-
 
   return (
     <section
@@ -131,7 +119,6 @@ export function TransferActivity({
         </span>
       </div>
 
-
       {transfers.length === 0 ? (
         <div className="history-empty">
           <div className="empty-icon" aria-hidden="true">
@@ -140,9 +127,9 @@ export function TransferActivity({
           <h3>No asset movements imported</h3>
           <p>
             Native and token transfers reported for this Safe will appear here
-            after synchronization. Reviewed metadata is preferred; unknown assets
-            use cached read-only on-chain metadata when available and stay
-            explicitly labeled as unreviewed.
+            after synchronization. Reviewed metadata is preferred; unknown
+            assets use cached read-only on-chain metadata when available and
+            stay explicitly labeled as unreviewed.
           </p>
         </div>
       ) : (
@@ -152,7 +139,6 @@ export function TransferActivity({
               chainId,
               transfer.transactionHash,
             );
-
 
             return (
               <article
@@ -215,7 +201,6 @@ export function TransferActivity({
           })}
         </div>
       )}
-
 
       {error ? (
         <p className="form-error" role="alert">
