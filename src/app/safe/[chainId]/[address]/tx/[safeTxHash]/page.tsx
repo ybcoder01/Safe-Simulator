@@ -188,6 +188,26 @@ export default async function TransactionDetailPage({ params }: PageProps) {
   const executedExplorerUrl = transaction.executedTxHash
     ? explorerTransactionUrl(safe.data.chainId, transaction.executedTxHash)
     : null;
+  const primaryAction = decoded
+    ? decodedCallSummary(decoded)
+    : (transaction.summary ??
+      `${transaction.operation === "delegatecall" ? "Delegate call" : "Contract call"} to ${shorten(transaction.to)}`);
+  const criticalFindingCount = verdict.findings.filter(
+    (finding) => finding.severity === "critical",
+  ).length;
+  const warningFindingCount = verdict.findings.filter(
+    (finding) => finding.severity === "warning",
+  ).length;
+  const infiniteAuthorization = [
+    ...approvalRisk.requests,
+    ...approvalRisk.executedChanges,
+  ].some((approval) => approval.infinite === true);
+  const impactMovements = execution.tokenMovements.slice(0, 3);
+  const impactApprovals = approvalRisk.requests.slice(0, 3);
+  const impactConfigurationChanges = execution.safeConfigurationChanges.slice(
+    0,
+    3,
+  );
 
   return (
     <main className="workspace shell">
@@ -232,6 +252,251 @@ export default async function TransactionDetailPage({ params }: PageProps) {
             </span>
           </div>
         </header>
+
+        <section
+          className="detail-panel transaction-impact-summary"
+          aria-labelledby="transaction-impact-title"
+        >
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Decision summary</p>
+              <h2 id="transaction-impact-title">Transaction impact</h2>
+            </div>
+            <span>
+              {criticalFindingCount > 0
+                ? criticalFindingCount + " critical"
+                : warningFindingCount > 0
+                  ? warningFindingCount + " warnings"
+                  : "No material warning"}
+            </span>
+          </div>
+          <div className="panel-empty">
+            Deterministic summary from decoded calldata and receipt-proven
+            evidence. Review the linked evidence before making a decision.
+          </div>
+          <div className="detail-grid">
+            <div>
+              <span>What happened</span>
+              <strong>{primaryAction}</strong>
+            </div>
+            <div>
+              <span>Asset effects</span>
+              <strong>
+                {execution.tokenMovements.length === 0
+                  ? "No receipt-proven token movements"
+                  : execution.tokenMovements.length + " token movements"}
+              </strong>
+            </div>
+            <div>
+              <span>Permission effects</span>
+              <strong>
+                {infiniteAuthorization
+                  ? "Unlimited authorization detected"
+                  : approvalRisk.requests.length === 0 &&
+                      approvalRisk.executedChanges.length === 0
+                    ? "No recognized authorization change"
+                    : approvalRisk.requests.length +
+                      approvalRisk.executedChanges.length +
+                      " authorization changes"}
+              </strong>
+            </div>
+            <div>
+              <span>Safe configuration</span>
+              <strong>
+                {execution.safeConfigurationChanges.length === 0
+                  ? "No canonical changes emitted"
+                  : execution.safeConfigurationChanges.length +
+                    " receipt-proven changes"}
+              </strong>
+            </div>
+          </div>
+
+          {impactMovements.length > 0 ? (
+            <>
+              <div className="calldata">
+                <span>Who moved assets</span>
+                <strong>
+                  {execution.tokenMovements.length} receipt-proven movement
+                  {execution.tokenMovements.length === 1 ? "" : "s"}
+                </strong>
+              </div>
+              {impactMovements.map((movement) => {
+                const metadata = tokenMetadataByAddress.get(
+                  movement.token.toLowerCase(),
+                );
+                const formatted = formatTokenAmount(
+                  movement.amount,
+                  metadata?.decimals ?? null,
+                );
+
+                return (
+                  <div
+                    className="calldata"
+                    key={["impact", movement.logIndex, movement.token].join(
+                      ":",
+                    )}
+                  >
+                    <span>
+                      {movement.direction} · receipt log {movement.logIndex}
+                    </span>
+                    <TokenIdentity
+                      amount={formatted}
+                      chainId={safe.data.chainId}
+                      symbol={metadata?.symbol}
+                      token={movement.token}
+                    />
+                    {formatted === null ? (
+                      <code>Raw: {movement.amount} base units</code>
+                    ) : null}
+                    <div className="approval-party">
+                      <span>From</span>
+                      <AddressIdentity
+                        address={movement.from}
+                        addressBook={addressBook}
+                        chainId={safe.data.chainId}
+                        compact
+                      />
+                    </div>
+                    <div className="approval-party">
+                      <span>To</span>
+                      <AddressIdentity
+                        address={movement.to}
+                        addressBook={addressBook}
+                        chainId={safe.data.chainId}
+                        compact
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+              {execution.tokenMovements.length > impactMovements.length ? (
+                <div className="panel-empty">
+                  {execution.tokenMovements.length - impactMovements.length}{" "}
+                  additional movements are listed in the receipt evidence.
+                </div>
+              ) : null}
+            </>
+          ) : null}
+
+          {impactApprovals.length > 0 ? (
+            <>
+              <div className="calldata">
+                <span>Who receives permissions</span>
+                <strong>
+                  {infiniteAuthorization
+                    ? "At least one unlimited authorization"
+                    : approvalRisk.requests.length +
+                      " decoded authorization " +
+                      (approvalRisk.requests.length === 1
+                        ? "request"
+                        : "requests")}
+                </strong>
+              </div>
+              {impactApprovals.map((approval, index) => {
+                const metadata = approval.token
+                  ? tokenMetadataByAddress.get(approval.token.toLowerCase())
+                  : null;
+                const formatted =
+                  approval.amount === null
+                    ? null
+                    : formatTokenAmount(
+                        approval.amount,
+                        metadata?.decimals ?? null,
+                      );
+
+                return (
+                  <div
+                    className="calldata"
+                    key={["impact-approval", index, approval.target].join(":")}
+                  >
+                    <span>
+                      {approval.standard} · {approval.method}
+                    </span>
+                    <strong>
+                      {approval.infinite
+                        ? "Unlimited authorization requested"
+                        : formatted
+                          ? formatted +
+                            (metadata?.symbol ? " " + metadata.symbol : "") +
+                            " requested"
+                          : "Authorization change requested"}
+                    </strong>
+                    {approval.spender ? (
+                      <div className="approval-party">
+                        <span>Spender or operator</span>
+                        <AddressIdentity
+                          address={approval.spender}
+                          addressBook={addressBook}
+                          chainId={safe.data.chainId}
+                          compact
+                        />
+                      </div>
+                    ) : (
+                      <code>Spender cannot be established from this call.</code>
+                    )}
+                  </div>
+                );
+              })}
+            </>
+          ) : null}
+
+          {impactConfigurationChanges.length > 0 ? (
+            <div className="calldata">
+              <span>Safe control changes</span>
+              {impactConfigurationChanges.map((change) => (
+                <strong
+                  key={[
+                    "impact-safe-change",
+                    change.logIndex,
+                    change.field,
+                  ].join(":")}
+                >
+                  {change.field}: {change.before ?? "unknown"} →{" "}
+                  {change.after ?? "not configured"}
+                </strong>
+              ))}
+            </div>
+          ) : null}
+
+          {criticalFindingCount > 0 || warningFindingCount > 0 ? (
+            <div className="calldata">
+              <span>Why this needs review</span>
+              {verdict.findings
+                .filter(
+                  (finding) =>
+                    finding.severity === "critical" ||
+                    finding.severity === "warning",
+                )
+                .slice(0, 3)
+                .map((finding) => (
+                  <strong key={"impact-finding-" + finding.code}>
+                    {finding.severity}: {finding.title}
+                  </strong>
+                ))}
+            </div>
+          ) : null}
+
+          <nav
+            className="identifier-actions"
+            aria-label="Transaction evidence sections"
+          >
+            <a className="text-link" href="#execution-evidence">
+              Execution
+            </a>
+            <a className="text-link" href="#asset-movements">
+              Asset movements
+            </a>
+            <a className="text-link" href="#permission-changes">
+              Permissions
+            </a>
+            <a className="text-link" href="#decoded-action">
+              Decoded action
+            </a>
+            <a className="text-link" href="#raw-evidence">
+              Raw evidence
+            </a>
+          </nav>
+        </section>
 
         <section className="detail-panel">
           <div className="panel-heading">
@@ -397,7 +662,7 @@ export default async function TransactionDetailPage({ params }: PageProps) {
           </div>
         </section>
 
-        <section className="detail-panel">
+        <section className="detail-panel" id="execution-evidence">
           <div className="panel-heading">
             <div>
               <p className="eyebrow">Execution evidence</p>
@@ -605,7 +870,7 @@ export default async function TransactionDetailPage({ params }: PageProps) {
           </div>
         </section>
 
-        <section className="detail-panel">
+        <section className="detail-panel" id="asset-movements">
           <div className="panel-heading">
             <div>
               <p className="eyebrow">Token activity</p>
@@ -774,7 +1039,7 @@ export default async function TransactionDetailPage({ params }: PageProps) {
           ))}
         </section>
 
-        <section className="detail-panel">
+        <section className="detail-panel" id="permission-changes">
           <div className="panel-heading">
             <div>
               <p className="eyebrow">Approval risk</p>
@@ -996,7 +1261,7 @@ export default async function TransactionDetailPage({ params }: PageProps) {
           ) : null}
         </section>
 
-        <section className="detail-panel">
+        <section className="detail-panel" id="decoded-action">
           <div className="panel-heading">
             <div>
               <p className="eyebrow">Decoded action</p>
@@ -1103,7 +1368,7 @@ export default async function TransactionDetailPage({ params }: PageProps) {
           )}
         </section>
 
-        <section className="detail-panel raw-evidence-panel">
+        <section className="detail-panel raw-evidence-panel" id="raw-evidence">
           <div className="panel-heading">
             <div>
               <p className="eyebrow">Public source data</p>
