@@ -1,7 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 
 import type { DiscoveredSafeView } from "@/lib/api/safe-discovery";
 import { withoutSafe, type SafeView } from "@/lib/api/safes";
@@ -17,6 +22,7 @@ interface ApiErrorBody {
 
 interface SafesClientProps {
   readonly chains: readonly ChainOption[];
+  readonly reviewForm: ReactNode;
   readonly removeSafe: (input: {
     readonly chainId: number;
     readonly address: string;
@@ -27,7 +33,11 @@ function shortenAddress(address: string) {
   return `${address.slice(0, 8)}…${address.slice(-6)}`;
 }
 
-export function SafesClient({ chains, removeSafe }: SafesClientProps) {
+export function SafesClient({
+  chains,
+  removeSafe,
+  reviewForm,
+}: SafesClientProps) {
   const defaultChainId = chains[0]?.id ?? 1;
   const [items, setItems] = useState<readonly SafeView[]>([]);
   const [chainId, setChainId] = useState(defaultChainId);
@@ -248,9 +258,11 @@ export function SafesClient({ chains, removeSafe }: SafesClientProps) {
         <span className="scope-note">Ethereum · XDC</span>
       </section>
 
+      {reviewForm}
+
       <form className="import-panel" onSubmit={importSafe}>
         <div className="import-copy">
-          <span className="step-number">01</span>
+          <span className="step-number">02</span>
           <div>
             <h2>Import by address</h2>
             <p>
@@ -298,7 +310,7 @@ export function SafesClient({ chains, removeSafe }: SafesClientProps) {
 
       <form className="import-panel discovery-panel" onSubmit={discoverSafes}>
         <div className="import-copy">
-          <span className="step-number">02</span>
+          <span className="step-number">03</span>
           <div>
             <h2>Discover by owner address</h2>
             <p>
