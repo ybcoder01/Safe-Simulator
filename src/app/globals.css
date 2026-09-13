@@ -3022,3 +3022,24 @@ select {
     text-align: left;
   }
 }
+
+/* Direct read-only transaction intake */
+.review-controls {
+  grid-template-columns: 150px minmax(220px, 0.8fr) minmax(300px, 1.2fr) auto;
+}
+
+.review-controls .button {
+  white-space: nowrap;
+}
+
+.form-status {
+  margin: 16px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+@media (max-width: 900px) {
+  .review-controls {
+    grid-template-columns: 1fr;
+  }
+}
