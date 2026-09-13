@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 import { explorerAddressUrl } from "@/lib/explorer-links";
 import { resolveTokenPresentation } from "@/lib/api/token-presentation";
 
@@ -7,6 +9,17 @@ interface Props {
   readonly symbol?: string | null | undefined;
   readonly token: string | null;
 }
+
+const logoPath = {
+  wxdc: "/token-logos/wxdc.png",
+  usdc: "/token-logos/usdc.svg",
+  xsp: "/token-logos/xsp.png",
+  xtt: "/token-logos/xtt.png",
+  ynrwax: "/token-logos/ynrwax.svg",
+  wsrusd: "/token-logos/wsrusd.png",
+  "fallback-lp": null,
+  "fallback-token": null,
+} as const;
 
 const logoText = {
   wxdc: "X",
@@ -35,19 +48,31 @@ export function TokenIdentity({
     : identity.kind === "liquidity-position"
       ? "LP fallback"
       : "Unknown token fallback";
+  const imagePath = logoPath[identity.logoKey];
 
   return (
     <span className="token-identity">
       <span
-        aria-label={`${identity.name} logo`}
-        className={`token-logo token-logo-${identity.logoKey}`}
+        aria-label={identity.name + " logo"}
+        className={"token-logo token-logo-" + identity.logoKey}
         role="img"
       >
-        {logoText[identity.logoKey]}
+        {imagePath ? (
+          <Image
+            alt=""
+            height={38}
+            src={imagePath}
+            style={{ height: "100%", objectFit: "contain", width: "100%" }}
+            unoptimized
+            width={38}
+          />
+        ) : (
+          logoText[identity.logoKey]
+        )}
       </span>
       <span className="token-identity-copy">
         <strong>
-          {amount ? `${amount} ` : ""}
+          {amount ? amount + " " : ""}
           {identity.symbol}
         </strong>
         <span>
@@ -65,7 +90,7 @@ export function TokenIdentity({
             <span aria-hidden="true">↗</span>
           </a>
         ) : (
-          <span className="token-native-label">Native asset</span>
+          <span className="token-native-label">Native token</span>
         )}
       </span>
     </span>
