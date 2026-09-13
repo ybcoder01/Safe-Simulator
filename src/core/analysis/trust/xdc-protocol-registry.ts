@@ -1281,7 +1281,7 @@ const groups: readonly ProtocolDeploymentGroup[] = [
     protocol: "yieldnest",
     reference:
       "https://github.com/yieldnest/yieldnest-cross-chain/blob/e5c2bac18da7cf1c89767f385ebc15513b995540/deployments/ynRWAx-1-v0.0.1.json",
-    logoKey: "ynrwax",
+    logoKey: "yieldnest",
     deployments: [
       [
         "0x7054f74d6cB418e987b73c9f3c23e5cEc18217b2",
