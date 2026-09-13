@@ -15,7 +15,8 @@ const multiSendCallOnly =
 const xswapV3Router = "0xecf4ea7907e779b8a7d0f90cb95fe06f43b610fb" as Address;
 const morphoBlue = "0xEa49B0fE898aF913A3826F9f462eE2cDcb854fD9" as Address;
 const curveAdmin = "0xabc336d4C71ad275695744d32DdB1d8266Db1cbF" as Address;
-const curveRouter = "0x3F5A41B922a76759b9C77D36b3d337E88cD1dc5e" as Address;
+const curveRouter =
+  "0x3F5A41B922a76759b9C77D36b3d337E88cD1dc5e" as Address;
 const yieldNestRwaMax =
   "0x7054f74d6cB418e987b73c9f3c23e5cEc18217b2" as Address;
 
