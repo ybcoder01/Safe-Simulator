@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { supportedChainSummaries } from "@/adapters/chain-viem/config";
 import { SafesClient } from "@/components/safes/safes-client";
+import { TransactionReviewForm } from "@/components/safes/transaction-review-form";
 
 import { removeSafeBookmark } from "./actions";
 
@@ -24,6 +25,7 @@ export default function SafesPage() {
       <SafesClient
         chains={supportedChainSummaries}
         removeSafe={removeSafeBookmark}
+        reviewForm={<TransactionReviewForm chains={supportedChainSummaries} />}
       />
       <footer className="workspace-footer">
         <Link className="text-link" href="/">
