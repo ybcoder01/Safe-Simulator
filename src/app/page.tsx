@@ -70,6 +70,12 @@ export default function HomePage() {
             <Link className="button" href="/safes">
               Inspect a Safe <span aria-hidden="true">→</span>
             </Link>
+            <Link
+              className="text-link"
+              href="/safe/50/0x7ae1ef2979b0de85d7dea7f6a5582417d4a98c55/tx/0x0856c4f2890b3828981c29e6e09f4e475c6439ae2045837bcb38900b5249a633"
+            >
+              Try a live example
+            </Link>
             <a className="text-link" href="#how-it-works">
               How analysis works
             </a>
