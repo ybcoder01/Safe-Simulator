@@ -408,8 +408,8 @@ export function SafesClient({ chains, removeSafe }: SafesClientProps) {
             </div>
             <h3>No Safes imported yet</h3>
             <p>
-              Enter a contract address above or inspect a real public transaction
-              without importing anything first.
+              Enter a contract address above or inspect a real public
+              transaction without importing anything first.
             </p>
             <Link
               className="button button-small"
