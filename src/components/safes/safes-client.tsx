@@ -1,12 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import {
-  useEffect,
-  useState,
-  type FormEvent,
-  type ReactNode,
-} from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 
 import type { DiscoveredSafeView } from "@/lib/api/safe-discovery";
 import { withoutSafe, type SafeView } from "@/lib/api/safes";
