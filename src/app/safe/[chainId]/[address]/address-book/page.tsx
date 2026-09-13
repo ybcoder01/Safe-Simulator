@@ -26,6 +26,11 @@ const protocolLabels: Readonly<Record<string, string>> = {
   yieldnest: "YieldNest",
 };
 
+const protocolLogoPaths: Readonly<Record<string, string>> = {
+  curve: "/protocol-logos/curve.png",
+  yieldnest: "/protocol-logos/yieldnest.svg",
+};
+
 export default async function AddressBookPage({ params }: PageProps) {
   const parsed = safeRouteParamsSchema.safeParse(await params);
   if (!parsed.success) notFound();
