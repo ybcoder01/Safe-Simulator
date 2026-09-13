@@ -2,7 +2,6 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-
 import {
   getAbiPort,
   getCachePort,
@@ -41,7 +40,6 @@ import {
   toTransactionView,
 } from "@/lib/api/safe-details";
 
-
 interface PageProps {
   readonly params: Promise<{
     chainId: string;
@@ -50,11 +48,9 @@ interface PageProps {
   }>;
 }
 
-
 function shorten(value: string) {
   return `${value.slice(0, 10)}…${value.slice(-8)}`;
 }
-
 
 function formatDate(timestamp: number | null) {
   if (timestamp === null) return "Not executed";
@@ -65,19 +61,16 @@ function formatDate(timestamp: number | null) {
   }).format(new Date(timestamp * 1_000));
 }
 
-
 export default async function TransactionDetailPage({ params }: PageProps) {
   const values = await params;
   const safe = safeRouteParamsSchema.safeParse(values);
   const hash = safeTransactionHashSchema.safeParse(values.safeTxHash);
   if (!safe.success || !hash.success) notFound();
 
-
   const persistence = getPersistencePort();
   const cache = getCachePort();
   const persisted = await persistence.findTransaction(safe.data, hash.data);
   if (!persisted) notFound();
-
 
   const cookieStore = await cookies();
   const profileId = parseProfileId(cookieStore.get(PROFILE_COOKIE)?.value);
@@ -197,8 +190,8 @@ export default async function TransactionDetailPage({ params }: PageProps) {
     : null;
   const primaryAction = decoded
     ? decodedCallSummary(decoded)
-    : transaction.summary ??
-      `${transaction.operation === "delegatecall" ? "Delegate call" : "Contract call"} to ${shorten(transaction.to)}`;
+    : (transaction.summary ??
+      `${transaction.operation === "delegatecall" ? "Delegate call" : "Contract call"} to ${shorten(transaction.to)}`);
   const criticalFindingCount = verdict.findings.filter(
     (finding) => finding.severity === "critical",
   ).length;
@@ -216,7 +209,6 @@ export default async function TransactionDetailPage({ params }: PageProps) {
     3,
   );
 
-
   return (
     <main className="workspace shell">
       <header className="workspace-header">
@@ -231,12 +223,10 @@ export default async function TransactionDetailPage({ params }: PageProps) {
         </span>
       </header>
 
-
       <article className="transaction-detail">
         <Link className="dashboard-back" href={safePath}>
           ← Safe overview
         </Link>
-
 
         <header className="transaction-title">
           <div>
@@ -262,7 +252,6 @@ export default async function TransactionDetailPage({ params }: PageProps) {
             </span>
           </div>
         </header>
-
 
         <section
           className="detail-panel transaction-impact-summary"
@@ -382,7 +371,7 @@ export default async function TransactionDetailPage({ params }: PageProps) {
               })}
               {execution.tokenMovements.length > impactMovements.length ? (
                 <div className="panel-empty">
-                  {execution.tokenMovements.length - impactMovements.length}
+                  {execution.tokenMovements.length - impactMovements.length}{" "}
                   additional movements are listed in the receipt evidence.
                 </div>
               ) : null}
@@ -397,7 +386,10 @@ export default async function TransactionDetailPage({ params }: PageProps) {
                   {infiniteAuthorization
                     ? "At least one unlimited authorization"
                     : approvalRisk.requests.length +
-                      " decoded authorization requests"}
+                      " decoded authorization " +
+                      (approvalRisk.requests.length === 1
+                        ? "request"
+                        : "requests")}
                 </strong>
               </div>
               {impactApprovals.map((approval, index) => {
@@ -453,9 +445,11 @@ export default async function TransactionDetailPage({ params }: PageProps) {
               <span>Safe control changes</span>
               {impactConfigurationChanges.map((change) => (
                 <strong
-                  key={["impact-safe-change", change.logIndex, change.field].join(
-                    ":",
-                  )}
+                  key={[
+                    "impact-safe-change",
+                    change.logIndex,
+                    change.field,
+                  ].join(":")}
                 >
                   {change.field}: {change.before ?? "unknown"} →{" "}
                   {change.after ?? "not configured"}
@@ -554,7 +548,6 @@ export default async function TransactionDetailPage({ params }: PageProps) {
           ))}
         </section>
 
-
         {profileId ? (
           <AddressBookEditor
             chainId={safe.data.chainId}
@@ -567,7 +560,6 @@ export default async function TransactionDetailPage({ params }: PageProps) {
             }))}
           />
         ) : null}
-
 
         {safe.data.chainId === 50 ? (
           <section className="detail-panel">
@@ -647,7 +639,6 @@ export default async function TransactionDetailPage({ params }: PageProps) {
           </section>
         ) : null}
 
-
         <section className="detail-grid">
           <div>
             <span>Operation</span>
@@ -670,7 +661,6 @@ export default async function TransactionDetailPage({ params }: PageProps) {
             <strong>{formatDate(transaction.executedAt)}</strong>
           </div>
         </section>
-
 
         <section className="detail-panel" id="execution-evidence">
           <div className="panel-heading">
@@ -703,7 +693,6 @@ export default async function TransactionDetailPage({ params }: PageProps) {
             </div>
             <div>
               <dt>Block</dt>
-
 
               <dd>{execution.blockNumber ?? "Latest state"}</dd>
             </div>
@@ -839,7 +828,6 @@ export default async function TransactionDetailPage({ params }: PageProps) {
           </div>
         </section>
 
-
         <section className="detail-panel">
           <div className="panel-heading">
             <div>
@@ -882,7 +870,6 @@ export default async function TransactionDetailPage({ params }: PageProps) {
           </div>
         </section>
 
-
         <section className="detail-panel" id="asset-movements">
           <div className="panel-heading">
             <div>
@@ -908,7 +895,6 @@ export default async function TransactionDetailPage({ params }: PageProps) {
                 movement.amount,
                 metadata?.decimals ?? null,
               );
-
 
               return (
                 <div
@@ -956,7 +942,6 @@ export default async function TransactionDetailPage({ params }: PageProps) {
           </div>
         </section>
 
-
         <section className="detail-panel">
           <div className="panel-heading">
             <div>
@@ -996,7 +981,6 @@ export default async function TransactionDetailPage({ params }: PageProps) {
                 change.delta === null
                   ? "Unavailable"
                   : formatTokenAmount(change.delta, metadata?.decimals ?? null);
-
 
               return (
                 <div
@@ -1055,7 +1039,6 @@ export default async function TransactionDetailPage({ params }: PageProps) {
           ))}
         </section>
 
-
         <section className="detail-panel" id="permission-changes">
           <div className="panel-heading">
             <div>
@@ -1070,7 +1053,6 @@ export default async function TransactionDetailPage({ params }: PageProps) {
                 : `${approvalRisk.requests.length} requested · ${approvalRisk.executedChanges.length} emitted`}
             </span>
           </div>
-
 
           <div className="calldata">
             <span>Calldata requests</span>
@@ -1105,7 +1087,6 @@ export default async function TransactionDetailPage({ params }: PageProps) {
                         : approval.amount !== null
                           ? `${approval.amount} base units requested`
                           : "Authorization request detected";
-
 
               return (
                 <div
@@ -1170,7 +1151,6 @@ export default async function TransactionDetailPage({ params }: PageProps) {
             })
           )}
 
-
           <div className="calldata">
             <span>Receipt events</span>
             <strong>{approvalRisk.executedChanges.length} recognized</strong>
@@ -1192,7 +1172,6 @@ export default async function TransactionDetailPage({ params }: PageProps) {
                 allowance.amount,
                 metadata?.decimals ?? null,
               );
-
 
               return (
                 <div
@@ -1238,7 +1217,6 @@ export default async function TransactionDetailPage({ params }: PageProps) {
             })
           )}
 
-
           <div className="calldata">
             <span>Approval coverage limits</span>
             {approvalRisk.warnings.map((warning) => (
@@ -1246,7 +1224,6 @@ export default async function TransactionDetailPage({ params }: PageProps) {
             ))}
           </div>
         </section>
-
 
         <section className="detail-panel">
           <div className="panel-heading">
@@ -1283,7 +1260,6 @@ export default async function TransactionDetailPage({ params }: PageProps) {
             </div>
           ) : null}
         </section>
-
 
         <section className="detail-panel" id="decoded-action">
           <div className="panel-heading">
@@ -1322,7 +1298,6 @@ export default async function TransactionDetailPage({ params }: PageProps) {
                 <span>Summary</span>
                 <strong>{decodedCallSummary(decoded)}</strong>
               </div>
-
 
               {decoded.parameters.length > 0 ? (
                 <dl className="detail-list">
@@ -1392,7 +1367,6 @@ export default async function TransactionDetailPage({ params }: PageProps) {
             </div>
           )}
         </section>
-
 
         <section className="detail-panel raw-evidence-panel" id="raw-evidence">
           <div className="panel-heading">
@@ -1568,7 +1542,6 @@ export default async function TransactionDetailPage({ params }: PageProps) {
           </div>
         </section>
 
-
         <section className="detail-panel confirmation-evidence-panel">
           <div className="panel-heading">
             <div>
@@ -1605,7 +1578,6 @@ export default async function TransactionDetailPage({ params }: PageProps) {
           )}
         </section>
       </article>
-
 
       <footer className="workspace-footer">
         <Link className="text-link" href={safePath}>
