@@ -34,9 +34,7 @@ async function responseMessage(response: Response, fallback: string) {
   }
 }
 
-export function TransactionReviewForm({
-  chains,
-}: TransactionReviewFormProps) {
+export function TransactionReviewForm({ chains }: TransactionReviewFormProps) {
   const router = useRouter();
   const defaultChainId = chains[0]?.id ?? 1;
   const [chainId, setChainId] = useState(defaultChainId);
