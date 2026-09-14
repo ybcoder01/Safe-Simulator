@@ -345,7 +345,7 @@ const groups: readonly ProtocolDeploymentGroup[] = [
     protocol: "oku-uniswap",
     reference:
       "https://docs.oku.trade/home/extra-information/deployed-contracts#xdc",
-    logoKey: "uniswap",
+    logoKey: "oku",
     deployments: [
       [
         "0xcb2436774C3e191c85056d248EF4260ce5f27A9D",
@@ -1296,7 +1296,7 @@ const groups: readonly ProtocolDeploymentGroup[] = [
     protocol: "reservoir",
     reference:
       "https://github.com/reservoir-protocol/srusd/blob/cc34c9ecb30eaf13d567df42f6d9bd165e4c2914/FIXED_DEPLOYMENT_GUIDE.md",
-    logoKey: "wsrusd",
+    logoKey: "reservoir",
     deployments: [
       [
         "0x4809010926aec940b550D34a46A52739f996D75D",
