@@ -18,7 +18,7 @@ const protocolLabels: Readonly<Record<string, string>> = {
   curve: "Curve",
   fathom: "Fathom",
   morpho: "Morpho",
-  "oku-uniswap": "Uniswap via Oku",
+  "oku-uniswap": "Oku Trade",
   reservoir: "Reservoir",
   silo: "Silo",
   stargate: "Stargate",
@@ -28,6 +28,13 @@ const protocolLabels: Readonly<Record<string, string>> = {
 
 const protocolLogoPaths: Readonly<Record<string, string>> = {
   curve: "/protocol-logos/curve.png",
+  fathom: "/protocol-logos/fathom.svg",
+  morpho: "/protocol-logos/morpho.svg",
+  oku: "/protocol-logos/oku.svg",
+  reservoir: "/protocol-logos/reservoir.png",
+  silo: "/protocol-logos/silo.svg",
+  stargate: "/protocol-logos/stargate.svg",
+  xswap: "/protocol-logos/xswap.png",
   yieldnest: "/protocol-logos/yieldnest.svg",
 };
 
