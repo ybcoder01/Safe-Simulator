@@ -1422,6 +1422,7 @@ select {
 
 .review-queue-nav {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
@@ -1438,6 +1439,14 @@ select {
   gap: 12px;
 }
 
+.review-queue-nav .review-queue-copy {
+  flex-wrap: wrap;
+}
+
+.review-queue-nav .review-queue-actions {
+  justify-content: flex-end;
+}
+
 .review-queue-nav .eyebrow {
   margin: 0;
 }
@@ -1450,6 +1459,41 @@ select {
 .review-queue-nav .disabled {
   cursor: not-allowed;
   opacity: 0.38;
+}
+
+.review-queue-nav .review-complete-action {
+  border-color: var(--green);
+}
+
+.review-progress-error {
+  flex-basis: 100%;
+  margin: 0;
+  color: #ffad9f;
+  font-size: 9px;
+}
+
+.review-queue-complete {
+  color: var(--green);
+  font-size: 10px;
+}
+
+.review-completed {
+  border-color: rgba(101, 242, 172, 0.18);
+  background: rgba(101, 242, 172, 0.025);
+}
+
+.review-complete-badge {
+  display: inline-flex;
+  width: max-content;
+  padding: 3px 7px;
+  border: 1px solid rgba(101, 242, 172, 0.28);
+  border-radius: 99px;
+  color: var(--green);
+  background: rgba(101, 242, 172, 0.06);
+  font-family: var(--font-geist-mono);
+  font-size: 8px;
+  font-style: normal;
+  text-transform: uppercase;
 }
 
 .activity-search p {
