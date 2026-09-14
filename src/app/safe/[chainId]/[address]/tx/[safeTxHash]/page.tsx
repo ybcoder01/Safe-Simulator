@@ -35,10 +35,13 @@ import { resolveTargetRuntimeCodeEvidence } from "@/lib/api/transaction-analysis
 import { resolveExecutionTokenMetadata } from "@/lib/api/token-metadata";
 import { explorerTransactionUrl } from "@/lib/explorer-links";
 import {
+  orderTransactionReviewQueue,
   safeRouteParamsSchema,
   safeTransactionHashSchema,
   toTransactionView,
+  transactionReviewQueueFilterSchema,
 } from "@/lib/api/safe-details";
+import { resolveTransactionViews } from "@/lib/api/transaction-list";
 
 interface PageProps {
   readonly params: Promise<{
@@ -46,6 +49,7 @@ interface PageProps {
     address: string;
     safeTxHash: string;
   }>;
+  readonly searchParams: Promise<{ readonly review?: string | string[] }>;
 }
 
 function shorten(value: string) {
@@ -61,11 +65,17 @@ function formatDate(timestamp: number | null) {
   }).format(new Date(timestamp * 1_000));
 }
 
-export default async function TransactionDetailPage({ params }: PageProps) {
-  const values = await params;
+export default async function TransactionDetailPage({
+  params,
+  searchParams,
+}: PageProps) {
+  const [values, query] = await Promise.all([params, searchParams]);
   const safe = safeRouteParamsSchema.safeParse(values);
   const hash = safeTransactionHashSchema.safeParse(values.safeTxHash);
   if (!safe.success || !hash.success) notFound();
+  const reviewFilter = transactionReviewQueueFilterSchema.safeParse(
+    Array.isArray(query.review) ? query.review[0] : query.review,
+  );
 
   const persistence = getPersistencePort();
   const cache = getCachePort();
@@ -77,6 +87,16 @@ export default async function TransactionDetailPage({ params }: PageProps) {
   const chain = getChainPort();
   const safeData = getSafeDataPort();
   const abi = getAbiPort();
+  const reviewQueuePromise = reviewFilter.success
+    ? persistence
+        .listTransactions(safe.data, null, 50)
+        .then((page) =>
+          resolveTransactionViews(persistence, safe.data, page.items),
+        )
+        .then((transactions) =>
+          orderTransactionReviewQueue(transactions, reviewFilter.data),
+        )
+    : Promise.resolve([]);
   const [
     transaction,
     insight,
@@ -84,6 +104,7 @@ export default async function TransactionDetailPage({ params }: PageProps) {
     addressBook,
     rawPayload,
     targetRuntimeCode,
+    reviewQueue,
   ] = await Promise.all([
     Promise.resolve(toTransactionView(persisted)),
     resolveContractInsight(safeData, abi, persisted),
@@ -98,7 +119,17 @@ export default async function TransactionDetailPage({ params }: PageProps) {
       : Promise.resolve([]),
     safeData.getMultisigTransaction(safe.data, hash.data).catch(() => null),
     resolveTargetRuntimeCodeEvidence(persisted, chain),
+    reviewQueuePromise,
   ]);
+  const reviewPosition = reviewQueue.findIndex(
+    (item) => item.safeTxHash.toLowerCase() === hash.data.toLowerCase(),
+  );
+  const reviewPrevious =
+    reviewPosition > 0 ? reviewQueue[reviewPosition - 1] : null;
+  const reviewNext =
+    reviewPosition >= 0 && reviewPosition < reviewQueue.length - 1
+      ? reviewQueue[reviewPosition + 1]
+      : null;
   const decoded = insight.decoded;
   const nestedCalls =
     decoded?.parameters.flatMap((parameter) => parameter.nestedCalls) ?? [];
@@ -224,9 +255,63 @@ export default async function TransactionDetailPage({ params }: PageProps) {
       </header>
 
       <article className="transaction-detail">
-        <Link className="dashboard-back" href={safePath}>
+        <Link
+          className="dashboard-back"
+          href={
+            reviewFilter.success
+              ? `${safePath}?review=${reviewFilter.data}#transaction-review`
+              : safePath
+          }
+        >
           ← Safe overview
         </Link>
+
+        {reviewFilter.success && reviewPosition >= 0 ? (
+          <nav
+            className="review-queue-nav"
+            aria-label="Transaction review queue"
+          >
+            <div>
+              <p className="eyebrow">Review queue</p>
+              <strong>
+                {reviewPosition + 1} of {reviewQueue.length}
+              </strong>
+              <span>Recent transactions · highest priority first</span>
+            </div>
+            <div>
+              {reviewPrevious ? (
+                <Link
+                  className="button button-small button-secondary"
+                  href={`${safePath}/tx/${reviewPrevious.safeTxHash}?review=${reviewFilter.data}`}
+                >
+                  ← Previous
+                </Link>
+              ) : (
+                <span
+                  aria-disabled="true"
+                  className="button button-small button-secondary disabled"
+                >
+                  ← Previous
+                </span>
+              )}
+              {reviewNext ? (
+                <Link
+                  className="button button-small"
+                  href={`${safePath}/tx/${reviewNext.safeTxHash}?review=${reviewFilter.data}`}
+                >
+                  Next →
+                </Link>
+              ) : (
+                <span
+                  aria-disabled="true"
+                  className="button button-small disabled"
+                >
+                  Next →
+                </span>
+              )}
+            </div>
+          </nav>
+        ) : null}
 
         <header className="transaction-title">
           <div>

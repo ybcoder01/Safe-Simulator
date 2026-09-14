@@ -9,9 +9,11 @@ import {
 } from "@/lib/api/address-book";
 import {
   groupTransactionViews,
+  orderTransactionReviewQueue,
   transactionMatchesReviewFilter,
   transactionMatchesSearch,
   type TransactionReviewFilter,
+  type TransactionReviewQueueFilter,
   type TransactionView,
 } from "@/lib/api/safe-details";
 
@@ -20,6 +22,7 @@ interface TransactionHistoryProps {
   readonly addressBook: readonly AddressBookView[];
   readonly chainId: number;
   readonly initialTransactions: readonly TransactionView[];
+  readonly initialReviewFilter: TransactionReviewFilter;
   readonly nextCursor: string | null;
   readonly threshold: number;
 }
@@ -118,6 +121,7 @@ export function TransactionHistory({
   addressBook,
   chainId,
   initialTransactions,
+  initialReviewFilter,
   nextCursor: initialCursor,
   threshold,
 }: TransactionHistoryProps) {
@@ -128,15 +132,22 @@ export function TransactionHistory({
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [reviewFilter, setReviewFilter] =
-    useState<TransactionReviewFilter>("all");
+    useState<TransactionReviewFilter>(initialReviewFilter);
   const basePath = `/safe/${chainId}/${address}`;
-  const filteredTransactions = transactions.filter((transaction) => {
+  const matchingTransactions = transactions.filter((transaction) => {
     const target = resolveAddressDisplay(chainId, transaction.to, addressBook);
     return (
       transactionMatchesReviewFilter(transaction, reviewFilter) &&
       transactionMatchesSearch(transaction, query, target?.label ?? null)
     );
   });
+  const filteredTransactions =
+    reviewFilter === "all"
+      ? matchingTransactions
+      : orderTransactionReviewQueue(
+          matchingTransactions,
+          reviewFilter as TransactionReviewQueueFilter,
+        );
   const grouped = groupTransactionViews(filteredTransactions);
   const searching = query.trim().length > 0;
   const filtering = searching || reviewFilter !== "all";
@@ -150,6 +161,15 @@ export function TransactionHistory({
       ],
     ),
   ) as Record<TransactionReviewFilter, number>;
+  const queueFilter =
+    reviewFilter === "all"
+      ? null
+      : (reviewFilter as TransactionReviewQueueFilter);
+
+  function transactionHref(transaction: TransactionView) {
+    const path = `${basePath}/tx/${transaction.safeTxHash}`;
+    return queueFilter ? `${path}?review=${queueFilter}` : path;
+  }
 
   async function loadMore() {
     if (!nextCursor || loading) return;
@@ -192,6 +212,7 @@ export function TransactionHistory({
     <>
       <section
         className="activity-search"
+        id="transaction-review"
         aria-labelledby="activity-search-title"
       >
         <label htmlFor="activity-search">
@@ -225,23 +246,33 @@ export function TransactionHistory({
             )}
           </div>
         </fieldset>
-        <div>
+        <div className="activity-search-summary">
           <p aria-live="polite">
             {filtering
               ? `${filteredTransactions.length} of ${transactions.length} loaded transactions match the current filters.`
               : "Search stays in this browser and covers loaded transactions only."}
           </p>
-          {filtering ? (
-            <button
-              onClick={() => {
-                setQuery("");
-                setReviewFilter("all");
-              }}
-              type="button"
-            >
-              Clear filters
-            </button>
-          ) : null}
+          <div>
+            {queueFilter && filteredTransactions[0] ? (
+              <Link
+                className="button button-small"
+                href={transactionHref(filteredTransactions[0])}
+              >
+                Start review · {filteredTransactions.length}
+              </Link>
+            ) : null}
+            {filtering ? (
+              <button
+                onClick={() => {
+                  setQuery("");
+                  setReviewFilter("all");
+                }}
+                type="button"
+              >
+                Clear filters
+              </button>
+            ) : null}
+          </div>
         </div>
       </section>
 
@@ -275,7 +306,7 @@ export function TransactionHistory({
               return (
                 <Link
                   className="pending-action-card"
-                  href={`${basePath}/tx/${transaction.safeTxHash}`}
+                  href={transactionHref(transaction)}
                   key={transaction.safeTxHash}
                 >
                   <div className="pending-action-copy">
@@ -344,7 +375,7 @@ export function TransactionHistory({
             {grouped.history.map((transaction) => (
               <Link
                 className="history-row"
-                href={`${basePath}/tx/${transaction.safeTxHash}`}
+                href={transactionHref(transaction)}
                 key={transaction.safeTxHash}
               >
                 <span className={`tx-status tx-${transaction.status}`}>

@@ -73,6 +73,18 @@ export type TransactionReviewFilter =
   | "unverified"
   | "pending-analysis";
 
+export type TransactionReviewQueueFilter = Exclude<
+  TransactionReviewFilter,
+  "all"
+>;
+
+export const transactionReviewQueueFilterSchema = z.enum([
+  "attention",
+  "flagged",
+  "unverified",
+  "pending-analysis",
+]);
+
 export function transactionMatchesReviewFilter(
   transaction: TransactionView,
   filter: TransactionReviewFilter,
@@ -87,6 +99,29 @@ export function transactionMatchesReviewFilter(
     return verdict === filter;
   }
   return true;
+}
+
+function transactionReviewPriority(transaction: TransactionView): number {
+  const verdict = transaction.analysis?.baselineVerdict;
+  if (verdict === "flagged") return 0;
+  if (verdict === "unverified") return 1;
+  if (!verdict) return 2;
+  return 3;
+}
+
+export function orderTransactionReviewQueue(
+  transactions: readonly TransactionView[],
+  filter: TransactionReviewQueueFilter,
+): readonly TransactionView[] {
+  return transactions
+    .filter((transaction) =>
+      transactionMatchesReviewFilter(transaction, filter),
+    )
+    .sort((left, right) => {
+      const priority =
+        transactionReviewPriority(left) - transactionReviewPriority(right);
+      return priority || right.proposedAt - left.proposedAt;
+    });
 }
 
 export function transactionMatchesSearch(
