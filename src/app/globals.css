@@ -112,6 +112,15 @@ select {
   padding-inline: 16px;
   font-size: 13px;
 }
+.button-secondary {
+  border-color: var(--line-strong);
+  color: var(--text);
+  background: #0a1511;
+  box-shadow: none;
+}
+.button-secondary:hover {
+  background: #102019;
+}
 .button:disabled {
   cursor: not-allowed;
   opacity: 0.42;
@@ -1394,11 +1403,53 @@ select {
   font-size: 8px;
 }
 
-.activity-search > div {
+.activity-search-summary {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+}
+
+.activity-search-summary > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.activity-search-summary .button {
+  color: #04130c;
+}
+
+.review-queue-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin: -12px 0 28px;
+  padding: 18px 20px;
+  border: 1px solid rgba(101, 242, 172, 0.22);
+  border-radius: 12px;
+  background: rgba(101, 242, 172, 0.035);
+}
+
+.review-queue-nav > div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.review-queue-nav .eyebrow {
+  margin: 0;
+}
+
+.review-queue-nav span:not(.button) {
+  color: var(--faint);
+  font-size: 9px;
+}
+
+.review-queue-nav .disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
 }
 
 .activity-search p {
@@ -1836,6 +1887,15 @@ select {
   .activity-search label {
     grid-template-columns: 1fr;
     gap: 8px;
+  }
+  .activity-search-summary,
+  .review-queue-nav {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .activity-search-summary > div,
+  .review-queue-nav > div {
+    flex-wrap: wrap;
   }
   .pending-action-card {
     grid-template-columns: 1fr;
