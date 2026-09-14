@@ -66,6 +66,29 @@ export interface TransactionView {
   readonly analysis: TransactionAnalysisView | null;
 }
 
+export type TransactionReviewFilter =
+  | "all"
+  | "attention"
+  | "flagged"
+  | "unverified"
+  | "pending-analysis";
+
+export function transactionMatchesReviewFilter(
+  transaction: TransactionView,
+  filter: TransactionReviewFilter,
+): boolean {
+  const verdict = transaction.analysis?.baselineVerdict;
+
+  if (filter === "attention") {
+    return !verdict || verdict === "flagged" || verdict === "unverified";
+  }
+  if (filter === "pending-analysis") return !verdict;
+  if (filter === "flagged" || filter === "unverified") {
+    return verdict === filter;
+  }
+  return true;
+}
+
 export function transactionMatchesSearch(
   transaction: TransactionView,
   query: string,
