@@ -80,7 +80,7 @@ describe("authoritative contract registry", () => {
     expect(entries.length).toBeGreaterThan(150);
   });
 
-  it("keeps protocol marks distinct from chain and token marks", () => {
+  it("keeps every protocol bound to its own mark", () => {
     expect(findContractRegistryEntry(50, curveRouter)).toMatchObject({
       protocol: "curve",
       logoKey: "curve",
@@ -88,6 +88,24 @@ describe("authoritative contract registry", () => {
     expect(findContractRegistryEntry(50, yieldNestRwaMax)).toMatchObject({
       protocol: "yieldnest",
       logoKey: "yieldnest",
+    });
+
+    const protocolLogos = Object.fromEntries(
+      contractRegistryEntriesForChain(50)
+        .filter((entry) => entry.category === "protocol")
+        .map((entry) => [entry.protocol, entry.logoKey]),
+    );
+
+    expect(protocolLogos).toMatchObject({
+      curve: "curve",
+      fathom: "fathom",
+      morpho: "morpho",
+      "oku-uniswap": "oku",
+      reservoir: "reservoir",
+      silo: "silo",
+      stargate: "stargate",
+      xswap: "xswap",
+      yieldnest: "yieldnest",
     });
   });
 
