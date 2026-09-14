@@ -12,6 +12,7 @@ import {
   summarizeSyncCursors,
   toBalanceView,
   toTransactionView,
+  transactionMatchesReviewFilter,
   transactionMatchesSearch,
   transactionPageQuerySchema,
 } from "../../../../src/lib/api/safe-details";
@@ -151,6 +152,46 @@ describe("Safe dashboard API view models", () => {
     expect(transactionMatchesSearch(transaction, "delegate")).toBe(true);
     expect(transactionMatchesSearch(transaction, "no match")).toBe(false);
     expect(transactionMatchesSearch(transaction, "   ")).toBe(true);
+  });
+
+  it("filters loaded transactions by review priority", () => {
+    const transaction = toTransactionView({
+      safe: safeRef,
+      safeTxHash: `0x${"a".repeat(64)}`,
+      nonce: 42n,
+      to: "0x1111111111111111111111111111111111111111",
+      value: 0n,
+      data: "0x",
+      operation: "call",
+      status: "executed",
+      confirmations: [],
+      proposedAt: 1_700_000_000,
+      executedAt: 1_700_000_100,
+      executedTxHash: `0x${"b".repeat(64)}`,
+      blockNumber: 12n,
+      blockHash: `0x${"c".repeat(64)}`,
+    } as SafeTransaction);
+
+    expect(transactionMatchesReviewFilter(transaction, "all")).toBe(true);
+    expect(transactionMatchesReviewFilter(transaction, "attention")).toBe(true);
+    expect(
+      transactionMatchesReviewFilter(transaction, "pending-analysis"),
+    ).toBe(true);
+    expect(transactionMatchesReviewFilter(transaction, "flagged")).toBe(false);
+
+    const flagged = {
+      ...transaction,
+      analysis: {
+        analyzedAt: 1_700_000_200,
+        baselineVerdict: "flagged" as const,
+        immutable: true,
+      },
+    };
+    expect(transactionMatchesReviewFilter(flagged, "attention")).toBe(true);
+    expect(transactionMatchesReviewFilter(flagged, "flagged")).toBe(true);
+    expect(transactionMatchesReviewFilter(flagged, "pending-analysis")).toBe(
+      false,
+    );
   });
 
   it("uses the oldest completed stream as the conservative full-sync time", () => {
