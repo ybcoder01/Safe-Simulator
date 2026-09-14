@@ -8,6 +8,7 @@ import type {
 } from "../../../../src/core/domain";
 import {
   groupTransactionViews,
+  orderTransactionReviewQueue,
   safeRouteParamsSchema,
   summarizeSyncCursors,
   toBalanceView,
@@ -15,6 +16,7 @@ import {
   transactionMatchesReviewFilter,
   transactionMatchesSearch,
   transactionPageQuerySchema,
+  transactionReviewQueueFilterSchema,
 } from "../../../../src/lib/api/safe-details";
 
 const safeRef: SafeRef = {
@@ -190,6 +192,72 @@ describe("Safe dashboard API view models", () => {
     expect(transactionMatchesReviewFilter(flagged, "attention")).toBe(true);
     expect(transactionMatchesReviewFilter(flagged, "flagged")).toBe(true);
     expect(transactionMatchesReviewFilter(flagged, "pending-analysis")).toBe(
+      false,
+    );
+  });
+
+  it("orders a review queue by severity and then recency", () => {
+    const base = toTransactionView({
+      safe: safeRef,
+      safeTxHash: `0x${"a".repeat(64)}`,
+      nonce: 1n,
+      to: "0x1111111111111111111111111111111111111111",
+      value: 0n,
+      data: "0x",
+      operation: "call",
+      status: "executed",
+      confirmations: [],
+      proposedAt: 100,
+      executedAt: 101,
+      executedTxHash: null,
+      blockNumber: null,
+      blockHash: null,
+    } as SafeTransaction);
+    const pending = { ...base, safeTxHash: `0x${"b".repeat(64)}` };
+    const olderFlagged = {
+      ...base,
+      safeTxHash: `0x${"c".repeat(64)}`,
+      proposedAt: 80,
+      analysis: {
+        analyzedAt: 120,
+        baselineVerdict: "flagged" as const,
+        immutable: true,
+      },
+    };
+    const newerFlagged = {
+      ...olderFlagged,
+      safeTxHash: `0x${"d".repeat(64)}`,
+      proposedAt: 90,
+    };
+    const unverified = {
+      ...base,
+      safeTxHash: `0x${"e".repeat(64)}`,
+      proposedAt: 110,
+      analysis: {
+        analyzedAt: 120,
+        baselineVerdict: "unverified" as const,
+        immutable: true,
+      },
+    };
+
+    expect(
+      orderTransactionReviewQueue(
+        [pending, olderFlagged, unverified, newerFlagged],
+        "attention",
+      ).map((item) => item.safeTxHash),
+    ).toEqual([
+      newerFlagged.safeTxHash,
+      olderFlagged.safeTxHash,
+      unverified.safeTxHash,
+      pending.safeTxHash,
+    ]);
+    expect(
+      orderTransactionReviewQueue(
+        [pending, olderFlagged, unverified, newerFlagged],
+        "flagged",
+      ),
+    ).toEqual([newerFlagged, olderFlagged]);
+    expect(transactionReviewQueueFilterSchema.safeParse("all").success).toBe(
       false,
     );
   });
