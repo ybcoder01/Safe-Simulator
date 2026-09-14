@@ -1,10 +1,9 @@
-import Image from "next/image";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AddressBookEditor } from "@/components/safes/address-book-editor";
-import { AddressIdentity } from "@/components/shared/address-identity";
+import { ProtocolDirectory } from "@/components/safes/protocol-directory";
 import { getPersistencePort } from "@/container";
 import { contractRegistryEntriesForChain } from "@/core/analysis/trust/contract-registry";
 import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
@@ -13,30 +12,6 @@ import { safeRouteParamsSchema } from "@/lib/api/safe-details";
 interface PageProps {
   readonly params: Promise<{ chainId: string; address: string }>;
 }
-
-const protocolLabels: Readonly<Record<string, string>> = {
-  curve: "Curve",
-  fathom: "Fathom",
-  morpho: "Morpho",
-  "oku-uniswap": "Oku Trade",
-  reservoir: "Reservoir",
-  silo: "Silo",
-  stargate: "Stargate",
-  xswap: "XSwap",
-  yieldnest: "YieldNest",
-};
-
-const protocolLogoPaths: Readonly<Record<string, string>> = {
-  curve: "/protocol-logos/curve.png",
-  fathom: "/protocol-logos/fathom.svg",
-  morpho: "/protocol-logos/morpho.svg",
-  oku: "/protocol-logos/oku.svg",
-  reservoir: "/protocol-logos/reservoir.png",
-  silo: "/protocol-logos/silo.svg",
-  stargate: "/protocol-logos/stargate.svg",
-  xswap: "/protocol-logos/xswap.png",
-  yieldnest: "/protocol-logos/yieldnest.svg",
-};
 
 export default async function AddressBookPage({ params }: PageProps) {
   const parsed = safeRouteParamsSchema.safeParse(await params);
@@ -59,10 +34,6 @@ export default async function AddressBookPage({ params }: PageProps) {
         left.protocol.localeCompare(right.protocol) ||
         left.label.localeCompare(right.label),
     );
-  const groups = new Map<string, (typeof protocolEntries)[number][]>();
-  for (const entry of protocolEntries) {
-    groups.set(entry.protocol, [...(groups.get(entry.protocol) ?? []), entry]);
-  }
   const safePath = `/safe/${safe.chainId}/${safe.address}`;
 
   return (
@@ -135,82 +106,7 @@ export default async function AddressBookPage({ params }: PageProps) {
             not receive that check.
           </p>
 
-          <div className="protocol-directory">
-            {[...groups.entries()].map(([protocol, entries]) => {
-              const whitelisted = entries.filter(
-                (entry) =>
-                  entry.trustPolicy === "protocol-whitelist" &&
-                  entry.lifecycle === "active",
-              ).length;
-
-              const logoKey = entries[0]?.logoKey ?? protocol;
-              const logoPath = protocolLogoPaths[logoKey];
-              const protocolLabel = protocolLabels[protocol] ?? protocol;
-
-              return (
-                <details className="protocol-group" key={protocol}>
-                  <summary>
-                    <span className="protocol-group-name">
-                      <span
-                        aria-label={`${protocolLabel} logo`}
-                        className={`protocol-logo protocol-logo-${logoKey}`}
-                        role="img"
-                      >
-                        {logoPath ? (
-                          <Image
-                            alt=""
-                            height={34}
-                            src={logoPath}
-                            style={{
-                              height: "100%",
-                              objectFit: "contain",
-                              width: "100%",
-                            }}
-                            unoptimized
-                            width={34}
-                          />
-                        ) : (
-                          protocolLabel.slice(0, 2).toUpperCase()
-                        )}
-                      </span>
-                      <span>{protocolLabel}</span>
-                    </span>
-                    <small>
-                      {entries.length} addresses · {whitelisted} whitelisted
-                    </small>
-                  </summary>
-                  <div className="protocol-entry-list">
-                    {entries.map((entry) => (
-                      <article
-                        className="protocol-entry"
-                        key={entry.address.toLowerCase()}
-                      >
-                        <div>
-                          <strong>{entry.label}</strong>
-                          <span>
-                            {entry.role.replaceAll("-", " ")} ·{" "}
-                            {entry.lifecycle}
-                          </span>
-                        </div>
-                        <AddressIdentity
-                          address={entry.address}
-                          chainId={safe.chainId}
-                        />
-                        <a
-                          className="text-link protocol-source-link"
-                          href={entry.reference}
-                          rel="noreferrer"
-                          target="_blank"
-                        >
-                          Publisher source ↗
-                        </a>
-                      </article>
-                    ))}
-                  </div>
-                </details>
-              );
-            })}
-          </div>
+          <ProtocolDirectory chainId={safe.chainId} entries={protocolEntries} />
         </section>
       </article>
 

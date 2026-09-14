@@ -2284,6 +2284,84 @@ select {
   gap: 12px;
 }
 
+.protocol-directory-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(160px, 0.25fr);
+  gap: 12px;
+  margin: 18px 0 10px;
+}
+
+.protocol-search-field,
+.protocol-filter-field {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.protocol-search-field input,
+.protocol-filter-field select {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid rgba(200, 230, 215, 0.14);
+  border-radius: 9px;
+  outline: none;
+  color: var(--text);
+  background: #08130f;
+  font: inherit;
+}
+
+.protocol-search-field input:focus,
+.protocol-filter-field select:focus {
+  border-color: rgba(101, 242, 172, 0.55);
+  box-shadow: 0 0 0 3px rgba(101, 242, 172, 0.08);
+}
+
+.protocol-directory-results {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  min-height: 28px;
+  margin-bottom: 12px;
+  color: var(--faint);
+  font-family: var(--font-geist-mono);
+  font-size: 9px;
+}
+
+.text-button {
+  padding: 0;
+  border: 0;
+  color: var(--green);
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+.text-button:hover {
+  text-decoration: underline;
+}
+
+.protocol-directory-empty {
+  display: grid;
+  gap: 7px;
+  padding: 34px 18px;
+  border: 1px dashed rgba(200, 230, 215, 0.14);
+  border-radius: 11px;
+  text-align: center;
+}
+
+.protocol-directory-empty strong {
+  font-size: 12px;
+}
+
+.protocol-directory-empty span {
+  color: var(--faint);
+  font-size: 10px;
+}
+
 .protocol-group {
   border: 1px solid rgba(200, 230, 215, 0.1);
   border-radius: 11px;
@@ -2380,6 +2458,17 @@ select {
   overflow: hidden;
 }
 
+.protocol-address-cell {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  min-width: 0;
+}
+
+.protocol-address-cell .address-identity {
+  flex: 1;
+}
+
 .protocol-source-link {
   font-size: 9px;
   white-space: nowrap;
@@ -2390,12 +2479,16 @@ select {
     grid-template-columns: 1fr auto;
   }
 
-  .protocol-entry .address-identity {
+  .protocol-address-cell {
     grid-column: 1 / -1;
   }
 }
 
 @media (max-width: 560px) {
+  .protocol-directory-controls {
+    grid-template-columns: 1fr;
+  }
+
   .protocol-group summary,
   .protocol-entry {
     grid-template-columns: 1fr;
