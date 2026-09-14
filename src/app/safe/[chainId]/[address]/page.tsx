@@ -30,6 +30,7 @@ import {
   resolveSyncSummary,
   safeRouteParamsSchema,
   toBalanceView,
+  transactionReviewQueueFilterSchema,
 } from "@/lib/api/safe-details";
 
 import {
@@ -40,6 +41,7 @@ import {
 
 interface PageProps {
   readonly params: Promise<{ chainId: string; address: string }>;
+  readonly searchParams: Promise<{ readonly review?: string | string[] }>;
 }
 
 function shorten(value: string, start = 8, end = 6) {
@@ -71,9 +73,16 @@ function formatTokenAmount(amount: string, decimals: number) {
   return fraction ? `${whole}.${fraction}` : whole.toString();
 }
 
-export default async function SafeDashboardPage({ params }: PageProps) {
-  const parsed = safeRouteParamsSchema.safeParse(await params);
+export default async function SafeDashboardPage({
+  params,
+  searchParams,
+}: PageProps) {
+  const [routeValues, query] = await Promise.all([params, searchParams]);
+  const parsed = safeRouteParamsSchema.safeParse(routeValues);
   if (!parsed.success) notFound();
+  const reviewFilter = transactionReviewQueueFilterSchema.safeParse(
+    Array.isArray(query.review) ? query.review[0] : query.review,
+  );
 
   const persistence = getPersistencePort();
   const safe = await persistence.findSafe(parsed.data);
@@ -383,6 +392,7 @@ export default async function SafeDashboardPage({ params }: PageProps) {
           addressBook={addressBook}
           chainId={safe.chainId}
           initialTransactions={transactions}
+          initialReviewFilter={reviewFilter.success ? reviewFilter.data : "all"}
           nextCursor={page.nextCursor}
           threshold={safe.threshold}
         />
