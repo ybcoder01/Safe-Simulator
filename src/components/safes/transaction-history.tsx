@@ -9,7 +9,9 @@ import {
 } from "@/lib/api/address-book";
 import {
   groupTransactionViews,
+  transactionMatchesReviewFilter,
   transactionMatchesSearch,
+  type TransactionReviewFilter,
   type TransactionView,
 } from "@/lib/api/safe-details";
 
@@ -33,6 +35,14 @@ function formatDate(timestamp: number) {
     timeZone: "UTC",
   }).format(new Date(timestamp * 1_000));
 }
+
+const reviewFilterLabels: Readonly<Record<TransactionReviewFilter, string>> = {
+  all: "All",
+  attention: "Needs review",
+  flagged: "Flagged",
+  unverified: "Unverified",
+  "pending-analysis": "Analysis pending",
+};
 
 function AnalysisBadge({
   analysis,
@@ -117,13 +127,29 @@ export function TransactionHistory({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [reviewFilter, setReviewFilter] =
+    useState<TransactionReviewFilter>("all");
   const basePath = `/safe/${chainId}/${address}`;
   const filteredTransactions = transactions.filter((transaction) => {
     const target = resolveAddressDisplay(chainId, transaction.to, addressBook);
-    return transactionMatchesSearch(transaction, query, target?.label ?? null);
+    return (
+      transactionMatchesReviewFilter(transaction, reviewFilter) &&
+      transactionMatchesSearch(transaction, query, target?.label ?? null)
+    );
   });
   const grouped = groupTransactionViews(filteredTransactions);
   const searching = query.trim().length > 0;
+  const filtering = searching || reviewFilter !== "all";
+  const reviewFilterCounts = Object.fromEntries(
+    (Object.keys(reviewFilterLabels) as TransactionReviewFilter[]).map(
+      (filter) => [
+        filter,
+        transactions.filter((transaction) =>
+          transactionMatchesReviewFilter(transaction, filter),
+        ).length,
+      ],
+    ),
+  ) as Record<TransactionReviewFilter, number>;
 
   async function loadMore() {
     if (!nextCursor || loading) return;
@@ -180,15 +206,40 @@ export function TransactionHistory({
             value={query}
           />
         </label>
+        <fieldset className="activity-review-filters">
+          <legend>Review priority</legend>
+          <div>
+            {(Object.keys(reviewFilterLabels) as TransactionReviewFilter[]).map(
+              (filter) => (
+                <button
+                  aria-pressed={reviewFilter === filter}
+                  className={reviewFilter === filter ? "selected" : undefined}
+                  key={filter}
+                  onClick={() => setReviewFilter(filter)}
+                  type="button"
+                >
+                  {reviewFilterLabels[filter]}
+                  <span>{reviewFilterCounts[filter]}</span>
+                </button>
+              ),
+            )}
+          </div>
+        </fieldset>
         <div>
           <p aria-live="polite">
-            {searching
-              ? `${filteredTransactions.length} of ${transactions.length} loaded transactions match.`
+            {filtering
+              ? `${filteredTransactions.length} of ${transactions.length} loaded transactions match the current filters.`
               : "Search stays in this browser and covers loaded transactions only."}
           </p>
-          {searching ? (
-            <button onClick={() => setQuery("")} type="button">
-              Clear
+          {filtering ? (
+            <button
+              onClick={() => {
+                setQuery("");
+                setReviewFilter("all");
+              }}
+              type="button"
+            >
+              Clear filters
             </button>
           ) : null}
         </div>
@@ -211,8 +262,8 @@ export function TransactionHistory({
 
         {grouped.pending.length === 0 ? (
           <div className="pending-empty">
-            {searching
-              ? "No pending actions match this search."
+            {filtering
+              ? "No pending actions match the current filters."
               : "No pending Safe actions are present in the loaded activity."}
           </div>
         ) : (
@@ -278,13 +329,13 @@ export function TransactionHistory({
               ↔
             </div>
             <h3>
-              {searching
+              {filtering
                 ? "No historical activity matches"
                 : "No historical Safe transactions loaded"}
             </h3>
             <p>
-              {searching
-                ? "Try another label, address, nonce, summary, or hash."
+              {filtering
+                ? "Try another search or review-priority filter."
                 : "Executed, failed, and replaced activity will appear here after synchronization."}
             </p>
           </div>
