@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -17,12 +18,24 @@ const protocolLabels: Readonly<Record<string, string>> = {
   curve: "Curve",
   fathom: "Fathom",
   morpho: "Morpho",
-  "oku-uniswap": "Uniswap via Oku",
+  "oku-uniswap": "Oku Trade",
   reservoir: "Reservoir",
   silo: "Silo",
   stargate: "Stargate",
   xswap: "XSwap",
   yieldnest: "YieldNest",
+};
+
+const protocolLogoPaths: Readonly<Record<string, string>> = {
+  curve: "/protocol-logos/curve.png",
+  fathom: "/protocol-logos/fathom.svg",
+  morpho: "/protocol-logos/morpho.svg",
+  oku: "/protocol-logos/oku.svg",
+  reservoir: "/protocol-logos/reservoir.png",
+  silo: "/protocol-logos/silo.svg",
+  stargate: "/protocol-logos/stargate.svg",
+  xswap: "/protocol-logos/xswap.png",
+  yieldnest: "/protocol-logos/yieldnest.svg",
 };
 
 export default async function AddressBookPage({ params }: PageProps) {
@@ -130,10 +143,38 @@ export default async function AddressBookPage({ params }: PageProps) {
                   entry.lifecycle === "active",
               ).length;
 
+              const logoKey = entries[0]?.logoKey ?? protocol;
+              const logoPath = protocolLogoPaths[logoKey];
+              const protocolLabel = protocolLabels[protocol] ?? protocol;
+
               return (
                 <details className="protocol-group" key={protocol}>
                   <summary>
-                    <span>{protocolLabels[protocol] ?? protocol}</span>
+                    <span className="protocol-group-name">
+                      <span
+                        aria-label={`${protocolLabel} logo`}
+                        className={`protocol-logo protocol-logo-${logoKey}`}
+                        role="img"
+                      >
+                        {logoPath ? (
+                          <Image
+                            alt=""
+                            height={34}
+                            src={logoPath}
+                            style={{
+                              height: "100%",
+                              objectFit: "contain",
+                              width: "100%",
+                            }}
+                            unoptimized
+                            width={34}
+                          />
+                        ) : (
+                          protocolLabel.slice(0, 2).toUpperCase()
+                        )}
+                      </span>
+                      <span>{protocolLabel}</span>
+                    </span>
                     <small>
                       {entries.length} addresses · {whitelisted} whitelisted
                     </small>

@@ -345,7 +345,7 @@ const groups: readonly ProtocolDeploymentGroup[] = [
     protocol: "oku-uniswap",
     reference:
       "https://docs.oku.trade/home/extra-information/deployed-contracts#xdc",
-    logoKey: "uniswap",
+    logoKey: "oku",
     deployments: [
       [
         "0xcb2436774C3e191c85056d248EF4260ce5f27A9D",
@@ -1281,7 +1281,7 @@ const groups: readonly ProtocolDeploymentGroup[] = [
     protocol: "yieldnest",
     reference:
       "https://github.com/yieldnest/yieldnest-cross-chain/blob/e5c2bac18da7cf1c89767f385ebc15513b995540/deployments/ynRWAx-1-v0.0.1.json",
-    logoKey: "ynrwax",
+    logoKey: "yieldnest",
     deployments: [
       [
         "0x7054f74d6cB418e987b73c9f3c23e5cEc18217b2",
@@ -1296,7 +1296,7 @@ const groups: readonly ProtocolDeploymentGroup[] = [
     protocol: "reservoir",
     reference:
       "https://github.com/reservoir-protocol/srusd/blob/cc34c9ecb30eaf13d567df42f6d9bd165e4c2914/FIXED_DEPLOYMENT_GUIDE.md",
-    logoKey: "wsrusd",
+    logoKey: "reservoir",
     deployments: [
       [
         "0x4809010926aec940b550D34a46A52739f996D75D",

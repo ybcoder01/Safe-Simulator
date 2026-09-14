@@ -2301,7 +2301,40 @@ select {
   font-weight: 620;
 }
 
+.protocol-group-name {
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.protocol-logo {
+  display: inline-grid;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(200, 230, 215, 0.18);
+  border-radius: 9px;
+  color: var(--muted);
+  background: rgba(200, 230, 215, 0.04);
+  font-family: var(--font-geist-mono);
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.protocol-logo-curve {
+  padding: 3px;
+  background: #0a0f0d;
+}
+
+.protocol-logo-yieldnest {
+  padding: 5px;
+  background: #10243a;
+}
+
 .protocol-group summary small {
+  align-self: center;
   color: var(--faint);
   font-family: var(--font-geist-mono);
   font-size: 9px;

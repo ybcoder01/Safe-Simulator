@@ -15,6 +15,8 @@ const multiSendCallOnly =
 const xswapV3Router = "0xecf4ea7907e779b8a7d0f90cb95fe06f43b610fb" as Address;
 const morphoBlue = "0xEa49B0fE898aF913A3826F9f462eE2cDcb854fD9" as Address;
 const curveAdmin = "0xabc336d4C71ad275695744d32DdB1d8266Db1cbF" as Address;
+const curveRouter = "0x3F5A41B922a76759b9C77D36b3d337E88cD1dc5e" as Address;
+const yieldNestRwaMax = "0x7054f74d6cB418e987b73c9f3c23e5cEc18217b2" as Address;
 
 describe("authoritative contract registry", () => {
   it("resolves pinned Safe deployments case-insensitively on supported chains", () => {
@@ -76,6 +78,35 @@ describe("authoritative contract registry", () => {
         .every((entry) => entry.lifecycle === "active"),
     ).toBe(true);
     expect(entries.length).toBeGreaterThan(150);
+  });
+
+  it("keeps every protocol bound to its own mark", () => {
+    expect(findContractRegistryEntry(50, curveRouter)).toMatchObject({
+      protocol: "curve",
+      logoKey: "curve",
+    });
+    expect(findContractRegistryEntry(50, yieldNestRwaMax)).toMatchObject({
+      protocol: "yieldnest",
+      logoKey: "yieldnest",
+    });
+
+    const protocolLogos = Object.fromEntries(
+      contractRegistryEntriesForChain(50)
+        .filter((entry) => entry.category === "protocol")
+        .map((entry) => [entry.protocol, entry.logoKey]),
+    );
+
+    expect(protocolLogos).toMatchObject({
+      curve: "curve",
+      fathom: "fathom",
+      morpho: "morpho",
+      "oku-uniswap": "oku",
+      reservoir: "reservoir",
+      silo: "silo",
+      stargate: "stargate",
+      xswap: "xswap",
+      yieldnest: "yieldnest",
+    });
   });
 
   it("does not project a Safe deployment onto an unsupported chain", () => {
