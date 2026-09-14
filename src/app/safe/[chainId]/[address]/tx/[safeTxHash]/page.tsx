@@ -90,7 +90,7 @@ export default async function TransactionDetailPage({
   const abi = getAbiPort();
   const reviewQueuePromise = reviewFilter.success
     ? persistence
-        .listTransactions(safe.data, null, 50)
+        .listTransactions(safe.data, null, 25)
         .then((page) =>
           resolveTransactionViews(persistence, safe.data, page.items),
         )
