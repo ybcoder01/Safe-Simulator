@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   resolveAddressDisplay,
@@ -16,6 +16,10 @@ import {
   type TransactionReviewQueueFilter,
   type TransactionView,
 } from "@/lib/api/safe-details";
+import {
+  loadReviewedTransactionHashes,
+  reviewProgressKey,
+} from "@/lib/review-progress";
 
 interface TransactionHistoryProps {
   readonly address: string;
@@ -133,7 +137,35 @@ export function TransactionHistory({
   const [query, setQuery] = useState("");
   const [reviewFilter, setReviewFilter] =
     useState<TransactionReviewFilter>(initialReviewFilter);
+  const [reviewedHashes, setReviewedHashes] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const [showReviewed, setShowReviewed] = useState(false);
   const basePath = `/safe/${chainId}/${address}`;
+  const storageKey = reviewProgressKey(chainId, address);
+
+  useEffect(() => {
+    function refreshProgress() {
+      setReviewedHashes(
+        loadReviewedTransactionHashes(localStorage, storageKey),
+      );
+    }
+
+    function refreshFromStorage(event: StorageEvent) {
+      if (event.key === storageKey) refreshProgress();
+    }
+
+    refreshProgress();
+    window.addEventListener("storage", refreshFromStorage);
+    return () => {
+      window.removeEventListener("storage", refreshFromStorage);
+    };
+  }, [storageKey]);
+
+  function isReviewed(transaction: TransactionView) {
+    return reviewedHashes.has(transaction.safeTxHash.toLowerCase());
+  }
+
   const matchingTransactions = transactions.filter((transaction) => {
     const target = resolveAddressDisplay(chainId, transaction.to, addressBook);
     return (
@@ -141,13 +173,25 @@ export function TransactionHistory({
       transactionMatchesSearch(transaction, query, target?.label ?? null)
     );
   });
-  const filteredTransactions =
+  const orderedTransactions =
     reviewFilter === "all"
       ? matchingTransactions
       : orderTransactionReviewQueue(
           matchingTransactions,
           reviewFilter as TransactionReviewQueueFilter,
         );
+  const queueFilter =
+    reviewFilter === "all"
+      ? null
+      : (reviewFilter as TransactionReviewQueueFilter);
+  const reviewedMatchingTransactions = queueFilter
+    ? orderedTransactions.filter(isReviewed)
+    : [];
+  const remainingTransactions = queueFilter
+    ? orderedTransactions.filter((transaction) => !isReviewed(transaction))
+    : orderedTransactions;
+  const filteredTransactions =
+    queueFilter && !showReviewed ? remainingTransactions : orderedTransactions;
   const grouped = groupTransactionViews(filteredTransactions);
   const searching = query.trim().length > 0;
   const filtering = searching || reviewFilter !== "all";
@@ -161,11 +205,6 @@ export function TransactionHistory({
       ],
     ),
   ) as Record<TransactionReviewFilter, number>;
-  const queueFilter =
-    reviewFilter === "all"
-      ? null
-      : (reviewFilter as TransactionReviewQueueFilter);
-
   function transactionHref(transaction: TransactionView) {
     const path = `${basePath}/tx/${transaction.safeTxHash}`;
     return queueFilter ? `${path}?review=${queueFilter}` : path;
@@ -236,7 +275,10 @@ export function TransactionHistory({
                   aria-pressed={reviewFilter === filter}
                   className={reviewFilter === filter ? "selected" : undefined}
                   key={filter}
-                  onClick={() => setReviewFilter(filter)}
+                  onClick={() => {
+                    setReviewFilter(filter);
+                    setShowReviewed(false);
+                  }}
                   type="button"
                 >
                   {reviewFilterLabels[filter]}
@@ -248,24 +290,49 @@ export function TransactionHistory({
         </fieldset>
         <div className="activity-search-summary">
           <p aria-live="polite">
-            {filtering
-              ? `${filteredTransactions.length} of ${transactions.length} loaded transactions match the current filters.`
-              : "Search stays in this browser and covers loaded transactions only."}
+            {queueFilter
+              ? remainingTransactions.length +
+                " remaining · " +
+                reviewedMatchingTransactions.length +
+                " reviewed locally · " +
+                transactions.length +
+                " loaded."
+              : filtering
+                ? `${filteredTransactions.length} of ${transactions.length} loaded transactions match the current filters.`
+                : "Search stays in this browser and covers loaded transactions only."}
           </p>
           <div>
-            {queueFilter && filteredTransactions[0] ? (
+            {queueFilter && remainingTransactions[0] ? (
               <Link
                 className="button button-small"
-                href={transactionHref(filteredTransactions[0])}
+                href={transactionHref(remainingTransactions[0])}
               >
-                Start review · {filteredTransactions.length}
+                {reviewedMatchingTransactions.length > 0
+                  ? "Continue review"
+                  : "Start review"}{" "}
+                · {remainingTransactions.length}
               </Link>
+            ) : null}
+            {queueFilter &&
+            remainingTransactions.length === 0 &&
+            reviewedMatchingTransactions.length > 0 ? (
+              <strong className="review-queue-complete">Queue complete</strong>
+            ) : null}
+            {queueFilter && reviewedMatchingTransactions.length > 0 ? (
+              <button
+                aria-pressed={showReviewed}
+                onClick={() => setShowReviewed((current) => !current)}
+                type="button"
+              >
+                {showReviewed ? "Hide reviewed" : "Show reviewed"}
+              </button>
             ) : null}
             {filtering ? (
               <button
                 onClick={() => {
                   setQuery("");
                   setReviewFilter("all");
+                  setShowReviewed(false);
                 }}
                 type="button"
               >
@@ -305,7 +372,10 @@ export function TransactionHistory({
 
               return (
                 <Link
-                  className="pending-action-card"
+                  className={
+                    "pending-action-card" +
+                    (isReviewed(transaction) ? " review-completed" : "")
+                  }
                   href={transactionHref(transaction)}
                   key={transaction.safeTxHash}
                 >
@@ -316,6 +386,11 @@ export function TransactionHistory({
                       chainId={chainId}
                       transaction={transaction}
                     />
+                    {isReviewed(transaction) ? (
+                      <em className="review-complete-badge">
+                        Reviewed locally
+                      </em>
+                    ) : null}
                     <time
                       dateTime={new Date(
                         transaction.proposedAt * 1_000,
@@ -374,7 +449,10 @@ export function TransactionHistory({
           <div className="history-list">
             {grouped.history.map((transaction) => (
               <Link
-                className="history-row"
+                className={
+                  "history-row" +
+                  (isReviewed(transaction) ? " review-completed" : "")
+                }
                 href={transactionHref(transaction)}
                 key={transaction.safeTxHash}
               >
@@ -387,6 +465,9 @@ export function TransactionHistory({
                     chainId={chainId}
                     transaction={transaction}
                   />
+                  {isReviewed(transaction) ? (
+                    <em className="review-complete-badge">Reviewed locally</em>
+                  ) : null}
                   <span>
                     {transaction.confirmations.length}/{threshold} confirmations
                     reported

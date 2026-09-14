@@ -11,6 +11,7 @@ import {
   getSimulationPort,
 } from "@/container";
 import { AddressBookEditor } from "@/components/safes/address-book-editor";
+import { ReviewQueueProgress } from "@/components/safes/review-queue-progress";
 import { TransactionSummaryDialog } from "@/components/safes/transaction-summary-dialog";
 import { AddressIdentity } from "@/components/shared/address-identity";
 import { CopyIdentifierButton } from "@/components/shared/copy-identifier-button";
@@ -89,7 +90,7 @@ export default async function TransactionDetailPage({
   const abi = getAbiPort();
   const reviewQueuePromise = reviewFilter.success
     ? persistence
-        .listTransactions(safe.data, null, 50)
+        .listTransactions(safe.data, null, 25)
         .then((page) =>
           resolveTransactionViews(persistence, safe.data, page.items),
         )
@@ -124,12 +125,6 @@ export default async function TransactionDetailPage({
   const reviewPosition = reviewQueue.findIndex(
     (item) => item.safeTxHash.toLowerCase() === hash.data.toLowerCase(),
   );
-  const reviewPrevious =
-    reviewPosition > 0 ? reviewQueue[reviewPosition - 1] : null;
-  const reviewNext =
-    reviewPosition >= 0 && reviewPosition < reviewQueue.length - 1
-      ? reviewQueue[reviewPosition + 1]
-      : null;
   const decoded = insight.decoded;
   const nestedCalls =
     decoded?.parameters.flatMap((parameter) => parameter.nestedCalls) ?? [];
@@ -267,50 +262,23 @@ export default async function TransactionDetailPage({
         </Link>
 
         {reviewFilter.success && reviewPosition >= 0 ? (
-          <nav
-            className="review-queue-nav"
-            aria-label="Transaction review queue"
-          >
-            <div>
-              <p className="eyebrow">Review queue</p>
-              <strong>
-                {reviewPosition + 1} of {reviewQueue.length}
-              </strong>
-              <span>Recent transactions · highest priority first</span>
-            </div>
-            <div>
-              {reviewPrevious ? (
-                <Link
-                  className="button button-small button-secondary"
-                  href={`${safePath}/tx/${reviewPrevious.safeTxHash}?review=${reviewFilter.data}`}
-                >
-                  ← Previous
-                </Link>
-              ) : (
-                <span
-                  aria-disabled="true"
-                  className="button button-small button-secondary disabled"
-                >
-                  ← Previous
-                </span>
-              )}
-              {reviewNext ? (
-                <Link
-                  className="button button-small"
-                  href={`${safePath}/tx/${reviewNext.safeTxHash}?review=${reviewFilter.data}`}
-                >
-                  Next →
-                </Link>
-              ) : (
-                <span
-                  aria-disabled="true"
-                  className="button button-small disabled"
-                >
-                  Next →
-                </span>
-              )}
-            </div>
-          </nav>
+          <ReviewQueueProgress
+            address={safe.data.address}
+            chainId={safe.data.chainId}
+            currentSafeTxHash={transaction.safeTxHash}
+            overviewHref={
+              safePath + "?review=" + reviewFilter.data + "#transaction-review"
+            }
+            queue={reviewQueue.map((item) => ({
+              href:
+                safePath +
+                "/tx/" +
+                item.safeTxHash +
+                "?review=" +
+                reviewFilter.data,
+              safeTxHash: item.safeTxHash,
+            }))}
+          />
         ) : null}
 
         <header className="transaction-title">
