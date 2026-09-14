@@ -16,6 +16,7 @@ Safe Inspector is a read-only analysis service for public Safe accounts on Ether
 - Evidence-based verdicts with profile-scoped trusted and flagged addresses plus a pinned contract registry.
 - Quick Trust and Flag actions for addresses identified in a transaction.
 - Browser-local search across loaded Safe activity.
+- Browser-local review progress with skip-completed queue navigation.
 - Canonical block-anchor checks before immutable execution evidence is reused.
 - Dedicated module-execution replay with separate privileged-path verdicts and findings.
 - Responsive route loading and explicit unavailable states when provider evidence is incomplete.
