@@ -2,6 +2,8 @@
 
 Safe Inspector is a read-only analysis service for public Safe accounts on Ethereum and XDC. It imports Safe configuration and history, replays executed transactions, checks sufficiently confirmed pending actions through the complete Safe execution path, and explains the evidence without requesting a wallet signature.
 
+Imported Safes can also preview a draft target call before a proposal exists. Draft previews run from the Safe address against latest chain state and report decoded calldata, permission requests, internal calls, storage changes, and bounded risk findings. They are explicitly distinguished from the complete signed Safe execution path.
+
 ## Current capabilities
 
 - Manual Safe import with bytecode and on-chain configuration verification.
