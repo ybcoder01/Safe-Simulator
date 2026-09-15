@@ -35,5 +35,7 @@ jobs:
         with:
           node-version: 22
           package-manager-cache: false
+      - name: Verify the public Safe review product flow
+        run: node scripts/production-product-acceptance.mjs
       - name: Run bounded GET-only checks
         run: node scripts/production-read-soak.mjs

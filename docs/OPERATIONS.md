@@ -69,11 +69,14 @@ If the scheduled sweep did not run:
 
 ## Production read soak
 
-The **Production read soak** GitHub workflow is manual and runs only from `main`. It checks the public production origin without credentials, cookies, profile creation, imports, refresh requests, queue publication, or transaction writes.
+The **Production read soak** GitHub workflow is manual and runs only from `main`. The same checks also run automatically after a successful Production deployment. They check the public production origin without credentials, cookies, profile creation, imports, refresh requests, queue publication, or transaction writes.
+
+Before the timed soak, a four-request product acceptance probe verifies the existing public live example through its Safe detail API, transaction analysis API, rendered dashboard, and rendered transaction review. The pinned executed transaction must retain its decoded target, complete receipt/trace/storage coverage, and critical verdict. This catches regressions where infrastructure health remains green but the primary review experience is unavailable or incomplete. The reference is the repository's existing public live example; never replace it with a user-supplied Safe or transaction.
 
 The workflow is intentionally bounded:
 
-- the only requests are `GET /`, `GET /safes`, and `GET /api/health`;
+- the product acceptance probe makes exactly four GET requests before the soak;
+- the timed soak requests only `GET /`, `GET /safes`, and `GET /api/health`;
 - duration is restricted to 5, 15, or 30 minutes;
 - one cycle starts every 10 seconds and requests run sequentially;
 - only one workflow run may execute at a time;
@@ -88,9 +91,10 @@ To run it:
 1. Open GitHub **Actions** and select **Production read soak**.
 2. Choose **Run workflow** from `main`.
 3. Use 15 minutes for routine acceptance, 5 minutes for a quick check, or 30 minutes for the maximum permitted run.
-4. Review the final JSON summary for request count, failures, and per-route p95 latency.
+4. Require the product acceptance summary to report four successful checks.
+5. Review the soak's final JSON summary for request count, failures, and per-route p95 latency.
 
-After a successful run, inspect the matching Vercel Production window for new `5xx` responses. If the workflow fails, inspect the first affected route and dependency before retrying. Do not loosen the origin lock, methods, request cap, failure limits, or dependency assertions to make a failing run pass.
+After a successful run, inspect the matching Vercel Production window for new `5xx` responses. If the product probe fails while `/api/health` remains healthy, treat it as an application regression and use the pinned path and failed assertion to narrow the affected layer. If the timed soak fails, inspect the first affected route and dependency before retrying. Do not loosen the origin lock, methods, request cap, failure limits, reference assertions, or dependency assertions to make a failing run pass.
 
 ## RPC provider rotation
 
@@ -195,9 +199,10 @@ After rollback:
 
 1. Confirm the production domain points to the intended deployment.
 2. Check `/api/health`.
-3. Verify watchlist, dashboard, executed replay, and refresh queue behavior.
-4. Review whether any forward database migration remains active.
-5. Open a corrective pull request rather than editing production source state.
+3. Run `SOAK_BASE_URL=https://safe-simulator.vercel.app SOAK_ENVIRONMENT=production node scripts/production-product-acceptance.mjs` from the rollback-compatible revision.
+4. Verify watchlist and refresh queue behavior from an existing browser profile.
+5. Review whether any forward database migration remains active.
+6. Open a corrective pull request rather than editing production source state.
 
 Do not roll back across an incompatible schema change without a reviewed database recovery plan.
 
