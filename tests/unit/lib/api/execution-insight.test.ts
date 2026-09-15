@@ -16,6 +16,7 @@ import type {
 import type { SimulationPort } from "../../../../src/core/ports";
 import {
   EXECUTION_EVIDENCE_ENGINE_VERSION,
+  executionInsightFromTargetCall,
   resolveExecutionInsight,
   type ExecutionEvidenceStores,
   type PendingExecutionSources,
@@ -213,6 +214,15 @@ function evidenceStores(initialRecord: unknown = null) {
 }
 
 describe("resolveExecutionInsight", () => {
+  it("labels a direct target call without claiming complete Safe execution", () => {
+    const result = executionInsightFromTargetCall(output, safe);
+
+    expect(result.mode).toBe("target-call-preview");
+    expect(result.coverage.outcome).toBe("read-only-call");
+    expect(result.warnings[0]).toContain("target-call preview");
+    expect(result.warnings[0]).toContain("complete execTransaction path");
+  });
+
   it("serializes receipt, internal-call, storage, and token evidence", async () => {
     const result = await resolveExecutionInsight(simulation(), transaction());
 

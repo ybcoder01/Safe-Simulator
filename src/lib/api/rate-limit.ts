@@ -36,6 +36,12 @@ export const TRANSACTION_SUMMARY_RATE_LIMIT: RateLimitPolicy = {
   windowSeconds: 60 * 60,
 };
 
+export const MANUAL_SIMULATION_RATE_LIMIT: RateLimitPolicy = {
+  scope: "manual-simulation",
+  limit: 10,
+  windowSeconds: 60 * 60,
+};
+
 function requestIdentity(request: Request) {
   const forwarded =
     request.headers.get("x-vercel-forwarded-for") ??

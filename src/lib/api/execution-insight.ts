@@ -18,7 +18,11 @@ import type {
 import { buildSafeExecutionRequest } from "@/lib/api/safe-execution";
 
 export interface ExecutionInsight {
-  readonly mode: "executed-replay" | "safe-execution-check" | "unavailable";
+  readonly mode:
+    | "executed-replay"
+    | "safe-execution-check"
+    | "target-call-preview"
+    | "unavailable";
   readonly success: boolean | null;
   readonly gasUsed: string | null;
   readonly blockNumber: string | null;
@@ -304,7 +308,9 @@ function coverageWarnings(
   const warnings = [
     executed
       ? "Outcome, gas, block, and event logs come from the mined transaction receipt."
-      : "This is a read-only execution of the complete Safe execTransaction path using the current threshold and collected supported owner signatures.",
+      : mode === "safe-execution-check"
+        ? "This is a read-only execution of the complete Safe execTransaction path using the current threshold and collected supported owner signatures."
+        : "This is a read-only target-call preview with the Safe as the caller. Safe signatures, nonce checks, guards, and the complete execTransaction path are not exercised.",
   ];
 
   if (!executed) {
@@ -447,6 +453,13 @@ export function executionInsightFromReplay(
   safe: Address,
 ): ExecutionInsight {
   return outputView("executed-replay", output, safe);
+}
+
+export function executionInsightFromTargetCall(
+  output: SimulationOutput,
+  safe: Address,
+): ExecutionInsight {
+  return outputView("target-call-preview", output, safe);
 }
 
 export function unavailableExecutionInsight(error: string): ExecutionInsight {

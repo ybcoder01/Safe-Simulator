@@ -387,6 +387,23 @@ export default async function SafeDashboardPage({
           </section>
         </div>
 
+        <section className="draft-simulation-cta">
+          <div>
+            <p className="eyebrow">Before you propose</p>
+            <h2>Preview a draft contract call</h2>
+            <p>
+              Enter a target, value, and calldata to inspect execution behavior
+              and permission risk against latest chain state.
+            </p>
+          </div>
+          <Link
+            className="button"
+            href={`/safe/${safe.chainId}/${safe.address}/simulate`}
+          >
+            Simulate a draft
+          </Link>
+        </section>
+
         <TransactionHistory
           address={safe.address}
           addressBook={addressBook}
