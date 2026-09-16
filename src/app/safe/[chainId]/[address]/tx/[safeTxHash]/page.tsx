@@ -15,6 +15,7 @@ import { ReviewQueueProgress } from "@/components/safes/review-queue-progress";
 import { TransactionSummaryDialog } from "@/components/safes/transaction-summary-dialog";
 import { AddressIdentity } from "@/components/shared/address-identity";
 import { CopyIdentifierButton } from "@/components/shared/copy-identifier-button";
+import { EvidenceFindings } from "@/components/shared/evidence-findings";
 import { TokenIdentity } from "@/components/shared/token-identity";
 import { decodedCallSummary } from "@/core/analysis/decoding/calldata";
 import { formatTokenAmount } from "@/core/analysis/tokens/metadata";
@@ -574,16 +575,7 @@ export default async function TransactionDetailPage({
               <dd>{verdict.trustBoundary}</dd>
             </div>
           </dl>
-          {verdict.findings.map((finding, index) => (
-            <div className="calldata" key={`${finding.code}-${index}`}>
-              <span>{finding.severity} finding</span>
-              <strong>{finding.title}</strong>
-              <code>{finding.detail}</code>
-              {finding.addresses.length > 0 ? (
-                <code>{finding.addresses.join(" · ")}</code>
-              ) : null}
-            </div>
-          ))}
+          <EvidenceFindings findings={verdict.findings} showAddresses />
           {verdict.addresses.map((assessment) => (
             <div
               className="calldata"
