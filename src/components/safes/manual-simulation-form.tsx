@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 
+import { EvidenceFindings } from "@/components/shared/evidence-findings";
 import type { ManualSimulationView } from "@/lib/api/manual-simulation";
 import { explorerAddressUrl } from "@/lib/explorer-links";
 
@@ -232,18 +233,7 @@ export function ManualSimulationForm({
 
           <div className="simulation-section">
             <h3>Evidence findings</h3>
-            <div className="simulation-findings">
-              {result.verdict.findings.map((finding) => (
-                <article
-                  className={`finding finding-${finding.severity}`}
-                  key={finding.code}
-                >
-                  <span>{finding.severity}</span>
-                  <strong>{finding.title}</strong>
-                  <p>{finding.detail}</p>
-                </article>
-              ))}
-            </div>
+            <EvidenceFindings findings={result.verdict.findings} />
           </div>
 
           <div className="simulation-limitations">
