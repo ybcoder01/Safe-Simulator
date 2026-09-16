@@ -3601,6 +3601,54 @@ select {
   grid-column: 1 / -1;
 }
 
+.evidence-guidance,
+.finding-copy,
+.finding-next-step {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.review-guidance {
+  display: grid;
+  gap: 0.35rem;
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+  background: rgba(255, 255, 255, 0.02);
+  padding: 0.9rem 1rem;
+}
+
+.review-guidance > span,
+.finding-next-step > span {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.review-guidance > p,
+.finding-next-step > p,
+.finding-copy > p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.review-guidance-critical {
+  border-color: rgba(255, 118, 104, 0.42);
+  background: rgba(255, 118, 104, 0.08);
+}
+
+.review-guidance-warning {
+  border-color: rgba(255, 190, 92, 0.36);
+  background: rgba(255, 190, 92, 0.06);
+}
+
+.review-guidance-clear {
+  border-color: rgba(93, 237, 173, 0.32);
+  background: rgba(93, 237, 173, 0.05);
+}
+
 .simulation-findings .finding {
   display: grid;
   grid-template-columns: 5rem minmax(0, 1fr);
@@ -3610,15 +3658,21 @@ select {
 }
 
 .simulation-findings .finding > span {
-  grid-row: 1 / span 2;
   color: var(--muted);
   font-size: 0.7rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
-.simulation-findings .finding > p {
-  grid-column: 2;
+.finding-copy > code {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.finding-next-step {
+  margin-top: 0.15rem;
+  border-top: 1px solid var(--line);
+  padding-top: 0.65rem;
 }
 
 .simulation-findings .finding-critical {
@@ -3680,7 +3734,7 @@ select {
   }
 
   .simulation-findings .finding > span,
-  .simulation-findings .finding > p {
+  .finding-copy {
     grid-column: 1;
     grid-row: auto;
   }
