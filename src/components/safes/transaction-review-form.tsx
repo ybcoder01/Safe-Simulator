@@ -1,7 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+
+import {
+  parseTransactionIntake,
+  type TransactionIntakeResult,
+} from "@/lib/transaction-intake";
 
 interface ChainOption {
   readonly id: number;
@@ -40,8 +46,23 @@ export function TransactionReviewForm({ chains }: TransactionReviewFormProps) {
   const [chainId, setChainId] = useState(defaultChainId);
   const [address, setAddress] = useState("");
   const [safeTxHash, setSafeTxHash] = useState("");
+  const [transactionReference, setTransactionReference] = useState("");
+  const [intakeResult, setIntakeResult] =
+    useState<TransactionIntakeResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [fallbackPath, setFallbackPath] = useState<string | null>(null);
+
+  function applyTransactionReference() {
+    const result = parseTransactionIntake(transactionReference);
+    setIntakeResult(result);
+    if (result.chainId) setChainId(result.chainId);
+    setAddress(result.safeAddress ?? "");
+    setSafeTxHash(result.safeTxHash ?? "");
+    setError(null);
+    setFallbackPath(null);
+  }
 
   async function reviewTransaction(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -59,6 +80,8 @@ export function TransactionReviewForm({ chains }: TransactionReviewFormProps) {
 
     setSubmitting(true);
     setError(null);
+    setFallbackPath(null);
+    setStatus("Verifying the Safe on-chain…");
 
     try {
       const importResponse = await fetch("/api/v1/safes", {
@@ -78,12 +101,15 @@ export function TransactionReviewForm({ chains }: TransactionReviewFormProps) {
       const safePath = `/safe/${chainId}/${normalizedAddress.toLowerCase()}`;
       const transactionPath = `${safePath}/tx/${normalizedHash.toLowerCase()}`;
 
+      setStatus("Safe verified. Looking for the public transaction record…");
+
       for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt += 1) {
         const transactionResponse = await fetch(
           `/api/v1/safes/${chainId}/${normalizedAddress}/tx/${normalizedHash}`,
           { cache: "no-store" },
         );
         if (transactionResponse.ok) {
+          setStatus("Transaction found. Opening the review…");
           router.push(transactionPath);
           return;
         }
@@ -96,12 +122,18 @@ export function TransactionReviewForm({ chains }: TransactionReviewFormProps) {
           );
         }
         if (attempt < POLL_ATTEMPTS - 1) {
+          if (attempt === 4) {
+            setStatus(
+              "The Safe is syncing. Still waiting for this transaction…",
+            );
+          }
           await pause(POLL_INTERVAL_MS);
         }
       }
 
+      setFallbackPath(safePath);
       throw new Error(
-        "The Safe was verified and synchronization started, but this transaction is not indexed yet. Wait a moment and try again.",
+        "The Safe was verified and synchronization started, but this transaction is not indexed yet. You can open the dashboard while it finishes.",
       );
     } catch (cause) {
       setError(
@@ -111,6 +143,7 @@ export function TransactionReviewForm({ chains }: TransactionReviewFormProps) {
       );
     } finally {
       setSubmitting(false);
+      setStatus(null);
     }
   }
 
@@ -125,6 +158,42 @@ export function TransactionReviewForm({ chains }: TransactionReviewFormProps) {
             existing read-only analysis. No wallet connection is requested.
           </p>
         </div>
+      </div>
+      <div className="transaction-link-intake">
+        <label htmlFor="transaction-reference">Paste a transaction link</label>
+        <div className="transaction-link-control">
+          <input
+            autoComplete="off"
+            id="transaction-reference"
+            inputMode="url"
+            onChange={(event) => {
+              setTransactionReference(event.target.value);
+              setIntakeResult(null);
+            }}
+            placeholder="Safe Wallet, Safe Inspector, XDCScan, or Etherscan URL"
+            spellCheck={false}
+            value={transactionReference}
+          />
+          <button
+            className="button button-small"
+            disabled={!transactionReference.trim() || submitting}
+            onClick={applyTransactionReference}
+            type="button"
+          >
+            Use link
+          </button>
+        </div>
+        <p className="field-hint">
+          Parsed locally. The pasted site is never opened or contacted.
+        </p>
+        {intakeResult ? (
+          <p
+            className={`intake-result intake-result-${intakeResult.status}`}
+            role={intakeResult.status === "invalid" ? "alert" : "status"}
+          >
+            {intakeResult.message}
+          </p>
+        ) : null}
       </div>
       <div className="import-controls review-controls">
         <label>
@@ -168,15 +237,20 @@ export function TransactionReviewForm({ chains }: TransactionReviewFormProps) {
           {submitting ? "Preparing review…" : "Review transaction"}
         </button>
       </div>
-      {submitting ? (
+      {status ? (
         <p className="form-status" role="status">
-          Verifying the Safe and waiting for its public transaction record…
+          {status}
         </p>
       ) : null}
       {error ? (
         <p className="form-error" role="alert">
           {error}
         </p>
+      ) : null}
+      {fallbackPath ? (
+        <Link className="text-link transaction-fallback" href={fallbackPath}>
+          Open Safe dashboard <span aria-hidden="true">→</span>
+        </Link>
       ) : null}
     </form>
   );
