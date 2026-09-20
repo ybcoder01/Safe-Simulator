@@ -146,7 +146,7 @@ export function AddressBookEditor({
   }
 
   return (
-    <section className="detail-panel">
+    <section className="detail-panel" id="address-book">
       <div className="panel-heading">
         <div>
           <p className="eyebrow">Profile trust records</p>
