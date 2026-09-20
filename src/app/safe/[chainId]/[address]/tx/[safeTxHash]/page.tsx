@@ -12,15 +12,18 @@ import {
 } from "@/container";
 import { AddressBookEditor } from "@/components/safes/address-book-editor";
 import { ReviewQueueProgress } from "@/components/safes/review-queue-progress";
+import { TransactionReviewWorkflow } from "@/components/safes/transaction-review-workflow";
 import { TransactionSummaryDialog } from "@/components/safes/transaction-summary-dialog";
 import { AddressIdentity } from "@/components/shared/address-identity";
 import { CopyIdentifierButton } from "@/components/shared/copy-identifier-button";
 import { EvidenceFindings } from "@/components/shared/evidence-findings";
+import { EvidenceRefreshButton } from "@/components/shared/evidence-refresh-button";
 import { TokenIdentity } from "@/components/shared/token-identity";
 import { decodedCallSummary } from "@/core/analysis/decoding/calldata";
 import { formatTokenAmount } from "@/core/analysis/tokens/metadata";
 import type { Address } from "@/core/domain";
 import { resolveApprovalRisk } from "@/lib/api/approval-risk";
+import { TRANSACTION_ANALYSIS_ENGINE_VERSION } from "@/lib/api/analysis-version";
 import { resolveContractInsight } from "@/lib/api/contract-insight";
 import { decodedAddressFields } from "@/lib/api/decoded-addresses";
 import { resolveEvidenceVerdict } from "@/lib/api/evidence-verdict";
@@ -28,7 +31,10 @@ import {
   collectXdcContractReferences,
   resolveXdcContractVerification,
 } from "@/lib/api/xdcscan-verification";
-import { resolveExecutionInsight } from "@/lib/api/execution-insight";
+import {
+  EXECUTION_EVIDENCE_ENGINE_VERSION,
+  resolveExecutionInsight,
+} from "@/lib/api/execution-insight";
 import { resolveInternalProxyBoundaries } from "@/lib/api/internal-proxy-boundaries";
 import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
 import { resolveStorageChangeAnalysis } from "@/lib/api/storage-changes";
@@ -593,6 +599,18 @@ export default async function TransactionDetailPage({
           ))}
         </section>
 
+        <TransactionReviewWorkflow
+          chainId={safe.data.chainId}
+          evidenceVersion={`${TRANSACTION_ANALYSIS_ENGINE_VERSION}+${EXECUTION_EVIDENCE_ENGINE_VERSION}@${execution.blockNumber ?? "latest"}`}
+          findings={verdict.findings}
+          hasAddressBook={Boolean(profileId)}
+          safeAddress={safe.data.address}
+          safeTxHash={hash.data}
+          sourceEvidenceHref={
+            safe.data.chainId === 50 ? "#source-evidence" : undefined
+          }
+        />
+
         {profileId ? (
           <AddressBookEditor
             chainId={safe.data.chainId}
@@ -607,7 +625,7 @@ export default async function TransactionDetailPage({
         ) : null}
 
         {safe.data.chainId === 50 ? (
-          <section className="detail-panel">
+          <section className="detail-panel" id="source-evidence">
             <div className="panel-heading">
               <div>
                 <p className="eyebrow">XDCScan source evidence</p>
@@ -681,6 +699,18 @@ export default async function TransactionDetailPage({
                 {warning}
               </div>
             ))}
+            {contractVerification.items.some(
+              (item) => item.status === "unavailable",
+            ) ? (
+              <div className="source-evidence-retry">
+                <p>
+                  Registry and Sourcify evidence remain visible while the
+                  explorer is unavailable. No trust status is inferred from a
+                  failed lookup.
+                </p>
+                <EvidenceRefreshButton />
+              </div>
+            ) : null}
           </section>
         ) : null}
 
