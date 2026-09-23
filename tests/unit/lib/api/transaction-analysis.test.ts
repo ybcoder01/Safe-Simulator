@@ -247,9 +247,10 @@ describe("resolveNeutralTransactionAnalysis", () => {
       [],
       approvalRisk,
       storageAnalysis,
-      null,
-      "unavailable",
+      keccak256("0x6000"),
+      "transaction-block",
       [],
+      "contract",
     );
     expect(result.persisted.engineVersion).toBe(
       TRANSACTION_ANALYSIS_ENGINE_VERSION,
@@ -282,6 +283,7 @@ describe("resolveNeutralTransactionAnalysis", () => {
       keccak256("0x6000"),
       "transaction-block",
       [],
+      "contract",
     );
   });
 
@@ -310,6 +312,7 @@ describe("resolveNeutralTransactionAnalysis", () => {
       keccak256("0x6000"),
       "latest",
       [],
+      "contract",
     );
   });
 
@@ -329,6 +332,7 @@ describe("resolveNeutralTransactionAnalysis", () => {
     expect(getCode).toHaveBeenNthCalledWith(1, 50, target, 3n);
     expect(getCode).toHaveBeenNthCalledWith(2, 50, target, undefined);
     expect(result.targetRuntimeCode).toEqual({
+      accountType: "contract",
       hash: keccak256("0x6000"),
       anchor: "latest-fallback",
     });
@@ -342,6 +346,34 @@ describe("resolveNeutralTransactionAnalysis", () => {
       keccak256("0x6000"),
       "latest-fallback",
       [],
+      "contract",
+    );
+  });
+
+  it("classifies an address without deployed code as a wallet", async () => {
+    const state = ports({}, { getCode: vi.fn().mockResolvedValue("0x") });
+
+    const result = await resolveNeutralTransactionAnalysis(
+      transaction(),
+      state.value,
+    );
+
+    expect(result.targetRuntimeCode).toEqual({
+      accountType: "wallet",
+      hash: null,
+      anchor: "transaction-block",
+    });
+    expect(resolveEvidenceVerdict).toHaveBeenCalledWith(
+      transaction(),
+      contract,
+      executed,
+      [],
+      approvalRisk,
+      storageAnalysis,
+      null,
+      "transaction-block",
+      [],
+      "wallet",
     );
   });
 
