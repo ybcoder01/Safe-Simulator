@@ -13,6 +13,7 @@ import {
 import { AddressBookEditor } from "@/components/safes/address-book-editor";
 import { ReviewQueueProgress } from "@/components/safes/review-queue-progress";
 import { TransactionReviewWorkflow } from "@/components/safes/transaction-review-workflow";
+import { TransactionSafetyOverview } from "@/components/safes/transaction-safety-overview";
 import { TransactionSummaryDialog } from "@/components/safes/transaction-summary-dialog";
 import { AddressIdentity } from "@/components/shared/address-identity";
 import { CopyIdentifierButton } from "@/components/shared/copy-identifier-button";
@@ -20,6 +21,8 @@ import { EvidenceFindings } from "@/components/shared/evidence-findings";
 import { EvidenceRefreshButton } from "@/components/shared/evidence-refresh-button";
 import { TokenIdentity } from "@/components/shared/token-identity";
 import { decodedCallSummary } from "@/core/analysis/decoding/calldata";
+import { findContractRegistryEntry } from "@/core/analysis/trust/contract-registry";
+import { findTokenRegistryEntry } from "@/core/analysis/trust/token-registry";
 import { formatTokenAmount } from "@/core/analysis/tokens/metadata";
 import type { Address } from "@/core/domain";
 import { resolveApprovalRisk } from "@/lib/api/approval-risk";
@@ -42,6 +45,8 @@ import { resolveTokenBalanceChanges } from "@/lib/api/token-balance-changes";
 import { resolveTargetRuntimeCodeEvidence } from "@/lib/api/transaction-analysis";
 import { resolveExecutionTokenMetadata } from "@/lib/api/token-metadata";
 import { explorerTransactionUrl } from "@/lib/explorer-links";
+import { PROTOCOL_LABELS } from "@/lib/protocol-directory";
+import { resolveTransactionReviewPresentation } from "@/lib/transaction-review-presentation";
 import {
   orderTransactionReviewQueue,
   safeRouteParamsSchema,
@@ -210,6 +215,7 @@ export default async function TransactionDetailPage({
     targetRuntimeCode.hash,
     targetRuntimeCode.anchor,
     internalProxyBoundaries,
+    targetRuntimeCode.accountType,
   );
   const tokenMetadataByAddress = new Map(
     tokenMetadata.items.map((metadata) => [
@@ -231,6 +237,9 @@ export default async function TransactionDetailPage({
   const warningFindingCount = verdict.findings.filter(
     (finding) => finding.severity === "warning",
   ).length;
+  const attentionFindings = verdict.findings.filter(
+    (finding) => finding.severity !== "info",
+  );
   const infiniteAuthorization = [
     ...approvalRisk.requests,
     ...approvalRisk.executedChanges,
@@ -241,6 +250,22 @@ export default async function TransactionDetailPage({
     0,
     3,
   );
+  const targetRegistryEntry = findContractRegistryEntry(
+    safe.data.chainId,
+    persisted.to,
+  );
+  const targetTokenEntry = findTokenRegistryEntry(
+    safe.data.chainId,
+    persisted.to,
+  );
+  const reviewPresentation = resolveTransactionReviewPresentation({
+    evidence: verdict,
+    execution,
+    primaryAction,
+    target: targetRuntimeCode,
+    targetVerified: insight.metadata.verified,
+    transaction: persisted,
+  });
 
   return (
     <main className="workspace shell">
@@ -313,14 +338,32 @@ export default async function TransactionDetailPage({
           </div>
         </header>
 
+        <TransactionSafetyOverview
+          addressBook={addressBook}
+          chainId={safe.data.chainId}
+          presentation={reviewPresentation}
+          protocolLabel={
+            targetRegistryEntry
+              ? (PROTOCOL_LABELS[targetRegistryEntry.protocol] ??
+                targetRegistryEntry.protocol)
+              : null
+          }
+          protocolLogoKey={targetRegistryEntry?.logoKey ?? null}
+          targetAddress={persisted.to}
+          targetLabel={
+            insight.metadata.label ?? targetRegistryEntry?.label ?? null
+          }
+          targetTokenSymbol={targetTokenEntry?.symbol ?? null}
+        />
+
         <section
           className="detail-panel transaction-impact-summary"
           aria-labelledby="transaction-impact-title"
         >
           <div className="panel-heading">
             <div>
-              <p className="eyebrow">Decision summary</p>
-              <h2 id="transaction-impact-title">Transaction impact</h2>
+              <p className="eyebrow">What will happen</p>
+              <h2 id="transaction-impact-title">Transaction summary</h2>
             </div>
             <span>
               {criticalFindingCount > 0
@@ -331,16 +374,16 @@ export default async function TransactionDetailPage({
             </span>
           </div>
           <div className="panel-empty">
-            Deterministic summary from decoded calldata and receipt-proven
-            evidence. Review the linked evidence before making a decision.
+            This summary translates decoded transaction data and available
+            execution evidence into plain language.
           </div>
           <div className="detail-grid">
             <div>
-              <span>What happened</span>
+              <span>Main action</span>
               <strong>{primaryAction}</strong>
             </div>
             <div>
-              <span>Asset effects</span>
+              <span>Tokens moved</span>
               <strong>
                 {execution.tokenMovements.length === 0
                   ? "No receipt-proven token movements"
@@ -348,7 +391,7 @@ export default async function TransactionDetailPage({
               </strong>
             </div>
             <div>
-              <span>Permission effects</span>
+              <span>Spending permissions</span>
               <strong>
                 {infiniteAuthorization
                   ? "Unlimited authorization detected"
@@ -361,7 +404,7 @@ export default async function TransactionDetailPage({
               </strong>
             </div>
             <div>
-              <span>Safe configuration</span>
+              <span>Safe account controls</span>
               <strong>
                 {execution.safeConfigurationChanges.length === 0
                   ? "No canonical changes emitted"
@@ -561,42 +604,23 @@ export default async function TransactionDetailPage({
         <section className="detail-panel">
           <div className="panel-heading">
             <div>
-              <p className="eyebrow">Evidence verdict</p>
-              <h2>{verdict.headline}</h2>
+              <p className="eyebrow">Important checks</p>
+              <h2>
+                {criticalFindingCount > 0 || warningFindingCount > 0
+                  ? "Review these warnings"
+                  : "What we checked"}
+              </h2>
             </div>
-            <span>{verdict.verdict}</span>
+            <span>
+              {criticalFindingCount + warningFindingCount} requiring attention
+            </span>
           </div>
           {profileId ? (
             <TransactionSummaryDialog
               endpoint={`/api/v1/safes/${safe.data.chainId}/${safe.data.address}/tx/${hash.data}/summary`}
             />
           ) : null}
-          <dl className="detail-list">
-            <div>
-              <dt>Coverage</dt>
-              <dd>{verdict.coverage}</dd>
-            </div>
-            <div>
-              <dt>Trust rule</dt>
-              <dd>{verdict.trustBoundary}</dd>
-            </div>
-          </dl>
-          <EvidenceFindings findings={verdict.findings} showAddresses />
-          {verdict.addresses.map((assessment) => (
-            <div
-              className="calldata"
-              key={`address-trust-${assessment.address.toLowerCase()}`}
-            >
-              <span>
-                {assessment.status} · {assessment.source.replaceAll("-", " ")} ·{" "}
-                {assessment.roles.join(" · ")}
-              </span>
-              <strong>
-                {assessment.label ?? "No registry or profile label"}
-              </strong>
-              <code>{assessment.address}</code>
-            </div>
-          ))}
+          <EvidenceFindings findings={attentionFindings} showAddresses />
         </section>
 
         <TransactionReviewWorkflow
@@ -623,6 +647,59 @@ export default async function TransactionDetailPage({
             }))}
           />
         ) : null}
+
+        <details className="advanced-technical-details">
+          <summary>
+            <span>
+              <strong>Advanced technical details</strong>
+              <small>
+                Source verification, traces, storage, calldata, and signatures
+              </small>
+            </span>
+            <span aria-hidden="true">+</span>
+          </summary>
+        </details>
+
+        <section className="detail-panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Evidence verdict</p>
+              <h2>{verdict.headline}</h2>
+            </div>
+            <span>{verdict.verdict}</span>
+          </div>
+          <dl className="detail-list">
+            <div>
+              <dt>Coverage</dt>
+              <dd>{verdict.coverage}</dd>
+            </div>
+            <div>
+              <dt>Trust rule</dt>
+              <dd>{verdict.trustBoundary}</dd>
+            </div>
+            <div>
+              <dt>Target account evidence</dt>
+              <dd>
+                {targetRuntimeCode.accountType} · {targetRuntimeCode.anchor}
+              </dd>
+            </div>
+          </dl>
+          {verdict.addresses.map((assessment) => (
+            <div
+              className="calldata"
+              key={`address-trust-${assessment.address.toLowerCase()}`}
+            >
+              <span>
+                {assessment.status} · {assessment.source.replaceAll("-", " ")} ·{" "}
+                {assessment.roles.join(" · ")}
+              </span>
+              <strong>
+                {assessment.label ?? "No registry or profile label"}
+              </strong>
+              <code>{assessment.address}</code>
+            </div>
+          ))}
+        </section>
 
         {safe.data.chainId === 50 ? (
           <section className="detail-panel" id="source-evidence">
