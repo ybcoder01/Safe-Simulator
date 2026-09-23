@@ -147,6 +147,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     analysis.targetRuntimeCode.hash,
     analysis.targetRuntimeCode.anchor,
     analysis.internalProxyBoundaries,
+    analysis.targetRuntimeCode.accountType,
   );
 
   return NextResponse.json({
