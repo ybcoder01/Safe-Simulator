@@ -85,6 +85,7 @@ async function loadImmutableSimulation(
 
 export interface TargetRuntimeCodeEvidence {
   readonly hash: Hex | null;
+  readonly accountType: "contract" | "wallet" | "unavailable";
   readonly anchor:
     | "transaction-block"
     | "latest"
@@ -92,18 +93,20 @@ export interface TargetRuntimeCodeEvidence {
     | "unavailable";
 }
 
-async function readRuntimeCodeHash(
+async function readRuntimeCode(
   chain: ChainPort,
   transaction: SafeTransaction,
   blockNumber?: bigint,
-): Promise<Hex | null> {
+): Promise<Pick<TargetRuntimeCodeEvidence, "accountType" | "hash"> | null> {
   try {
     const code = await chain.getCode(
       transaction.safe.chainId,
       transaction.to,
       blockNumber,
     );
-    return code === "0x" ? null : keccak256(code);
+    return code === "0x"
+      ? { accountType: "wallet", hash: null }
+      : { accountType: "contract", hash: keccak256(code) };
   } catch {
     return null;
   }
@@ -113,33 +116,25 @@ export async function resolveTargetRuntimeCodeEvidence(
   transaction: SafeTransaction,
   chain: ChainPort,
 ): Promise<TargetRuntimeCodeEvidence> {
-  if (transaction.operation !== "delegatecall") {
-    return { hash: null, anchor: "unavailable" };
-  }
-
   if (transaction.status === "executed") {
-    const historicalHash =
+    const historicalCode =
       transaction.blockNumber === null
         ? null
-        : await readRuntimeCodeHash(
-            chain,
-            transaction,
-            transaction.blockNumber,
-          );
-    if (historicalHash) {
-      return { hash: historicalHash, anchor: "transaction-block" };
+        : await readRuntimeCode(chain, transaction, transaction.blockNumber);
+    if (historicalCode) {
+      return { ...historicalCode, anchor: "transaction-block" };
     }
 
-    const latestHash = await readRuntimeCodeHash(chain, transaction);
-    return latestHash
-      ? { hash: latestHash, anchor: "latest-fallback" }
-      : { hash: null, anchor: "unavailable" };
+    const latestCode = await readRuntimeCode(chain, transaction);
+    return latestCode
+      ? { ...latestCode, anchor: "latest-fallback" }
+      : { accountType: "unavailable", hash: null, anchor: "unavailable" };
   }
 
-  const latestHash = await readRuntimeCodeHash(chain, transaction);
-  return latestHash
-    ? { hash: latestHash, anchor: "latest" }
-    : { hash: null, anchor: "unavailable" };
+  const latestCode = await readRuntimeCode(chain, transaction);
+  return latestCode
+    ? { ...latestCode, anchor: "latest" }
+    : { accountType: "unavailable", hash: null, anchor: "unavailable" };
 }
 
 /**
@@ -190,6 +185,7 @@ export async function resolveNeutralTransactionAnalysis(
     targetRuntimeCode.hash,
     targetRuntimeCode.anchor,
     internalProxyBoundaries,
+    targetRuntimeCode.accountType,
   );
   const simulation = await loadImmutableSimulation(
     transaction,
