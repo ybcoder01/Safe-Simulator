@@ -1,10 +1,10 @@
 "use client";
 
-import Image from "next/image";
 import { useMemo, useState } from "react";
 
 import { AddressIdentity } from "@/components/shared/address-identity";
 import { CopyIdentifierButton } from "@/components/shared/copy-identifier-button";
+import { ProtocolMark } from "@/components/shared/protocol-mark";
 import {
   filterProtocolDirectory,
   type ProtocolDirectoryEntry,
@@ -15,18 +15,6 @@ interface Props {
   readonly chainId: number;
   readonly entries: readonly ProtocolDirectoryEntry[];
 }
-
-const protocolLogoPaths: Readonly<Record<string, string>> = {
-  curve: "/protocol-logos/curve.png",
-  fathom: "/protocol-logos/fathom.svg",
-  morpho: "/protocol-logos/morpho.svg",
-  oku: "/protocol-logos/oku.svg",
-  reservoir: "/protocol-logos/reservoir.png",
-  silo: "/protocol-logos/silo.svg",
-  stargate: "/protocol-logos/stargate.svg",
-  xswap: "/protocol-logos/xswap.png",
-  yieldnest: "/protocol-logos/yieldnest.svg",
-};
 
 export function ProtocolDirectory({ chainId, entries }: Props) {
   const [query, setQuery] = useState("");
@@ -97,7 +85,6 @@ export function ProtocolDirectory({ chainId, entries }: Props) {
                 entry.lifecycle === "active",
             ).length;
             const logoKey = groupEntries[0]?.logoKey ?? protocol;
-            const logoPath = logoKey ? protocolLogoPaths[logoKey] : undefined;
 
             return (
               <details
@@ -107,28 +94,7 @@ export function ProtocolDirectory({ chainId, entries }: Props) {
               >
                 <summary>
                   <span className="protocol-group-name">
-                    <span
-                      aria-label={`${label} logo`}
-                      className={`protocol-logo protocol-logo-${logoKey ?? protocol}`}
-                      role="img"
-                    >
-                      {logoPath ? (
-                        <Image
-                          alt=""
-                          height={34}
-                          src={logoPath}
-                          style={{
-                            height: "100%",
-                            objectFit: "contain",
-                            width: "100%",
-                          }}
-                          unoptimized
-                          width={34}
-                        />
-                      ) : (
-                        label.slice(0, 2).toUpperCase()
-                      )}
-                    </span>
+                    <ProtocolMark label={label} logoKey={logoKey} />
                     <span>{label}</span>
                   </span>
                   <small>
