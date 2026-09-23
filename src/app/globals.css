@@ -879,6 +879,239 @@ select {
   }
 }
 
+/* Plain-language transaction review */
+.transaction-safety-overview {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.safety-verdict {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: center;
+  padding: 1.35rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.safety-verdict h2,
+.safety-verdict p {
+  margin: 0;
+}
+
+.safety-verdict h2 {
+  font-size: clamp(1.55rem, 3vw, 2.4rem);
+  letter-spacing: -0.035em;
+}
+
+.safety-verdict p:not(.eyebrow) {
+  max-width: 50rem;
+  margin-top: 0.45rem;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.safety-icon {
+  display: grid;
+  width: 4rem;
+  height: 4rem;
+  place-items: center;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  font-size: 2.1rem;
+  font-weight: 760;
+}
+
+.safety-state-label {
+  padding: 0.4rem 0.65rem;
+  border: 1px solid currentColor;
+  border-radius: 99px;
+  font-family: var(--font-geist-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.safety-clear .safety-verdict {
+  color: var(--green);
+  background: rgba(93, 237, 173, 0.08);
+}
+
+.safety-blocked .safety-verdict {
+  color: #ff7668;
+  background: rgba(255, 118, 104, 0.09);
+}
+
+.safety-review .safety-verdict {
+  color: #ffbe5c;
+  background: rgba(255, 190, 92, 0.08);
+}
+
+.safety-unknown .safety-verdict {
+  color: #b5c0ba;
+  background: rgba(181, 192, 186, 0.07);
+}
+
+.safety-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  padding: 0 1.35rem;
+}
+
+.safety-overview-grid article {
+  display: grid;
+  gap: 0.75rem;
+  align-content: start;
+  min-width: 0;
+  padding: 1.1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.85rem;
+  background: #08130f;
+}
+
+.safety-overview-grid article > strong {
+  font-size: 1.15rem;
+  line-height: 1.35;
+}
+
+.safety-overview-grid article > p,
+.safety-boundary-note {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.safety-card-label {
+  color: var(--faint);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.safety-target-heading,
+.safety-address-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  min-width: 0;
+}
+
+.safety-target-heading > strong {
+  font-size: 1rem;
+}
+
+.target-type {
+  width: max-content;
+  padding: 0.3rem 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  color: var(--text);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.safety-boundary-note {
+  padding: 0 1.35rem 1.35rem;
+  font-size: 0.76rem;
+}
+
+.advanced-technical-details {
+  margin-top: 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.01);
+}
+
+.advanced-technical-details > summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  padding: 1.1rem 1.25rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.advanced-technical-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.advanced-technical-details > summary:focus-visible {
+  border-radius: 1rem;
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
+
+.advanced-technical-details > summary > span:first-child {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.advanced-technical-details summary small {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.advanced-technical-details > summary > span:last-child {
+  color: var(--green);
+  font-size: 1.5rem;
+  transition: transform 160ms ease;
+}
+
+.advanced-technical-details[open] > summary > span:last-child {
+  transform: rotate(45deg);
+}
+
+.advanced-technical-details:not([open]) ~ section {
+  display: none;
+}
+
+@media (max-width: 700px) {
+  .safety-verdict {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .safety-state-label {
+    grid-column: 2;
+    width: max-content;
+  }
+
+  .safety-overview-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 460px) {
+  .safety-verdict {
+    grid-template-columns: 1fr;
+  }
+
+  .safety-icon {
+    width: 3.25rem;
+    height: 3.25rem;
+    font-size: 1.65rem;
+  }
+
+  .safety-state-label {
+    grid-column: 1;
+  }
+
+  .safety-overview-grid,
+  .safety-boundary-note {
+    padding-right: 0.9rem;
+    padding-left: 0.9rem;
+  }
+}
+
 /* Safe dashboard and transaction detail */
 .safe-card {
   transition:
