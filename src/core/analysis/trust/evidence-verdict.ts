@@ -30,6 +30,7 @@ export interface EvidenceVerdictInput {
     | "latest"
     | "latest-fallback"
     | "unavailable";
+  readonly targetAccountType?: "contract" | "wallet" | "unavailable";
   readonly implementationChain?: readonly Address[];
   readonly internalProxyBoundaries?: readonly {
     readonly proxy: Address;
@@ -495,7 +496,16 @@ export function evaluateEvidenceVerdict(
     });
   }
 
-  if (!input.targetVerified) {
+  if (input.targetAccountType === "unavailable") {
+    findings.push({
+      code: "target-account-type-unavailable",
+      severity: "warning",
+      title: "Target type could not be verified",
+      detail:
+        "The chain provider did not return enough bytecode evidence to distinguish a wallet address from a smart contract.",
+      addresses: [input.target],
+    });
+  } else if (input.targetAccountType !== "wallet" && !input.targetVerified) {
     findings.push({
       code: "unverified-target",
       severity: "warning",
@@ -506,7 +516,10 @@ export function evaluateEvidenceVerdict(
     });
   }
 
-  if (input.decodeConfidence === "signature") {
+  if (
+    input.targetAccountType !== "wallet" &&
+    input.decodeConfidence === "signature"
+  ) {
     findings.push({
       code: "signature-only-decode",
       severity: "warning",
@@ -515,7 +528,10 @@ export function evaluateEvidenceVerdict(
         "A function-signature match is not verified contract source and can be ambiguous.",
       addresses: [input.target],
     });
-  } else if (input.decodeConfidence === "raw") {
+  } else if (
+    input.targetAccountType !== "wallet" &&
+    input.decodeConfidence === "raw"
+  ) {
     findings.push({
       code: "raw-calldata",
       severity: "warning",
