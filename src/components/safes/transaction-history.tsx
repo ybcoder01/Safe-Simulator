@@ -10,6 +10,7 @@ import {
 import {
   groupTransactionViews,
   orderTransactionReviewQueue,
+  analysisVerdictPresentation,
   transactionMatchesReviewFilter,
   transactionMatchesSearch,
   transactionLifecycleStatus,
@@ -48,9 +49,9 @@ function formatDate(timestamp: number) {
 const reviewFilterLabels: Readonly<Record<TransactionReviewFilter, string>> = {
   all: "All",
   attention: "Needs review",
-  flagged: "Flagged",
-  unverified: "Unverified",
-  "pending-analysis": "Analysis pending",
+  flagged: "Critical warning",
+  unverified: "Needs verification",
+  "pending-analysis": "Not checked yet",
 };
 
 function AnalysisBadge({
@@ -62,22 +63,20 @@ function AnalysisBadge({
     return (
       <em
         className="analysis-verdict analysis-verdict-pending"
-        title="No profile-neutral analysis is stored for this transaction yet."
+        title="No automated review has been saved for this transaction yet."
       >
-        Analysis pending
+        Not checked yet
       </em>
     );
   }
 
-  const evidence = analysis.immutable
-    ? "immutable executed evidence"
-    : "refreshable evidence";
+  const presentation = analysisVerdictPresentation(analysis.baselineVerdict);
   return (
     <em
       className={`analysis-verdict analysis-verdict-${analysis.baselineVerdict}`}
-      title={`Profile-neutral baseline from ${evidence}.`}
+      title={presentation.description}
     >
-      Baseline {analysis.baselineVerdict}
+      {presentation.label}
     </em>
   );
 }

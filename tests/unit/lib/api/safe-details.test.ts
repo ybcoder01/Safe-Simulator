@@ -7,6 +7,7 @@ import type {
   TokenBalance,
 } from "../../../../src/core/domain";
 import {
+  analysisVerdictPresentation,
   groupTransactionViews,
   orderTransactionReviewQueue,
   safeRouteParamsSchema,
@@ -40,6 +41,22 @@ function syncCursor(
 }
 
 describe("Safe dashboard API view models", () => {
+  it("presents analysis verdicts in plain language", () => {
+    expect(analysisVerdictPresentation("trusted")).toEqual({
+      label: "Trusted by you",
+      description: "All involved addresses were explicitly marked as trusted.",
+    });
+    expect(analysisVerdictPresentation("known").label).toBe(
+      "No warnings found",
+    );
+    expect(analysisVerdictPresentation("unverified").label).toBe(
+      "Needs verification",
+    );
+    expect(analysisVerdictPresentation("flagged").label).toBe(
+      "Critical warning",
+    );
+  });
+
   it("parses supported Safe routes and normalizes the address", () => {
     const parsed = safeRouteParamsSchema.parse({
       chainId: "50",

@@ -43,6 +43,42 @@ export interface TransactionAnalysisView {
   readonly immutable: boolean;
 }
 
+export interface AnalysisVerdictPresentation {
+  readonly label: string;
+  readonly description: string;
+}
+
+export function analysisVerdictPresentation(
+  verdict: TransactionAnalysisView["baselineVerdict"],
+): AnalysisVerdictPresentation {
+  switch (verdict) {
+    case "trusted":
+      return {
+        label: "Trusted by you",
+        description:
+          "All involved addresses were explicitly marked as trusted.",
+      };
+    case "known":
+      return {
+        label: "No warnings found",
+        description:
+          "No warning or critical issue was found in the available evidence.",
+      };
+    case "unverified":
+      return {
+        label: "Needs verification",
+        description:
+          "One or more warnings or unverified addresses need review.",
+      };
+    case "flagged":
+      return {
+        label: "Critical warning",
+        description:
+          "Critical evidence was found. Open the transaction before proceeding.",
+      };
+  }
+}
+
 export interface TransactionView {
   readonly activity: TransactionActivity;
   readonly safeTxHash: string;
