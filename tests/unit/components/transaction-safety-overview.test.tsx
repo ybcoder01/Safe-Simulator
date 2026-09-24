@@ -34,6 +34,8 @@ describe("TransactionSafetyOverview", () => {
     expect(html).toContain("No known risks found");
     expect(html).toContain("Verified smart contract");
     expect(html).toContain('aria-hidden="true">✓');
-    expect(html).toContain('safety-state-label">clear');
+    expect(html).toContain('safety-state-label">No warnings');
+    expect(html).toContain("What you should do");
+    expect(html).not.toContain('safety-state-label">clear');
   });
 });
