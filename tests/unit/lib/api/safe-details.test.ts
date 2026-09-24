@@ -13,6 +13,7 @@ import {
   summarizeSyncCursors,
   toBalanceView,
   toTransactionView,
+  transactionLifecycleStatus,
   transactionMatchesReviewFilter,
   transactionMatchesSearch,
   transactionPageQuerySchema,
@@ -125,6 +126,16 @@ describe("Safe dashboard API view models", () => {
       pending: [pending],
       history: [executed, replaced],
     });
+
+    expect(transactionLifecycleStatus(pending, "3")).toBe("superseded");
+    expect(transactionLifecycleStatus(pending, "2")).toBe("pending");
+    expect(groupTransactionViews([executed, pending, replaced], "3")).toEqual({
+      pending: [],
+      history: [executed, pending, replaced],
+    });
+    expect(transactionMatchesSearch(pending, "superseded", null, "3")).toBe(
+      true,
+    );
   });
 
   it("searches loaded transactions by address, metadata, and resolved label", () => {
