@@ -90,6 +90,37 @@ describe("evaluateEvidenceVerdict", () => {
     ]);
   });
 
+  it("does not treat a plain wallet address as an unverified contract", () => {
+    const result = evaluateEvidenceVerdict(
+      input({
+        targetAccountType: "wallet",
+        targetVerified: false,
+        decodeConfidence: "raw",
+      }),
+    );
+
+    expect(result.findings.map((finding) => finding.code)).not.toContain(
+      "unverified-target",
+    );
+    expect(result.findings.map((finding) => finding.code)).not.toContain(
+      "raw-calldata",
+    );
+  });
+
+  it("keeps an unavailable target classification explicit", () => {
+    const result = evaluateEvidenceVerdict(
+      input({ targetAccountType: "unavailable" }),
+    );
+
+    expect(result.verdict).toBe("unverified");
+    expect(result.findings).toContainEqual(
+      expect.objectContaining({
+        code: "target-account-type-unavailable",
+        severity: "warning",
+      }),
+    );
+  });
+
   it("flags traced internal delegate calls and unresolved targets", () => {
     const result = evaluateEvidenceVerdict(
       input({

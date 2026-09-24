@@ -46,6 +46,7 @@ export function resolveEvidenceVerdict(
     | "latest-fallback"
     | "unavailable" = "unavailable",
   internalProxyBoundaries: readonly InternalProxyBoundary[] = [],
+  targetAccountType: "contract" | "wallet" | "unavailable" = "contract",
 ): EvidenceVerdict {
   const executedAllowances = approvalRisk
     ? approvalRisk.executedChanges.map((allowance) => ({
@@ -70,6 +71,7 @@ export function resolveEvidenceVerdict(
     targetVerified: contract.metadata.verified,
     targetRuntimeCodeHash,
     targetRuntimeCodeAnchor,
+    targetAccountType,
     implementationChain: contract.implementationChain.map(
       (address) => address as Address,
     ),
