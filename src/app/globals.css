@@ -960,7 +960,7 @@ select {
 
 .safety-overview-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1rem;
   padding: 0 1.35rem;
 }
@@ -1024,14 +1024,14 @@ select {
   font-size: 0.76rem;
 }
 
-.advanced-technical-details {
+.transaction-disclosure {
   margin-top: 1.25rem;
   border: 1px solid var(--line);
   border-radius: 1rem;
   background: rgba(255, 255, 255, 0.01);
 }
 
-.advanced-technical-details > summary {
+.transaction-disclosure > summary {
   display: flex;
   justify-content: space-between;
   gap: 1rem;
@@ -1041,38 +1041,51 @@ select {
   list-style: none;
 }
 
-.advanced-technical-details > summary::-webkit-details-marker {
+.transaction-disclosure > summary::-webkit-details-marker {
   display: none;
 }
 
-.advanced-technical-details > summary:focus-visible {
+.transaction-disclosure > summary:focus-visible {
   border-radius: 1rem;
   outline: 2px solid var(--green);
   outline-offset: 2px;
 }
 
-.advanced-technical-details > summary > span:first-child {
+.transaction-disclosure > summary > span:first-child {
   display: grid;
   gap: 0.3rem;
 }
 
-.advanced-technical-details summary small {
+.transaction-disclosure summary small {
   color: var(--muted);
   font-weight: 400;
 }
 
-.advanced-technical-details > summary > span:last-child {
+.transaction-disclosure > summary > span:last-child {
   color: var(--green);
   font-size: 1.5rem;
   transition: transform 160ms ease;
 }
 
-.advanced-technical-details[open] > summary > span:last-child {
+.transaction-disclosure[open] > summary > span:last-child {
   transform: rotate(45deg);
 }
 
-.advanced-technical-details:not([open]) ~ section {
+.reviewer-tools-disclosure:not([open]) ~ .review-workflow,
+.reviewer-tools-disclosure:not([open]) ~ #address-book,
+.technical-details-disclosure:not([open]) ~ section {
   display: none;
+}
+
+.reviewer-tools-disclosure[open],
+.technical-details-disclosure[open] {
+  margin-bottom: 1.25rem;
+}
+
+@media (max-width: 900px) {
+  .safety-overview-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 700px) {
@@ -1083,10 +1096,6 @@ select {
   .safety-state-label {
     grid-column: 2;
     width: max-content;
-  }
-
-  .safety-overview-grid {
-    grid-template-columns: 1fr;
   }
 }
 

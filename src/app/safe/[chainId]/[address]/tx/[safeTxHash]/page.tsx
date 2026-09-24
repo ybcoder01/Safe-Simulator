@@ -323,15 +323,10 @@ export default async function TransactionDetailPage({
 
         <header className="transaction-title">
           <div>
-            <p className="eyebrow">Safe transaction</p>
-            <h1>Nonce {transaction.nonce}</h1>
-            <div className="identifier-actions transaction-hash-actions">
-              <code>{transaction.safeTxHash}</code>
-              <CopyIdentifierButton
-                label="Copy Safe transaction hash"
-                value={transaction.safeTxHash}
-              />
-            </div>
+            <p className="eyebrow">
+              Safe transaction · Nonce {transaction.nonce}
+            </p>
+            <h1>{primaryAction}</h1>
           </div>
           <div className="transaction-title-labels">
             <span
@@ -394,8 +389,8 @@ export default async function TransactionDetailPage({
             </span>
           </div>
           <div className="panel-empty">
-            This summary translates decoded transaction data and available
-            execution evidence into plain language.
+            Start here. These are the changes Safe Inspector could identify from
+            the transaction and the available blockchain evidence.
           </div>
           <div className="detail-grid">
             <div>
@@ -406,30 +401,27 @@ export default async function TransactionDetailPage({
               <span>Tokens moved</span>
               <strong>
                 {execution.tokenMovements.length === 0
-                  ? "No receipt-proven token movements"
-                  : execution.tokenMovements.length + " token movements"}
+                  ? "No token transfers found"
+                  : `${execution.tokenMovements.length} token ${execution.tokenMovements.length === 1 ? "transfer" : "transfers"}`}
               </strong>
             </div>
             <div>
               <span>Spending permissions</span>
               <strong>
                 {infiniteAuthorization
-                  ? "Unlimited authorization detected"
+                  ? "Unlimited spending permission requested"
                   : approvalRisk.requests.length === 0 &&
                       approvalRisk.executedChanges.length === 0
-                    ? "No recognized authorization change"
-                    : approvalRisk.requests.length +
-                      approvalRisk.executedChanges.length +
-                      " authorization changes"}
+                    ? "No spending permission change found"
+                    : `${approvalRisk.requests.length + approvalRisk.executedChanges.length} spending permission ${approvalRisk.requests.length + approvalRisk.executedChanges.length === 1 ? "change" : "changes"}`}
               </strong>
             </div>
             <div>
-              <span>Safe account controls</span>
+              <span>Owners and security settings</span>
               <strong>
                 {execution.safeConfigurationChanges.length === 0
-                  ? "No canonical changes emitted"
-                  : execution.safeConfigurationChanges.length +
-                    " receipt-proven changes"}
+                  ? "No changes found"
+                  : `${execution.safeConfigurationChanges.length} Safe setting ${execution.safeConfigurationChanges.length === 1 ? "change" : "changes"}`}
               </strong>
             </div>
           </div>
@@ -601,22 +593,10 @@ export default async function TransactionDetailPage({
 
           <nav
             className="identifier-actions"
-            aria-label="Transaction evidence sections"
+            aria-label="Technical transaction evidence"
           >
-            <a className="text-link" href="#execution-evidence">
-              Execution
-            </a>
-            <a className="text-link" href="#asset-movements">
-              Asset movements
-            </a>
-            <a className="text-link" href="#permission-changes">
-              Permissions
-            </a>
-            <a className="text-link" href="#decoded-action">
-              Decoded action
-            </a>
-            <a className="text-link" href="#raw-evidence">
-              Raw evidence
+            <a className="text-link" href="#technical-details">
+              Technical evidence is available below
             </a>
           </nav>
         </section>
@@ -643,6 +623,22 @@ export default async function TransactionDetailPage({
           <EvidenceFindings findings={attentionFindings} showAddresses />
         </section>
 
+        <details
+          className="transaction-disclosure reviewer-tools-disclosure"
+          id="reviewer-tools"
+        >
+          <summary>
+            <span>
+              <strong>Review and record a decision</strong>
+              <small>
+                Save your checks, record a decision, or manage trusted
+                addresses.
+              </small>
+            </span>
+            <span aria-hidden="true">+</span>
+          </summary>
+        </details>
+
         <TransactionReviewWorkflow
           chainId={safe.data.chainId}
           evidenceVersion={`${TRANSACTION_ANALYSIS_ENGINE_VERSION}+${EXECUTION_EVIDENCE_ENGINE_VERSION}@${execution.blockNumber ?? "latest"}`}
@@ -650,9 +646,6 @@ export default async function TransactionDetailPage({
           hasAddressBook={Boolean(profileId)}
           safeAddress={safe.data.address}
           safeTxHash={hash.data}
-          sourceEvidenceHref={
-            safe.data.chainId === 50 ? "#source-evidence" : undefined
-          }
         />
 
         {profileId ? (
@@ -667,13 +660,16 @@ export default async function TransactionDetailPage({
             }))}
           />
         ) : null}
-
-        <details className="advanced-technical-details">
+        <details
+          className="transaction-disclosure technical-details-disclosure"
+          id="technical-details"
+        >
           <summary>
             <span>
-              <strong>Advanced technical details</strong>
+              <strong>View technical details</strong>
               <small>
-                Source verification, traces, storage, calldata, and signatures
+                Contract verification, execution traces, storage changes,
+                calldata, gas fields, and signatures.
               </small>
             </span>
             <span aria-hidden="true">+</span>

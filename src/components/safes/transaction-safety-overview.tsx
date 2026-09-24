@@ -16,6 +16,13 @@ interface Props {
   readonly targetTokenSymbol: string | null;
 }
 
+const SIGNAL_LABELS = {
+  clear: "No warnings",
+  blocked: "Stop",
+  review: "Check first",
+  unknown: "Not verified",
+} as const;
+
 export function TransactionSafetyOverview({
   addressBook,
   chainId,
@@ -40,7 +47,9 @@ export function TransactionSafetyOverview({
           <h2 id="plain-language-verdict-title">{presentation.title}</h2>
           <p>{presentation.detail}</p>
         </div>
-        <span className="safety-state-label">{presentation.signal}</span>
+        <span className="safety-state-label">
+          {SIGNAL_LABELS[presentation.signal]}
+        </span>
       </div>
 
       <div className="safety-overview-grid">
@@ -88,6 +97,15 @@ export function TransactionSafetyOverview({
               value={targetAddress}
             />
           </div>
+        </article>
+
+        <article className="safety-next-step-card">
+          <span className="safety-card-label">What you should do</span>
+          <strong>{presentation.nextStep}</strong>
+          <p>
+            Compare the destination, amount, and requested access with the
+            action you intended to approve in Safe Wallet.
+          </p>
         </article>
       </div>
 
