@@ -18,6 +18,6 @@ export default defineConfig({
         statements: 77,
       },
     },
-    include: ["tests/unit/**/*.test.ts"],
+    include: ["tests/unit/**/*.test.{ts,tsx}"],
   },
 });
