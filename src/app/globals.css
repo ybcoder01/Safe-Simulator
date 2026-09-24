@@ -2036,6 +2036,28 @@ select {
   color: #ffad9f;
   background: rgba(255, 108, 88, 0.08);
 }
+.tx-superseded {
+  min-width: 82px;
+  color: var(--faint);
+  background: rgba(143, 165, 154, 0.1);
+}
+.superseded-transaction-notice {
+  display: grid;
+  gap: 8px;
+  padding: 18px 20px;
+  border: 1px solid rgba(246, 200, 111, 0.34);
+  border-radius: 16px;
+  background: rgba(246, 200, 111, 0.07);
+}
+.superseded-transaction-notice strong {
+  color: var(--amber);
+  font-size: 14px;
+}
+.superseded-transaction-notice p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
 .history-empty {
   padding: 58px 20px 42px;
   text-align: center;
