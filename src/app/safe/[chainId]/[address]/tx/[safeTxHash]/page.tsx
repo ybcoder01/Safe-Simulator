@@ -52,6 +52,7 @@ import {
   safeRouteParamsSchema,
   safeTransactionHashSchema,
   toTransactionView,
+  transactionLifecycleStatus,
   transactionReviewQueueFilterSchema,
 } from "@/lib/api/safe-details";
 import { resolveTransactionViews } from "@/lib/api/transaction-list";
@@ -92,8 +93,11 @@ export default async function TransactionDetailPage({
 
   const persistence = getPersistencePort();
   const cache = getCachePort();
-  const persisted = await persistence.findTransaction(safe.data, hash.data);
-  if (!persisted) notFound();
+  const [persisted, currentSafe] = await Promise.all([
+    persistence.findTransaction(safe.data, hash.data),
+    persistence.findSafe(safe.data),
+  ]);
+  if (!persisted || !currentSafe) notFound();
 
   const cookieStore = await cookies();
   const profileId = parseProfileId(cookieStore.get(PROFILE_COOKIE)?.value);
@@ -134,6 +138,10 @@ export default async function TransactionDetailPage({
     resolveTargetRuntimeCodeEvidence(persisted, chain),
     reviewQueuePromise,
   ]);
+  const lifecycleStatus = transactionLifecycleStatus(
+    transaction,
+    currentSafe.nonce.toString(),
+  );
   const reviewPosition = reviewQueue.findIndex(
     (item) => item.safeTxHash.toLowerCase() === hash.data.toLowerCase(),
   );
@@ -332,11 +340,23 @@ export default async function TransactionDetailPage({
             >
               {transaction.activity.label}
             </span>
-            <span className={`tx-status tx-${transaction.status}`}>
-              {transaction.status}
+            <span className={`tx-status tx-${lifecycleStatus}`}>
+              {lifecycleStatus}
             </span>
           </div>
         </header>
+
+        {lifecycleStatus === "superseded" ? (
+          <section className="superseded-transaction-notice" role="status">
+            <strong>This proposal can no longer be executed.</strong>
+            <p>
+              It uses nonce {transaction.nonce}, but this Safe has already
+              advanced to nonce {currentSafe.nonce.toString()}. Another
+              transaction consumed this nonce. Create a new proposal if you
+              still intend to perform this action.
+            </p>
+          </section>
+        ) : null}
 
         <TransactionSafetyOverview
           addressBook={addressBook}
@@ -1576,7 +1596,11 @@ export default async function TransactionDetailPage({
               </dd>
             </div>
             <div>
-              <dt>Status</dt>
+              <dt>Lifecycle status</dt>
+              <dd>{lifecycleStatus}</dd>
+            </div>
+            <div>
+              <dt>Source status</dt>
               <dd>{transaction.status}</dd>
             </div>
             <div>

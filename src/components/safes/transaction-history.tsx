@@ -12,6 +12,7 @@ import {
   orderTransactionReviewQueue,
   transactionMatchesReviewFilter,
   transactionMatchesSearch,
+  transactionLifecycleStatus,
   type TransactionReviewFilter,
   type TransactionReviewQueueFilter,
   type TransactionView,
@@ -25,6 +26,7 @@ interface TransactionHistoryProps {
   readonly address: string;
   readonly addressBook: readonly AddressBookView[];
   readonly chainId: number;
+  readonly currentSafeNonce: string;
   readonly initialTransactions: readonly TransactionView[];
   readonly initialReviewFilter: TransactionReviewFilter;
   readonly nextCursor: string | null;
@@ -124,6 +126,7 @@ export function TransactionHistory({
   address,
   addressBook,
   chainId,
+  currentSafeNonce,
   initialTransactions,
   initialReviewFilter,
   nextCursor: initialCursor,
@@ -170,7 +173,12 @@ export function TransactionHistory({
     const target = resolveAddressDisplay(chainId, transaction.to, addressBook);
     return (
       transactionMatchesReviewFilter(transaction, reviewFilter) &&
-      transactionMatchesSearch(transaction, query, target?.label ?? null)
+      transactionMatchesSearch(
+        transaction,
+        query,
+        target?.label ?? null,
+        currentSafeNonce,
+      )
     );
   });
   const orderedTransactions =
@@ -192,7 +200,7 @@ export function TransactionHistory({
     : orderedTransactions;
   const filteredTransactions =
     queueFilter && !showReviewed ? remainingTransactions : orderedTransactions;
-  const grouped = groupTransactionViews(filteredTransactions);
+  const grouped = groupTransactionViews(filteredTransactions, currentSafeNonce);
   const searching = query.trim().length > 0;
   const filtering = searching || reviewFilter !== "all";
   const reviewFilterCounts = Object.fromEntries(
@@ -442,47 +450,58 @@ export function TransactionHistory({
             <p>
               {filtering
                 ? "Try another search or review-priority filter."
-                : "Executed, failed, and replaced activity will appear here after synchronization."}
+                : "Executed, failed, replaced, and superseded activity will appear here after synchronization."}
             </p>
           </div>
         ) : (
           <div className="history-list">
-            {grouped.history.map((transaction) => (
-              <Link
-                className={
-                  "history-row" +
-                  (isReviewed(transaction) ? " review-completed" : "")
-                }
-                href={transactionHref(transaction)}
-                key={transaction.safeTxHash}
-              >
-                <span className={`tx-status tx-${transaction.status}`}>
-                  {transaction.status}
-                </span>
-                <div>
-                  <TransactionSummary
-                    addressBook={addressBook}
-                    chainId={chainId}
-                    transaction={transaction}
-                  />
-                  {isReviewed(transaction) ? (
-                    <em className="review-complete-badge">Reviewed locally</em>
-                  ) : null}
-                  <span>
-                    {transaction.confirmations.length}/{threshold} confirmations
-                    reported
-                  </span>
-                </div>
-                <time
-                  dateTime={new Date(
-                    transaction.proposedAt * 1_000,
-                  ).toISOString()}
+            {grouped.history.map((transaction) => {
+              const lifecycleStatus = transactionLifecycleStatus(
+                transaction,
+                currentSafeNonce,
+              );
+              return (
+                <Link
+                  className={
+                    "history-row" +
+                    (isReviewed(transaction) ? " review-completed" : "")
+                  }
+                  href={transactionHref(transaction)}
+                  key={transaction.safeTxHash}
                 >
-                  {formatDate(transaction.proposedAt)}
-                </time>
-                <span aria-hidden="true">→</span>
-              </Link>
-            ))}
+                  <span className={`tx-status tx-${lifecycleStatus}`}>
+                    {lifecycleStatus}
+                  </span>
+                  <div>
+                    <TransactionSummary
+                      addressBook={addressBook}
+                      chainId={chainId}
+                      transaction={transaction}
+                    />
+                    {isReviewed(transaction) ? (
+                      <em className="review-complete-badge">
+                        Reviewed locally
+                      </em>
+                    ) : null}
+                    <span>
+                      {lifecycleStatus === "superseded"
+                        ? `Nonce ${transaction.nonce} was already consumed · `
+                        : ""}
+                      {transaction.confirmations.length}/{threshold}{" "}
+                      confirmations reported
+                    </span>
+                  </div>
+                  <time
+                    dateTime={new Date(
+                      transaction.proposedAt * 1_000,
+                    ).toISOString()}
+                  >
+                    {formatDate(transaction.proposedAt)}
+                  </time>
+                  <span aria-hidden="true">→</span>
+                </Link>
+              );
+            })}
           </div>
         )}
 

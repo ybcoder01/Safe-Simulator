@@ -66,6 +66,24 @@ export interface TransactionView {
   readonly analysis: TransactionAnalysisView | null;
 }
 
+export type TransactionLifecycleStatus =
+  | TransactionView["status"]
+  | "superseded";
+
+export function transactionLifecycleStatus(
+  transaction: Pick<TransactionView, "nonce" | "status">,
+  currentSafeNonce: string,
+): TransactionLifecycleStatus {
+  if (
+    transaction.status === "pending" &&
+    BigInt(transaction.nonce) < BigInt(currentSafeNonce)
+  ) {
+    return "superseded";
+  }
+
+  return transaction.status;
+}
+
 export type TransactionReviewFilter =
   | "all"
   | "attention"
@@ -128,6 +146,7 @@ export function transactionMatchesSearch(
   transaction: TransactionView,
   query: string,
   targetLabel: string | null = null,
+  currentSafeNonce: string | null = null,
 ): boolean {
   const normalized = query.trim().toLowerCase();
   if (!normalized) return true;
@@ -139,6 +158,9 @@ export function transactionMatchesSearch(
     transaction.to,
     transaction.summary,
     transaction.status,
+    currentSafeNonce
+      ? transactionLifecycleStatus(transaction, currentSafeNonce)
+      : null,
     transaction.operation,
     transaction.analysis?.baselineVerdict,
     transaction.activity.label,
@@ -154,12 +176,16 @@ export interface TransactionGroups {
 
 export function groupTransactionViews(
   transactions: readonly TransactionView[],
+  currentSafeNonce: string | null = null,
 ): TransactionGroups {
   const pending: TransactionView[] = [];
   const history: TransactionView[] = [];
 
   for (const transaction of transactions) {
-    if (transaction.status === "pending") {
+    const lifecycleStatus = currentSafeNonce
+      ? transactionLifecycleStatus(transaction, currentSafeNonce)
+      : transaction.status;
+    if (lifecycleStatus === "pending") {
       pending.push(transaction);
     } else {
       history.push(transaction);

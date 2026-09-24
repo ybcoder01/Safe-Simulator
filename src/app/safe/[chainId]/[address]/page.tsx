@@ -408,6 +408,7 @@ export default async function SafeDashboardPage({
           address={safe.address}
           addressBook={addressBook}
           chainId={safe.chainId}
+          currentSafeNonce={safe.nonce.toString()}
           initialTransactions={transactions}
           initialReviewFilter={reviewFilter.success ? reviewFilter.data : "all"}
           nextCursor={page.nextCursor}
