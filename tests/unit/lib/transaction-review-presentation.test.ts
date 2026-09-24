@@ -120,6 +120,9 @@ describe("transaction review presentation", () => {
 
     expect(result.targetType).toBe("Wallet address");
     expect(result.actionSummary).toBe("Send 12 wei to a wallet address");
+    expect(result.targetExplanation).toContain(
+      "This is a wallet, not a smart contract.",
+    );
   });
 
   it("never turns missing evidence green even without findings", () => {
