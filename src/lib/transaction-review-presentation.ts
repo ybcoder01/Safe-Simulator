@@ -57,7 +57,7 @@ function targetPresentation(
     return {
       targetType: "Wallet address",
       targetExplanation:
-        "This address has no deployed contract code at the checked block. It can receive assets but does not run smart-contract code.",
+        "This is a wallet, not a smart contract. It can receive assets but cannot run programmed contract actions.",
     };
   }
 
@@ -66,19 +66,19 @@ function targetPresentation(
       ? {
           targetType: "Verified smart contract",
           targetExplanation:
-            "This address runs smart-contract code and its published source or ABI was independently verified.",
+            "This is a smart contract. Its published code or interface was independently verified.",
         }
       : {
           targetType: "Unverified smart contract",
           targetExplanation:
-            "This address runs smart-contract code, but its source could not be independently verified. Review it before proceeding.",
+            "This is a smart contract, but its published code could not be verified. Confirm the address with the protocol before continuing.",
         };
   }
 
   return {
     targetType: "Unknown address type",
     targetExplanation:
-      "The chain provider did not return enough bytecode evidence to determine whether this is a wallet or smart contract.",
+      "We could not determine whether this address is a wallet or a smart contract. Do not continue until you verify it independently.",
   };
 }
 
