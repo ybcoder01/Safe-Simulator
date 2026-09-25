@@ -308,6 +308,15 @@ export interface SyncCursor {
   readonly updatedAt: UnixTime;
 }
 
+export interface TelegramSubscription {
+  readonly id: string;
+  readonly profileId: string;
+  readonly safe: SafeRef;
+  readonly chatId: string;
+  readonly enabled: boolean;
+  readonly createdAt: UnixTime;
+}
+
 export type QueueJob =
   | { readonly type: "sync-sweep"; readonly cursor: string | null }
   | {
@@ -329,6 +338,16 @@ export type QueueJob =
       readonly type: "analyze-module";
       readonly safe: SafeRef;
       readonly transactionHash: Hex;
+    }
+  | {
+      readonly type: "telegram-watch";
+      readonly safe: SafeRef;
+    }
+  | {
+      readonly type: "telegram-alert";
+      readonly safe: SafeRef;
+      readonly safeTxHash: Hex;
+      readonly attempt: number;
     }
   | {
       readonly type: "reanalyze";

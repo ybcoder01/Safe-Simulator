@@ -11,6 +11,7 @@ import { TokenIdentity } from "@/components/shared/token-identity";
 import { SyncRefreshControl } from "@/components/safes/sync-refresh-control";
 import { TransactionHistory } from "@/components/safes/transaction-history";
 import { TransferActivity } from "@/components/safes/transfer-activity";
+import { TelegramAlertsCard } from "@/components/safes/telegram-alerts-card";
 import {
   getCachePort,
   getChainPort,
@@ -100,6 +101,7 @@ export default async function SafeDashboardPage({
     addressBook,
     analysisCoverage,
     moduleAnalysisCoverage,
+    telegramSubscription,
   ] = await Promise.all([
     resolveSyncSummary(persistence, safe),
     persistence.listTransactions(safe, null, 25),
@@ -115,6 +117,9 @@ export default async function SafeDashboardPage({
       : Promise.resolve([]),
     persistence.getAnalysisCoverage(safe, TRANSACTION_ANALYSIS_ENGINE_VERSION),
     persistence.getModuleAnalysisCoverage(safe, MODULE_ANALYSIS_ENGINE_VERSION),
+    profileId
+      ? persistence.findTelegramSubscription(profileId, safe)
+      : Promise.resolve(null),
   ]);
   const [transactions, moduleAnalyses, transferViews] = await Promise.all([
     resolveTransactionViews(persistence, safe, page.items),
@@ -403,6 +408,12 @@ export default async function SafeDashboardPage({
             Simulate a draft
           </Link>
         </section>
+
+        <TelegramAlertsCard
+          address={safe.address}
+          chainId={safe.chainId}
+          enabled={telegramSubscription !== null}
+        />
 
         <TransactionHistory
           address={safe.address}

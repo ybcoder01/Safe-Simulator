@@ -8,6 +8,7 @@ import { HostedReadinessAdapter } from "@/adapters/health-hosted/readiness";
 import { QStashQueueAdapter } from "@/adapters/queue-qstash/queue";
 import { SafeApiAdapter } from "@/adapters/safe-api/safe-data";
 import { RpcSimulationAdapter } from "@/adapters/simulator-rpc/simulation";
+import { TelegramBotAdapter } from "@/adapters/telegram-bot/client";
 import { ImportSafeService } from "@/core/safes/import-safe";
 
 let abi: PublicAbiAdapter | null = null;
@@ -19,6 +20,7 @@ let readiness: HostedReadinessAdapter | null = null;
 let rateLimit: UpstashRateLimitAdapter | null = null;
 let safeData: SafeApiAdapter | null = null;
 let simulation: RpcSimulationAdapter | null = null;
+let telegram: TelegramBotAdapter | null = null;
 
 export function getChainPort() {
   chain ??= new ViemChainAdapter();
@@ -63,6 +65,11 @@ export function getSafeDataPort() {
 export function getSimulationPort() {
   simulation ??= new RpcSimulationAdapter();
   return simulation;
+}
+
+export function getTelegramDeliveryPort() {
+  telegram ??= new TelegramBotAdapter();
+  return telegram;
 }
 
 export function getImportSafeService() {

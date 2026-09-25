@@ -3699,6 +3699,51 @@ select {
   line-height: 1.6;
 }
 
+.telegram-alerts-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  margin: 1.5rem 0;
+  border: 1px solid rgba(83, 169, 235, 0.38);
+  border-radius: 1rem;
+  background: linear-gradient(135deg, rgba(83, 169, 235, 0.1), transparent);
+  padding: 1.25rem 1.4rem;
+}
+
+.telegram-alerts-card > div:first-child {
+  display: grid;
+  gap: 0.7rem;
+  max-width: 46rem;
+}
+
+.telegram-alerts-card h2,
+.telegram-alerts-card p {
+  margin: 0;
+}
+
+.telegram-alerts-card > div:first-child > p:not(.eyebrow),
+.telegram-alerts-action p {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.telegram-alerts-note {
+  font-size: 0.84rem;
+}
+
+.telegram-alerts-action {
+  display: grid;
+  gap: 0.65rem;
+  min-width: 12rem;
+  text-align: center;
+}
+
+.telegram-alerts-enabled {
+  color: var(--green);
+  font-weight: 700;
+}
+
 .simulation-page {
   width: min(68rem, 100%);
   margin: 0 auto;
@@ -4147,6 +4192,7 @@ select {
 
 @media (max-width: 560px) {
   .draft-simulation-cta,
+  .telegram-alerts-card,
   .simulation-result-heading {
     display: grid;
   }

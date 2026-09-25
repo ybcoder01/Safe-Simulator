@@ -30,6 +30,12 @@ export const SAFE_REFRESH_RATE_LIMIT: RateLimitPolicy = {
   windowSeconds: 15 * 60,
 };
 
+export const TELEGRAM_LINK_RATE_LIMIT: RateLimitPolicy = {
+  scope: "telegram-link",
+  limit: 6,
+  windowSeconds: 15 * 60,
+};
+
 export const TRANSACTION_SUMMARY_RATE_LIMIT: RateLimitPolicy = {
   scope: "transaction-summary",
   limit: 5,

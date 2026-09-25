@@ -1,6 +1,8 @@
 import { getAddress } from "viem";
 import { z } from "zod";
 
+import type { Hex } from "@/core/domain";
+
 const safeRefSchema = z.object({
   chainId: z.number().int().positive(),
   address: z
@@ -24,12 +26,28 @@ export const queueJobSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("analyze"),
     safe: safeRefSchema,
-    safeTxHash: z.string().regex(/^0x[0-9a-fA-F]{64}$/),
+    safeTxHash: z
+      .string()
+      .regex(/^0x[0-9a-fA-F]{64}$/)
+      .transform((value) => value as Hex),
   }),
   z.object({
     type: z.literal("analyze-module"),
     safe: safeRefSchema,
     transactionHash: z.string().regex(/^0x[0-9a-fA-F]{64}$/),
+  }),
+  z.object({
+    type: z.literal("telegram-watch"),
+    safe: safeRefSchema,
+  }),
+  z.object({
+    type: z.literal("telegram-alert"),
+    safe: safeRefSchema,
+    safeTxHash: z
+      .string()
+      .regex(/^0x[0-9a-fA-F]{64}$/)
+      .transform((value) => value as Hex),
+    attempt: z.number().int().min(0).max(5),
   }),
   z.object({
     type: z.literal("reanalyze"),

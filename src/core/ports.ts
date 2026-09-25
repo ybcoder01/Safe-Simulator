@@ -20,6 +20,7 @@ import type {
   SimulationOutput,
   StorageOverride,
   SyncCursor,
+  TelegramSubscription,
   TokenBalance,
   TransferRecord,
   TransactionSummaryRecord,
@@ -236,6 +237,35 @@ export interface PersistencePort {
     safe: SafeRef,
     address: Address,
   ): Promise<void>;
+  createTelegramLinkToken(input: {
+    readonly tokenHash: string;
+    readonly profileId: string;
+    readonly safe: SafeRef;
+    readonly expiresAt: number;
+  }): Promise<void>;
+  consumeTelegramLinkToken(
+    tokenHash: string,
+    chatId: string,
+    now: number,
+  ): Promise<TelegramSubscription | null>;
+  findTelegramSubscription(
+    profileId: string,
+    safe: SafeRef,
+  ): Promise<TelegramSubscription | null>;
+  listTelegramSubscriptions(
+    safe: SafeRef,
+  ): Promise<readonly TelegramSubscription[]>;
+  listTelegramSubscriptionsForChat(
+    chatId: string,
+  ): Promise<readonly TelegramSubscription[]>;
+  disableTelegramSubscriptionsForChat(chatId: string): Promise<number>;
+  claimTelegramDelivery(
+    subscriptionId: string,
+    safeTxHash: Hex,
+    eventKey: string,
+  ): Promise<string | null>;
+  completeTelegramDelivery(deliveryId: string, sentAt: number): Promise<void>;
+  releaseTelegramDelivery(deliveryId: string): Promise<void>;
 }
 
 export interface CachePort {
@@ -271,4 +301,12 @@ export interface QueuePort {
     job: QueueJob,
     options: { idempotencyKey: string; delaySeconds?: number },
   ): Promise<{ jobId: string }>;
+}
+
+export interface TelegramDeliveryPort {
+  sendMessage(input: {
+    readonly chatId: string;
+    readonly text: string;
+    readonly reportUrl?: string;
+  }): Promise<void>;
 }

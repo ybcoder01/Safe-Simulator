@@ -51,6 +51,10 @@ export const transactionSummaryStatusEnum = pgEnum(
   "transaction_summary_status",
   ["pending", "complete", "failed"],
 );
+export const telegramDeliveryStatusEnum = pgEnum("telegram_delivery_status", [
+  "pending",
+  "sent",
+]);
 
 export const safes = pgTable(
   "safes",
@@ -112,6 +116,50 @@ export const profileSafes = pgTable(
     createdAt,
   },
   (table) => [primaryKey({ columns: [table.profileId, table.safeId] })],
+);
+
+export const telegramLinkTokens = pgTable(
+  "telegram_link_tokens",
+  {
+    tokenHash: varchar("token_hash", { length: 64 }).primaryKey(),
+    profileId: uuid("profile_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
+    safeId: uuid("safe_id")
+      .notNull()
+      .references(() => safes.id, { onDelete: "cascade" }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    createdAt,
+  },
+  (table) => [index("telegram_link_tokens_expiry_idx").on(table.expiresAt)],
+);
+
+export const telegramSubscriptions = pgTable(
+  "telegram_subscriptions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    profileId: uuid("profile_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
+    safeId: uuid("safe_id")
+      .notNull()
+      .references(() => safes.id, { onDelete: "cascade" }),
+    chatId: text("chat_id").notNull(),
+    enabled: boolean("enabled").notNull().default(true),
+    createdAt,
+  },
+  (table) => [
+    uniqueIndex("telegram_subscriptions_profile_safe_chat_unique").on(
+      table.profileId,
+      table.safeId,
+      table.chatId,
+    ),
+    index("telegram_subscriptions_safe_enabled_idx").on(
+      table.safeId,
+      table.enabled,
+    ),
+  ],
 );
 
 export const transactions = pgTable(
@@ -410,6 +458,27 @@ export const transactionSummaries = pgTable(
       table.model,
       table.status,
       table.createdAt,
+    ),
+  ],
+);
+
+export const telegramDeliveries = pgTable(
+  "telegram_deliveries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    subscriptionId: uuid("subscription_id")
+      .notNull()
+      .references(() => telegramSubscriptions.id, { onDelete: "cascade" }),
+    safeTxHash: varchar("safe_tx_hash", { length: 66 }).notNull(),
+    eventKey: text("event_key").notNull(),
+    status: telegramDeliveryStatusEnum("status").notNull().default("pending"),
+    createdAt,
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("telegram_deliveries_subscription_event_unique").on(
+      table.subscriptionId,
+      table.eventKey,
     ),
   ],
 );
