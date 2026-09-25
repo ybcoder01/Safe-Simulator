@@ -6,6 +6,7 @@ import type {
   Address,
   AnalysisResult,
   Hex,
+  SafeSnapshot,
   SafeTransaction,
 } from "../../../../src/core/domain";
 import {
@@ -22,8 +23,25 @@ const safe = {
 const hash = `0x${"a".repeat(64)}` as Hex;
 const owner = "0x2222222222222222222222222222222222222222" as Address;
 const spender = "0x3333333333333333333333333333333333333333" as Address;
+const secondOwner = "0x5555555555555555555555555555555555555555" as Address;
+const thirdOwner = "0x6666666666666666666666666666666666666666" as Address;
 
-function transaction(confirmations = 1): SafeTransaction {
+const currentSnapshot: SafeSnapshot = {
+  ...safe,
+  owners: [owner, secondOwner, thirdOwner],
+  threshold: 2,
+  nonce: 9n,
+  version: "1.4.1",
+  guard: null,
+  modules: [],
+  implementation: null,
+  observedAt: 300,
+};
+
+function transaction(
+  confirmations = 1,
+  overrides: Partial<SafeTransaction> = {},
+): SafeTransaction {
   return {
     safe,
     safeTxHash: hash,
@@ -41,6 +59,7 @@ function transaction(confirmations = 1): SafeTransaction {
     executedTxHash: null,
     blockNumber: null,
     blockHash: null,
+    ...overrides,
   };
 }
 
@@ -86,10 +105,12 @@ describe("Telegram transaction alerts", () => {
 
   it("does not alert on an old zero-signature proposal but keeps watching", async () => {
     const enqueue = vi.fn().mockResolvedValue({ jobId: "job" });
+    const upsertSafe = vi.fn().mockResolvedValue(undefined);
     const upsertTransactions = vi.fn().mockResolvedValue(undefined);
     const result = await runTelegramWatchJob(
       { type: "telegram-watch", safe },
       {
+        chain: { getSafeSnapshot: vi.fn().mockResolvedValue(currentSnapshot) },
         persistence: {
           listTelegramSubscriptions: vi.fn().mockResolvedValue([
             {
@@ -102,6 +123,7 @@ describe("Telegram transaction alerts", () => {
             },
           ]),
           findTransaction: vi.fn().mockResolvedValue(null),
+          upsertSafe,
           upsertTransactions,
         },
         queue: { enqueue },
@@ -117,6 +139,7 @@ describe("Telegram transaction alerts", () => {
     );
 
     expect(result).toEqual({ status: "watching", changes: 0 });
+    expect(upsertSafe).toHaveBeenCalledWith(currentSnapshot);
     expect(upsertTransactions).toHaveBeenCalledOnce();
     expect(enqueue).toHaveBeenCalledOnce();
     expect(enqueue.mock.calls[0]?.[0]).toEqual({
@@ -137,6 +160,7 @@ describe("Telegram transaction alerts", () => {
         .toString("base64"),
     });
     const saveTelegramAlertReceipt = vi.fn().mockResolvedValue(undefined);
+    const upsertSafe = vi.fn().mockResolvedValue(undefined);
     const sendMessage = vi.fn().mockResolvedValue(undefined);
     const completeTelegramDelivery = vi.fn().mockResolvedValue(undefined);
 
@@ -149,6 +173,9 @@ describe("Telegram transaction alerts", () => {
           attempt: 0,
         },
         {
+          chain: {
+            getSafeSnapshot: vi.fn().mockResolvedValue(currentSnapshot),
+          },
           persistence: {
             findTransaction: vi.fn().mockResolvedValue(transaction()),
             findSafe: vi.fn().mockResolvedValue({
@@ -177,6 +204,7 @@ describe("Telegram transaction alerts", () => {
             saveTelegramAlertReceipt,
             completeTelegramDelivery,
             releaseTelegramDelivery: vi.fn().mockResolvedValue(undefined),
+            upsertSafe,
           },
           queue: { enqueue: vi.fn().mockResolvedValue({ jobId: "job" }) },
           telegram: { sendMessage },
@@ -189,6 +217,8 @@ describe("Telegram transaction alerts", () => {
       expect(saveTelegramAlertReceipt).toHaveBeenCalledOnce();
       const receipt = saveTelegramAlertReceipt.mock.calls[0]?.[1];
       expect(receipt.payload.safeTxHash).toBe(hash);
+      expect(receipt.payload.threshold).toBe(2);
+      expect(upsertSafe).toHaveBeenCalledWith(currentSnapshot);
       expect(sendMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           chatId: "chat",
@@ -206,5 +236,60 @@ describe("Telegram transaction alerts", () => {
       delete process.env.ALERT_SIGNING_PUBLIC_KEYS;
       delete process.env.ALERT_SIGNING_KEY_ID;
     }
+  });
+
+  it("uses the pre-execution threshold for an executed transaction", async () => {
+    const historicalSnapshot: SafeSnapshot = {
+      ...currentSnapshot,
+      owners: [owner],
+      threshold: 1,
+      nonce: 8n,
+      observedAt: 200,
+    };
+    const getSafeSnapshot = vi
+      .fn()
+      .mockResolvedValueOnce(currentSnapshot)
+      .mockResolvedValueOnce(historicalSnapshot);
+    const upsertSafe = vi.fn().mockResolvedValue(undefined);
+
+    const result = await runTelegramAlertJob(
+      {
+        type: "telegram-alert",
+        safe,
+        safeTxHash: hash,
+        attempt: 0,
+      },
+      {
+        chain: { getSafeSnapshot },
+        persistence: {
+          findTransaction: vi.fn().mockResolvedValue(
+            transaction(1, {
+              status: "executed",
+              executedAt: 250,
+              executedTxHash: `0x${"b".repeat(64)}` as Hex,
+              blockNumber: 100n,
+              blockHash: `0x${"c".repeat(64)}` as Hex,
+            }),
+          ),
+          findSafe: vi.fn().mockResolvedValue(currentSnapshot),
+          findAnalysis: vi.fn().mockResolvedValue(analysis),
+          listTelegramSubscriptions: vi.fn().mockResolvedValue([]),
+          claimTelegramDelivery: vi.fn(),
+          saveTelegramAlertReceipt: vi.fn(),
+          completeTelegramDelivery: vi.fn(),
+          releaseTelegramDelivery: vi.fn(),
+          upsertSafe,
+        },
+        queue: { enqueue: vi.fn() },
+        telegram: { sendMessage: vi.fn() },
+        now: () => 300,
+        appUrl: "https://safe.example",
+      },
+    );
+
+    expect(result).toEqual({ status: "complete", sent: 0 });
+    expect(getSafeSnapshot).toHaveBeenNthCalledWith(1, safe);
+    expect(getSafeSnapshot).toHaveBeenNthCalledWith(2, safe, 99n);
+    expect(upsertSafe).toHaveBeenCalledWith(currentSnapshot);
   });
 });
