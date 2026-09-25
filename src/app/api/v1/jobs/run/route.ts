@@ -10,6 +10,7 @@ import {
   getTelegramDeliveryPort,
 } from "@/container";
 import { enqueueSafeSync, runBackfillPage } from "@/core/ingestion/backfill";
+import { refreshSafeSnapshot } from "@/core/ingestion/safe-snapshot";
 import { runSyncSweep } from "@/core/ingestion/sweep";
 import { runAnalyzeJob } from "@/lib/api/analysis-job";
 import { TRANSACTION_ANALYSIS_ENGINE_VERSION } from "@/lib/api/analysis-version";
@@ -81,6 +82,10 @@ export async function POST(request: Request) {
         await runSyncSweep(job, { persistence, queue, now }),
       );
     case "incremental-sync":
+      await refreshSafeSnapshot(job.safe, {
+        chain: getChainPort(),
+        persistence,
+      });
       await enqueueSafeSync(job.safe, queue, job.runId);
       return Response.json({ scheduled: 4 });
     case "analyze":
@@ -109,6 +114,7 @@ export async function POST(request: Request) {
     case "telegram-watch":
       return Response.json(
         await runTelegramWatchJob(job, {
+          chain: getChainPort(),
           persistence,
           queue,
           safeData: getSafeDataPort(),
@@ -118,6 +124,7 @@ export async function POST(request: Request) {
     case "telegram-alert":
       return Response.json(
         await runTelegramAlertJob(job, {
+          chain: getChainPort(),
           persistence,
           queue,
           telegram: getTelegramDeliveryPort(),

@@ -9,11 +9,13 @@ import type {
   Verdict,
 } from "@/core/domain";
 import type {
+  ChainPort,
   PersistencePort,
   QueuePort,
   SafeDataPort,
   TelegramDeliveryPort,
 } from "@/core/ports";
+import { refreshSafeSnapshot } from "@/core/ingestion/safe-snapshot";
 import { TRANSACTION_ANALYSIS_ENGINE_VERSION } from "@/lib/api/analysis-version";
 import { createTelegramAlertReceipt } from "@/lib/api/telegram-alert-receipts";
 
@@ -26,9 +28,13 @@ type WatchJob = Extract<QueueJob, { type: "telegram-watch" }>;
 type AlertJob = Extract<QueueJob, { type: "telegram-alert" }>;
 
 interface WatchPorts {
+  readonly chain: Pick<ChainPort, "getSafeSnapshot">;
   readonly persistence: Pick<
     PersistencePort,
-    "findTransaction" | "listTelegramSubscriptions" | "upsertTransactions"
+    | "findTransaction"
+    | "listTelegramSubscriptions"
+    | "upsertSafe"
+    | "upsertTransactions"
   >;
   readonly queue: QueuePort;
   readonly safeData: Pick<SafeDataPort, "listMultisigTransactions">;
@@ -36,6 +42,7 @@ interface WatchPorts {
 }
 
 interface AlertPorts {
+  readonly chain: Pick<ChainPort, "getSafeSnapshot">;
   readonly persistence: Pick<
     PersistencePort,
     | "claimTelegramDelivery"
@@ -46,6 +53,7 @@ interface AlertPorts {
     | "listTelegramSubscriptions"
     | "releaseTelegramDelivery"
     | "saveTelegramAlertReceipt"
+    | "upsertSafe"
   >;
   readonly queue: QueuePort;
   readonly telegram: TelegramDeliveryPort;
@@ -86,6 +94,8 @@ export async function runTelegramWatchJob(job: WatchJob, ports: WatchPorts) {
     job.safe,
   );
   if (subscriptions.length === 0) return { status: "stopped", changes: 0 };
+
+  await refreshSafeSnapshot(job.safe, ports);
 
   const page = await ports.safeData.listMultisigTransactions(
     job.safe,
@@ -306,6 +316,14 @@ export async function runTelegramAlertJob(job: AlertJob, ports: AlertPorts) {
     return { status: "waiting_for_analysis", attempt: nextAttempt };
   }
 
+  const currentSafe = await refreshSafeSnapshot(job.safe, ports);
+  const alertSafe =
+    transaction.blockNumber !== null && transaction.blockNumber > 0n
+      ? await ports.chain
+          .getSafeSnapshot(job.safe, transaction.blockNumber - 1n)
+          .catch(() => safe)
+      : currentSafe;
+
   const subscriptions = await ports.persistence.listTelegramSubscriptions(
     job.safe,
   );
@@ -323,7 +341,7 @@ export async function runTelegramAlertJob(job: AlertJob, ports: AlertPorts) {
     try {
       const receipt = createTelegramAlertReceipt({
         transaction,
-        threshold: safe.threshold,
+        threshold: alertSafe.threshold,
         analysis,
         issuedAt: ports.now(),
       });
@@ -340,7 +358,7 @@ export async function runTelegramAlertJob(job: AlertJob, ports: AlertPorts) {
         chatId: subscription.chatId,
         text: formatTelegramAlert(
           transaction,
-          safe.threshold,
+          alertSafe.threshold,
           analysis,
           receipt.payload.verificationId,
           verificationPageUrl,
