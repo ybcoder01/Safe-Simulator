@@ -126,7 +126,12 @@ async function waitForSyncCompletion(pathname, after = null) {
       sync.completedStreams === 4 &&
       sync.totalStreams === 4 &&
       sync.lastFullSyncAt !== null &&
-      (after === null || sync.lastFullSyncAt >= after)
+      // The four queue workers can run on hosts whose clocks differ slightly.
+      // latestActivityAt is the same completion signal used by the product UI;
+      // lastFullSyncAt is the minimum worker timestamp and can be one second
+      // earlier than the API host's requestedAt value despite a complete run.
+      (after === null ||
+        (sync.latestActivityAt !== null && sync.latestActivityAt >= after))
     ) {
       return sync;
     }
