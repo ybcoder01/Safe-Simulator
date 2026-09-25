@@ -85,18 +85,16 @@ describe("Telegram transaction alerts", () => {
       { type: "telegram-watch", safe },
       {
         persistence: {
-          listTelegramSubscriptions: vi
-            .fn()
-            .mockResolvedValue([
-              {
-                id: "sub",
-                profileId: "p",
-                safe,
-                chatId: "1",
-                enabled: true,
-                createdAt: 200,
-              },
-            ]),
+          listTelegramSubscriptions: vi.fn().mockResolvedValue([
+            {
+              id: "sub",
+              profileId: "p",
+              safe,
+              chatId: "1",
+              enabled: true,
+              createdAt: 200,
+            },
+          ]),
           findTransaction: vi.fn().mockResolvedValue(null),
           upsertTransactions,
         },
