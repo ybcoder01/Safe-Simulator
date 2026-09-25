@@ -471,6 +471,11 @@ export const telegramDeliveries = pgTable(
       .references(() => telegramSubscriptions.id, { onDelete: "cascade" }),
     safeTxHash: varchar("safe_tx_hash", { length: 66 }).notNull(),
     eventKey: text("event_key").notNull(),
+    verificationId: varchar("verification_id", { length: 43 }),
+    receiptPayload: jsonb("receipt_payload"),
+    payloadDigest: varchar("payload_digest", { length: 64 }),
+    receiptSignature: text("receipt_signature"),
+    signingKeyId: varchar("signing_key_id", { length: 64 }),
     status: telegramDeliveryStatusEnum("status").notNull().default("pending"),
     createdAt,
     sentAt: timestamp("sent_at", { withTimezone: true }),
@@ -479,6 +484,9 @@ export const telegramDeliveries = pgTable(
     uniqueIndex("telegram_deliveries_subscription_event_unique").on(
       table.subscriptionId,
       table.eventKey,
+    ),
+    uniqueIndex("telegram_deliveries_verification_id_unique").on(
+      table.verificationId,
     ),
   ],
 );

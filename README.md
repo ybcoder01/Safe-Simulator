@@ -62,4 +62,8 @@ It runs formatting checks, linting, TypeScript, unit and regression tests with c
 
 See [docs/OPERATIONS.md](docs/OPERATIONS.md) for deployment verification, Safe refresh recovery, provider rotation, QStash key rotation, evidence-version changes, database precautions, rollback, and incident triage.
 
+See [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md) for the living product
+status, current production state, implemented capabilities, security boundaries,
+Telegram alert coverage, acceptance gates, and prioritized next work.
+
 The original architectural brief and staged implementation plan remain available in [INITIAL_Project_SCOPE.md](INITIAL_Project_SCOPE.md).

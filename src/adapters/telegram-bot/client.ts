@@ -31,7 +31,7 @@ export class TelegramBotAdapter implements TelegramDeliveryPort {
   async sendMessage(input: {
     readonly chatId: string;
     readonly text: string;
-    readonly reportUrl?: string;
+    readonly verificationUrl?: string;
   }): Promise<void> {
     const response = await this.fetcher(
       `https://api.telegram.org/bot${this.token}/sendMessage`,
@@ -42,11 +42,16 @@ export class TelegramBotAdapter implements TelegramDeliveryPort {
           chat_id: input.chatId,
           text: input.text,
           disable_web_page_preview: true,
-          ...(input.reportUrl
+          ...(input.verificationUrl
             ? {
                 reply_markup: {
                   inline_keyboard: [
-                    [{ text: "Open safety report", url: input.reportUrl }],
+                    [
+                      {
+                        text: "Verify this alert",
+                        url: input.verificationUrl,
+                      },
+                    ],
                   ],
                 },
               }

@@ -15,6 +15,7 @@ import type {
   TelegramDeliveryPort,
 } from "@/core/ports";
 import { TRANSACTION_ANALYSIS_ENGINE_VERSION } from "@/lib/api/analysis-version";
+import { createTelegramAlertReceipt } from "@/lib/api/telegram-alert-receipts";
 
 const WATCH_PAGE_SIZE = 50;
 const WATCH_INTERVAL_SECONDS = 60;
@@ -44,6 +45,7 @@ interface AlertPorts {
     | "findTransaction"
     | "listTelegramSubscriptions"
     | "releaseTelegramDelivery"
+    | "saveTelegramAlertReceipt"
   >;
   readonly queue: QueuePort;
   readonly telegram: TelegramDeliveryPort;
@@ -226,6 +228,8 @@ export function formatTelegramAlert(
   transaction: SafeTransaction,
   threshold: number,
   analysis: AnalysisResult | null,
+  verificationId?: string,
+  verificationPageUrl?: string,
 ): string {
   const verdict = analysis?.verdict ?? "unverified";
   const importantFindings = (analysis?.findings ?? [])
@@ -244,9 +248,15 @@ export function formatTelegramAlert(
     ...signerLines,
     "",
     actionLine(transaction),
+    `Nonce: ${transaction.nonce.toString()}`,
+    `Native value: ${transaction.value.toString()} wei`,
     `Target: ${transaction.to}`,
     `Operation: ${transaction.operation}`,
     `Safe transaction hash: ${transaction.safeTxHash}`,
+    ...(verificationId ? [`Alert verification ID: ${verificationId}`] : []),
+    ...(verificationPageUrl
+      ? [`Official verification page: ${verificationPageUrl}`]
+      : []),
     ...(importantFindings.length > 0
       ? [
           "",
@@ -265,7 +275,8 @@ export function formatTelegramAlert(
             "Independent analysis is not available yet. Do not rely on this alert alone.",
           ]),
     "",
-    "Verify the exact addresses in your signing wallet before approving.",
+    "Telegram is notification-only. Never sign because of this message.",
+    "Open Safe Inspector independently and verify this alert, then compare every address in your signing wallet.",
   ].join("\n");
 }
 
@@ -299,7 +310,6 @@ export async function runTelegramAlertJob(job: AlertJob, ports: AlertPorts) {
     job.safe,
   );
   const eventKey = telegramAlertEventKey(transaction, analysis);
-  const reportUrl = `${ports.appUrl}/safe/${job.safe.chainId}/${job.safe.address}/tx/${job.safeTxHash}`;
   let sent = 0;
   for (const subscription of subscriptions) {
     if (latestEventTime(transaction) + 5 < subscription.createdAt) continue;
@@ -309,16 +319,41 @@ export async function runTelegramAlertJob(job: AlertJob, ports: AlertPorts) {
       eventKey,
     );
     if (!deliveryId) continue;
+    let messageSent = false;
     try {
+      const receipt = createTelegramAlertReceipt({
+        transaction,
+        threshold: safe.threshold,
+        analysis,
+        issuedAt: ports.now(),
+      });
+      await ports.persistence.saveTelegramAlertReceipt(deliveryId, receipt);
+      const verificationUrl = new URL(
+        `/alerts/verify/${encodeURIComponent(receipt.payload.verificationId)}`,
+        ports.appUrl,
+      ).toString();
+      const verificationPageUrl = new URL(
+        "/alerts/verify",
+        ports.appUrl,
+      ).toString();
       await ports.telegram.sendMessage({
         chatId: subscription.chatId,
-        text: formatTelegramAlert(transaction, safe.threshold, analysis),
-        reportUrl,
+        text: formatTelegramAlert(
+          transaction,
+          safe.threshold,
+          analysis,
+          receipt.payload.verificationId,
+          verificationPageUrl,
+        ),
+        verificationUrl,
       });
+      messageSent = true;
       await ports.persistence.completeTelegramDelivery(deliveryId, ports.now());
       sent += 1;
     } catch (error) {
-      await ports.persistence.releaseTelegramDelivery(deliveryId);
+      if (!messageSent) {
+        await ports.persistence.releaseTelegramDelivery(deliveryId);
+      }
       throw error;
     }
   }
