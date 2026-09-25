@@ -317,6 +317,32 @@ export interface TelegramSubscription {
   readonly createdAt: UnixTime;
 }
 
+export interface TelegramAlertReceiptPayload {
+  readonly version: 1;
+  readonly verificationId: string;
+  readonly issuedAt: UnixTime;
+  readonly chainId: ChainId;
+  readonly safeAddress: Address;
+  readonly safeTxHash: Hex;
+  readonly nonce: string;
+  readonly target: Address;
+  readonly value: string;
+  readonly calldata: Hex;
+  readonly operation: Operation;
+  readonly status: TransactionStatus;
+  readonly signerAddresses: readonly Address[];
+  readonly threshold: number;
+  readonly verdict: Verdict;
+  readonly findingCodes: readonly string[];
+}
+
+export interface TelegramAlertReceipt {
+  readonly payload: TelegramAlertReceiptPayload;
+  readonly payloadDigest: string;
+  readonly signature: string;
+  readonly signingKeyId: string;
+}
+
 export type QueueJob =
   | { readonly type: "sync-sweep"; readonly cursor: string | null }
   | {

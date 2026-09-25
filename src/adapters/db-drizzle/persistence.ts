@@ -28,6 +28,8 @@ import type {
   SafeTransaction,
   SimulationOutput,
   SyncCursor,
+  TelegramAlertReceipt,
+  TelegramAlertReceiptPayload,
   TelegramSubscription,
   TransferRecord,
   TransactionSummaryRecord,
@@ -1571,6 +1573,51 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
       .update(telegramDeliveries)
       .set({ status: "sent", sentAt: asDate(sentAt) })
       .where(eq(telegramDeliveries.id, deliveryId));
+  }
+
+  async saveTelegramAlertReceipt(
+    deliveryId: string,
+    receipt: TelegramAlertReceipt,
+  ): Promise<void> {
+    await this.db
+      .update(telegramDeliveries)
+      .set({
+        verificationId: receipt.payload.verificationId,
+        receiptPayload: receipt.payload,
+        payloadDigest: receipt.payloadDigest,
+        receiptSignature: receipt.signature,
+        signingKeyId: receipt.signingKeyId,
+      })
+      .where(eq(telegramDeliveries.id, deliveryId));
+  }
+
+  async findTelegramAlertReceipt(
+    verificationId: string,
+  ): Promise<TelegramAlertReceipt | null> {
+    const [row] = await this.db
+      .select({
+        payload: telegramDeliveries.receiptPayload,
+        payloadDigest: telegramDeliveries.payloadDigest,
+        signature: telegramDeliveries.receiptSignature,
+        signingKeyId: telegramDeliveries.signingKeyId,
+      })
+      .from(telegramDeliveries)
+      .where(eq(telegramDeliveries.verificationId, verificationId))
+      .limit(1);
+    if (
+      !row?.payload ||
+      !row.payloadDigest ||
+      !row.signature ||
+      !row.signingKeyId
+    ) {
+      return null;
+    }
+    return {
+      payload: row.payload as TelegramAlertReceiptPayload,
+      payloadDigest: row.payloadDigest,
+      signature: row.signature,
+      signingKeyId: row.signingKeyId,
+    };
   }
 
   async releaseTelegramDelivery(deliveryId: string): Promise<void> {

@@ -20,6 +20,7 @@ import type {
   SimulationOutput,
   StorageOverride,
   SyncCursor,
+  TelegramAlertReceipt,
   TelegramSubscription,
   TokenBalance,
   TransferRecord,
@@ -265,6 +266,13 @@ export interface PersistencePort {
     eventKey: string,
   ): Promise<string | null>;
   completeTelegramDelivery(deliveryId: string, sentAt: number): Promise<void>;
+  saveTelegramAlertReceipt(
+    deliveryId: string,
+    receipt: TelegramAlertReceipt,
+  ): Promise<void>;
+  findTelegramAlertReceipt(
+    verificationId: string,
+  ): Promise<TelegramAlertReceipt | null>;
   releaseTelegramDelivery(deliveryId: string): Promise<void>;
 }
 
@@ -307,6 +315,6 @@ export interface TelegramDeliveryPort {
   sendMessage(input: {
     readonly chatId: string;
     readonly text: string;
-    readonly reportUrl?: string;
+    readonly verificationUrl?: string;
   }): Promise<void>;
 }

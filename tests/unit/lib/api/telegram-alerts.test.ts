@@ -1,3 +1,5 @@
+import { generateKeyPairSync } from "node:crypto";
+
 import { describe, expect, it, vi } from "vitest";
 
 import type {
@@ -8,6 +10,7 @@ import type {
 } from "../../../../src/core/domain";
 import {
   formatTelegramAlert,
+  runTelegramAlertJob,
   runTelegramWatchJob,
   telegramAlertEventKey,
 } from "../../../../src/lib/api/telegram-alerts";
@@ -68,6 +71,9 @@ describe("Telegram transaction alerts", () => {
     expect(text).toContain(owner.toLowerCase());
     expect(text).toContain(spender);
     expect(text).toContain("0x4444444444444444444444444444444444444444");
+    expect(text).toContain("Nonce: 8");
+    expect(text).toContain("Native value: 0 wei");
+    expect(text).toContain("Telegram is notification-only");
   });
 
   it("changes its delivery key when a signer or status changes", () => {
@@ -117,5 +123,88 @@ describe("Telegram transaction alerts", () => {
       type: "telegram-watch",
       safe,
     });
+  });
+
+  it("saves a signed receipt before sending a verification-only alert", async () => {
+    const { privateKey, publicKey } = generateKeyPairSync("ed25519");
+    process.env.ALERT_SIGNING_PRIVATE_KEY = privateKey
+      .export({ format: "der", type: "pkcs8" })
+      .toString("base64");
+    process.env.ALERT_SIGNING_KEY_ID = "test-key";
+    process.env.ALERT_SIGNING_PUBLIC_KEYS = JSON.stringify({
+      "test-key": publicKey
+        .export({ format: "der", type: "spki" })
+        .toString("base64"),
+    });
+    const saveTelegramAlertReceipt = vi.fn().mockResolvedValue(undefined);
+    const sendMessage = vi.fn().mockResolvedValue(undefined);
+    const completeTelegramDelivery = vi.fn().mockResolvedValue(undefined);
+
+    try {
+      const result = await runTelegramAlertJob(
+        {
+          type: "telegram-alert",
+          safe,
+          safeTxHash: hash,
+          attempt: 0,
+        },
+        {
+          persistence: {
+            findTransaction: vi.fn().mockResolvedValue(transaction()),
+            findSafe: vi.fn().mockResolvedValue({
+              ...safe,
+              owners: [owner],
+              threshold: 1,
+              nonce: 9n,
+              version: "1.4.1",
+              guard: null,
+              modules: [],
+              implementation: null,
+              observedAt: 100,
+            }),
+            findAnalysis: vi.fn().mockResolvedValue(analysis),
+            listTelegramSubscriptions: vi.fn().mockResolvedValue([
+              {
+                id: "subscription",
+                profileId: "profile",
+                safe,
+                chatId: "chat",
+                enabled: true,
+                createdAt: 50,
+              },
+            ]),
+            claimTelegramDelivery: vi.fn().mockResolvedValue("delivery"),
+            saveTelegramAlertReceipt,
+            completeTelegramDelivery,
+            releaseTelegramDelivery: vi.fn().mockResolvedValue(undefined),
+          },
+          queue: { enqueue: vi.fn().mockResolvedValue({ jobId: "job" }) },
+          telegram: { sendMessage },
+          now: () => 300,
+          appUrl: "https://safe.example",
+        },
+      );
+
+      expect(result).toEqual({ status: "complete", sent: 1 });
+      expect(saveTelegramAlertReceipt).toHaveBeenCalledOnce();
+      const receipt = saveTelegramAlertReceipt.mock.calls[0]?.[1];
+      expect(receipt.payload.safeTxHash).toBe(hash);
+      expect(sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          chatId: "chat",
+          verificationUrl: `https://safe.example/alerts/verify/${receipt.payload.verificationId}`,
+        }),
+      );
+      expect(saveTelegramAlertReceipt.mock.invocationCallOrder[0]).toBeLessThan(
+        sendMessage.mock.invocationCallOrder[0] ?? 0,
+      );
+      expect(sendMessage.mock.invocationCallOrder[0]).toBeLessThan(
+        completeTelegramDelivery.mock.invocationCallOrder[0] ?? 0,
+      );
+    } finally {
+      delete process.env.ALERT_SIGNING_PRIVATE_KEY;
+      delete process.env.ALERT_SIGNING_PUBLIC_KEYS;
+      delete process.env.ALERT_SIGNING_KEY_ID;
+    }
   });
 });

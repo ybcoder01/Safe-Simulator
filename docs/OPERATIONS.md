@@ -144,23 +144,46 @@ To configure it:
 2. Generate a separate high-entropy webhook secret.
 3. Add `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`, and
    `TELEGRAM_WEBHOOK_SECRET` as sensitive Vercel environment variables.
-4. Redeploy, then call Telegram's `setWebhook` Bot API method with the production
+4. Generate a separate Ed25519 signing key. Store its base64 PKCS8 private key
+   as secret `ALERT_SIGNING_PRIVATE_KEY`, set a dated `ALERT_SIGNING_KEY_ID`, and
+   put the matching base64 SPKI public key in the JSON object
+   `ALERT_SIGNING_PUBLIC_KEYS` under that key ID. Never reuse a Telegram key.
+5. Apply migration `0007_mean_wither.sql` before deploying code that creates
+   signed alert receipts.
+6. Redeploy, then call Telegram's `setWebhook` Bot API method with the production
    URL ending in `/api/v1/telegram/webhook` and pass the same value as
    `secret_token`.
-5. From a bookmarked Safe dashboard, select **Connect Telegram**, open the bot,
+7. From a bookmarked Safe dashboard, select **Connect Telegram**, open the bot,
    and press **Start**. Telegram bots cannot initiate a private conversation
    until the user starts it.
-6. Propose and sign a harmless test transaction. Confirm that Telegram reports
+8. Propose and sign a harmless test transaction. Confirm that Telegram reports
    the canonical target, operation, signer count, signer addresses, warnings,
-   and a link to the safety report.
-7. Add another signature and confirm exactly one new alert is delivered. Verify
-   that threshold-reached language appears when the proposal becomes executable.
+   verification ID, and official verification link.
+9. Open `/alerts/verify` from a trusted bookmark, enter the ID, and confirm the
+   signed receipt matches the Telegram alert and signing wallet.
+10. Add another signature and confirm exactly one new alert is delivered. Verify
+    that threshold-reached language appears when the proposal becomes executable.
 
 The webhook validates Telegram's secret header using constant-time comparison.
 Connection links expire after ten minutes, are single-use, and are stored only
 as SHA-256 hashes. Alert delivery is idempotent per subscriber and proposal
 state. `/stop` disables all subscriptions for that Telegram chat; `/safes`
 lists active subscriptions.
+
+Telegram is notification-only. The verification page confirms alert
+authenticity, not transaction safety, and never links to a signing action. Keep
+old entries in `ALERT_SIGNING_PUBLIC_KEYS` during signing-key rotation so
+historical receipts remain verifiable. First add the new public key, then deploy
+the new private key and active key ID; remove an old public key only after the
+receipt-retention period has expired.
+
+If the Telegram bot token may be compromised, revoke it with BotFather
+immediately, disable outbound alert jobs, preserve delivery logs, rotate the bot
+token and webhook secret, re-register the expected webhook, and notify
+subscribers through an independent channel. A bot-token rotation does not
+require rotating the alert-signing identity unless that separate key may also
+have been exposed. Do not tell users that an unverified Telegram message is
+safe merely because it came from the familiar bot account.
 
 The poller checks subscribed Safes once per minute through signed QStash jobs.
 If alerts stop, inspect the webhook response, QStash `telegram-watch` and

@@ -50,6 +50,13 @@
       "when": 1790326681541,
       "tag": "0006_melodic_living_mummy",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790334686541,
+      "tag": "0007_mean_wither",
+      "breakpoints": true
     }
   ]
 }
