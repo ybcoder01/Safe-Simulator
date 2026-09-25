@@ -43,6 +43,13 @@
       "when": 1788512400000,
       "tag": "0005_transaction_summaries",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790326681541,
+      "tag": "0006_melodic_living_mummy",
+      "breakpoints": true
     }
   ]
 }

@@ -28,6 +28,7 @@ import type {
   SafeTransaction,
   SimulationOutput,
   SyncCursor,
+  TelegramSubscription,
   TransferRecord,
   TransactionSummaryRecord,
 } from "@/core/domain";
@@ -50,6 +51,9 @@ import {
   safeOwners,
   safes,
   syncCursors,
+  telegramDeliveries,
+  telegramLinkTokens,
+  telegramSubscriptions,
   transactions,
   transactionSummaries,
 } from "./schema";
@@ -1389,5 +1393,189 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
           eq(profileAddressBook.address, lowerAddress(entryAddress)),
         ),
       );
+  }
+
+  private telegramSubscriptionFromRow(
+    row: typeof telegramSubscriptions.$inferSelect,
+    safe: SafeRef,
+  ): TelegramSubscription {
+    return {
+      id: row.id,
+      profileId: row.profileId,
+      safe,
+      chatId: row.chatId,
+      enabled: row.enabled,
+      createdAt: asUnixTime(row.createdAt),
+    };
+  }
+
+  async createTelegramLinkToken(input: {
+    readonly tokenHash: string;
+    readonly profileId: string;
+    readonly safe: SafeRef;
+    readonly expiresAt: number;
+  }): Promise<void> {
+    const safe = await this.requireSafeRow(input.safe);
+    await this.requireProfileBookmark(input.profileId, safe.id);
+    await this.db.insert(telegramLinkTokens).values({
+      tokenHash: input.tokenHash,
+      profileId: input.profileId,
+      safeId: safe.id,
+      expiresAt: asDate(input.expiresAt),
+    });
+  }
+
+  async consumeTelegramLinkToken(
+    tokenHash: string,
+    chatId: string,
+    now: number,
+  ): Promise<TelegramSubscription | null> {
+    return this.db.transaction(async (tx) => {
+      const [token] = await tx
+        .update(telegramLinkTokens)
+        .set({ consumedAt: asDate(now) })
+        .where(
+          and(
+            eq(telegramLinkTokens.tokenHash, tokenHash),
+            isNull(telegramLinkTokens.consumedAt),
+            gt(telegramLinkTokens.expiresAt, asDate(now)),
+          ),
+        )
+        .returning();
+      if (!token) return null;
+
+      const [safe] = await tx
+        .select()
+        .from(safes)
+        .where(eq(safes.id, token.safeId))
+        .limit(1);
+      if (!safe) return null;
+
+      const [subscription] = await tx
+        .insert(telegramSubscriptions)
+        .values({
+          profileId: token.profileId,
+          safeId: token.safeId,
+          chatId,
+        })
+        .onConflictDoUpdate({
+          target: [
+            telegramSubscriptions.profileId,
+            telegramSubscriptions.safeId,
+            telegramSubscriptions.chatId,
+          ],
+          set: { enabled: true, createdAt: asDate(now) },
+        })
+        .returning();
+      return subscription
+        ? this.telegramSubscriptionFromRow(subscription, {
+            chainId: safe.chainId,
+            address: safe.address as Address,
+          })
+        : null;
+    });
+  }
+
+  async findTelegramSubscription(
+    profileId: string,
+    safeRef: SafeRef,
+  ): Promise<TelegramSubscription | null> {
+    const safe = await this.findSafeRow(safeRef);
+    if (!safe) return null;
+    const [row] = await this.db
+      .select()
+      .from(telegramSubscriptions)
+      .where(
+        and(
+          eq(telegramSubscriptions.profileId, profileId),
+          eq(telegramSubscriptions.safeId, safe.id),
+          eq(telegramSubscriptions.enabled, true),
+        ),
+      )
+      .orderBy(desc(telegramSubscriptions.createdAt))
+      .limit(1);
+    return row ? this.telegramSubscriptionFromRow(row, safeRef) : null;
+  }
+
+  async listTelegramSubscriptions(
+    safeRef: SafeRef,
+  ): Promise<readonly TelegramSubscription[]> {
+    const safe = await this.findSafeRow(safeRef);
+    if (!safe) return [];
+    const rows = await this.db
+      .select()
+      .from(telegramSubscriptions)
+      .where(
+        and(
+          eq(telegramSubscriptions.safeId, safe.id),
+          eq(telegramSubscriptions.enabled, true),
+        ),
+      );
+    return rows.map((row) => this.telegramSubscriptionFromRow(row, safeRef));
+  }
+
+  async listTelegramSubscriptionsForChat(
+    chatId: string,
+  ): Promise<readonly TelegramSubscription[]> {
+    const rows = await this.db
+      .select({ subscription: telegramSubscriptions, safe: safes })
+      .from(telegramSubscriptions)
+      .innerJoin(safes, eq(telegramSubscriptions.safeId, safes.id))
+      .where(
+        and(
+          eq(telegramSubscriptions.chatId, chatId),
+          eq(telegramSubscriptions.enabled, true),
+        ),
+      )
+      .orderBy(desc(telegramSubscriptions.createdAt));
+    return rows.map(({ subscription, safe }) =>
+      this.telegramSubscriptionFromRow(subscription, {
+        chainId: safe.chainId,
+        address: safe.address as Address,
+      }),
+    );
+  }
+
+  async disableTelegramSubscriptionsForChat(chatId: string): Promise<number> {
+    const rows = await this.db
+      .update(telegramSubscriptions)
+      .set({ enabled: false })
+      .where(
+        and(
+          eq(telegramSubscriptions.chatId, chatId),
+          eq(telegramSubscriptions.enabled, true),
+        ),
+      )
+      .returning({ id: telegramSubscriptions.id });
+    return rows.length;
+  }
+
+  async claimTelegramDelivery(
+    subscriptionId: string,
+    safeTxHash: Hex,
+    eventKey: string,
+  ): Promise<string | null> {
+    const [row] = await this.db
+      .insert(telegramDeliveries)
+      .values({ subscriptionId, safeTxHash, eventKey })
+      .onConflictDoNothing()
+      .returning({ id: telegramDeliveries.id });
+    return row?.id ?? null;
+  }
+
+  async completeTelegramDelivery(
+    deliveryId: string,
+    sentAt: number,
+  ): Promise<void> {
+    await this.db
+      .update(telegramDeliveries)
+      .set({ status: "sent", sentAt: asDate(sentAt) })
+      .where(eq(telegramDeliveries.id, deliveryId));
+  }
+
+  async releaseTelegramDelivery(deliveryId: string): Promise<void> {
+    await this.db
+      .delete(telegramDeliveries)
+      .where(eq(telegramDeliveries.id, deliveryId));
   }
 }

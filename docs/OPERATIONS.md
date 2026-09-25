@@ -130,6 +130,44 @@ QStash verification uses both `QSTASH_CURRENT_SIGNING_KEY` and `QSTASH_NEXT_SIGN
 
 Keep `QSTASH_TOKEN`, callback signing keys, and `CRON_SECRET` distinct.
 
+## Telegram transaction alerts
+
+Telegram is an optional delivery channel. It does not sign, confirm, propose,
+relay, or execute Safe transactions. The bot independently reads public Safe
+Transaction Service data and the application's simulation evidence.
+
+To configure it:
+
+1. Create a bot with Telegram BotFather and record its username and token in a
+   password manager. Never paste the token into source, a pull request, logs,
+   screenshots, or support messages.
+2. Generate a separate high-entropy webhook secret.
+3. Add `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`, and
+   `TELEGRAM_WEBHOOK_SECRET` as sensitive Vercel environment variables.
+4. Redeploy, then call Telegram's `setWebhook` Bot API method with the production
+   URL ending in `/api/v1/telegram/webhook` and pass the same value as
+   `secret_token`.
+5. From a bookmarked Safe dashboard, select **Connect Telegram**, open the bot,
+   and press **Start**. Telegram bots cannot initiate a private conversation
+   until the user starts it.
+6. Propose and sign a harmless test transaction. Confirm that Telegram reports
+   the canonical target, operation, signer count, signer addresses, warnings,
+   and a link to the safety report.
+7. Add another signature and confirm exactly one new alert is delivered. Verify
+   that threshold-reached language appears when the proposal becomes executable.
+
+The webhook validates Telegram's secret header using constant-time comparison.
+Connection links expire after ten minutes, are single-use, and are stored only
+as SHA-256 hashes. Alert delivery is idempotent per subscriber and proposal
+state. `/stop` disables all subscriptions for that Telegram chat; `/safes`
+lists active subscriptions.
+
+The poller checks subscribed Safes once per minute through signed QStash jobs.
+If alerts stop, inspect the webhook response, QStash `telegram-watch` and
+`telegram-alert` deliveries, Telegram API errors, and the three Telegram
+environment variables. Never bypass webhook authentication or send alerts from
+an unsigned public job endpoint.
+
 ## Execution-evidence version changes
 
 The current execution namespace is defined by `EXECUTION_EVIDENCE_ENGINE_VERSION`. Evidence also includes its canonical block hash.

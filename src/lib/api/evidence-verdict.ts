@@ -103,6 +103,7 @@ export function resolveEvidenceVerdict(
         address: change.address,
         recognized: change.status === "named",
       })) ?? [],
+    safeConfigurationChanges: execution.safeConfigurationChanges,
     addressBook,
     registry: contractRegistryEntriesForChain(transaction.safe.chainId),
     callTrace: execution.coverage.callTrace,

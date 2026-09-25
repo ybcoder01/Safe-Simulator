@@ -7,6 +7,7 @@ import {
   getQueuePort,
   getSafeDataPort,
   getSimulationPort,
+  getTelegramDeliveryPort,
 } from "@/container";
 import { enqueueSafeSync, runBackfillPage } from "@/core/ingestion/backfill";
 import { runSyncSweep } from "@/core/ingestion/sweep";
@@ -17,6 +18,11 @@ import { MODULE_ANALYSIS_ENGINE_VERSION } from "@/lib/api/module-analysis";
 import { runAnalyzeModuleJob } from "@/lib/api/module-analysis-job";
 import { runModuleReanalysisPage } from "@/lib/api/module-reanalysis-job";
 import { runReanalysisPage } from "@/lib/api/reanalysis-job";
+import {
+  runTelegramAlertJob,
+  runTelegramWatchJob,
+} from "@/lib/api/telegram-alerts";
+import { applicationUrl } from "@/adapters/queue-qstash/queue";
 
 export async function POST(request: Request) {
   const rawBody = await request.text();
@@ -98,6 +104,25 @@ export async function POST(request: Request) {
           safeData: getSafeDataPort(),
           simulation: getSimulationPort(),
           now,
+        }),
+      );
+    case "telegram-watch":
+      return Response.json(
+        await runTelegramWatchJob(job, {
+          persistence,
+          queue,
+          safeData: getSafeDataPort(),
+          now,
+        }),
+      );
+    case "telegram-alert":
+      return Response.json(
+        await runTelegramAlertJob(job, {
+          persistence,
+          queue,
+          telegram: getTelegramDeliveryPort(),
+          now,
+          appUrl: applicationUrl(),
         }),
       );
     case "reanalyze":

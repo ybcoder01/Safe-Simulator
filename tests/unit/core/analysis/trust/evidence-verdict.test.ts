@@ -63,6 +63,45 @@ function input(
 }
 
 describe("evaluateEvidenceVerdict", () => {
+  it("treats Safe control changes as critical", () => {
+    const result = evaluateEvidenceVerdict(
+      input({
+        safeConfigurationChanges: [
+          {
+            field: "owner",
+            action: "added",
+            before: null,
+            after: spender,
+            logIndex: 1,
+            provenance: "safe-event",
+          },
+          {
+            field: "threshold",
+            action: "changed",
+            before: null,
+            after: "1",
+            logIndex: 2,
+            provenance: "safe-event",
+          },
+        ],
+      }),
+    );
+
+    expect(result.verdict).toBe("flagged");
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "safe-owner-change",
+          severity: "critical",
+        }),
+        expect.objectContaining({
+          code: "safe-threshold-change",
+          severity: "critical",
+        }),
+      ]),
+    );
+  });
+
   it("uses known rather than trusted when available evidence has no warning", () => {
     const result = evaluateEvidenceVerdict(input());
 

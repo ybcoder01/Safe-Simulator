@@ -8,6 +8,7 @@ import type {
   Verdict,
 } from "../../domain";
 import type { ContractRegistryEntry } from "./contract-registry";
+import type { SafeConfigurationChange } from "../safes/event-facts";
 
 export type DecodeConfidence = "verified" | "service" | "signature" | "raw";
 export type AddressRole =
@@ -71,6 +72,7 @@ export interface EvidenceVerdictInput {
     readonly address: Address;
     readonly recognized: boolean;
   }[];
+  readonly safeConfigurationChanges?: readonly SafeConfigurationChange[];
   readonly addressBook: readonly AddressBookEntry[];
   readonly registry?: readonly ContractRegistryEntry[];
   readonly callTrace: "complete" | "partial" | "root-only" | "unavailable";
@@ -272,6 +274,43 @@ export function evaluateEvidenceVerdict(
 ): EvidenceVerdict {
   const findings: Finding[] = [];
   const addresses = assessAddresses(input);
+
+  const configurationChanges = input.safeConfigurationChanges ?? [];
+  const configurationLabels: Record<SafeConfigurationChange["field"], string> =
+    {
+      owner: "Safe owner list",
+      threshold: "Safe signing threshold",
+      module: "Safe module access",
+      guard: "Safe guard",
+      "fallback-handler": "Safe fallback handler",
+      implementation: "Safe implementation",
+    };
+  for (const field of [
+    "owner",
+    "threshold",
+    "module",
+    "guard",
+    "fallback-handler",
+    "implementation",
+  ] as const) {
+    const changes = configurationChanges.filter(
+      (change) => change.field === field,
+    );
+    if (changes.length === 0) continue;
+    const involvedAddresses = changes
+      .flatMap((change) => [change.before, change.after])
+      .filter((value): value is Address =>
+        /^0x[0-9a-fA-F]{40}$/.test(value ?? ""),
+      );
+    findings.push({
+      code: `safe-${field}-change`,
+      severity: "critical",
+      title: `${configurationLabels[field]} will change`,
+      detail:
+        "This changes who can control or execute transactions from the Safe. Every signer should verify the exact new setting before approving.",
+      addresses: uniqueAddresses(involvedAddresses),
+    });
+  }
 
   if (input.operation === "delegatecall") {
     if (isExpectedSafeBatchDelegation(input)) {
