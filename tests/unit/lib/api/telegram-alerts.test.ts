@@ -149,6 +149,16 @@ describe("Telegram transaction alerts", () => {
     expect(telegramAlertEventKey(transaction(), analysis)).toBe(first);
   });
 
+  it("keeps delivery keys distinct across separate Safe transactions", () => {
+    const first = telegramAlertEventKey(transaction(), analysis);
+    const second = telegramAlertEventKey(
+      transaction(1, { safeTxHash: `0x${"b".repeat(64)}` as Hex }),
+      analysis,
+    );
+
+    expect(second).not.toBe(first);
+  });
+
   it("does not alert on an old zero-signature proposal but keeps watching", async () => {
     const enqueue = vi.fn().mockResolvedValue({ jobId: "job" });
     const upsertSafe = vi.fn().mockResolvedValue(undefined);
@@ -187,11 +197,7 @@ describe("Telegram transaction alerts", () => {
     expect(result).toEqual({ status: "watching", changes: 0 });
     expect(upsertSafe).toHaveBeenCalledWith(currentSnapshot);
     expect(upsertTransactions).toHaveBeenCalledOnce();
-    expect(enqueue).toHaveBeenCalledOnce();
-    expect(enqueue.mock.calls[0]?.[0]).toEqual({
-      type: "telegram-watch",
-      safe,
-    });
+    expect(enqueue).not.toHaveBeenCalled();
   });
 
   it("saves a signed receipt before sending a verification-only alert", async () => {

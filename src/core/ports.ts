@@ -311,6 +311,15 @@ export interface QueuePort {
   ): Promise<{ jobId: string }>;
 }
 
+export interface RecurringQueuePort extends QueuePort {
+  /** Creates or replaces a durable recurring job with a stable provider ID. */
+  schedule(
+    job: QueueJob,
+    options: { scheduleId: string; cron: string },
+  ): Promise<{ scheduleId: string }>;
+  deleteSchedule(scheduleId: string): Promise<void>;
+}
+
 export interface TelegramDeliveryPort {
   sendMessage(input: {
     readonly chatId: string;
