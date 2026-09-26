@@ -25,6 +25,12 @@ import {
 } from "@/lib/api/telegram-alerts";
 import { applicationUrl } from "@/adapters/queue-qstash/queue";
 
+function errorDetails(error: unknown) {
+  return error instanceof Error
+    ? { name: error.name, message: error.message, stack: error.stack }
+    : { message: String(error) };
+}
+
 export async function POST(request: Request) {
   const rawBody = await request.text();
 
@@ -112,26 +118,56 @@ export async function POST(request: Request) {
         }),
       );
     case "telegram-watch":
-      return Response.json(
-        await runTelegramWatchJob(job, {
+      try {
+        const result = await runTelegramWatchJob(job, {
           chain: getChainPort(),
           persistence,
           queue,
           safeData: getSafeDataPort(),
           now,
-        }),
-      );
+        });
+        console.info("[telegram-watch] complete", {
+          chainId: job.safe.chainId,
+          safe: job.safe.address,
+          ...result,
+        });
+        return Response.json(result);
+      } catch (error) {
+        console.error("[telegram-watch] failed", {
+          chainId: job.safe.chainId,
+          safe: job.safe.address,
+          error: errorDetails(error),
+        });
+        throw error;
+      }
     case "telegram-alert":
-      return Response.json(
-        await runTelegramAlertJob(job, {
+      try {
+        const result = await runTelegramAlertJob(job, {
           chain: getChainPort(),
           persistence,
           queue,
           telegram: getTelegramDeliveryPort(),
           now,
           appUrl: applicationUrl(),
-        }),
-      );
+        });
+        console.info("[telegram-alert] complete", {
+          chainId: job.safe.chainId,
+          safe: job.safe.address,
+          safeTxHash: job.safeTxHash,
+          attempt: job.attempt,
+          ...result,
+        });
+        return Response.json(result);
+      } catch (error) {
+        console.error("[telegram-alert] failed", {
+          chainId: job.safe.chainId,
+          safe: job.safe.address,
+          safeTxHash: job.safeTxHash,
+          attempt: job.attempt,
+          error: errorDetails(error),
+        });
+        throw error;
+      }
     case "reanalyze":
       return Response.json(
         await runReanalysisPage(job, { persistence, queue }),

@@ -1,7 +1,7 @@
 import { Client, Receiver } from "@upstash/qstash";
 
 import type { QueueJob } from "@/core/domain";
-import type { QueuePort } from "@/core/ports";
+import type { RecurringQueuePort } from "@/core/ports";
 
 function isDevelopmentMode(environment: NodeJS.ProcessEnv = process.env) {
   return (
@@ -85,7 +85,7 @@ export async function toQStashDeduplicationId(value: string): Promise<string> {
 let client: Client | null = null;
 let receiver: Receiver | null = null;
 
-export class QStashQueueAdapter implements QueuePort {
+export class QStashQueueAdapter implements RecurringQueuePort {
   async enqueue(
     job: QueueJob,
     options: { idempotencyKey: string; delaySeconds?: number },
@@ -106,6 +106,31 @@ export class QStashQueueAdapter implements QueuePort {
       throw new Error("QStash did not return a message identifier.");
     }
     return { jobId: result.messageId };
+  }
+
+  async schedule(
+    job: QueueJob,
+    options: { scheduleId: string; cron: string },
+  ): Promise<{ scheduleId: string }> {
+    client ??= createClient();
+    return client.schedules.create({
+      destination: `${applicationUrl()}/api/v1/jobs/run`,
+      body: JSON.stringify(job),
+      headers: {
+        ...qstashDestinationHeaders(),
+        "content-type": "application/json",
+      },
+      method: "POST",
+      cron: options.cron,
+      scheduleId: options.scheduleId,
+      retries: 3,
+      label: ["safe-inspector", job.type],
+    });
+  }
+
+  async deleteSchedule(scheduleId: string): Promise<void> {
+    client ??= createClient();
+    await client.schedules.delete(scheduleId);
   }
 }
 

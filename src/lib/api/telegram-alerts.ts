@@ -6,7 +6,6 @@ import type {
   AnalysisResult,
   Confirmation,
   QueueJob,
-  SafeRef,
   SafeTransaction,
   Verdict,
 } from "@/core/domain";
@@ -22,7 +21,6 @@ import { TRANSACTION_ANALYSIS_ENGINE_VERSION } from "@/lib/api/analysis-version"
 import { createTelegramAlertReceipt } from "@/lib/api/telegram-alert-receipts";
 
 const WATCH_PAGE_SIZE = 50;
-const WATCH_INTERVAL_SECONDS = 60;
 const ANALYSIS_WAIT_SECONDS = 12;
 const MAX_ALERT_ATTEMPTS = 4;
 
@@ -82,15 +80,6 @@ function changed(
   return transactionState(previous) !== transactionState(current);
 }
 
-function watchKey(safe: SafeRef, now: number): string {
-  return [
-    "telegram-watch",
-    safe.chainId,
-    safe.address.toLowerCase(),
-    Math.floor(now / WATCH_INTERVAL_SECONDS),
-  ].join(":");
-}
-
 export async function runTelegramWatchJob(job: WatchJob, ports: WatchPorts) {
   const subscriptions = await ports.persistence.listTelegramSubscriptions(
     job.safe,
@@ -141,11 +130,6 @@ export async function runTelegramWatchJob(job: WatchJob, ports: WatchPorts) {
     ]),
   );
 
-  const now = ports.now();
-  await ports.queue.enqueue(job, {
-    idempotencyKey: watchKey(job.safe, now + WATCH_INTERVAL_SECONDS),
-    delaySeconds: WATCH_INTERVAL_SECONDS,
-  });
   return { status: "watching", changes: changedTransactions.length };
 }
 
@@ -307,6 +291,7 @@ export function telegramAlertEventKey(
   return createHash("sha256")
     .update(
       JSON.stringify({
+        safeTxHash: transaction.safeTxHash.toLowerCase(),
         state: transactionState(transaction),
         verdict: analysis?.verdict ?? "unavailable",
         engine: analysis?.engineVersion ?? "unavailable",

@@ -139,10 +139,12 @@ into a green result.
 - Execution fails.
 - The proposal is replaced by a competing transaction.
 
-Unsigned proposals do not currently generate Telegram alerts. The watcher polls
-once per minute, then allows approximately twelve seconds for independent
-analysis. Delivery is therefore not instantaneous. A one-of-one Safe may
-execute before the alert is delivered.
+Unsigned proposals do not currently generate Telegram alerts. A durable QStash
+schedule polls each subscribed Safe once per minute and retries failed
+deliveries independently; `/safes` repairs that schedule and starts an
+immediate check. The alert pipeline then allows approximately twelve seconds
+for independent analysis. Delivery is therefore not instantaneous. A
+one-of-one Safe may execute before the alert is delivered.
 
 ### 5.2 Information included in every transaction alert
 
@@ -505,7 +507,10 @@ After an alert-format or delivery change:
 7. Add another signature when available and confirm one new alert arrives.
 8. Confirm threshold-reached language.
 9. Execute or replace the harmless proposal and confirm the final status alert.
-10. Test `/safes` and `/stop`.
+10. Send `/safes`; confirm it reports monitoring as active and immediately
+    checks the listed Safe without creating a second schedule.
+11. Test `/stop`; confirm the durable schedule is removed after the final
+    subscription for that Safe is disabled.
 
 ## 15. Prioritized next work
 
@@ -562,6 +567,7 @@ After an alert-format or delivery change:
 | 2026-09-25 | A local feature branch implemented unique alert IDs, separately signed Ed25519 receipts, key-rotation support, and an official no-signing verification page; deployment remains pending review. |
 | 2026-09-26 | Signed alert verification is deployed, migration `0007` and the signing key are active, and a live XDC signer alert was delivered and verified.                                                 |
 | 2026-09-26 | Telegram previews were redesigned as status-aware, novice-first decision cards; complete technical evidence remains in the signed report.                                                       |
+| 2026-09-26 | Telegram polling moved from a failure-prone self-rescheduling job chain to deterministic per-Safe QStash schedules; delivery IDs now include the Safe transaction hash.                         |
 
 ## 17. Related documents
 

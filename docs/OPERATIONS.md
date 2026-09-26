@@ -185,11 +185,19 @@ require rotating the alert-signing identity unless that separate key may also
 have been exposed. Do not tell users that an unverified Telegram message is
 safe merely because it came from the familiar bot account.
 
-The poller checks subscribed Safes once per minute through signed QStash jobs.
-If alerts stop, inspect the webhook response, QStash `telegram-watch` and
-`telegram-alert` deliveries, Telegram API errors, and the three Telegram
-environment variables. Never bypass webhook authentication or send alerts from
-an unsigned public job endpoint.
+The poller checks subscribed Safes once per minute through a durable QStash
+schedule with a deterministic ID per Safe. `/start` creates or replaces that
+schedule and queues an immediate check. `/safes` also repairs the schedule and
+queues an immediate check, so an existing subscription can be recovered without
+creating a new connection link. `/stop` removes the schedule after the last
+subscription for that Safe is disabled. QStash retries failed deliveries; one
+failed poll does not cancel later scheduled polls.
+
+If alerts stop, send `/safes` first and confirm that the bot reports monitoring
+as active. Then inspect the webhook response, QStash schedule and
+`telegram-watch`/`telegram-alert` deliveries, the structured Vercel runtime
+logs, Telegram API errors, and the Telegram environment variables. Never bypass
+webhook authentication or send alerts from an unsigned public job endpoint.
 
 ## Execution-evidence version changes
 
