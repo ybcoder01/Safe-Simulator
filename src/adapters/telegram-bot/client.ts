@@ -48,7 +48,7 @@ export class TelegramBotAdapter implements TelegramDeliveryPort {
                   inline_keyboard: [
                     [
                       {
-                        text: "Verify this alert",
+                        text: "Open verified safety report",
                         url: input.verificationUrl,
                       },
                     ],

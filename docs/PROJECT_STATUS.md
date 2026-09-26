@@ -1,6 +1,6 @@
 # Safe Inspector: living project status
 
-Last updated: 2026-09-25  
+Last updated: 2026-09-26
 Production: <https://safe-simulator.vercel.app>  
 Repository: <https://github.com/ybcoder01/Safe-Simulator>  
 Telegram bot: `@safealerts_bot`
@@ -34,24 +34,25 @@ replacement for a signing wallet or hardware-wallet verification.
 
 ## 2. Current production state
 
-| Area                            | State          | Notes                                                                                                                                                                              |
-| ------------------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Web application                 | Live           | Production domain is assigned and serving the merged application.                                                                                                                  |
-| Supported networks              | Live           | Ethereum mainnet (`1`) and XDC mainnet (`50`).                                                                                                                                     |
-| Safe import and discovery       | Live           | Imports by Safe address and public discovery by owner address.                                                                                                                     |
-| Transaction review              | Live           | Executed, pending, failed, and replaced transaction states are supported.                                                                                                          |
-| Draft simulation                | Live           | A target, native value, and calldata can be reviewed before a Safe proposal exists.                                                                                                |
-| Beginner-facing verdict         | Live           | Clear green, yellow, orange, and red guidance with plain-language next actions.                                                                                                    |
-| XDC protocol and token identity | Live           | Reviewed registry, protocol logos, token logos, and deterministic fallbacks.                                                                                                       |
-| Telegram alerts                 | Configured     | Production variables, webhook, database migration, and bot registration are complete. End-to-end signer alert testing remains the next acceptance gate.                            |
-| Signed alert verification       | In development | The current feature branch adds unique verification IDs, Ed25519-signed receipts, and a no-signing verification page. Migration `0007` and signing keys are not yet in Production. |
-| Production database             | Live           | Neon Postgres; Telegram migration `0006` was applied and its three tables were verified on 2026-09-25.                                                                             |
-| Queue and scheduling            | Live           | Upstash QStash and Vercel Cron; production QStash variables were verified present.                                                                                                 |
-| CI and previews                 | Live           | Formatting, linting, TypeScript, tests, build, and Vercel Preview checks.                                                                                                          |
+| Area                            | State | Notes                                                                                                              |
+| ------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------ |
+| Web application                 | Live  | Production domain is assigned and serving the merged application.                                                  |
+| Supported networks              | Live  | Ethereum mainnet (`1`) and XDC mainnet (`50`).                                                                     |
+| Safe import and discovery       | Live  | Imports by Safe address and public discovery by owner address.                                                     |
+| Transaction review              | Live  | Executed, pending, failed, and replaced transaction states are supported.                                          |
+| Draft simulation                | Live  | A target, native value, and calldata can be reviewed before a Safe proposal exists.                                |
+| Beginner-facing verdict         | Live  | Clear green, yellow, orange, and red guidance with plain-language next actions.                                    |
+| XDC protocol and token identity | Live  | Reviewed registry, protocol logos, token logos, and deterministic fallbacks.                                       |
+| Telegram alerts                 | Live  | `@safealerts_bot` is connected to Production and has delivered an end-to-end signer alert for an XDC Safe.         |
+| Signed alert verification       | Live  | Unique verification IDs, Ed25519-signed receipts, key rotation, and the no-signing verification page are deployed. |
+| Production database             | Live  | Neon Postgres; Telegram migrations `0006` and `0007` were applied and verified.                                    |
+| Queue and scheduling            | Live  | Upstash QStash and Vercel Cron; production QStash variables were verified present.                                 |
+| CI and previews                 | Live  | Formatting, linting, TypeScript, tests, build, and Vercel Preview checks.                                          |
 
-The Telegram production deployment corresponding to merged PR `#134` was
-verified Ready on 2026-09-25. Telegram confirmed the production webhook
-`/api/v1/telegram/webhook` with zero pending updates.
+The Telegram production deployment and signed verification flow corresponding
+to merged PRs `#134` and `#135` were verified Ready. Telegram confirmed the
+production webhook `/api/v1/telegram/webhook` with zero pending updates. A live
+XDC Safe alert was delivered and its independently signed receipt was verified.
 
 ## 3. User journeys
 
@@ -145,21 +146,23 @@ execute before the alert is delivered.
 
 ### 5.2 Information included in every transaction alert
 
-- risk heading;
-- Safe address and chain ID;
-- current status;
-- signatures collected and threshold;
-- full signer addresses;
-- action category;
-- full target address;
-- normal call or delegate call operation;
-- Safe transaction hash;
-- Safe nonce and native value;
-- up to four important findings;
-- up to four involved addresses per finding;
-- a unique alert verification ID;
-- the official verification-page address and a verification button;
-- reminder to compare addresses with the signing wallet.
+The Telegram preview is a novice-first decision card. It includes:
+
+- a status-aware risk heading that distinguishes pending, executable,
+  executed, failed, and replaced transactions;
+- a plain-language explanation of whether the transaction can still be
+  stopped;
+- the decoded action category and reviewed protocol name when available;
+- approvals collected and the threshold that applied to the transaction;
+- up to three plain-language reasons for concern without raw address dumps;
+- one explicit next step;
+- the shortened Safe address and human-readable network name;
+- a single **Open verified safety report** button.
+
+Full signer and target addresses, hashes, nonce, calldata, operation,
+verification identity, and evidence details remain available in the signed
+report. This keeps Telegram readable without weakening independent
+verification.
 
 Delivery is idempotent for each subscriber and exact proposal state. Queue
 retries cannot intentionally deliver the same state twice.
@@ -197,8 +200,9 @@ retries cannot intentionally deliver the same state twice.
 
 A newly created attacker address can be labelled unknown or suspicious, but it
 cannot be proven malicious unless a trusted source or the user profile has
-flagged it. The bot displays canonical addresses so signers can compare them
-with the intended destination shown elsewhere.
+flagged it. The short Telegram preview explains the concern; the signed report
+displays canonical addresses so signers can compare them with the intended
+destination shown elsewhere.
 
 ### 5.6 Contract-execution and evidence alerts
 
@@ -402,23 +406,22 @@ transaction, produce an owner signature, or alter an existing Safe transaction
 hash. It can, however, send a forged message that attempts to persuade owners
 to sign a real malicious proposal or visit a phishing site.
 
-The present alert includes canonical transaction details and a report link, but
-the Telegram account alone cannot prove that those details were emitted by Safe
-Inspector if the bot token is compromised. Until independent alert verification
-is implemented, signers must open a bookmarked Safe Inspector or Safe wallet
-directly and compare the chain, Safe, nonce, Safe transaction hash, target,
-operation, value, spender, and calldata before signing. They must not treat a
-green Telegram heading as authorization to sign.
+The Telegram account alone cannot prove that a message was emitted by Safe
+Inspector if the bot token is compromised. Every real alert therefore links to
+an independently signed receipt on the official Safe Inspector domain. Signers
+must verify that report or open a bookmarked Safe Inspector or Safe wallet
+directly, then compare the chain, Safe, nonce, Safe transaction hash, target,
+operation, value, spender, and calldata before signing. A green Telegram
+heading is never authorization to sign.
 
-Required hardening before broad production rollout:
+Implemented hardening and remaining operational controls:
 
 1. Every alert receives a high-entropy server-generated verification ID stored
    with the canonical Safe transaction hash and exact analyzed payload digest.
-2. Telegram shows the verification ID and the official domain in plain text,
-   but contains no approval or signing action.
-3. A signer independently opens a bookmarked
-   `https://safe-simulator.vercel.app` and enters the ID, or opens the same
-   transaction from the Safe wallet, rather than trusting a message link.
+2. Telegram contains one **Open verified safety report** button and no approval
+   or signing action. The ID and full technical fields remain in the report.
+3. A signer verifies the official `safe-simulator.vercel.app` domain, or opens
+   a bookmarked Safe Inspector and checks the same transaction independently.
 4. The official verification page confirms whether the alert was emitted by
    Safe Inspector and displays the canonical fields again.
 5. A separate non-exportable signing key should sign alert receipts so the
@@ -486,19 +489,19 @@ Never execute a deliberately suspicious test transaction. For warning tests,
 use a controlled address, zero native value, and zero token allowance where
 possible; leave the proposal unexecuted.
 
-## 14. Immediate acceptance test
+## 14. Telegram regression acceptance test
 
-The next production acceptance task is the complete Telegram flow:
+After an alert-format or delivery change:
 
 1. Open a bookmarked XDC Safe in Production.
 2. Select **Connect Telegram**.
 3. Start `@safealerts_bot` and confirm **Alerts enabled** names the correct Safe
    and chain.
 4. Create and sign a harmless proposal.
-5. Confirm one alert arrives with the canonical target, signer, operation,
-   threshold progress, verification ID, and official verification link.
-6. Open `/alerts/verify` independently, enter the ID, and compare the exact
-   chain, Safe, nonce, hash, target, value, operation, and signer state.
+5. Confirm one concise alert arrives with the correct lifecycle heading,
+   plain-language action, threshold progress, and verified-report button.
+6. Open the report and compare the exact chain, Safe, nonce, hash, target,
+   value, operation, and signer state.
 7. Add another signature when available and confirm one new alert arrives.
 8. Confirm threshold-reached language.
 9. Execute or replace the harmless proposal and confirm the final status alert.
@@ -506,9 +509,8 @@ The next production acceptance task is the complete Telegram flow:
 
 ## 15. Prioritized next work
 
-### P0: prove the new alert path
+### P0: operate the alert path reliably
 
-- Complete the end-to-end Telegram acceptance test above.
 - Inspect QStash and Vercel logs for duplicate, delayed, or failed deliveries.
 - Confirm the report link opens the exact Safe and transaction.
 
@@ -558,6 +560,8 @@ The next production acceptance task is the complete Telegram flow:
 | 2026-09-25 | End-to-end Telegram delivery testing became the next release gate; no additional feature PR should precede it unless it fixes a blocker.                                                        |
 | 2026-09-25 | Bot-token compromise was elevated to a P0 threat: Telegram is notification-only, and independently verifiable signed alert receipts are required before broad rollout.                          |
 | 2026-09-25 | A local feature branch implemented unique alert IDs, separately signed Ed25519 receipts, key-rotation support, and an official no-signing verification page; deployment remains pending review. |
+| 2026-09-26 | Signed alert verification is deployed, migration `0007` and the signing key are active, and a live XDC signer alert was delivered and verified.                                                 |
+| 2026-09-26 | Telegram previews were redesigned as status-aware, novice-first decision cards; complete technical evidence remains in the signed report.                                                       |
 
 ## 17. Related documents
 
