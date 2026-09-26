@@ -82,17 +82,63 @@ const analysis: AnalysisResult = {
 };
 
 describe("Telegram transaction alerts", () => {
-  it("shows canonical addresses, signers, threshold urgency, and warnings", () => {
-    const text = formatTelegramAlert(transaction(), 1, analysis);
+  it("shows a novice-first pending alert without raw technical identifiers", () => {
+    const text = formatTelegramAlert(transaction(), 2, analysis);
 
-    expect(text).toContain("🔴 DO NOT SIGN YET");
-    expect(text).toContain("threshold reached");
-    expect(text).toContain(owner.toLowerCase());
-    expect(text).toContain(spender);
-    expect(text).toContain("0x4444444444444444444444444444444444444444");
-    expect(text).toContain("Nonce: 8");
-    expect(text).toContain("Native value: 0 wei");
-    expect(text).toContain("Telegram is notification-only");
+    expect(text).toContain("🔴 DO NOT SIGN");
+    expect(text).toContain("Waiting for 1 more owner approval");
+    expect(text).toContain("Action: Token approval");
+    expect(text).toContain("With: Unrecognized address (0x444444…444444)");
+    expect(text).toContain("Owner approvals: 1 of 2 required");
+    expect(text).toContain("A new address can spend this Safe's tokens");
+    expect(text).toContain("XDC Network");
+    expect(text).not.toContain(owner);
+    expect(text).not.toContain(spender);
+    expect(text).not.toContain(hash);
+    expect(text).not.toContain("Nonce:");
+    expect(text).not.toContain("Alert verification ID");
+  });
+
+  it("uses an incident-response heading after a risky transaction executes", () => {
+    const text = formatTelegramAlert(
+      transaction(1, {
+        status: "executed",
+        to: "0x70d8005E3c8C7e383FE35Fa40156042F3393449F" as Address,
+        data: "0x617ba037" as Hex,
+        executedAt: 200,
+        executedTxHash: `0x${"b".repeat(64)}` as Hex,
+        blockNumber: 100n,
+        blockHash: `0x${"c".repeat(64)}` as Hex,
+      }),
+      1,
+      analysis,
+    );
+
+    expect(text).toContain("🔴 HIGH-RISK TRANSACTION EXECUTED");
+    expect(text).toContain("already gone through");
+    expect(text).toContain("Action: Supply to lending market");
+    expect(text).toContain("With: Fathom Pool (0x70d800…93449F)");
+    expect(text).toContain("contact the other owners");
+    expect(text).not.toContain("DO NOT SIGN");
+  });
+
+  it("warns when a risky pending transaction can already be executed", () => {
+    const secondSignature = {
+      owner: secondOwner,
+      signature: "0x02" as Hex,
+      signedAt: 110,
+    };
+    const text = formatTelegramAlert(
+      transaction(1, {
+        confirmations: [transaction().confirmations[0]!, secondSignature],
+      }),
+      2,
+      analysis,
+    );
+
+    expect(text).toContain("🔴 STOP — READY TO EXECUTE");
+    expect(text).toContain("can now be executed");
+    expect(text).toContain("Do not add another approval");
   });
 
   it("changes its delivery key when a signer or status changes", () => {

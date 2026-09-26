@@ -7,20 +7,28 @@ not trust the transaction description shown by a signing website.
 ## Alert events
 
 - A new proposal receives its first signature.
-- Another owner signs, with the complete signer list shown every time.
+- Another owner signs, with the complete signer list preserved in the signed
+  report.
 - The signature threshold is reached and the transaction can be executed.
 - A proposal executes, fails, or is replaced.
 
 Alerts are idempotent per subscriber and exact signer/status state. A delayed or
 retried queue message cannot produce the same alert twice.
 
+The Telegram preview is deliberately a short decision card: transaction state,
+plain-language action, approval progress, up to three reasons for concern, and
+one next step. Complete addresses, hashes, calldata, and signed receipt details
+remain on the official verification report. Executed alerts never tell the user
+not to sign; they state that execution already happened and direct the user to
+review or incident-response actions instead.
+
 ## Scenarios
 
 | Scenario                                                            | Alert behavior                                                                                                                                                                             | Coverage                                   |
 | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------ |
-| Compromised signing UI shows benign details for a malicious payload | Show canonical target, operation, signer addresses, and independent result                                                                                                                 | Included                                   |
-| A new or substituted wallet becomes an ERC-20 spender               | Name the exact token and spender; warn when prior allowance was zero                                                                                                                       | Included                                   |
-| Unlimited ERC-20 or Permit2 approval                                | Critical warning with the exact involved addresses                                                                                                                                         | Included                                   |
+| Compromised signing UI shows benign details for a malicious payload | Show an independent plain-language result, with canonical target, operation, and signer addresses in the signed report                                                                     | Included                                   |
+| A new or substituted wallet becomes an ERC-20 spender               | Explain that a new spender is involved; preserve the exact token and spender in the signed report                                                                                          | Included                                   |
+| Unlimited ERC-20 or Permit2 approval                                | Critical warning in the preview with exact involved addresses in the signed report                                                                                                         | Included                                   |
 | NFT `setApprovalForAll`                                             | Critical warning that all present and future compatible tokens are exposed                                                                                                                 | Included                                   |
 | Permit2 signature transfer                                          | Warn about the caller-dependent spender and require review of amount, recipient, nonce, and deadline                                                                                       | Included where decoded                     |
 | Recipient substitution or address poisoning                         | Warn when a transfer recipient is unknown or profile-flagged                                                                                                                               | Included                                   |
@@ -55,14 +63,13 @@ signatures. The webhook secret only authenticates inbound Telegram webhooks and
 does not prevent forged outbound messages made with the bot token.
 
 Signers must therefore treat Telegram as a prompt to perform an independent
-review. They must open a bookmarked Safe Inspector or Safe wallet directly and
-compare the chain, Safe, nonce, Safe transaction hash, target, operation, value,
-spender, and calldata. The signed-alert feature assigns a high-entropy
-verification ID and stores an Ed25519 receipt signed with a key that is separate
-from the Telegram bot token. The official-domain verification page verifies
-that receipt and deliberately provides no transaction-signing action. This
-protection becomes effective only after the feature, migration, and signing
-identity are deployed.
+review. They must open the official signed report, a bookmarked Safe Inspector,
+or their Safe wallet and compare the chain, Safe, nonce, Safe transaction hash,
+target, operation, value, spender, and calldata. Each alert has a high-entropy
+verification ID and an Ed25519 receipt signed with a key that is separate from
+the Telegram bot token. The official-domain verification page verifies that
+receipt and deliberately provides no transaction-signing action. The feature,
+database migration, and signing identity are deployed in Production.
 
 Historical motivation includes the Radiant Capital incident, where compromised
 developer devices displayed legitimate-looking Safe data while a malicious
