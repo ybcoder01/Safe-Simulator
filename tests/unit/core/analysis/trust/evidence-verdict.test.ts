@@ -4,7 +4,10 @@ import {
   evaluateEvidenceVerdict,
   type EvidenceVerdictInput,
 } from "../../../../../src/core/analysis/trust/evidence-verdict";
-import type { ContractRegistryEntry } from "../../../../../src/core/analysis/trust/contract-registry";
+import {
+  contractRegistryEntriesForChain,
+  type ContractRegistryEntry,
+} from "../../../../../src/core/analysis/trust/contract-registry";
 import type { Address, Hex } from "../../../../../src/core/domain";
 
 const target = "0x1111111111111111111111111111111111111111" as Address;
@@ -14,6 +17,7 @@ const safe = "0x4444444444444444444444444444444444444444" as Address;
 const multiSend = "0x38869bf66a61cF6bDB996A6aE40D5853Fd43B526" as Address;
 const multiSendCodeHash =
   "0x0e4f7fc66550a322d1e7688e181b75e217e662a4f3f4d6a29b22bc61217c4b77" as Hex;
+const safeV150L2 = "0xEdd160fEBBD92E350D4D398fb636302fccd67C7e" as Address;
 
 function safeBatchRegistry(
   overrides: Partial<ContractRegistryEntry> = {},
@@ -230,6 +234,55 @@ describe("evaluateEvidenceVerdict", () => {
     expect(result.findings.map((finding) => finding.code)).not.toContain(
       "internal-delegatecall",
     );
+    expect(result.findings.map((finding) => finding.code)).not.toContain(
+      "internal-call-trust-unresolved",
+    );
+  });
+
+  it("treats the XDC Safe v1.5 proxy and resolved token proxy hops as infrastructure", () => {
+    const tokenImplementation =
+      "0x9DdB959f04b7075AacCd28e2e5c5c113469c534b" as Address;
+    const result = evaluateEvidenceVerdict(
+      input({
+        implementationChain: [tokenImplementation],
+        callTrace: "complete",
+        internalCalls: [
+          {
+            depth: 1,
+            from: safe,
+            to: safeV150L2,
+            operation: "delegatecall",
+          },
+          {
+            depth: 2,
+            from: safe,
+            to: target,
+            operation: "call",
+          },
+          {
+            depth: 3,
+            from: target,
+            to: tokenImplementation,
+            operation: "delegatecall",
+          },
+        ],
+        registry: contractRegistryEntriesForChain(50),
+      }),
+    );
+
+    expect(result.verdict).toBe("known");
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "expected-safe-proxy-delegation" }),
+        expect.objectContaining({ code: "expected-target-proxy-delegation" }),
+      ]),
+    );
+    expect(result.findings.map((finding) => finding.code)).not.toContain(
+      "internal-delegatecall",
+    );
+    expect(result.findings.map((finding) => finding.code)).not.toContain(
+      "internal-call-trust-unresolved",
+    );
   });
 
   it("recognizes a Safe proxy dispatch below a module entry call", () => {
@@ -294,7 +347,7 @@ describe("evaluateEvidenceVerdict", () => {
       }),
     );
 
-    expect(result.verdict).toBe("unverified");
+    expect(result.verdict).toBe("known");
     expect(result.findings).toContainEqual(
       expect.objectContaining({
         code: "expected-target-proxy-delegation",

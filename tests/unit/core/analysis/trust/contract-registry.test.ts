@@ -8,6 +8,7 @@ import {
 import type { Address } from "../../../../../src/core/domain";
 
 const safeL2 = "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762" as Address;
+const safeV150L2 = "0xEdd160fEBBD92E350D4D398fb636302fccd67C7e" as Address;
 const fallbackHandler = "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99" as Address;
 const multiSend = "0x38869bf66a61cF6bDB996A6aE40D5853Fd43B526" as Address;
 const multiSendCallOnly =
@@ -33,6 +34,12 @@ describe("authoritative contract registry", () => {
       role: "fallback-handler",
     });
     expect(findContractRegistryEntry(1, safeL2)).not.toBeNull();
+    expect(findContractRegistryEntry(50, safeV150L2)).toMatchObject({
+      label: "Safe v1.5.0 L2 Singleton",
+      source: "safe-deployments",
+      role: "safe-singleton",
+      executionRole: "safe-singleton",
+    });
   });
 
   it("pins Safe batch executors with authoritative runtime hashes", () => {

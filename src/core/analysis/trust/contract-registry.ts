@@ -1,7 +1,7 @@
 import type { Address, ChainId, Hex } from "../../domain";
 import { xdcProtocolRegistryEntries } from "./xdc-protocol-registry";
 
-export const CONTRACT_REGISTRY_VERSION = "2026-09-03.2";
+export const CONTRACT_REGISTRY_VERSION = "2026-09-27.1";
 
 export type ContractRegistrySource =
   | "safe-deployments"
@@ -102,19 +102,36 @@ interface SafeDeploymentSeed {
   readonly address: Address;
   readonly label: string;
   readonly asset: string;
+  readonly version?: "v1.4.1" | "v1.5.0";
   readonly role: ContractRegistryRole;
   readonly executionRole: ContractRegistryExecutionRole;
   readonly runtimeCodeHash?: Hex;
 }
 
-const REVIEWED_AT = "2026-09-03";
+const REVIEWED_AT = "2026-09-27";
 const SAFE_DEPLOYMENTS_ROOT =
-  "https://github.com/safe-global/safe-deployments/blob/0974182c16c57ca6fe2b9bba8cffb8a7e55fb83c/src/assets/v1.4.1";
+  "https://github.com/safe-global/safe-deployments/blob/7b1fb6d615ab2d2999550ec9166554b180e813e5/src/assets";
 const EVM_SPECIFICATION_REFERENCE =
   "https://ethereum.github.io/yellowpaper/paper.pdf";
 const SUPPORTED_CHAINS = [1, 50] as const satisfies readonly ChainId[];
 
 const safeDeployments: readonly SafeDeploymentSeed[] = [
+  {
+    address: "0xFf51A5898e281Db6DfC7855790607438dF2ca44b" as Address,
+    label: "Safe v1.5.0 Singleton",
+    asset: "safe.json",
+    version: "v1.5.0",
+    role: "safe-singleton",
+    executionRole: "safe-singleton",
+  },
+  {
+    address: "0xEdd160fEBBD92E350D4D398fb636302fccd67C7e" as Address,
+    label: "Safe v1.5.0 L2 Singleton",
+    asset: "safe_l2.json",
+    version: "v1.5.0",
+    role: "safe-singleton",
+    executionRole: "safe-singleton",
+  },
   {
     address: "0x41675C099F32341bf84BFc5382aF534df5C7461a" as Address,
     label: "Safe v1.4.1 Singleton",
@@ -187,7 +204,7 @@ const entries: readonly ContractRegistryEntry[] = [
       category: "infrastructure" as const,
       role: deployment.role,
       source: "safe-deployments" as const,
-      reference: `${SAFE_DEPLOYMENTS_ROOT}/${deployment.asset}`,
+      reference: `${SAFE_DEPLOYMENTS_ROOT}/${deployment.version ?? "v1.4.1"}/${deployment.asset}`,
       verification: "publisher-documented" as const,
       reviewedAt: REVIEWED_AT,
       logoKey: "safe",
