@@ -564,9 +564,9 @@ export function evaluateEvidenceVerdict(
     findings.push({
       code: "new-approval-spender",
       severity: "warning",
-      title: "Allowance targets a spender with zero prior allowance",
+      title: "Token spending access is being enabled",
       detail:
-        "The allowance was zero at the stated comparison anchor. Same-block ordering and pending-state changes remain explicit coverage limits.",
+        "This token's allowance for the spender was zero before this transaction. Confirm the spender and amount before signing. Same-block and pending changes may not be visible.",
       addresses: uniqueAddresses(newSpenders),
     });
   }

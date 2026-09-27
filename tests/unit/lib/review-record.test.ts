@@ -59,7 +59,7 @@ describe("browser-local transaction review records", () => {
       reviewedAt: "2026-09-20T12:00:00.000Z",
     });
     expect(record.findings[0]).toMatchObject({
-      actionLabel: "Verify the new spender",
+      actionLabel: "Confirm token spending access",
       addresses: finding.addresses,
     });
   });
