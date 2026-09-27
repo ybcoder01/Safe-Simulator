@@ -150,6 +150,53 @@ describe("evaluateEvidenceVerdict", () => {
     );
   });
 
+  it("does not treat the Safe's direct native transfer as an extra internal contract call", () => {
+    const result = evaluateEvidenceVerdict(
+      input({
+        targetAccountType: "wallet",
+        targetVerified: false,
+        decodeConfidence: "raw",
+        callTrace: "complete",
+        internalCalls: [
+          { depth: 2, from: safe, to: target, operation: "call" },
+        ],
+      }),
+    );
+
+    expect(result.verdict).toBe("known");
+    expect(result.findings.map((finding) => finding.code)).not.toContain(
+      "internal-call-trust-unresolved",
+    );
+    expect(result.addresses).toContainEqual(
+      expect.objectContaining({
+        address: target,
+        roles: ["target"],
+      }),
+    );
+  });
+
+  it("still reviews calls to the wallet target from an unexpected internal caller", () => {
+    const result = evaluateEvidenceVerdict(
+      input({
+        targetAccountType: "wallet",
+        targetVerified: false,
+        decodeConfidence: "raw",
+        callTrace: "complete",
+        internalCalls: [
+          { depth: 3, from: token, to: target, operation: "call" },
+        ],
+      }),
+    );
+
+    expect(result.verdict).toBe("unverified");
+    expect(result.findings).toContainEqual(
+      expect.objectContaining({
+        code: "internal-call-trust-unresolved",
+        addresses: [target],
+      }),
+    );
+  });
+
   it("keeps an unavailable target classification explicit", () => {
     const result = evaluateEvidenceVerdict(
       input({ targetAccountType: "unavailable" }),
