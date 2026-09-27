@@ -100,7 +100,7 @@ describe("Telegram transaction alerts", () => {
     expect(text).toContain("Waiting for 1 more owner approval");
     expect(text).toContain("Action: Token approval");
     expect(text).toContain("With: Unrecognized address (0x444444…444444)");
-    expect(text).toContain("Owner approvals: 1 of 2 required");
+    expect(text).toContain("Approved by: 1 of 2 owners");
     expect(text).toContain(
       "This approval gives a new address permission to spend this Safe's tokens",
     );
@@ -165,6 +165,58 @@ describe("Telegram transaction alerts", () => {
     expect(text).toContain("With: Fathom Pool (0x70d800…93449F)");
     expect(text).toContain("contact the other owners");
     expect(text).not.toContain("DO NOT SIGN");
+  });
+
+  it("renders a completed native transfer as a simple receipt", () => {
+    const secondSignature = {
+      owner: secondOwner,
+      signature: "0x02" as Hex,
+      signedAt: 110,
+    };
+    const text = formatTelegramAlert(
+      transaction(1, {
+        status: "executed",
+        to: secondOwner,
+        value: 1_000_000_000_000_000_000n,
+        data: "0x",
+        confirmations: [transaction().confirmations[0]!, secondSignature],
+        executedAt: 200,
+        executedTxHash: `0x${"b".repeat(64)}` as Hex,
+        blockNumber: 100n,
+        blockHash: `0x${"c".repeat(64)}` as Hex,
+      }),
+      2,
+      { ...analysis, verdict: "known", findings: [] },
+    );
+
+    expect(text).toContain("🟢 TRANSFER COMPLETED — NO WARNING FOUND");
+    expect(text).toContain("Sent: 1 XDC");
+    expect(text).toContain("To: 0x555555…555555");
+    expect(text).toContain("Approved by: 2 of 2 owners");
+    expect(text).toContain(
+      "No action is needed if the amount and recipient are correct",
+    );
+    expect(text).not.toContain("Native asset transfer");
+    expect(text).not.toContain("inspect token approvals");
+    expect(text).not.toContain("cannot be stopped");
+  });
+
+  it("gives transfer-specific advice when evidence needs review", () => {
+    const text = formatTelegramAlert(
+      transaction(1, {
+        to: secondOwner,
+        value: 500_000_000_000_000_000n,
+        data: "0x",
+      }),
+      2,
+      { ...analysis, verdict: "unverified" },
+    );
+
+    expect(text).toContain("Sent: 0.5 XDC");
+    expect(text).toContain(
+      "Open the report before signing and confirm the amount and recipient",
+    );
+    expect(text).not.toContain("approval amount");
   });
 
   it("warns when a risky pending transaction can already be executed", () => {
