@@ -195,6 +195,39 @@ function isExpectedInternalProxyDelegation(
   );
 }
 
+function isExpectedProtocolLibraryDelegation(
+  input: EvidenceVerdictInput,
+  call: EvidenceVerdictInput["internalCalls"][number],
+): boolean {
+  if (
+    call.operation !== "delegatecall" ||
+    addressKey(call.from) !== addressKey(input.target)
+  ) {
+    return false;
+  }
+
+  const registry = input.registry ?? [];
+  const target = registry.find(
+    (entry) =>
+      entry.chainId === input.chainId &&
+      addressKey(entry.address) === addressKey(input.target) &&
+      entry.trustPolicy === "protocol-whitelist" &&
+      entry.lifecycle === "active",
+  );
+  if (!target) return false;
+
+  return registry.some(
+    (entry) =>
+      entry.chainId === input.chainId &&
+      addressKey(entry.address) === addressKey(call.to) &&
+      entry.protocol === target.protocol &&
+      entry.role === "library" &&
+      entry.source === "protocol-documentation" &&
+      entry.trustPolicy === "identity-only" &&
+      entry.lifecycle === "internal",
+  );
+}
+
 function assessAddresses(
   input: EvidenceVerdictInput,
 ): readonly AddressTrustAssessment[] {
@@ -394,13 +427,30 @@ export function evaluateEvidenceVerdict(
     });
   }
 
+  const expectedProtocolLibraryDelegations = input.internalCalls.filter(
+    (call) => isExpectedProtocolLibraryDelegation(input, call),
+  );
+  if (expectedProtocolLibraryDelegations.length > 0) {
+    findings.push({
+      code: "expected-protocol-library-delegation",
+      severity: "info",
+      title: "Expected protocol library delegation observed",
+      detail:
+        "An active protocol contract delegated to an internally documented library from the same protocol. Other delegate calls remain critical.",
+      addresses: uniqueAddresses(
+        expectedProtocolLibraryDelegations.map((call) => call.to),
+      ),
+    });
+  }
+
   const internalDelegatecalls = input.internalCalls.filter(
     (call) =>
       call.operation === "delegatecall" &&
       !isExpectedSafeProxyDelegation(input, call) &&
       !isExpectedSafeBatchDelegationCall(input, call) &&
       !isExpectedTargetProxyDelegation(input, call) &&
-      !isExpectedInternalProxyDelegation(input, call),
+      !isExpectedInternalProxyDelegation(input, call) &&
+      !isExpectedProtocolLibraryDelegation(input, call),
   );
   if (internalDelegatecalls.length > 0) {
     findings.push({
@@ -588,6 +638,12 @@ export function evaluateEvidenceVerdict(
     ]),
   );
   const movementUnresolved = movementAddresses.flatMap((address) => {
+    if (
+      addressKey(address) === addressKey(input.safeAddress) ||
+      addressKey(address) === "0x0000000000000000000000000000000000000000"
+    ) {
+      return [];
+    }
     const assessment = addresses.find(
       (item) => addressKey(item.address) === addressKey(address),
     );
@@ -644,7 +700,8 @@ export function evaluateEvidenceVerdict(
           !isExpectedSafeProxyDelegation(input, call) &&
           !isExpectedSafeBatchDelegationCall(input, call) &&
           !isExpectedTargetProxyDelegation(input, call) &&
-          !isExpectedInternalProxyDelegation(input, call),
+          !isExpectedInternalProxyDelegation(input, call) &&
+          !isExpectedProtocolLibraryDelegation(input, call),
       )
       .map((call) => call.to),
   );

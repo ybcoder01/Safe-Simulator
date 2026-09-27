@@ -1,12 +1,13 @@
 import type { Address, ChainId, Hex } from "../../domain";
 import { xdcProtocolRegistryEntries } from "./xdc-protocol-registry";
 
-export const CONTRACT_REGISTRY_VERSION = "2026-09-27.1";
+export const CONTRACT_REGISTRY_VERSION = "2026-09-27.2";
 
 export type ContractRegistrySource =
   | "safe-deployments"
   | "evm-specification"
-  | "protocol-documentation";
+  | "protocol-documentation"
+  | "explorer-verification";
 export type ContractRegistryExecutionRole =
   | "safe-singleton"
   | "safe-batch-executor"
@@ -31,7 +32,8 @@ export type ContractRegistryCategory = "infrastructure" | "protocol";
 export type ContractRegistryVerification =
   | "specification"
   | "publisher-documented"
-  | "publisher-documented-bytecode-present";
+  | "publisher-documented-bytecode-present"
+  | "explorer-verified-deployer-attribution";
 export type ContractRegistryRole =
   | "safe-singleton"
   | "fallback-handler"

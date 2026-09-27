@@ -569,6 +569,7 @@ After an alert-format or delivery change:
 | 2026-09-26 | Telegram previews were redesigned as status-aware, novice-first decision cards; complete technical evidence remains in the signed report.                                                       |
 | 2026-09-26 | Telegram polling moved from a failure-prone self-rescheduling job chain to deterministic per-Safe QStash schedules; delivery IDs now include the Safe transaction hash.                         |
 | 2026-09-27 | Normal XDC Safe v1.5 and independently resolved token-proxy delegation are treated as infrastructure, preventing a clean pre-sign check from becoming a false critical execution alert.         |
+| 2026-09-27 | Fathom's documented pool-library delegation, verified interest-rate strategy, Safe movement endpoint, and zero-address mint endpoint are classified as expected execution evidence.             |
 
 ## 17. Related documents
 
