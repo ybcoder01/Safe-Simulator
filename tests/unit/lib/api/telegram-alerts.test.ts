@@ -101,13 +101,48 @@ describe("Telegram transaction alerts", () => {
     expect(text).toContain("Action: Token approval");
     expect(text).toContain("With: Unrecognized address (0x444444…444444)");
     expect(text).toContain("Owner approvals: 1 of 2 required");
-    expect(text).toContain("A new address can spend this Safe's tokens");
+    expect(text).toContain(
+      "This approval gives a new address permission to spend this Safe's tokens",
+    );
     expect(text).toContain("XDC Network");
     expect(text).not.toContain(owner);
     expect(text).not.toContain(spender);
     expect(text).not.toContain(hash);
     expect(text).not.toContain("Nonce:");
     expect(text).not.toContain("Alert verification ID");
+  });
+
+  it("names a recognized protocol when an approval enables spending access", () => {
+    const fathomPool =
+      "0x70d8005E3c8C7e383FE35Fa40156042F3393449F" as Address;
+    const text = formatTelegramAlert(
+      transaction(1, {
+        to: "0xfa2958cb79b0491cc627c1557f441ef849ca8eb1" as Address,
+      }),
+      2,
+      {
+        ...analysis,
+        verdict: "unverified",
+        findings: [
+          {
+            ...analysis.findings[0]!,
+            severity: "warning",
+            addresses: [
+              "0xfa2958cb79b0491cc627c1557f441ef849ca8eb1" as Address,
+              fathomPool,
+            ],
+          },
+        ],
+      },
+    );
+
+    expect(text).toContain(
+      "This approval enables token spending access for Fathom Pool",
+    );
+    expect(text).toContain(
+      "confirm the spender, approval amount, and every unrecognized address",
+    );
+    expect(text).not.toContain("A new address can spend");
   });
 
   it("uses an incident-response heading after a risky transaction executes", () => {
