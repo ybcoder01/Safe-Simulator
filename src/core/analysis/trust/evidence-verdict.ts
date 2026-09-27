@@ -228,6 +228,18 @@ function isExpectedProtocolLibraryDelegation(
   );
 }
 
+function isDirectWalletTargetCall(
+  input: EvidenceVerdictInput,
+  call: EvidenceVerdictInput["internalCalls"][number],
+): boolean {
+  return (
+    input.targetAccountType === "wallet" &&
+    call.operation === "call" &&
+    addressKey(call.from) === addressKey(input.safeAddress) &&
+    addressKey(call.to) === addressKey(input.target)
+  );
+}
+
 function assessAddresses(
   input: EvidenceVerdictInput,
 ): readonly AddressTrustAssessment[] {
@@ -260,6 +272,7 @@ function assessAddresses(
     if (approval.spender) add(approval.spender, "approval-spender");
   }
   for (const call of input.internalCalls) {
+    if (isDirectWalletTargetCall(input, call)) continue;
     add(call.to, "internal-target");
   }
 
@@ -701,7 +714,8 @@ export function evaluateEvidenceVerdict(
           !isExpectedSafeBatchDelegationCall(input, call) &&
           !isExpectedTargetProxyDelegation(input, call) &&
           !isExpectedInternalProxyDelegation(input, call) &&
-          !isExpectedProtocolLibraryDelegation(input, call),
+          !isExpectedProtocolLibraryDelegation(input, call) &&
+          !isDirectWalletTargetCall(input, call),
       )
       .map((call) => call.to),
   );
