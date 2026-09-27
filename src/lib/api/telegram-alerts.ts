@@ -163,7 +163,7 @@ function alertHeading(
       : "🔴 DO NOT SIGN";
   }
   if (verdict === "unverified") return "🟠 VERIFY BEFORE SIGNING";
-  return "🟢 NO KNOWN WARNING FOUND";
+  return "🟢 NO WARNING IN PRE-SIGN CHECKS";
 }
 
 const plainFindingTitles: Readonly<Record<string, string>> = {

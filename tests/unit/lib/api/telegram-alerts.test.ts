@@ -82,6 +82,17 @@ const analysis: AnalysisResult = {
 };
 
 describe("Telegram transaction alerts", () => {
+  it("scopes a green pending alert to the pre-sign evidence", () => {
+    const text = formatTelegramAlert(transaction(), 2, {
+      ...analysis,
+      verdict: "known",
+      findings: [],
+    });
+
+    expect(text).toContain("🟢 NO WARNING IN PRE-SIGN CHECKS");
+    expect(text).not.toContain("NO KNOWN WARNING FOUND");
+  });
+
   it("shows a novice-first pending alert without raw technical identifiers", () => {
     const text = formatTelegramAlert(transaction(), 2, analysis);
 

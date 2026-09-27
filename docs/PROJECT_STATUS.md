@@ -118,12 +118,12 @@ Telegram cannot initiate a private conversation until the user starts the bot.
 
 ## 4. Safety verdicts
 
-| Signal | Telegram heading         | Meaning                                                                                  |
-| ------ | ------------------------ | ---------------------------------------------------------------------------------------- |
-| Red    | `DO NOT SIGN YET`        | Critical evidence was detected. Stop and independently verify the payload and addresses. |
-| Orange | `REVIEW BEFORE SIGNING`  | Evidence is unresolved or a warning requires signer review.                              |
-| Yellow | `CHECK THE DETAILS`      | The transaction is recognized, but the evidence is not explicitly trusted.               |
-| Green  | `NO KNOWN WARNING FOUND` | No warning was found in the available evidence. This is not a guarantee of safety.       |
+| Signal | Telegram heading                | Meaning                                                                                  |
+| ------ | ------------------------------- | ---------------------------------------------------------------------------------------- |
+| Red    | `DO NOT SIGN YET`               | Critical evidence was detected. Stop and independently verify the payload and addresses. |
+| Orange | `REVIEW BEFORE SIGNING`         | Evidence is unresolved or a warning requires signer review.                              |
+| Yellow | `CHECK THE DETAILS`             | The transaction is recognized, but the evidence is not explicitly trusted.               |
+| Green  | `NO WARNING IN PRE-SIGN CHECKS` | No warning was found in the pre-sign evidence. This is not a guarantee of safety.        |
 
 Unknown, incomplete, stale, or conflicting evidence must never be converted
 into a green result.
@@ -568,6 +568,7 @@ After an alert-format or delivery change:
 | 2026-09-26 | Signed alert verification is deployed, migration `0007` and the signing key are active, and a live XDC signer alert was delivered and verified.                                                 |
 | 2026-09-26 | Telegram previews were redesigned as status-aware, novice-first decision cards; complete technical evidence remains in the signed report.                                                       |
 | 2026-09-26 | Telegram polling moved from a failure-prone self-rescheduling job chain to deterministic per-Safe QStash schedules; delivery IDs now include the Safe transaction hash.                         |
+| 2026-09-27 | Normal XDC Safe v1.5 and independently resolved token-proxy delegation are treated as infrastructure, preventing a clean pre-sign check from becoming a false critical execution alert.         |
 
 ## 17. Related documents
 

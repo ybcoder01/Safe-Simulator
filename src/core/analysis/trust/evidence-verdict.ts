@@ -638,7 +638,15 @@ export function evaluateEvidenceVerdict(
   }
 
   const internalTargets = uniqueAddresses(
-    input.internalCalls.map((call) => call.to),
+    input.internalCalls
+      .filter(
+        (call) =>
+          !isExpectedSafeProxyDelegation(input, call) &&
+          !isExpectedSafeBatchDelegationCall(input, call) &&
+          !isExpectedTargetProxyDelegation(input, call) &&
+          !isExpectedInternalProxyDelegation(input, call),
+      )
+      .map((call) => call.to),
   );
   const unresolvedInternalTargets = addresses.filter(
     (assessment) =>
