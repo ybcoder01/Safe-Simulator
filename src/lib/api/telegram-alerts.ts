@@ -167,7 +167,6 @@ function alertHeading(
 }
 
 const plainFindingTitles: Readonly<Record<string, string>> = {
-  "new-approval-spender": "A new address can spend this Safe's tokens",
   "infinite-allowance": "Unlimited token spending access was granted",
   "requested-infinite-allowance":
     "Unlimited token spending access is requested",
@@ -205,8 +204,26 @@ const plainFindingTitles: Readonly<Record<string, string>> = {
     "The historical Safe batch code could not be independently verified",
 };
 
-function plainFindingTitle(code: string, fallback: string): string {
-  return plainFindingTitles[code] ?? fallback;
+function plainFindingTitle(
+  transaction: SafeTransaction,
+  finding: AnalysisResult["findings"][number],
+): string {
+  if (finding.code === "new-approval-spender") {
+    const recognizedSpender = finding.addresses
+      .filter(
+        (address) => address.toLowerCase() !== transaction.to.toLowerCase(),
+      )
+      .map((address) =>
+        findContractRegistryEntry(transaction.safe.chainId, address),
+      )
+      .find((entry) => entry !== null);
+
+    return recognizedSpender
+      ? `This approval enables token spending access for ${recognizedSpender.label}`
+      : "This approval gives a new address permission to spend this Safe's tokens";
+  }
+
+  return plainFindingTitles[finding.code] ?? finding.title;
 }
 
 function statusExplanation(
@@ -256,7 +273,11 @@ function targetSummary(transaction: SafeTransaction): string {
   return `${description} (${shortAddress(transaction.to)})`;
 }
 
-function nextStep(transaction: SafeTransaction, verdict: Verdict): string {
+function nextStep(
+  transaction: SafeTransaction,
+  verdict: Verdict,
+  analysis: AnalysisResult | null,
+): string {
   if (transaction.status === "executed") {
     return verdict === "flagged" || verdict === "unverified"
       ? "If you do not recognize this, contact the other owners and inspect token approvals immediately."
@@ -269,6 +290,13 @@ function nextStep(transaction: SafeTransaction, verdict: Verdict): string {
     return "Do not add another approval. Open the report and compare the action and addresses with your signing wallet.";
   }
   if (verdict === "unverified") {
+    if (
+      analysis?.findings.some(
+        (finding) => finding.code === "new-approval-spender",
+      )
+    ) {
+      return "Open the report before signing and confirm the spender, approval amount, and every unrecognized address.";
+    }
     return "Open the report before signing and verify every unrecognized address.";
   }
   return "Open the report and confirm the action and destination before signing.";
@@ -310,7 +338,7 @@ export function formatTelegramAlert(
     new Set(
       (analysis?.findings ?? [])
         .filter((finding) => finding.severity !== "info")
-        .map((finding) => plainFindingTitle(finding.code, finding.title)),
+        .map((finding) => plainFindingTitle(transaction, finding)),
     ),
   ).slice(0, 3);
 
@@ -342,7 +370,7 @@ export function formatTelegramAlert(
           ]),
     "",
     "What you should do",
-    `• ${nextStep(transaction, verdict)}`,
+    `• ${nextStep(transaction, verdict, analysis)}`,
     "",
     `Safe: ${shortAddress(transaction.safe.address)} · ${networkName(transaction.safe.chainId)}`,
     "Never sign from a Telegram alert alone. Verify in Safe Inspector.",
