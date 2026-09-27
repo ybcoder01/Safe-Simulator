@@ -65,9 +65,9 @@ const GUIDANCE_BY_CODE = new Map<string, FindingGuidance>([
   [
     "new-approval-spender",
     {
-      label: "Verify the new spender",
+      label: "Confirm token spending access",
       action:
-        "Confirm the spender address from an independent official source and check that the requested amount matches the intended action.",
+        "Confirm the spender address and requested amount. If the spender is recognized, verify that this protocol should receive token spending access for the intended action.",
     },
   ],
   [
