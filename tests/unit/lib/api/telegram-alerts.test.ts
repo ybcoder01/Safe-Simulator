@@ -113,8 +113,7 @@ describe("Telegram transaction alerts", () => {
   });
 
   it("names a recognized protocol when an approval enables spending access", () => {
-    const fathomPool =
-      "0x70d8005E3c8C7e383FE35Fa40156042F3393449F" as Address;
+    const fathomPool = "0x70d8005E3c8C7e383FE35Fa40156042F3393449F" as Address;
     const text = formatTelegramAlert(
       transaction(1, {
         to: "0xfa2958cb79b0491cc627c1557f441ef849ca8eb1" as Address,
