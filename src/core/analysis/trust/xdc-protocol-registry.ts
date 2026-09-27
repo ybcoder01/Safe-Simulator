@@ -1309,22 +1309,40 @@ const groups: readonly ProtocolDeploymentGroup[] = [
   },
 ];
 
-export const xdcProtocolRegistryEntries: readonly ContractRegistryEntry[] =
-  groups.flatMap((group) =>
+export const xdcProtocolRegistryEntries: readonly ContractRegistryEntry[] = [
+  ...groups.flatMap((group) =>
     group.deployments.map(([address, label, role, trustPolicy, lifecycle]) => ({
       chainId: 50,
       address: address as Address,
       label,
       protocol: group.protocol,
-      category: "protocol",
+      category: "protocol" as const,
       role,
-      source: "protocol-documentation",
+      source: "protocol-documentation" as const,
       reference: group.reference,
-      verification: "publisher-documented-bytecode-present",
+      verification: "publisher-documented-bytecode-present" as const,
       reviewedAt: REVIEWED_AT,
       logoKey: group.logoKey,
       executionRole: null,
       trustPolicy,
       lifecycle,
     })),
-  );
+  ),
+  {
+    chainId: 50,
+    address: "0xB131Df2d2F2e042f79A09981DB7F9aDf578291a8" as Address,
+    label: "Fathom Default Reserve Interest Rate Strategy",
+    protocol: "fathom",
+    category: "protocol",
+    role: "interest-rate-model",
+    source: "explorer-verification",
+    reference:
+      "https://xdcscan.com/address/0xB131Df2d2F2e042f79A09981DB7F9aDf578291a8#code",
+    verification: "explorer-verified-deployer-attribution",
+    reviewedAt: "2026-09-27",
+    logoKey: "fathom",
+    executionRole: null,
+    trustPolicy: "identity-only",
+    lifecycle: "internal",
+  },
+];

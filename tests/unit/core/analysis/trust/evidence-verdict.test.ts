@@ -446,6 +446,145 @@ describe("evaluateEvidenceVerdict", () => {
     );
   });
 
+  it("does not treat the Safe or zero mint address as unknown movement participants", () => {
+    const result = evaluateEvidenceVerdict(
+      input({
+        movements: [
+          { token, from: safe, to: target },
+          {
+            token: target,
+            from: "0x0000000000000000000000000000000000000000" as Address,
+            to: safe,
+          },
+        ],
+        addressBook: [
+          { address: token, label: "Underlying", trust: "trusted" },
+          { address: target, label: "Receipt token", trust: "trusted" },
+        ],
+      }),
+    );
+
+    expect(result.findings.map((finding) => finding.code)).not.toContain(
+      "movement-trust-unresolved",
+    );
+  });
+
+  it("recognizes the documented Fathom supply library only from the active pool", () => {
+    const pool = "0x70d8005E3c8C7e383FE35Fa40156042F3393449F" as Address;
+    const supplyLogic = "0xA8f477530036cF1391E5A76A723635be7b28Eff3" as Address;
+    const registry = contractRegistryEntriesForChain(50);
+    const expected = evaluateEvidenceVerdict(
+      input({
+        target: pool,
+        internalCalls: [
+          { depth: 4, from: pool, to: supplyLogic, operation: "delegatecall" },
+        ],
+        registry,
+        callTrace: "complete",
+      }),
+    );
+    const wrongCaller = evaluateEvidenceVerdict(
+      input({
+        target: pool,
+        internalCalls: [
+          {
+            depth: 4,
+            from: target,
+            to: supplyLogic,
+            operation: "delegatecall",
+          },
+        ],
+        registry,
+        callTrace: "complete",
+      }),
+    );
+
+    expect(expected.findings).toContainEqual(
+      expect.objectContaining({
+        code: "expected-protocol-library-delegation",
+        severity: "info",
+        addresses: [supplyLogic.toLowerCase()],
+      }),
+    );
+    expect(expected.findings.map((finding) => finding.code)).not.toContain(
+      "internal-delegatecall",
+    );
+    expect(wrongCaller.findings).toContainEqual(
+      expect.objectContaining({
+        code: "internal-delegatecall",
+        severity: "critical",
+      }),
+    );
+  });
+
+  it("keeps the observed Fathom supply execution aligned with its clean pre-sign result", () => {
+    const pool = "0x70d8005E3c8C7e383FE35Fa40156042F3393449F" as Address;
+    const poolImplementation =
+      "0x5c756ACD4Cb26a9cA6De7abF9765cE84B5Be9322" as Address;
+    const supplyLogic = "0xA8f477530036cF1391E5A76A723635be7b28Eff3" as Address;
+    const interestStrategy =
+      "0xB131Df2d2F2e042f79A09981DB7F9aDf578291a8" as Address;
+    const underlying = "0xfA2958CB79b0491CC627c1557F441eF849Ca8eb1" as Address;
+    const underlyingImplementation =
+      "0x9DdB959f04b7075AacCd28e2e5c5c113469c534b" as Address;
+    const receiptToken =
+      "0xfc751eef339555950A8cb443bb1e3FdD6a3A77eC" as Address;
+    const receiptTokenImplementation =
+      "0x95f2f5fd81815Da3517E1EdfC149EE47c116F904" as Address;
+    const result = evaluateEvidenceVerdict(
+      input({
+        target: pool,
+        implementationChain: [poolImplementation],
+        internalProxyBoundaries: [
+          { proxy: underlying, implementation: underlyingImplementation },
+          { proxy: receiptToken, implementation: receiptTokenImplementation },
+        ],
+        internalCalls: [
+          { depth: 1, from: safe, to: safeV150L2, operation: "delegatecall" },
+          { depth: 2, from: safe, to: pool, operation: "call" },
+          {
+            depth: 3,
+            from: pool,
+            to: poolImplementation,
+            operation: "delegatecall",
+          },
+          { depth: 4, from: pool, to: supplyLogic, operation: "delegatecall" },
+          { depth: 5, from: pool, to: interestStrategy, operation: "call" },
+          {
+            depth: 6,
+            from: underlying,
+            to: underlyingImplementation,
+            operation: "delegatecall",
+          },
+          {
+            depth: 6,
+            from: receiptToken,
+            to: receiptTokenImplementation,
+            operation: "delegatecall",
+          },
+        ],
+        movements: [
+          { token: underlying, from: safe, to: receiptToken },
+          {
+            token: receiptToken,
+            from: "0x0000000000000000000000000000000000000000" as Address,
+            to: safe,
+          },
+        ],
+        registry: contractRegistryEntriesForChain(50),
+        callTrace: "complete",
+      }),
+    );
+
+    expect(result.verdict).toBe("known");
+    expect(
+      result.findings.filter(
+        (finding) =>
+          finding.severity === "critical" || finding.severity === "warning",
+      ),
+    ).toEqual([]);
+  });
+
   it("keeps bounded approvals unverified until spender trust exists", () => {
     const result = evaluateEvidenceVerdict(
       input({

@@ -18,6 +18,8 @@ const morphoBlue = "0xEa49B0fE898aF913A3826F9f462eE2cDcb854fD9" as Address;
 const curveAdmin = "0xabc336d4C71ad275695744d32DdB1d8266Db1cbF" as Address;
 const curveRouter = "0x3F5A41B922a76759b9C77D36b3d337E88cD1dc5e" as Address;
 const yieldNestRwaMax = "0x7054f74d6cB418e987b73c9f3c23e5cEc18217b2" as Address;
+const fathomInterestRateStrategy =
+  "0xB131Df2d2F2e042f79A09981DB7F9aDf578291a8" as Address;
 
 describe("authoritative contract registry", () => {
   it("resolves pinned Safe deployments case-insensitively on supported chains", () => {
@@ -67,6 +69,20 @@ describe("authoritative contract registry", () => {
     });
     expect(findContractRegistryEntry(1, xswapV3Router)).toBeNull();
     expect(findContractRegistryEntry(51, xswapV3Router)).toBeNull();
+  });
+
+  it("records the verified Fathom interest strategy as identity evidence only", () => {
+    expect(
+      findContractRegistryEntry(50, fathomInterestRateStrategy),
+    ).toMatchObject({
+      label: "Fathom Default Reserve Interest Rate Strategy",
+      protocol: "fathom",
+      role: "interest-rate-model",
+      source: "explorer-verification",
+      verification: "explorer-verified-deployer-attribution",
+      trustPolicy: "identity-only",
+      lifecycle: "internal",
+    });
   });
 
   it("separates user-facing protocol contracts from identity-only infrastructure", () => {
