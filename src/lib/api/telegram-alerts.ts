@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 
+import { formatEther } from "viem";
+
 import { classifyTransactionActivity } from "@/core/analysis/decoding/activity";
 import { findContractRegistryEntry } from "@/core/analysis/trust/contract-registry";
 import type {
@@ -142,10 +144,22 @@ function alertHeading(
   threshold: number,
   verdict: Verdict,
 ): string {
+  const isTransfer =
+    classifyTransactionActivity(transaction).type === "transfer";
   if (transaction.status === "executed") {
-    if (verdict === "flagged") return "🔴 HIGH-RISK TRANSACTION EXECUTED";
-    if (verdict === "unverified") return "🟠 EXECUTED — REVIEW REQUIRED";
-    return "🟢 TRANSACTION EXECUTED";
+    if (verdict === "flagged") {
+      return isTransfer
+        ? "🔴 HIGH-RISK TRANSFER COMPLETED"
+        : "🔴 HIGH-RISK TRANSACTION EXECUTED";
+    }
+    if (verdict === "unverified") {
+      return isTransfer
+        ? "🟠 TRANSFER COMPLETED — CHECK DETAILS"
+        : "🟠 EXECUTED — REVIEW REQUIRED";
+    }
+    return isTransfer
+      ? "🟢 TRANSFER COMPLETED — NO WARNING FOUND"
+      : "🟢 TRANSACTION EXECUTED";
   }
   if (transaction.status === "failed") {
     return verdict === "flagged"
@@ -229,8 +243,15 @@ function plainFindingTitle(
 function statusExplanation(
   transaction: SafeTransaction,
   threshold: number,
+  verdict: Verdict,
 ): string {
   if (transaction.status === "executed") {
+    if (
+      verdict === "known" &&
+      classifyTransactionActivity(transaction).type === "transfer"
+    ) {
+      return "The transfer completed. No warning was found in the available evidence.";
+    }
     return "This transaction has already gone through. It cannot be stopped now.";
   }
   if (transaction.status === "failed") {
@@ -259,6 +280,27 @@ function actionSummary(transaction: SafeTransaction): string {
   return classifyTransactionActivity(transaction).label;
 }
 
+function nativeAssetSymbol(chainId: number): string {
+  if (chainId === 1) return "ETH";
+  if (chainId === 50) return "XDC";
+  return "native asset";
+}
+
+function transactionDetails(transaction: SafeTransaction): readonly string[] {
+  const activity = classifyTransactionActivity(transaction);
+  if (activity.basis === "native-value") {
+    return [
+      `• Sent: ${formatEther(transaction.value)} ${nativeAssetSymbol(transaction.safe.chainId)}`,
+      `• To: ${shortAddress(transaction.to)}`,
+    ];
+  }
+
+  return [
+    `• Action: ${actionSummary(transaction)}`,
+    `• With: ${targetSummary(transaction)}`,
+  ];
+}
+
 function targetSummary(transaction: SafeTransaction): string {
   const registryEntry = findContractRegistryEntry(
     transaction.safe.chainId,
@@ -278,7 +320,14 @@ function nextStep(
   verdict: Verdict,
   analysis: AnalysisResult | null,
 ): string {
+  const isTransfer =
+    classifyTransactionActivity(transaction).type === "transfer";
   if (transaction.status === "executed") {
+    if (isTransfer) {
+      return verdict === "known"
+        ? "No action is needed if the amount and recipient are correct."
+        : "Confirm the amount and recipient. If either is unexpected, contact the other owners immediately.";
+    }
     return verdict === "flagged" || verdict === "unverified"
       ? "If you do not recognize this, contact the other owners and inspect token approvals immediately."
       : "Confirm that the action and destination match what the owners intended.";
@@ -287,9 +336,15 @@ function nextStep(
     return "Do not retry automatically. Open the report and verify the action and every involved address first.";
   }
   if (verdict === "flagged") {
+    if (isTransfer) {
+      return "Do not add another approval. Confirm the amount and recipient in your signing wallet.";
+    }
     return "Do not add another approval. Open the report and compare the action and addresses with your signing wallet.";
   }
   if (verdict === "unverified") {
+    if (isTransfer) {
+      return "Open the report before signing and confirm the amount and recipient.";
+    }
     if (
       analysis?.findings.some(
         (finding) => finding.code === "new-approval-spender",
@@ -345,12 +400,11 @@ export function formatTelegramAlert(
   return [
     alertHeading(transaction, threshold, verdict),
     "",
-    statusExplanation(transaction, threshold),
+    statusExplanation(transaction, threshold, verdict),
     "",
     "What happened",
-    `• Action: ${actionSummary(transaction)}`,
-    `• With: ${targetSummary(transaction)}`,
-    `• Owner approvals: ${transaction.confirmations.length} of ${threshold} required`,
+    ...transactionDetails(transaction),
+    `• Approved by: ${transaction.confirmations.length} of ${threshold} owners`,
     ...(importantFindings.length > 0
       ? [
           "",
