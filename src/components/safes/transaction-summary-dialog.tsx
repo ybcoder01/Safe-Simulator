@@ -12,7 +12,7 @@ interface SummaryContent {
   readonly limitations: readonly string[];
 }
 
-interface SummaryView {
+export interface SummaryView {
   readonly id: string;
   readonly model: string;
   readonly summary: SummaryContent;
@@ -27,6 +27,7 @@ interface SummaryView {
 
 interface Props {
   readonly endpoint: string;
+  readonly initialSummary: SummaryView | null;
 }
 
 interface ResponseBody {
@@ -40,9 +41,9 @@ const stanceLabel: Record<SummaryContent["stance"], string> = {
   "appears-consistent": "Appears consistent with current evidence",
 };
 
-export function TransactionSummaryDialog({ endpoint }: Props) {
+export function TransactionSummaryDialog({ endpoint, initialSummary }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
-  const [summary, setSummary] = useState<SummaryView | null>(null);
+  const [summary, setSummary] = useState<SummaryView | null>(initialSummary);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -188,9 +189,10 @@ export function TransactionSummaryDialog({ endpoint }: Props) {
             </div>
           ) : (
             <div className="summary-consent">
-              <h3>Review the data boundary</h3>
+              <h3>No saved AI summary yet</h3>
               <p>
-                Generating a summary sends bounded public transaction, contract,
+                You can generate an optional second opinion after reviewing the
+                data boundary. This sends bounded public transaction, contract,
                 simulation, approval, balance, and verification evidence to
                 OpenRouter and a selected model provider. Safe signatures,
                 browser-profile trust labels, and cookies are excluded.

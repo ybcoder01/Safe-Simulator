@@ -53,6 +53,13 @@ describe("transaction activity classification", () => {
     expect(
       classifyTransactionActivity(transaction("0x8d80ff0a" as Hex)),
     ).toMatchObject({ type: "batch", basis: "selector" });
+    expect(
+      classifyTransactionActivity(transaction("0x0b4c7e4d" as Hex)),
+    ).toEqual({
+      type: "liquidity",
+      label: "Add liquidity to pool",
+      basis: "selector",
+    });
   });
 
   it("uses conservative protocol interaction labels for reviewed targets", () => {

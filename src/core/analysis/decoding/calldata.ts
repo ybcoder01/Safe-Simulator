@@ -39,19 +39,20 @@ export function knownCallSummary(data: Hex, operation: Operation) {
   const selector = data.slice(0, SELECTOR_LENGTH).toLowerCase();
   const firstAddress = addressFromWord(calldataWord(data, 0));
   const secondAddress = addressFromWord(calldataWord(data, 1));
-  const firstAmount = uintFromWord(calldataWord(data, 1));
-  const secondAmount = uintFromWord(calldataWord(data, 2));
+  const firstWordAmount = uintFromWord(calldataWord(data, 0));
+  const secondWordAmount = uintFromWord(calldataWord(data, 1));
+  const thirdWordAmount = uintFromWord(calldataWord(data, 2));
 
-  if (selector === "0x095ea7b3" && firstAddress && firstAmount) {
+  if (selector === "0x095ea7b3" && firstAddress && secondWordAmount) {
     return withOperation(
-      `Approve ${shortenAddress(firstAddress)} for ${firstAmount} base units`,
+      `Approve ${shortenAddress(firstAddress)} for ${secondWordAmount} base units`,
       operation,
     );
   }
 
-  if (selector === "0xa9059cbb" && firstAddress && firstAmount) {
+  if (selector === "0xa9059cbb" && firstAddress && secondWordAmount) {
     return withOperation(
-      `Transfer ${firstAmount} base units to ${shortenAddress(firstAddress)}`,
+      `Transfer ${secondWordAmount} base units to ${shortenAddress(firstAddress)}`,
       operation,
     );
   }
@@ -60,10 +61,22 @@ export function knownCallSummary(data: Hex, operation: Operation) {
     selector === "0x23b872dd" &&
     firstAddress &&
     secondAddress &&
-    secondAmount
+    thirdWordAmount
   ) {
     return withOperation(
-      `Transfer ${secondAmount} base units from ${shortenAddress(firstAddress)} to ${shortenAddress(secondAddress)}`,
+      `Transfer ${thirdWordAmount} base units from ${shortenAddress(firstAddress)} to ${shortenAddress(secondAddress)}`,
+      operation,
+    );
+  }
+
+  if (
+    selector === "0x0b4c7e4d" &&
+    firstWordAmount &&
+    secondWordAmount &&
+    thirdWordAmount
+  ) {
+    return withOperation(
+      `Add liquidity to a two-asset pool (${firstWordAmount} and ${secondWordAmount} base units; minimum ${thirdWordAmount} LP base units)`,
       operation,
     );
   }
@@ -111,6 +124,23 @@ export function decodedCallSummary(call: DecodedCall) {
   }
   if (method === "multisend" && nestedCount > 0) {
     return `Batch of ${nestedCount} decoded calls`;
+  }
+  if (method === "add_liquidity") {
+    const amounts = parameterValue(call, ["amounts"], 0);
+    const minimumMint = parameterValue(
+      call,
+      ["min_mint_amount", "minimum_mint_amount"],
+      1,
+    );
+    if (amounts && minimumMint) {
+      const readableAmounts = amounts
+        .replace(/^\[/, "")
+        .replace(/\]$/, "")
+        .replaceAll('"', "")
+        .replaceAll(",", " and ");
+      return `Add liquidity to a pool (${readableAmounts} base units; minimum ${minimumMint} LP base units)`;
+    }
+    return "Add liquidity to a pool";
   }
   if (method === "execute") {
     return "Execute routed commands";
