@@ -313,7 +313,13 @@ export interface TelegramSubscription {
   readonly profileId: string;
   readonly safe: SafeRef;
   readonly chatId: string;
+  readonly chatLabel: string | null;
   readonly enabled: boolean;
+  readonly disconnectedAt: UnixTime | null;
+  readonly lastPolledAt: UnixTime | null;
+  readonly lastPollError: string | null;
+  readonly lastDeliveryAttemptAt: UnixTime | null;
+  readonly lastDeliveryError: string | null;
   readonly createdAt: UnixTime;
 }
 

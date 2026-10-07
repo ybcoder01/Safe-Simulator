@@ -193,11 +193,33 @@ creating a new connection link. `/stop` removes the schedule after the last
 subscription for that Safe is disabled. QStash retries failed deliveries; one
 failed poll does not cancel later scheduled polls.
 
+Capacity is part of alert correctness. Two once-per-minute Safe schedules emit
+2,880 poll messages per day before analysis, retries, imports, and manual
+refreshes. The QStash Free plan observed on 2026-10-07 allowed 1,000 messages per
+day and stopped accepting work after the limit was exceeded. Do not represent
+one-minute monitoring as continuously available on that plan. Either provision
+reviewed paid capacity or redesign polling, then verify the control center's
+last-poll timestamp remains current for a full daily cycle.
+
 If alerts stop, send `/safes` first and confirm that the bot reports monitoring
 as active. Then inspect the webhook response, QStash schedule and
 `telegram-watch`/`telegram-alert` deliveries, the structured Vercel runtime
 logs, Telegram API errors, and the Telegram environment variables. Never bypass
 webhook authentication or send alerts from an unsigned public job endpoint.
+
+The Safe dashboard control center exposes the same recovery boundary without
+requiring a blockchain transaction: **Check now** repairs the deterministic
+schedule and requests an immediate signed poll, while **Send test alert** calls
+Telegram directly and clearly identifies the message as a test. Test alerts do
+not create delivery receipts, Safe proposals, signatures, or executions. Poll
+and delivery timestamps and sanitized recovery guidance are stored on the
+subscription; raw provider responses and credentials are never stored there.
+
+Apply additive migration `0008_telegram_control_center` to Preview before
+deploying the control-center code, verify active/pause/resume/disconnect and a
+test alert, then apply it to Production before merging or promoting the code.
+Disconnect is a soft state change so historical signed alert receipts remain
+verifiable.
 
 ## Execution-evidence version changes
 

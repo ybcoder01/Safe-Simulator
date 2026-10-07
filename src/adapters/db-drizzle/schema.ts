@@ -146,7 +146,15 @@ export const telegramSubscriptions = pgTable(
       .notNull()
       .references(() => safes.id, { onDelete: "cascade" }),
     chatId: text("chat_id").notNull(),
+    chatLabel: text("chat_label"),
     enabled: boolean("enabled").notNull().default(true),
+    disconnectedAt: timestamp("disconnected_at", { withTimezone: true }),
+    lastPolledAt: timestamp("last_polled_at", { withTimezone: true }),
+    lastPollError: text("last_poll_error"),
+    lastDeliveryAttemptAt: timestamp("last_delivery_attempt_at", {
+      withTimezone: true,
+    }),
+    lastDeliveryError: text("last_delivery_error"),
     createdAt,
   },
   (table) => [

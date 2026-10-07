@@ -9,6 +9,12 @@ const migrationPath = fileURLToPath(
 const verificationMigrationPath = fileURLToPath(
   new URL("../../../../drizzle/0007_mean_wither.sql", import.meta.url),
 );
+const controlCenterMigrationPath = fileURLToPath(
+  new URL(
+    "../../../../drizzle/0008_telegram_control_center.sql",
+    import.meta.url,
+  ),
+);
 
 describe("Telegram alert migration", () => {
   it("adds only the three Telegram persistence tables", () => {
@@ -34,5 +40,18 @@ describe("Telegram alert migration", () => {
     expect(sql).toContain(
       'CREATE UNIQUE INDEX "telegram_deliveries_verification_id_unique"',
     );
+  });
+
+  it("adds non-sensitive control-center health fields", () => {
+    const sql = readFileSync(controlCenterMigrationPath, "utf8");
+
+    expect(sql).toContain('ADD COLUMN "chat_label" text');
+    expect(sql).toContain('ADD COLUMN "disconnected_at" timestamp');
+    expect(sql).toContain('ADD COLUMN "last_polled_at" timestamp');
+    expect(sql).toContain('ADD COLUMN "last_poll_error" text');
+    expect(sql).toContain('ADD COLUMN "last_delivery_attempt_at" timestamp');
+    expect(sql).toContain('ADD COLUMN "last_delivery_error" text');
+    expect(sql).not.toContain("chat_id");
+    expect(sql).not.toContain("token");
   });
 });

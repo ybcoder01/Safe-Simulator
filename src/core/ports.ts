@@ -247,6 +247,7 @@ export interface PersistencePort {
   consumeTelegramLinkToken(
     tokenHash: string,
     chatId: string,
+    chatLabel: string | null,
     now: number,
   ): Promise<TelegramSubscription | null>;
   findTelegramSubscription(
@@ -259,6 +260,34 @@ export interface PersistencePort {
   listTelegramSubscriptionsForChat(
     chatId: string,
   ): Promise<readonly TelegramSubscription[]>;
+  listTelegramSubscriptionsForProfile(
+    profileId: string,
+    safe: SafeRef,
+  ): Promise<readonly TelegramSubscription[]>;
+  setTelegramSubscriptionsEnabled(
+    profileId: string,
+    safe: SafeRef,
+    enabled: boolean,
+  ): Promise<number>;
+  disconnectTelegramSubscriptionsForProfile(
+    profileId: string,
+    safe: SafeRef,
+    disconnectedAt: number,
+  ): Promise<number>;
+  recordTelegramWatchResult(
+    safe: SafeRef,
+    checkedAt: number,
+    error: string | null,
+  ): Promise<void>;
+  findLatestTelegramDeliveryAt(
+    profileId: string,
+    safe: SafeRef,
+  ): Promise<number | null>;
+  recordTelegramDeliveryResult(
+    subscriptionId: string,
+    attemptedAt: number,
+    error: string | null,
+  ): Promise<void>;
   disableTelegramSubscriptionsForChat(chatId: string): Promise<number>;
   claimTelegramDelivery(
     subscriptionId: string,

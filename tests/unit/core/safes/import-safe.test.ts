@@ -91,13 +91,40 @@ describe("ImportSafeService", () => {
 
     await expect(
       service.execute({ chainId: 1, address: safeAddress, profileId }),
-    ).resolves.toEqual(snapshot);
+    ).resolves.toEqual({
+      safe: snapshot,
+      syncQueued: true,
+      syncQueueError: null,
+    });
     expect(persistence.upsertSafe).toHaveBeenCalledWith(snapshot);
     expect(persistence.bookmarkSafe).toHaveBeenCalledWith(profileId, {
       chainId: 1,
       address: safeAddress,
     });
     expect(queue.enqueue).toHaveBeenCalledTimes(4);
+  });
+
+  it("keeps a verified Safe imported when background sync cannot be queued", async () => {
+    const persistence = makePersistence();
+    const queueError = new Error("queue quota exceeded");
+    const queue = {
+      enqueue: vi.fn().mockRejectedValue(queueError),
+    };
+    const service = new ImportSafeService(makeChain(), persistence, queue);
+    const profileId = crypto.randomUUID();
+
+    await expect(
+      service.execute({ chainId: 1, address: safeAddress, profileId }),
+    ).resolves.toEqual({
+      safe: snapshot,
+      syncQueued: false,
+      syncQueueError: queueError,
+    });
+    expect(persistence.upsertSafe).toHaveBeenCalledWith(snapshot);
+    expect(persistence.bookmarkSafe).toHaveBeenCalledWith(profileId, {
+      chainId: 1,
+      address: safeAddress,
+    });
   });
 
   it("rejects impossible owner thresholds", async () => {

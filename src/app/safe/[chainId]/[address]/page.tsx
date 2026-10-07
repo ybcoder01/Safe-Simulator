@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { connection } from "next/server";
 
 import { MessageHistory } from "@/components/safes/message-history";
 import { ModuleActivity } from "@/components/safes/module-activity";
@@ -61,6 +62,10 @@ function timestampDateTime(timestamp: number) {
   return new Date(timestamp * 1_000).toISOString();
 }
 
+function currentUnixTime() {
+  return Math.floor(Date.now() / 1_000);
+}
+
 function formatTokenAmount(amount: string, decimals: number) {
   const value = BigInt(amount);
   if (decimals === 0) return value.toString();
@@ -78,6 +83,7 @@ export default async function SafeDashboardPage({
   params,
   searchParams,
 }: PageProps) {
+  await connection();
   const [routeValues, query] = await Promise.all([params, searchParams]);
   const parsed = safeRouteParamsSchema.safeParse(routeValues);
   if (!parsed.success) notFound();
@@ -101,7 +107,8 @@ export default async function SafeDashboardPage({
     addressBook,
     analysisCoverage,
     moduleAnalysisCoverage,
-    telegramSubscription,
+    telegramSubscriptions,
+    latestTelegramDeliveryAt,
   ] = await Promise.all([
     resolveSyncSummary(persistence, safe),
     persistence.listTransactions(safe, null, 25),
@@ -118,7 +125,10 @@ export default async function SafeDashboardPage({
     persistence.getAnalysisCoverage(safe, TRANSACTION_ANALYSIS_ENGINE_VERSION),
     persistence.getModuleAnalysisCoverage(safe, MODULE_ANALYSIS_ENGINE_VERSION),
     profileId
-      ? persistence.findTelegramSubscription(profileId, safe)
+      ? persistence.listTelegramSubscriptionsForProfile(profileId, safe)
+      : Promise.resolve([]),
+    profileId
+      ? persistence.findLatestTelegramDeliveryAt(profileId, safe)
       : Promise.resolve(null),
   ]);
   const [transactions, moduleAnalyses, transferViews] = await Promise.all([
@@ -146,6 +156,54 @@ export default async function SafeDashboardPage({
   const messageViews = messagePage.items.map((message) =>
     toMessageView(message, safe.threshold),
   );
+  const activeTelegramSubscriptions = telegramSubscriptions.filter(
+    (subscription) => subscription.enabled,
+  );
+  const visibleTelegramSubscriptions =
+    activeTelegramSubscriptions.length > 0
+      ? activeTelegramSubscriptions
+      : telegramSubscriptions;
+  const latestTelegramPollAt = visibleTelegramSubscriptions.reduce<
+    number | null
+  >(
+    (latest, subscription) =>
+      subscription.lastPolledAt !== null &&
+      (latest === null || subscription.lastPolledAt > latest)
+        ? subscription.lastPolledAt
+        : latest,
+    null,
+  );
+  const reportedTelegramHealthError = visibleTelegramSubscriptions.find(
+    (subscription) =>
+      subscription.lastDeliveryError !== null ||
+      subscription.lastPollError !== null,
+  );
+  const monitoringIsStale =
+    latestTelegramPollAt !== null &&
+    latestTelegramPollAt < currentUnixTime() - 3 * 60;
+  const telegramStatus = {
+    state:
+      telegramSubscriptions.length === 0
+        ? ("disconnected" as const)
+        : activeTelegramSubscriptions.length > 0
+          ? ("active" as const)
+          : ("paused" as const),
+    chats: visibleTelegramSubscriptions.map((subscription) =>
+      subscription.chatLabel
+        ? subscription.chatLabel
+        : `Telegram chat ••••${subscription.chatId.slice(-4)}`,
+    ),
+    lastPolledAt: latestTelegramPollAt,
+    lastAlertAt: latestTelegramDeliveryAt,
+    healthError:
+      reportedTelegramHealthError?.lastDeliveryError ??
+      reportedTelegramHealthError?.lastPollError ??
+      (activeTelegramSubscriptions.length > 0 && latestTelegramPollAt === null
+        ? "No successful monitoring check has been recorded yet. Use Check now to verify the queue."
+        : monitoringIsStale
+          ? "Monitoring is delayed. Use Check now; if it fails, inspect the queue service quota and delivery logs."
+          : null),
+  };
   const chainName = safe.chainId === 1 ? "Ethereum" : "XDC Network";
   const safeExplorerUrl = explorerAddressUrl(safe.chainId, safe.address);
   const actionInput = {
@@ -412,7 +470,7 @@ export default async function SafeDashboardPage({
         <TelegramAlertsCard
           address={safe.address}
           chainId={safe.chainId}
-          enabled={telegramSubscription !== null}
+          status={telegramStatus}
         />
 
         <TransactionHistory

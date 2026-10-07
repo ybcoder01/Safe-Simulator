@@ -14,7 +14,13 @@ const updateSchema = z.object({
   update_id: z.number().int(),
   message: z
     .object({
-      chat: z.object({ id: z.union([z.number().int(), z.string()]) }),
+      chat: z.object({
+        id: z.union([z.number().int(), z.string()]),
+        username: z.string().max(64).optional(),
+        first_name: z.string().max(128).optional(),
+        last_name: z.string().max(128).optional(),
+        title: z.string().max(128).optional(),
+      }),
       text: z.string().max(4_096).optional(),
     })
     .optional(),
@@ -52,12 +58,24 @@ export async function POST(request: Request) {
   if (!message?.text) return Response.json({ ok: true });
 
   try {
-    await handleTelegramCommand(String(message.chat.id), message.text, {
-      persistence: getPersistencePort(),
-      queue: getQueuePort(),
-      telegram: getTelegramDeliveryPort(),
-      now: () => Math.floor(Date.now() / 1_000),
-    });
+    const chatLabel = message.chat.username
+      ? `@${message.chat.username}`
+      : (message.chat.title ??
+        [message.chat.first_name, message.chat.last_name]
+          .filter(Boolean)
+          .join(" ") ??
+        null);
+    await handleTelegramCommand(
+      String(message.chat.id),
+      chatLabel || null,
+      message.text,
+      {
+        persistence: getPersistencePort(),
+        queue: getQueuePort(),
+        telegram: getTelegramDeliveryPort(),
+        now: () => Math.floor(Date.now() / 1_000),
+      },
+    );
   } catch (error) {
     console.error("Telegram update handling failed.", error);
   }

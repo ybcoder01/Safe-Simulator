@@ -26,7 +26,7 @@ describe("handleTelegramCommand", () => {
       createdAt: 100,
     });
 
-    await handleTelegramCommand("42", "/start secret-code", {
+    await handleTelegramCommand("42", "@owner", "/start secret-code", {
       persistence: {
         consumeTelegramLinkToken: consume,
         disableTelegramSubscriptionsForChat: vi.fn(),
@@ -41,6 +41,7 @@ describe("handleTelegramCommand", () => {
     expect(consume).toHaveBeenCalledWith(
       hashTelegramLinkToken("secret-code"),
       "42",
+      "@owner",
       120,
     );
     expect(enqueue).toHaveBeenCalledWith(
@@ -69,7 +70,7 @@ describe("handleTelegramCommand", () => {
     const schedule = vi.fn().mockResolvedValue({ scheduleId: "schedule" });
     const sendMessage = vi.fn().mockResolvedValue(undefined);
 
-    await handleTelegramCommand("42", "/safes", {
+    await handleTelegramCommand("42", null, "/safes", {
       persistence: {
         consumeTelegramLinkToken: vi.fn(),
         disableTelegramSubscriptionsForChat: vi.fn(),
@@ -104,7 +105,7 @@ describe("handleTelegramCommand", () => {
     };
     const deleteSchedule = vi.fn().mockResolvedValue(undefined);
 
-    await handleTelegramCommand("42", "/stop", {
+    await handleTelegramCommand("42", null, "/stop", {
       persistence: {
         consumeTelegramLinkToken: vi.fn(),
         disableTelegramSubscriptionsForChat: vi.fn().mockResolvedValue(1),
