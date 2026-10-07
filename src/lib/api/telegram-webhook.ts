@@ -37,7 +37,7 @@ export function telegramWatchScheduleId(
   return `telegram-watch-${digest}`;
 }
 
-async function ensureTelegramWatch(
+export async function ensureTelegramWatch(
   safe: SafeRef,
   ports: Pick<TelegramCommandPorts, "queue" | "now">,
 ): Promise<void> {
@@ -68,6 +68,7 @@ function uniqueSafes(
 
 export async function handleTelegramCommand(
   chatId: string,
+  chatLabel: string | null,
   text: string,
   ports: TelegramCommandPorts,
 ): Promise<void> {
@@ -76,6 +77,7 @@ export async function handleTelegramCommand(
     const subscription = await ports.persistence.consumeTelegramLinkToken(
       hashTelegramLinkToken(argument),
       chatId,
+      chatLabel,
       ports.now(),
     );
     if (!subscription) {

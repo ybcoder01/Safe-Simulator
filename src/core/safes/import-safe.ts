@@ -20,6 +20,12 @@ export class SafeImportError extends Error {
   }
 }
 
+export interface SafeImportResult {
+  readonly safe: SafeSnapshot;
+  readonly syncQueued: boolean;
+  readonly syncQueueError: unknown | null;
+}
+
 export class ImportSafeService {
   constructor(
     private readonly chain: ChainPort,
@@ -31,7 +37,7 @@ export class ImportSafeService {
     chainId: ChainId;
     address: Address;
     profileId: string;
-  }): Promise<SafeSnapshot> {
+  }): Promise<SafeImportResult> {
     const safeRef = { chainId: input.chainId, address: input.address } as const;
     const code = await this.chain.getCode(input.chainId, input.address);
 
@@ -66,7 +72,11 @@ export class ImportSafeService {
 
     await this.persistence.upsertSafe(snapshot);
     await this.persistence.bookmarkSafe(input.profileId, safeRef);
-    await enqueueSafeSync(safeRef, this.queue, "import");
-    return snapshot;
+    try {
+      await enqueueSafeSync(safeRef, this.queue, "import");
+      return { safe: snapshot, syncQueued: true, syncQueueError: null };
+    } catch (syncQueueError) {
+      return { safe: snapshot, syncQueued: false, syncQueueError };
+    }
   }
 }

@@ -102,9 +102,36 @@ export async function POST(request: NextRequest) {
     const profileId =
       parseProfileId(request.cookies.get(PROFILE_COOKIE)?.value) ??
       crypto.randomUUID();
-    const safe = await getImportSafeService().execute({ ...input, profileId });
+    const result = await getImportSafeService().execute({
+      ...input,
+      profileId,
+    });
+    if (result.syncQueueError) {
+      console.error(
+        "Safe imported but initial synchronization was not queued.",
+        {
+          chainId: input.chainId,
+          safe: input.address,
+          error:
+            result.syncQueueError instanceof Error
+              ? {
+                  name: result.syncQueueError.name,
+                  message: result.syncQueueError.message,
+                }
+              : { message: String(result.syncQueueError) },
+        },
+      );
+    }
     const response = NextResponse.json(
-      { data: toSafeView(safe) },
+      {
+        data: toSafeView(result.safe, result.syncQueued ? "queued" : "failed"),
+        ...(result.syncQueued
+          ? {}
+          : {
+              warning:
+                "Safe imported, but history synchronization is delayed. Use Refresh when queue service is available.",
+            }),
+      },
       { status: 201 },
     );
 

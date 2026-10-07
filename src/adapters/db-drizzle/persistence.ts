@@ -1406,7 +1406,17 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
       profileId: row.profileId,
       safe,
       chatId: row.chatId,
+      chatLabel: row.chatLabel,
       enabled: row.enabled,
+      disconnectedAt: row.disconnectedAt
+        ? asUnixTime(row.disconnectedAt)
+        : null,
+      lastPolledAt: row.lastPolledAt ? asUnixTime(row.lastPolledAt) : null,
+      lastPollError: row.lastPollError,
+      lastDeliveryAttemptAt: row.lastDeliveryAttemptAt
+        ? asUnixTime(row.lastDeliveryAttemptAt)
+        : null,
+      lastDeliveryError: row.lastDeliveryError,
       createdAt: asUnixTime(row.createdAt),
     };
   }
@@ -1430,6 +1440,7 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
   async consumeTelegramLinkToken(
     tokenHash: string,
     chatId: string,
+    chatLabel: string | null,
     now: number,
   ): Promise<TelegramSubscription | null> {
     return this.db.transaction(async (tx) => {
@@ -1459,6 +1470,7 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
           profileId: token.profileId,
           safeId: token.safeId,
           chatId,
+          chatLabel,
         })
         .onConflictDoUpdate({
           target: [
@@ -1466,7 +1478,13 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
             telegramSubscriptions.safeId,
             telegramSubscriptions.chatId,
           ],
-          set: { enabled: true, createdAt: asDate(now) },
+          set: {
+            chatLabel,
+            enabled: true,
+            disconnectedAt: null,
+            lastPollError: null,
+            createdAt: asDate(now),
+          },
         })
         .returning();
       return subscription
@@ -1536,6 +1554,124 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
         address: safe.address as Address,
       }),
     );
+  }
+
+  async listTelegramSubscriptionsForProfile(
+    profileId: string,
+    safeRef: SafeRef,
+  ): Promise<readonly TelegramSubscription[]> {
+    const safe = await this.findSafeRow(safeRef);
+    if (!safe) return [];
+    const rows = await this.db
+      .select()
+      .from(telegramSubscriptions)
+      .where(
+        and(
+          eq(telegramSubscriptions.profileId, profileId),
+          eq(telegramSubscriptions.safeId, safe.id),
+          isNull(telegramSubscriptions.disconnectedAt),
+        ),
+      )
+      .orderBy(desc(telegramSubscriptions.createdAt));
+    return rows.map((row) => this.telegramSubscriptionFromRow(row, safeRef));
+  }
+
+  async setTelegramSubscriptionsEnabled(
+    profileId: string,
+    safeRef: SafeRef,
+    enabled: boolean,
+  ): Promise<number> {
+    const safe = await this.findSafeRow(safeRef);
+    if (!safe) return 0;
+    const rows = await this.db
+      .update(telegramSubscriptions)
+      .set({ enabled, ...(enabled ? { lastPollError: null } : {}) })
+      .where(
+        and(
+          eq(telegramSubscriptions.profileId, profileId),
+          eq(telegramSubscriptions.safeId, safe.id),
+          isNull(telegramSubscriptions.disconnectedAt),
+        ),
+      )
+      .returning({ id: telegramSubscriptions.id });
+    return rows.length;
+  }
+
+  async disconnectTelegramSubscriptionsForProfile(
+    profileId: string,
+    safeRef: SafeRef,
+    disconnectedAt: number,
+  ): Promise<number> {
+    const safe = await this.findSafeRow(safeRef);
+    if (!safe) return 0;
+    const rows = await this.db
+      .update(telegramSubscriptions)
+      .set({ enabled: false, disconnectedAt: asDate(disconnectedAt) })
+      .where(
+        and(
+          eq(telegramSubscriptions.profileId, profileId),
+          eq(telegramSubscriptions.safeId, safe.id),
+        ),
+      )
+      .returning({ id: telegramSubscriptions.id });
+    return rows.length;
+  }
+
+  async recordTelegramWatchResult(
+    safeRef: SafeRef,
+    checkedAt: number,
+    error: string | null,
+  ): Promise<void> {
+    const safe = await this.findSafeRow(safeRef);
+    if (!safe) return;
+    await this.db
+      .update(telegramSubscriptions)
+      .set({ lastPolledAt: asDate(checkedAt), lastPollError: error })
+      .where(
+        and(
+          eq(telegramSubscriptions.safeId, safe.id),
+          eq(telegramSubscriptions.enabled, true),
+        ),
+      );
+  }
+
+  async findLatestTelegramDeliveryAt(
+    profileId: string,
+    safeRef: SafeRef,
+  ): Promise<number | null> {
+    const safe = await this.findSafeRow(safeRef);
+    if (!safe) return null;
+    const [row] = await this.db
+      .select({ sentAt: telegramDeliveries.sentAt })
+      .from(telegramDeliveries)
+      .innerJoin(
+        telegramSubscriptions,
+        eq(telegramDeliveries.subscriptionId, telegramSubscriptions.id),
+      )
+      .where(
+        and(
+          eq(telegramSubscriptions.profileId, profileId),
+          eq(telegramSubscriptions.safeId, safe.id),
+          eq(telegramDeliveries.status, "sent"),
+        ),
+      )
+      .orderBy(desc(telegramDeliveries.sentAt))
+      .limit(1);
+    return row?.sentAt ? asUnixTime(row.sentAt) : null;
+  }
+
+  async recordTelegramDeliveryResult(
+    subscriptionId: string,
+    attemptedAt: number,
+    error: string | null,
+  ): Promise<void> {
+    await this.db
+      .update(telegramSubscriptions)
+      .set({
+        lastDeliveryAttemptAt: asDate(attemptedAt),
+        lastDeliveryError: error,
+      })
+      .where(eq(telegramSubscriptions.id, subscriptionId));
   }
 
   async disableTelegramSubscriptionsForChat(chatId: string): Promise<number> {

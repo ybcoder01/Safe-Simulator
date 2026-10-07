@@ -40,6 +40,7 @@ export function SafesClient({
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
   const [discoveryChainId, setDiscoveryChainId] = useState(defaultChainId);
   const [owner, setOwner] = useState("");
@@ -99,12 +100,17 @@ export function SafesClient({
     });
     const body = (await response.json()) as {
       data?: SafeView;
+      warning?: string;
     } & ApiErrorBody;
     if (!response.ok || !body.data) {
       throw new Error(body.error?.message ?? "The Safe could not be imported.");
     }
 
     const imported = body.data;
+    setNotice(
+      body.warning ??
+        "Safe verified and added. Its transaction history is now syncing.",
+    );
     setItems((current) => [
       imported,
       ...current.filter(
@@ -129,6 +135,7 @@ export function SafesClient({
     event.preventDefault();
     setSubmitting(true);
     setError(null);
+    setNotice(null);
 
     try {
       await requestImport(chainId, address);
@@ -299,6 +306,11 @@ export function SafesClient({
         {error ? (
           <p className="form-error" role="alert">
             {error}
+          </p>
+        ) : null}
+        {notice ? (
+          <p className="form-success" role="status">
+            {notice}
           </p>
         ) : null}
       </form>

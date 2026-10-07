@@ -35,6 +35,7 @@ interface WatchPorts {
     PersistencePort,
     | "findTransaction"
     | "listTelegramSubscriptions"
+    | "recordTelegramWatchResult"
     | "upsertSafe"
     | "upsertTransactions"
   >;
@@ -53,6 +54,7 @@ interface AlertPorts {
     | "findSafe"
     | "findTransaction"
     | "listTelegramSubscriptions"
+    | "recordTelegramDeliveryResult"
     | "releaseTelegramDelivery"
     | "saveTelegramAlertReceipt"
     | "upsertSafe"
@@ -88,51 +90,67 @@ export async function runTelegramWatchJob(job: WatchJob, ports: WatchPorts) {
   );
   if (subscriptions.length === 0) return { status: "stopped", changes: 0 };
 
-  await refreshSafeSnapshot(job.safe, ports);
+  try {
+    await refreshSafeSnapshot(job.safe, ports);
 
-  const page = await ports.safeData.listMultisigTransactions(
-    job.safe,
-    null,
-    WATCH_PAGE_SIZE,
-  );
-  const previous = await Promise.all(
-    page.items.map((item) =>
-      ports.persistence.findTransaction(job.safe, item.safeTxHash),
-    ),
-  );
-  const changedTransactions = page.items.filter((item, index) =>
-    changed(previous[index] ?? null, item),
-  );
-  await ports.persistence.upsertTransactions(page.items);
-
-  await Promise.all(
-    changedTransactions.flatMap((transaction) => [
-      ports.queue.enqueue(
-        {
-          type: "analyze",
-          safe: job.safe,
-          safeTxHash: transaction.safeTxHash,
-        },
-        {
-          idempotencyKey: `telegram-analyze:${job.safe.chainId}:${transaction.safeTxHash}:${transactionState(transaction)}`,
-        },
+    const page = await ports.safeData.listMultisigTransactions(
+      job.safe,
+      null,
+      WATCH_PAGE_SIZE,
+    );
+    const previous = await Promise.all(
+      page.items.map((item) =>
+        ports.persistence.findTransaction(job.safe, item.safeTxHash),
       ),
-      ports.queue.enqueue(
-        {
-          type: "telegram-alert",
-          safe: job.safe,
-          safeTxHash: transaction.safeTxHash,
-          attempt: 0,
-        },
-        {
-          idempotencyKey: `telegram-alert:${job.safe.chainId}:${transaction.safeTxHash}:${transactionState(transaction)}`,
-          delaySeconds: ANALYSIS_WAIT_SECONDS,
-        },
-      ),
-    ]),
-  );
+    );
+    const changedTransactions = page.items.filter((item, index) =>
+      changed(previous[index] ?? null, item),
+    );
+    await ports.persistence.upsertTransactions(page.items);
 
-  return { status: "watching", changes: changedTransactions.length };
+    await Promise.all(
+      changedTransactions.flatMap((transaction) => [
+        ports.queue.enqueue(
+          {
+            type: "analyze",
+            safe: job.safe,
+            safeTxHash: transaction.safeTxHash,
+          },
+          {
+            idempotencyKey: `telegram-analyze:${job.safe.chainId}:${transaction.safeTxHash}:${transactionState(transaction)}`,
+          },
+        ),
+        ports.queue.enqueue(
+          {
+            type: "telegram-alert",
+            safe: job.safe,
+            safeTxHash: transaction.safeTxHash,
+            attempt: 0,
+          },
+          {
+            idempotencyKey: `telegram-alert:${job.safe.chainId}:${transaction.safeTxHash}:${transactionState(transaction)}`,
+            delaySeconds: ANALYSIS_WAIT_SECONDS,
+          },
+        ),
+      ]),
+    );
+
+    await ports.persistence.recordTelegramWatchResult(
+      job.safe,
+      ports.now(),
+      null,
+    );
+    return { status: "watching", changes: changedTransactions.length };
+  } catch (error) {
+    await ports.persistence
+      .recordTelegramWatchResult(
+        job.safe,
+        ports.now(),
+        "The latest monitoring check failed. Use Check now or try again shortly.",
+      )
+      .catch(() => undefined);
+    throw error;
+  }
 }
 
 function shortAddress(value: string): string {
@@ -498,8 +516,20 @@ export async function runTelegramAlertJob(job: AlertJob, ports: AlertPorts) {
       });
       messageSent = true;
       await ports.persistence.completeTelegramDelivery(deliveryId, ports.now());
+      await ports.persistence.recordTelegramDeliveryResult(
+        subscription.id,
+        ports.now(),
+        null,
+      );
       sent += 1;
     } catch (error) {
+      await ports.persistence
+        .recordTelegramDeliveryResult(
+          subscription.id,
+          ports.now(),
+          "Telegram did not accept the latest alert. Send a test alert or reconnect this chat.",
+        )
+        .catch(() => undefined);
       if (!messageSent) {
         await ports.persistence.releaseTelegramDelivery(deliveryId);
       }
