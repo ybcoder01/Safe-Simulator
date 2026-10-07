@@ -1,5 +1,3 @@
-import { createHash } from "node:crypto";
-
 import type { SafeRef } from "@/core/domain";
 import type {
   PersistencePort,
@@ -7,13 +5,17 @@ import type {
   TelegramDeliveryPort,
 } from "@/core/ports";
 import { hashTelegramLinkToken } from "@/lib/api/telegram-link";
+import {
+  legacyTelegramWatchScheduleId,
+  TELEGRAM_SWEEP_CRON,
+  TELEGRAM_SWEEP_SCHEDULE_ID,
+} from "@/lib/api/telegram-schedule";
 
 interface TelegramCommandPorts {
   readonly persistence: Pick<
     PersistencePort,
     | "consumeTelegramLinkToken"
     | "disableTelegramSubscriptionsForChat"
-    | "listTelegramSubscriptions"
     | "listTelegramSubscriptionsForChat"
   >;
   readonly queue: RecurringQueuePort;
@@ -21,20 +23,8 @@ interface TelegramCommandPorts {
   readonly now: () => number;
 }
 
-const TELEGRAM_WATCH_CRON = "* * * * *";
-
 function watchKey(chainId: number, address: string, now: number) {
-  return `telegram-watch:${chainId}:${address.toLowerCase()}:${Math.floor(now / 60)}`;
-}
-
-export function telegramWatchScheduleId(
-  chainId: number,
-  address: string,
-): string {
-  const digest = createHash("sha256")
-    .update(`telegram-watch:${chainId}:${address.toLowerCase()}`)
-    .digest("hex");
-  return `telegram-watch-${digest}`;
+  return `telegram-watch:${chainId}:${address.toLowerCase()}:${Math.floor(now / 120)}`;
 }
 
 export async function ensureTelegramWatch(
@@ -42,13 +32,34 @@ export async function ensureTelegramWatch(
   ports: Pick<TelegramCommandPorts, "queue" | "now">,
 ): Promise<void> {
   const job = { type: "telegram-watch" as const, safe };
-  await ports.queue.schedule(job, {
-    scheduleId: telegramWatchScheduleId(safe.chainId, safe.address),
-    cron: TELEGRAM_WATCH_CRON,
-  });
-  await ports.queue.enqueue(job, {
-    idempotencyKey: watchKey(safe.chainId, safe.address, ports.now()),
-  });
+  await ports.queue.schedule(
+    { type: "telegram-sweep", cursor: null },
+    {
+      scheduleId: TELEGRAM_SWEEP_SCHEDULE_ID,
+      cron: TELEGRAM_SWEEP_CRON,
+    },
+  );
+  try {
+    await ports.queue.deleteSchedule(
+      legacyTelegramWatchScheduleId(safe.chainId, safe.address),
+    );
+  } catch {
+    // A missing legacy schedule is the desired end state.
+  }
+  try {
+    await ports.queue.enqueue(job, {
+      idempotencyKey: watchKey(safe.chainId, safe.address, ports.now()),
+    });
+  } catch (error) {
+    console.error("[telegram-watch] immediate check could not be queued", {
+      chainId: safe.chainId,
+      safe: safe.address,
+      error:
+        error instanceof Error
+          ? { name: error.name, message: error.message }
+          : { message: String(error) },
+    });
+  }
 }
 
 function uniqueSafes(
@@ -108,22 +119,22 @@ export async function handleTelegramCommand(
     const disabled =
       await ports.persistence.disableTelegramSubscriptionsForChat(chatId);
     for (const safe of uniqueSafes(subscriptions)) {
-      const remaining = await ports.persistence.listTelegramSubscriptions(safe);
-      if (remaining.length === 0) {
-        const scheduleId = telegramWatchScheduleId(safe.chainId, safe.address);
-        try {
-          await ports.queue.deleteSchedule(scheduleId);
-        } catch (error) {
-          console.error("[telegram-watch] schedule cleanup failed", {
-            chainId: safe.chainId,
-            safe: safe.address,
-            scheduleId,
-            error:
-              error instanceof Error
-                ? { name: error.name, message: error.message }
-                : { message: String(error) },
-          });
-        }
+      const scheduleId = legacyTelegramWatchScheduleId(
+        safe.chainId,
+        safe.address,
+      );
+      try {
+        await ports.queue.deleteSchedule(scheduleId);
+      } catch (error) {
+        console.error("[telegram-watch] legacy schedule cleanup failed", {
+          chainId: safe.chainId,
+          safe: safe.address,
+          scheduleId,
+          error:
+            error instanceof Error
+              ? { name: error.name, message: error.message }
+              : { message: String(error) },
+        });
       }
     }
     await ports.telegram.sendMessage({

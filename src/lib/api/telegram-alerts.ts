@@ -25,8 +25,10 @@ import { createTelegramAlertReceipt } from "@/lib/api/telegram-alert-receipts";
 const WATCH_PAGE_SIZE = 50;
 const ANALYSIS_WAIT_SECONDS = 12;
 const MAX_ALERT_ATTEMPTS = 4;
+const TELEGRAM_SWEEP_PAGE_SIZE = 20;
 
 type WatchJob = Extract<QueueJob, { type: "telegram-watch" }>;
+type SweepJob = Extract<QueueJob, { type: "telegram-sweep" }>;
 type AlertJob = Extract<QueueJob, { type: "telegram-alert" }>;
 
 interface WatchPorts {
@@ -151,6 +153,47 @@ export async function runTelegramWatchJob(job: WatchJob, ports: WatchPorts) {
       .catch(() => undefined);
     throw error;
   }
+}
+
+interface SweepPorts extends Omit<WatchPorts, "persistence"> {
+  readonly persistence: WatchPorts["persistence"] &
+    Pick<PersistencePort, "listTelegramWatchedSafes">;
+}
+
+export async function runTelegramSweepJob(job: SweepJob, ports: SweepPorts) {
+  const page = await ports.persistence.listTelegramWatchedSafes(
+    job.cursor,
+    TELEGRAM_SWEEP_PAGE_SIZE,
+  );
+  let checked = 0;
+  let failed = 0;
+  for (const safe of page.items) {
+    try {
+      await runTelegramWatchJob({ type: "telegram-watch", safe }, ports);
+      checked += 1;
+    } catch (error) {
+      failed += 1;
+      console.error("[telegram-sweep] Safe check failed", {
+        chainId: safe.chainId,
+        safe: safe.address,
+        error:
+          error instanceof Error
+            ? { name: error.name, message: error.message }
+            : { message: String(error) },
+      });
+    }
+  }
+
+  if (page.nextCursor) {
+    await ports.queue.enqueue(
+      { type: "telegram-sweep", cursor: page.nextCursor },
+      {
+        idempotencyKey: `telegram-sweep:${Math.floor(ports.now() / 120)}:${page.nextCursor}`,
+      },
+    );
+  }
+
+  return { checked, failed, nextCursor: page.nextCursor };
 }
 
 function shortAddress(value: string): string {

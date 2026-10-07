@@ -21,9 +21,15 @@ import { runModuleReanalysisPage } from "@/lib/api/module-reanalysis-job";
 import { runReanalysisPage } from "@/lib/api/reanalysis-job";
 import {
   runTelegramAlertJob,
+  runTelegramSweepJob,
   runTelegramWatchJob,
 } from "@/lib/api/telegram-alerts";
 import { applicationUrl } from "@/adapters/queue-qstash/queue";
+import {
+  legacyTelegramWatchScheduleId,
+  TELEGRAM_SWEEP_CRON,
+  TELEGRAM_SWEEP_SCHEDULE_ID,
+} from "@/lib/api/telegram-schedule";
 
 function errorDetails(error: unknown) {
   return error instanceof Error
@@ -119,6 +125,24 @@ export async function POST(request: Request) {
       );
     case "telegram-watch":
       try {
+        try {
+          await queue.schedule(
+            { type: "telegram-sweep", cursor: null },
+            {
+              scheduleId: TELEGRAM_SWEEP_SCHEDULE_ID,
+              cron: TELEGRAM_SWEEP_CRON,
+            },
+          );
+          await queue.deleteSchedule(
+            legacyTelegramWatchScheduleId(job.safe.chainId, job.safe.address),
+          );
+        } catch (error) {
+          console.error("[telegram-watch] schedule migration deferred", {
+            chainId: job.safe.chainId,
+            safe: job.safe.address,
+            error: errorDetails(error),
+          });
+        }
         const result = await runTelegramWatchJob(job, {
           chain: getChainPort(),
           persistence,
@@ -140,6 +164,16 @@ export async function POST(request: Request) {
         });
         throw error;
       }
+    case "telegram-sweep":
+      return Response.json(
+        await runTelegramSweepJob(job, {
+          chain: getChainPort(),
+          persistence,
+          queue,
+          safeData: getSafeDataPort(),
+          now,
+        }),
+      );
     case "telegram-alert":
       try {
         const result = await runTelegramAlertJob(job, {

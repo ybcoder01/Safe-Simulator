@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type {
   QueueJob,
@@ -9,8 +9,10 @@ import {
   hasRefreshRequestSettled,
   isRefreshActive,
   isSafeBookmarked,
+  isQueueCapacityError,
   queuedRefreshCursors,
   queueSafeRefresh,
+  refreshSafeDirectly,
   refreshIdempotencyKey,
   refreshSyncStreams,
   restoredRefreshCursors,
@@ -23,6 +25,18 @@ const safe: SafeRef = {
 };
 
 describe("on-demand synchronization refresh", () => {
+  it("uses direct fallback only for an exhausted QStash daily allowance", () => {
+    const quota = new Error(
+      'Exceeded daily rate limit. {"limit":"1000","remaining":"0"}',
+    );
+    quota.name = "QstashDailyRatelimitError";
+
+    expect(isQueueCapacityError(quota)).toBe(true);
+    expect(
+      isQueueCapacityError(new Error("QSTASH_TOKEN is not configured")),
+    ).toBe(false);
+  });
+
   it("authorizes only an exact chain and case-insensitive address bookmark", () => {
     expect(
       isSafeBookmarked(
@@ -246,5 +260,67 @@ describe("on-demand synchronization refresh", () => {
       queueSafeRefresh(persistence, queue, safe, 20_000),
     ).rejects.toThrow("queue unavailable");
     expect([...cursors.values()]).toEqual(original);
+  });
+
+  it("refreshes all four streams directly without publishing queue messages", async () => {
+    const cursors = new Map<SyncCursor["stream"], SyncCursor>();
+    const enqueue = vi.fn().mockRejectedValue(new Error("queue unavailable"));
+    const emptyPage = { items: [], nextCursor: null, total: 0 };
+    const upsertSafe = vi.fn().mockResolvedValue(undefined);
+
+    await expect(
+      refreshSafeDirectly(safe, {
+        chain: {
+          getSafeSnapshot: vi.fn().mockResolvedValue({
+            ...safe,
+            owners: ["0x1111111111111111111111111111111111111111"],
+            threshold: 1,
+            nonce: 1n,
+            version: "1.4.1",
+            guard: null,
+            modules: [],
+            implementation: null,
+            updatedAt: 20,
+          }),
+        },
+        persistence: {
+          findAnalyses: vi.fn().mockResolvedValue([]),
+          findModuleAnalyses: vi.fn().mockResolvedValue([]),
+          findSyncCursor: vi.fn(
+            async (_safe: SafeRef, stream: SyncCursor["stream"]) =>
+              cursors.get(stream) ?? null,
+          ),
+          saveSyncCursor: vi.fn(async (cursor: SyncCursor) => {
+            cursors.set(cursor.stream, cursor);
+          }),
+          upsertSafe,
+          upsertTransactions: vi.fn().mockResolvedValue(undefined),
+          upsertModuleTransactions: vi.fn().mockResolvedValue(undefined),
+          upsertTransfers: vi.fn().mockResolvedValue(undefined),
+          upsertMessages: vi.fn().mockResolvedValue(undefined),
+        },
+        queue: { enqueue },
+        safeData: {
+          discoverSafesByOwner: vi.fn(),
+          getMultisigTransaction: vi.fn(),
+          listMultisigTransactions: vi.fn().mockResolvedValue(emptyPage),
+          listModuleTransactions: vi.fn().mockResolvedValue(emptyPage),
+          listTransfers: vi.fn().mockResolvedValue(emptyPage),
+          listMessages: vi.fn().mockResolvedValue(emptyPage),
+          getBalances: vi.fn(),
+          decodeTransactionData: vi.fn(),
+        },
+        analysisEngineVersion: "transaction-analysis-v1",
+        moduleAnalysisEngineVersion: "module-analysis-v1",
+        now: () => 20,
+      }),
+    ).resolves.toEqual({ completeStreams: 4, totalStreams: 4 });
+
+    expect(upsertSafe).toHaveBeenCalledOnce();
+    expect(enqueue).not.toHaveBeenCalled();
+    expect([...cursors.values()]).toHaveLength(4);
+    expect(
+      [...cursors.values()].every((cursor) => cursor.status === "complete"),
+    ).toBe(true);
   });
 });

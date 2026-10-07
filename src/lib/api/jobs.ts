@@ -41,6 +41,10 @@ export const queueJobSchema = z.discriminatedUnion("type", [
     safe: safeRefSchema,
   }),
   z.object({
+    type: z.literal("telegram-sweep"),
+    cursor: z.string().uuid().nullable(),
+  }),
+  z.object({
     type: z.literal("telegram-alert"),
     safe: safeRefSchema,
     safeTxHash: z
