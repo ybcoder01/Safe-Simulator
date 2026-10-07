@@ -25,6 +25,15 @@ describe("calldata summaries", () => {
     ).toBe("Execute routed commands");
   });
 
+  it("summarizes the live Curve two-asset liquidity deposit selector", () => {
+    const data =
+      "0x0b4c7e4d00000000000000000000000000000000000000000000000000000000000003e800000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000384" as Hex;
+
+    expect(knownCallSummary(data, "call")).toBe(
+      "Add liquidity to a two-asset pool (1000 and 1 base units; minimum 900 LP base units)",
+    );
+  });
+
   it("keeps unknown selectors explicit", () => {
     expect(knownCallSummary("0x1234567800000000" as Hex, "call")).toBeNull();
   });
@@ -68,5 +77,33 @@ describe("calldata summaries", () => {
       "Approve 0x941acf…8bc9d7 for 1000000 base units",
     );
     expect(decodedCallSummary(batch)).toBe("Batch of 2 decoded calls");
+  });
+
+  it("summarizes a verified Curve liquidity deposit decode", () => {
+    const deposit: DecodedCall = {
+      method: "add_liquidity",
+      parameters: [
+        {
+          name: "amounts",
+          type: "uint256[2]",
+          value: '["1000","1"]',
+          nestedCalls: [],
+        },
+        {
+          name: "min_mint_amount",
+          type: "uint256",
+          value: "900",
+          nestedCalls: [],
+        },
+      ],
+      to: null,
+      value: null,
+      data: null,
+      operation: null,
+    };
+
+    expect(decodedCallSummary(deposit)).toBe(
+      "Add liquidity to a pool (1000 and 1 base units; minimum 900 LP base units)",
+    );
   });
 });

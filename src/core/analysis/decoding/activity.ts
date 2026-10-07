@@ -58,6 +58,10 @@ const selectorActivities: Readonly<
   "0x69328dec": { type: "lending", label: "Withdraw from lending market" },
   "0xa415bcad": { type: "lending", label: "Borrow from lending market" },
   "0x573ade81": { type: "lending", label: "Repay lending position" },
+  "0x0b4c7e4d": {
+    type: "liquidity",
+    label: "Add liquidity to pool",
+  },
 };
 
 const lendingRoles = new Set([

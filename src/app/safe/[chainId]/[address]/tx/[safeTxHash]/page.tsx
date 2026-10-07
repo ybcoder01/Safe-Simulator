@@ -14,13 +14,17 @@ import { AddressBookEditor } from "@/components/safes/address-book-editor";
 import { ReviewQueueProgress } from "@/components/safes/review-queue-progress";
 import { TransactionReviewWorkflow } from "@/components/safes/transaction-review-workflow";
 import { TransactionSafetyOverview } from "@/components/safes/transaction-safety-overview";
-import { TransactionSummaryDialog } from "@/components/safes/transaction-summary-dialog";
+import {
+  TransactionSummaryDialog,
+  type SummaryView,
+} from "@/components/safes/transaction-summary-dialog";
 import { AddressIdentity } from "@/components/shared/address-identity";
 import { CopyIdentifierButton } from "@/components/shared/copy-identifier-button";
 import { EvidenceFindings } from "@/components/shared/evidence-findings";
 import { EvidenceRefreshButton } from "@/components/shared/evidence-refresh-button";
 import { TokenIdentity } from "@/components/shared/token-identity";
 import { decodedCallSummary } from "@/core/analysis/decoding/calldata";
+import { classifyTransactionActivity } from "@/core/analysis/decoding/activity";
 import { findContractRegistryEntry } from "@/core/analysis/trust/contract-registry";
 import { findTokenRegistryEntry } from "@/core/analysis/trust/token-registry";
 import { formatTokenAmount } from "@/core/analysis/tokens/metadata";
@@ -47,6 +51,12 @@ import { resolveExecutionTokenMetadata } from "@/lib/api/token-metadata";
 import { explorerTransactionUrl } from "@/lib/explorer-links";
 import { PROTOCOL_LABELS } from "@/lib/protocol-directory";
 import { resolveTransactionReviewPresentation } from "@/lib/transaction-review-presentation";
+import {
+  buildTransactionSummaryEvidence,
+  configuredOpenRouterModel,
+  TRANSACTION_SUMMARY_PROMPT_VERSION,
+  transactionSummaryFingerprint,
+} from "@/lib/api/transaction-summary";
 import {
   orderTransactionReviewQueue,
   safeRouteParamsSchema,
@@ -225,6 +235,18 @@ export default async function TransactionDetailPage({
     internalProxyBoundaries,
     targetRuntimeCode.accountType,
   );
+  const baselineVerdict = resolveEvidenceVerdict(
+    persisted,
+    insight,
+    execution,
+    [],
+    approvalRisk,
+    storageAnalysis,
+    targetRuntimeCode.hash,
+    targetRuntimeCode.anchor,
+    internalProxyBoundaries,
+    targetRuntimeCode.accountType,
+  );
   const tokenMetadataByAddress = new Map(
     tokenMetadata.items.map((metadata) => [
       metadata.token.toLowerCase(),
@@ -274,6 +296,38 @@ export default async function TransactionDetailPage({
     targetVerified: insight.metadata.verified,
     transaction: persisted,
   });
+  let initialSummary: SummaryView | null = null;
+  if (profileId) {
+    const summaryEvidence = buildTransactionSummaryEvidence({
+      transaction: persisted,
+      activity: classifyTransactionActivity(persisted),
+      contract: insight,
+      execution,
+      approvalRisk,
+      storageAnalysis,
+      baselineVerdict,
+      tokenMetadata,
+      balanceChanges,
+      contractVerification,
+    });
+    const savedSummary = await persistence.findTransactionSummary(
+      safe.data,
+      hash.data,
+      transactionSummaryFingerprint(summaryEvidence),
+      TRANSACTION_SUMMARY_PROMPT_VERSION,
+      configuredOpenRouterModel(),
+    );
+    if (savedSummary?.summary) {
+      initialSummary = {
+        id: savedSummary.id,
+        model: savedSummary.model,
+        summary: savedSummary.summary,
+        usage: savedSummary.usage,
+        completedAt: savedSummary.completedAt,
+        cached: true,
+      };
+    }
+  }
 
   return (
     <main className="workspace shell">
@@ -618,6 +672,7 @@ export default async function TransactionDetailPage({
           {profileId ? (
             <TransactionSummaryDialog
               endpoint={`/api/v1/safes/${safe.data.chainId}/${safe.data.address}/tx/${hash.data}/summary`}
+              initialSummary={initialSummary}
             />
           ) : null}
           <EvidenceFindings findings={attentionFindings} showAddresses />
