@@ -257,6 +257,10 @@ export interface PersistencePort {
   listTelegramSubscriptions(
     safe: SafeRef,
   ): Promise<readonly TelegramSubscription[]>;
+  listTelegramWatchedSafes(
+    cursor: string | null,
+    limit: number,
+  ): Promise<Page<SafeRef>>;
   listTelegramSubscriptionsForChat(
     chatId: string,
   ): Promise<readonly TelegramSubscription[]>;

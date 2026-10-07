@@ -15,10 +15,8 @@ import {
 import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
 import { safeRouteParamsSchema } from "@/lib/api/safe-details";
 import { isSafeBookmarked } from "@/lib/api/sync-refresh";
-import {
-  ensureTelegramWatch,
-  telegramWatchScheduleId,
-} from "@/lib/api/telegram-webhook";
+import { ensureTelegramWatch } from "@/lib/api/telegram-webhook";
+import { legacyTelegramWatchScheduleId } from "@/lib/api/telegram-schedule";
 
 interface RouteContext {
   readonly params: Promise<{ chainId: string; address: string }>;
@@ -29,26 +27,19 @@ const actionSchema = z.object({
 });
 
 async function removeUnusedSchedule(chainId: number, address: string) {
-  const persistence = getPersistencePort();
-  const remaining = await persistence.listTelegramSubscriptions({
-    chainId,
-    address: address as `0x${string}`,
-  });
-  if (remaining.length === 0) {
-    const scheduleId = telegramWatchScheduleId(chainId, address);
-    try {
-      await getQueuePort().deleteSchedule(scheduleId);
-    } catch (error) {
-      console.error("Unused Telegram schedule could not be removed.", {
-        chainId,
-        safe: address,
-        scheduleId,
-        error:
-          error instanceof Error
-            ? { name: error.name, message: error.message }
-            : { message: String(error) },
-      });
-    }
+  const scheduleId = legacyTelegramWatchScheduleId(chainId, address);
+  try {
+    await getQueuePort().deleteSchedule(scheduleId);
+  } catch (error) {
+    console.error("Legacy Telegram schedule could not be removed.", {
+      chainId,
+      safe: address,
+      scheduleId,
+      error:
+        error instanceof Error
+          ? { name: error.name, message: error.message }
+          : { message: String(error) },
+    });
   }
 }
 

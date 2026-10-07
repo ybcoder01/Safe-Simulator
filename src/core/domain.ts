@@ -376,6 +376,10 @@ export type QueueJob =
       readonly safe: SafeRef;
     }
   | {
+      readonly type: "telegram-sweep";
+      readonly cursor: string | null;
+    }
+  | {
       readonly type: "telegram-alert";
       readonly safe: SafeRef;
       readonly safeTxHash: Hex;

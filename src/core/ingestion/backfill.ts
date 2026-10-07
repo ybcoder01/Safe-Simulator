@@ -30,6 +30,11 @@ export interface BackfillPorts {
   readonly now: () => number;
 }
 
+export interface BackfillExecutionOptions {
+  readonly enqueueAnalyses?: boolean;
+  readonly enqueueContinuation?: boolean;
+}
+
 const PAGE_SIZE = 100;
 export const AUTO_ANALYSIS_LIMIT = 5;
 export const AUTO_ANALYSIS_DELAY_SECONDS = 3;
@@ -152,6 +157,7 @@ async function readAndPersistPage(
   job: BackfillJob,
   cursor: string | null,
   ports: BackfillPorts,
+  options: BackfillExecutionOptions,
 ): Promise<PersistedPage> {
   switch (job.stream) {
     case "multisig": {
@@ -161,12 +167,15 @@ async function readAndPersistPage(
         PAGE_SIZE,
       );
       await ports.persistence.upsertTransactions(page.items);
-      const scheduledAnalyses = await enqueueMissingFirstPageAnalyses(
-        job,
-        cursor,
-        page.items,
-        ports,
-      );
+      const scheduledAnalyses =
+        options.enqueueAnalyses === false
+          ? 0
+          : await enqueueMissingFirstPageAnalyses(
+              job,
+              cursor,
+              page.items,
+              ports,
+            );
       return { page, scheduledAnalyses };
     }
     case "module": {
@@ -176,12 +185,15 @@ async function readAndPersistPage(
         PAGE_SIZE,
       );
       await ports.persistence.upsertModuleTransactions(page.items);
-      const scheduledAnalyses = await enqueueMissingFirstPageModuleAnalyses(
-        job,
-        cursor,
-        page.items,
-        ports,
-      );
+      const scheduledAnalyses =
+        options.enqueueAnalyses === false
+          ? 0
+          : await enqueueMissingFirstPageModuleAnalyses(
+              job,
+              cursor,
+              page.items,
+              ports,
+            );
       return { page, scheduledAnalyses };
     }
     case "transfer": {
@@ -214,7 +226,11 @@ function cursorState(
   return { safe: job.safe, stream: job.stream, cursor, status, updatedAt: now };
 }
 
-export async function runBackfillPage(job: BackfillJob, ports: BackfillPorts) {
+export async function runBackfillPage(
+  job: BackfillJob,
+  ports: BackfillPorts,
+  options: BackfillExecutionOptions = {},
+) {
   const stored = await ports.persistence.findSyncCursor(job.safe, job.stream);
   const cursor = stored?.cursor ?? null;
   await ports.persistence.saveSyncCursor(
@@ -226,13 +242,14 @@ export async function runBackfillPage(job: BackfillJob, ports: BackfillPorts) {
       job,
       cursor,
       ports,
+      options,
     );
     const status = page.nextCursor ? "running" : "complete";
     await ports.persistence.saveSyncCursor(
       cursorState(job, page.nextCursor, status, ports.now()),
     );
 
-    if (page.nextCursor) {
+    if (page.nextCursor && options.enqueueContinuation !== false) {
       await ports.queue.enqueue(job, {
         idempotencyKey: `backfill:${job.safe.chainId}:${job.safe.address}:${job.stream}:${page.nextCursor}`,
       });

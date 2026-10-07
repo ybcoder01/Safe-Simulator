@@ -34,20 +34,20 @@ replacement for a signing wallet or hardware-wallet verification.
 
 ## 2. Current production state
 
-| Area                            | State | Notes                                                                                                              |
-| ------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------ |
-| Web application                 | Live  | Production domain is assigned and serving the merged application.                                                  |
-| Supported networks              | Live  | Ethereum mainnet (`1`) and XDC mainnet (`50`).                                                                     |
-| Safe import and discovery       | Live  | Imports by Safe address and public discovery by owner address.                                                     |
-| Transaction review              | Live  | Executed, pending, failed, and replaced transaction states are supported.                                          |
-| Draft simulation                | Live  | A target, native value, and calldata can be reviewed before a Safe proposal exists.                                |
-| Beginner-facing verdict         | Live  | Clear green, yellow, orange, and red guidance with plain-language next actions.                                    |
-| XDC protocol and token identity | Live  | Reviewed registry, protocol logos, token logos, and deterministic fallbacks.                                       |
-| Telegram alerts                 | Live  | `@safealerts_bot` is connected to Production and has delivered an end-to-end signer alert for an XDC Safe.         |
-| Signed alert verification       | Live  | Unique verification IDs, Ed25519-signed receipts, key rotation, and the no-signing verification page are deployed. |
-| Production database             | Live  | Neon Postgres; Telegram migrations `0006` and `0007` were applied and verified.                                    |
-| Queue and scheduling            | Live  | Upstash QStash and Vercel Cron; production QStash variables were verified present.                                 |
-| CI and previews                 | Live  | Formatting, linting, TypeScript, tests, build, and Vercel Preview checks.                                          |
+| Area                            | State    | Notes                                                                                                              |
+| ------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------ |
+| Web application                 | Live     | Production domain is assigned and serving the merged application.                                                  |
+| Supported networks              | Live     | Ethereum mainnet (`1`) and XDC mainnet (`50`).                                                                     |
+| Safe import and discovery       | Live     | Imports by Safe address and public discovery by owner address.                                                     |
+| Transaction review              | Live     | Executed, pending, failed, and replaced transaction states are supported.                                          |
+| Draft simulation                | Live     | A target, native value, and calldata can be reviewed before a Safe proposal exists.                                |
+| Beginner-facing verdict         | Live     | Clear green, yellow, orange, and red guidance with plain-language next actions.                                    |
+| XDC protocol and token identity | Live     | Reviewed registry, protocol logos, token logos, and deterministic fallbacks.                                       |
+| Telegram alerts                 | Live     | `@safealerts_bot` is connected to Production and has delivered an end-to-end signer alert for an XDC Safe.         |
+| Signed alert verification       | Live     | Unique verification IDs, Ed25519-signed receipts, key rotation, and the no-signing verification page are deployed. |
+| Production database             | Live     | Neon Postgres; Telegram migrations `0006`, `0007`, and `0008` were applied and verified.                           |
+| Queue and scheduling            | Degraded | QStash reached its 1,000-message daily limit; a shared-sweep and direct-refresh fix is implemented for deployment. |
+| CI and previews                 | Live     | Formatting, linting, TypeScript, tests, build, and Vercel Preview checks.                                          |
 
 The Telegram production deployment and signed verification flow corresponding
 to merged PRs `#134` and `#135` were verified Ready. Telegram confirmed the
@@ -534,10 +534,11 @@ After an alert-format or delivery change:
 
 - Inspect QStash and Vercel logs for duplicate, delayed, or failed deliveries.
 - Confirm the report link opens the exact Safe and transaction.
-- Resolve the Production QStash capacity blocker. On 2026-10-07 the Free plan
-  showed 1.2K messages against its 1K daily limit; two once-per-minute Safe
-  schedules alone require more than the free daily allowance. Upgrade the queue
-  deliberately or replace per-Safe polling with a capacity-reviewed design.
+- Deploy and soak-test the shared two-minute Telegram sweep and bounded direct
+  dashboard refresh fallback. Production showed a 1,000-message daily QStash
+  limit with zero capacity remaining on 2026-10-07; the replacement reduces
+  baseline polling to at most 720 messages per day and preserves manual refresh
+  when publication is unavailable.
 
 ### P0: prevent bot-token spoofing
 
@@ -591,6 +592,7 @@ After an alert-format or delivery change:
 | 2026-09-27 | Fathom's documented pool-library delegation, verified interest-rate strategy, Safe movement endpoint, and zero-address mint endpoint are classified as expected execution evidence.                  |
 | 2026-10-07 | A per-Safe Telegram control center, persisted delivery health, no-transaction test alerts, pause/resume/disconnect controls, and queue-independent Safe import recovery were implemented for review. |
 | 2026-10-07 | Production QStash was confirmed over its Free-plan daily message limit (1.2K/1K); paid capacity or a capacity-reviewed polling redesign is required for continuous one-minute alerts.                |
+| 2026-10-07 | A shared two-minute Telegram sweep and queue-independent bounded dashboard refresh fallback were implemented to remove per-Safe polling amplification and keep manual recovery usable at quota.      |
 
 ## 17. Related documents
 

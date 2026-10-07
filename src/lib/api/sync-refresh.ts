@@ -1,8 +1,19 @@
 import type { SafeRef, SyncCursor } from "@/core/domain";
-import type { PersistencePort, QueuePort } from "@/core/ports";
+import type { ChainPort, PersistencePort, QueuePort } from "@/core/ports";
+import { runBackfillPage, type BackfillPorts } from "@/core/ingestion/backfill";
+import { refreshSafeSnapshot } from "@/core/ingestion/safe-snapshot";
 import { summarizeSyncCursors } from "@/lib/api/safe-details";
 
 export const SYNC_REFRESH_ACTIVE_WINDOW_SECONDS = 15 * 60;
+export const DIRECT_REFRESH_PAGE_LIMIT = 3;
+
+export function isQueueCapacityError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    (error.name === "QstashDailyRatelimitError" ||
+      error.message.includes("Exceeded daily rate limit"))
+  );
+}
 
 export const refreshSyncStreams = [
   "multisig",
@@ -174,4 +185,47 @@ export async function queueSafeRefresh(
   }
 
   return { status: "queued", requestedAt };
+}
+
+interface DirectRefreshPorts extends BackfillPorts {
+  readonly chain: Pick<ChainPort, "getSafeSnapshot">;
+  readonly persistence: BackfillPorts["persistence"] &
+    Pick<PersistencePort, "upsertSafe">;
+}
+
+export async function refreshSafeDirectly(
+  safe: SafeRef,
+  ports: DirectRefreshPorts,
+): Promise<{
+  readonly completeStreams: number;
+  readonly totalStreams: number;
+}> {
+  await refreshSafeSnapshot(safe, ports);
+  const results = await Promise.all(
+    refreshSyncStreams.map(async (stream) => {
+      for (let page = 0; page < DIRECT_REFRESH_PAGE_LIMIT; page += 1) {
+        const result = await runBackfillPage(
+          { type: "backfill", safe, stream },
+          ports,
+          { enqueueAnalyses: false, enqueueContinuation: false },
+        );
+        if (result.status === "complete") return true;
+      }
+
+      const cursor = await ports.persistence.findSyncCursor(safe, stream);
+      if (cursor) {
+        await ports.persistence.saveSyncCursor({
+          ...cursor,
+          status: "failed",
+          updatedAt: ports.now(),
+        });
+      }
+      return false;
+    }),
+  );
+
+  return {
+    completeStreams: results.filter(Boolean).length,
+    totalStreams: results.length,
+  };
 }

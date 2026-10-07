@@ -3,7 +3,12 @@
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 
-import { getPersistencePort, getQueuePort } from "@/container";
+import {
+  getChainPort,
+  getPersistencePort,
+  getQueuePort,
+  getSafeDataPort,
+} from "@/container";
 import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
 import {
   reanalysisRequestIdempotencyKey,
@@ -11,7 +16,9 @@ import {
 } from "@/lib/api/reanalysis-request";
 import {
   isSafeBookmarked,
+  isQueueCapacityError,
   queueSafeRefresh,
+  refreshSafeDirectly,
   type RefreshSyncState,
 } from "@/lib/api/sync-refresh";
 import { MODULE_ANALYSIS_ENGINE_VERSION } from "@/lib/api/module-analysis";
@@ -85,12 +92,74 @@ export async function requestSafeRefresh(
       message: "Refresh queued. This page will check for updated data.",
       requestedAt,
     };
-  } catch {
-    return {
-      status: "error",
-      message: "The refresh could not be queued right now.",
-      requestedAt,
-    };
+  } catch (queueError) {
+    if (!isQueueCapacityError(queueError)) {
+      console.error("[safe-refresh] queue publication failed", {
+        chainId: parsed.data.chainId,
+        safe: parsed.data.address,
+        error:
+          queueError instanceof Error
+            ? { name: queueError.name, message: queueError.message }
+            : { message: String(queueError) },
+      });
+      return {
+        status: "error",
+        message: "The refresh could not be queued right now.",
+        requestedAt,
+      };
+    }
+
+    try {
+      const persistence = getPersistencePort();
+      const direct = await refreshSafeDirectly(parsed.data, {
+        chain: getChainPort(),
+        persistence,
+        queue: getQueuePort(),
+        safeData: getSafeDataPort(),
+        analysisEngineVersion: TRANSACTION_ANALYSIS_ENGINE_VERSION,
+        moduleAnalysisEngineVersion: MODULE_ANALYSIS_ENGINE_VERSION,
+        now: () => Math.floor(Date.now() / 1_000),
+      });
+      console.warn("[safe-refresh] queue unavailable; used direct fallback", {
+        chainId: parsed.data.chainId,
+        safe: parsed.data.address,
+        completeStreams: direct.completeStreams,
+        totalStreams: direct.totalStreams,
+        queueError:
+          queueError instanceof Error
+            ? { name: queueError.name, message: queueError.message }
+            : { message: String(queueError) },
+      });
+      revalidatePath(
+        `/safe/${parsed.data.chainId}/${parsed.data.address.toLowerCase()}`,
+      );
+      return {
+        status: "running",
+        message:
+          direct.completeStreams === direct.totalStreams
+            ? "Latest Safe data refreshed directly while background delivery is busy."
+            : `Latest activity was refreshed for ${direct.completeStreams} of ${direct.totalStreams} streams. Retry later for older history.`,
+        requestedAt,
+      };
+    } catch (directError) {
+      console.error("[safe-refresh] direct fallback failed", {
+        chainId: parsed.data.chainId,
+        safe: parsed.data.address,
+        queueError:
+          queueError instanceof Error
+            ? { name: queueError.name, message: queueError.message }
+            : { message: String(queueError) },
+        directError:
+          directError instanceof Error
+            ? { name: directError.name, message: directError.message }
+            : { message: String(directError) },
+      });
+      return {
+        status: "error",
+        message: "The refresh could not run right now.",
+        requestedAt,
+      };
+    }
   }
 }
 

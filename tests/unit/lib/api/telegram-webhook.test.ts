@@ -2,10 +2,12 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { Address } from "../../../../src/core/domain";
 import { hashTelegramLinkToken } from "../../../../src/lib/api/telegram-link";
+import { handleTelegramCommand } from "../../../../src/lib/api/telegram-webhook";
 import {
-  handleTelegramCommand,
-  telegramWatchScheduleId,
-} from "../../../../src/lib/api/telegram-webhook";
+  legacyTelegramWatchScheduleId,
+  TELEGRAM_SWEEP_CRON,
+  TELEGRAM_SWEEP_SCHEDULE_ID,
+} from "../../../../src/lib/api/telegram-schedule";
 
 describe("handleTelegramCommand", () => {
   it("consumes a single-use link, starts watching, and confirms setup", async () => {
@@ -30,7 +32,6 @@ describe("handleTelegramCommand", () => {
       persistence: {
         consumeTelegramLinkToken: consume,
         disableTelegramSubscriptionsForChat: vi.fn(),
-        listTelegramSubscriptions: vi.fn(),
         listTelegramSubscriptionsForChat: vi.fn(),
       },
       queue: { enqueue, schedule, deleteSchedule: vi.fn() },
@@ -49,13 +50,10 @@ describe("handleTelegramCommand", () => {
       expect.any(Object),
     );
     expect(schedule).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "telegram-watch" }),
+      { type: "telegram-sweep", cursor: null },
       {
-        scheduleId: telegramWatchScheduleId(
-          50,
-          "0x1111111111111111111111111111111111111111",
-        ),
-        cron: "* * * * *",
+        scheduleId: TELEGRAM_SWEEP_SCHEDULE_ID,
+        cron: TELEGRAM_SWEEP_CRON,
       },
     );
     expect(sendMessage.mock.calls[0]?.[0].text).toContain("Alerts enabled");
@@ -74,7 +72,6 @@ describe("handleTelegramCommand", () => {
       persistence: {
         consumeTelegramLinkToken: vi.fn(),
         disableTelegramSubscriptionsForChat: vi.fn(),
-        listTelegramSubscriptions: vi.fn(),
         listTelegramSubscriptionsForChat: vi.fn().mockResolvedValue([
           {
             id: "subscription",
@@ -109,7 +106,6 @@ describe("handleTelegramCommand", () => {
       persistence: {
         consumeTelegramLinkToken: vi.fn(),
         disableTelegramSubscriptionsForChat: vi.fn().mockResolvedValue(1),
-        listTelegramSubscriptions: vi.fn().mockResolvedValue([]),
         listTelegramSubscriptionsForChat: vi.fn().mockResolvedValue([
           {
             id: "subscription",
@@ -131,7 +127,7 @@ describe("handleTelegramCommand", () => {
     });
 
     expect(deleteSchedule).toHaveBeenCalledWith(
-      telegramWatchScheduleId(safe.chainId, safe.address),
+      legacyTelegramWatchScheduleId(safe.chainId, safe.address),
     );
   });
 });

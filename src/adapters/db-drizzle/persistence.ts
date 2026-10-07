@@ -1534,6 +1534,37 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
     return rows.map((row) => this.telegramSubscriptionFromRow(row, safeRef));
   }
 
+  async listTelegramWatchedSafes(
+    cursor: string | null,
+    limit: number,
+  ): Promise<Page<SafeRef>> {
+    const rows = await this.db
+      .selectDistinct({
+        cursor: safes.id,
+        chainId: safes.chainId,
+        address: safes.address,
+      })
+      .from(telegramSubscriptions)
+      .innerJoin(safes, eq(telegramSubscriptions.safeId, safes.id))
+      .where(
+        and(
+          eq(telegramSubscriptions.enabled, true),
+          cursor ? gt(safes.id, cursor) : undefined,
+        ),
+      )
+      .orderBy(asc(safes.id))
+      .limit(limit + 1);
+    const page = rows.slice(0, limit);
+    return {
+      items: page.map((row) => ({
+        chainId: row.chainId,
+        address: row.address as Address,
+      })),
+      nextCursor: rows.length > limit ? (page.at(-1)?.cursor ?? null) : null,
+      total: null,
+    };
+  }
+
   async listTelegramSubscriptionsForChat(
     chatId: string,
   ): Promise<readonly TelegramSubscription[]> {

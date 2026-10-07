@@ -12,6 +12,7 @@ import type {
 import {
   formatTelegramAlert,
   runTelegramAlertJob,
+  runTelegramSweepJob,
   runTelegramWatchJob,
   telegramAlertEventKey,
 } from "../../../../src/lib/api/telegram-alerts";
@@ -295,6 +296,61 @@ describe("Telegram transaction alerts", () => {
     expect(result).toEqual({ status: "watching", changes: 0 });
     expect(upsertSafe).toHaveBeenCalledWith(currentSnapshot);
     expect(upsertTransactions).toHaveBeenCalledOnce();
+    expect(enqueue).not.toHaveBeenCalled();
+  });
+
+  it("checks active Safes through one bounded shared sweep", async () => {
+    const enqueue = vi.fn().mockResolvedValue({ jobId: "job" });
+    const listTelegramWatchedSafes = vi.fn().mockResolvedValue({
+      items: [safe],
+      nextCursor: null,
+      total: null,
+    });
+
+    await expect(
+      runTelegramSweepJob(
+        { type: "telegram-sweep", cursor: null },
+        {
+          chain: {
+            getSafeSnapshot: vi.fn().mockResolvedValue(currentSnapshot),
+          },
+          persistence: {
+            listTelegramWatchedSafes,
+            listTelegramSubscriptions: vi.fn().mockResolvedValue([
+              {
+                id: "sub",
+                profileId: "profile",
+                safe,
+                chatId: "42",
+                chatLabel: null,
+                enabled: true,
+                disconnectedAt: null,
+                lastPolledAt: null,
+                lastPollError: null,
+                lastDeliveryAttemptAt: null,
+                lastDeliveryError: null,
+                createdAt: 100,
+              },
+            ]),
+            findTransaction: vi.fn().mockResolvedValue(transaction()),
+            recordTelegramWatchResult: vi.fn().mockResolvedValue(undefined),
+            upsertSafe: vi.fn().mockResolvedValue(undefined),
+            upsertTransactions: vi.fn().mockResolvedValue(undefined),
+          },
+          queue: { enqueue },
+          safeData: {
+            listMultisigTransactions: vi.fn().mockResolvedValue({
+              items: [transaction()],
+              nextCursor: null,
+              total: 1,
+            }),
+          },
+          now: () => 300,
+        },
+      ),
+    ).resolves.toEqual({ checked: 1, failed: 0, nextCursor: null });
+
+    expect(listTelegramWatchedSafes).toHaveBeenCalledWith(null, 20);
     expect(enqueue).not.toHaveBeenCalled();
   });
 

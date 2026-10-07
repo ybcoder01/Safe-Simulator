@@ -42,7 +42,12 @@ To refresh one Safe:
 3. Leave the page open while it checks synchronization state.
 4. Confirm all four streams—multisig, module, transfer, and message—return to **Synced**.
 
-The refresh queues a signed QStash job. QStash then schedules bounded 100-record pages and resumes from persisted cursors. Repeated requests are deduplicated.
+The refresh normally queues a signed QStash job. QStash then schedules bounded
+100-record pages and resumes from persisted cursors. Repeated requests are
+deduplicated. If QStash has exhausted its daily capacity, the authenticated
+dashboard action falls back to a bounded direct refresh of up to three pages per
+stream. The fallback updates recent activity without publishing an unsigned job;
+older history remains explicitly incomplete if the bound is reached.
 
 If synchronization is stuck or failed:
 
@@ -185,21 +190,22 @@ require rotating the alert-signing identity unless that separate key may also
 have been exposed. Do not tell users that an unverified Telegram message is
 safe merely because it came from the familiar bot account.
 
-The poller checks subscribed Safes once per minute through a durable QStash
-schedule with a deterministic ID per Safe. `/start` creates or replaces that
-schedule and queues an immediate check. `/safes` also repairs the schedule and
-queues an immediate check, so an existing subscription can be recovered without
-creating a new connection link. `/stop` removes the schedule after the last
-subscription for that Safe is disabled. QStash retries failed deliveries; one
-failed poll does not cancel later scheduled polls.
+The poller checks all subscribed Safes through one shared durable QStash
+schedule every two minutes. Each scheduled sweep reads a bounded page of active
+Safes and checks them directly; only additional sweep pages, changed-transaction
+analysis, and alerts publish more messages. `/start` and `/safes` repair the
+shared schedule and request a best-effort immediate check. Legacy per-Safe
+schedules delete themselves after the shared schedule is confirmed, so a deploy
+migrates existing subscriptions without a manual reconnect. `/stop` disables the
+chat's subscriptions and removes any remaining legacy schedule. QStash retries
+failed deliveries; one failed sweep does not cancel later scheduled sweeps.
 
-Capacity is part of alert correctness. Two once-per-minute Safe schedules emit
-2,880 poll messages per day before analysis, retries, imports, and manual
-refreshes. The QStash Free plan observed on 2026-10-07 allowed 1,000 messages per
-day and stopped accepting work after the limit was exceeded. Do not represent
-one-minute monitoring as continuously available on that plan. Either provision
-reviewed paid capacity or redesign polling, then verify the control center's
-last-poll timestamp remains current for a full daily cycle.
+Capacity is part of alert correctness. The shared two-minute schedule uses at
+most 720 baseline poll messages per day instead of 1,440 per watched Safe. The
+QStash Free plan observed on 2026-10-07 allowed 1,000 messages per day and stopped
+accepting work after the limit was exceeded. Leave capacity for changed-event
+analysis, alerts, imports, and retries; verify the control center's last-poll
+timestamp remains current for a full daily cycle before broad rollout.
 
 If alerts stop, send `/safes` first and confirm that the bot reports monitoring
 as active. Then inspect the webhook response, QStash schedule and
@@ -304,7 +310,7 @@ Start with the narrowest affected layer:
 - **Whole site unavailable:** Vercel deployment status and runtime logs.
 - **Health probe degraded:** use the non-secret `checks` map to identify PostgreSQL or Redis, then inspect that provider and Vercel runtime logs.
 - **Watchlist unavailable:** Neon Postgres connectivity and the required `NEON_DATABASE_URL`; runtime fallback to `DATABASE_URL` is not supported.
-- **Refresh not queued:** QStash token, production callback URL, and dashboard authorization.
+- **Refresh not queued:** inspect QStash capacity, token, production callback URL, and dashboard authorization. The dashboard should report a bounded direct refresh when only queue capacity is unavailable.
 - **Job callback rejected:** QStash current and next signing keys.
 - **History stale:** Safe Transaction Service endpoint, stream cursor status, and QStash deliveries.
 - **Balances or imports failing:** standard RPC fallback list.
