@@ -36,7 +36,9 @@ interface WatchPorts {
   readonly persistence: Pick<
     PersistencePort,
     | "findTransaction"
+    | "listSlackSubscriptions"
     | "listTelegramSubscriptions"
+    | "recordSlackWatchResult"
     | "recordTelegramWatchResult"
     | "upsertSafe"
     | "upsertTransactions"
@@ -87,10 +89,13 @@ function changed(
 }
 
 export async function runTelegramWatchJob(job: WatchJob, ports: WatchPorts) {
-  const subscriptions = await ports.persistence.listTelegramSubscriptions(
-    job.safe,
-  );
-  if (subscriptions.length === 0) return { status: "stopped", changes: 0 };
+  const [telegramSubscriptions, slackSubscriptions] = await Promise.all([
+    ports.persistence.listTelegramSubscriptions(job.safe),
+    ports.persistence.listSlackSubscriptions(job.safe),
+  ]);
+  if (telegramSubscriptions.length === 0 && slackSubscriptions.length === 0) {
+    return { status: "stopped", changes: 0 };
+  }
 
   try {
     await refreshSafeSnapshot(job.safe, ports);
@@ -111,30 +116,53 @@ export async function runTelegramWatchJob(job: WatchJob, ports: WatchPorts) {
     await ports.persistence.upsertTransactions(page.items);
 
     await Promise.all(
-      changedTransactions.flatMap((transaction) => [
-        ports.queue.enqueue(
-          {
-            type: "analyze",
-            safe: job.safe,
-            safeTxHash: transaction.safeTxHash,
-          },
-          {
-            idempotencyKey: `telegram-analyze:${job.safe.chainId}:${transaction.safeTxHash}:${transactionState(transaction)}`,
-          },
-        ),
-        ports.queue.enqueue(
-          {
-            type: "telegram-alert",
-            safe: job.safe,
-            safeTxHash: transaction.safeTxHash,
-            attempt: 0,
-          },
-          {
-            idempotencyKey: `telegram-alert:${job.safe.chainId}:${transaction.safeTxHash}:${transactionState(transaction)}`,
-            delaySeconds: ANALYSIS_WAIT_SECONDS,
-          },
-        ),
-      ]),
+      changedTransactions.flatMap((transaction) => {
+        const jobs = [
+          ports.queue.enqueue(
+            {
+              type: "analyze",
+              safe: job.safe,
+              safeTxHash: transaction.safeTxHash,
+            },
+            {
+              idempotencyKey: `telegram-analyze:${job.safe.chainId}:${transaction.safeTxHash}:${transactionState(transaction)}`,
+            },
+          ),
+        ];
+        if (telegramSubscriptions.length > 0) {
+          jobs.push(
+            ports.queue.enqueue(
+              {
+                type: "telegram-alert",
+                safe: job.safe,
+                safeTxHash: transaction.safeTxHash,
+                attempt: 0,
+              },
+              {
+                idempotencyKey: `telegram-alert:${job.safe.chainId}:${transaction.safeTxHash}:${transactionState(transaction)}`,
+                delaySeconds: ANALYSIS_WAIT_SECONDS,
+              },
+            ),
+          );
+        }
+        if (slackSubscriptions.length > 0) {
+          jobs.push(
+            ports.queue.enqueue(
+              {
+                type: "slack-alert",
+                safe: job.safe,
+                safeTxHash: transaction.safeTxHash,
+                attempt: 0,
+              },
+              {
+                idempotencyKey: `slack-alert:${job.safe.chainId}:${transaction.safeTxHash}:${transactionState(transaction)}`,
+                delaySeconds: ANALYSIS_WAIT_SECONDS,
+              },
+            ),
+          );
+        }
+        return jobs;
+      }),
     );
 
     await ports.persistence.recordTelegramWatchResult(
@@ -142,10 +170,18 @@ export async function runTelegramWatchJob(job: WatchJob, ports: WatchPorts) {
       ports.now(),
       null,
     );
+    await ports.persistence.recordSlackWatchResult(job.safe, ports.now(), null);
     return { status: "watching", changes: changedTransactions.length };
   } catch (error) {
     await ports.persistence
       .recordTelegramWatchResult(
+        job.safe,
+        ports.now(),
+        "The latest monitoring check failed. Use Check now or try again shortly.",
+      )
+      .catch(() => undefined);
+    await ports.persistence
+      .recordSlackWatchResult(
         job.safe,
         ports.now(),
         "The latest monitoring check failed. Use Check now or try again shortly.",
@@ -444,10 +480,11 @@ export function telegramAlertEventKey(
     .digest("hex");
 }
 
-export function formatTelegramAlert(
+function formatAlert(
   transaction: SafeTransaction,
   threshold: number,
   analysis: AnalysisResult | null,
+  transport: "Telegram" | "Slack",
 ): string {
   const verdict = analysis?.verdict ?? "unverified";
   const importantFindings = Array.from(
@@ -488,8 +525,24 @@ export function formatTelegramAlert(
     `• ${nextStep(transaction, verdict, analysis)}`,
     "",
     `Safe: ${shortAddress(transaction.safe.address)} · ${networkName(transaction.safe.chainId)}`,
-    "Never sign from a Telegram alert alone. Verify in Safe Inspector.",
+    `Never sign from a ${transport} alert alone. Verify in Safe Inspector.`,
   ].join("\n");
+}
+
+export function formatTelegramAlert(
+  transaction: SafeTransaction,
+  threshold: number,
+  analysis: AnalysisResult | null,
+): string {
+  return formatAlert(transaction, threshold, analysis, "Telegram");
+}
+
+export function formatSlackAlert(
+  transaction: SafeTransaction,
+  threshold: number,
+  analysis: AnalysisResult | null,
+): string {
+  return formatAlert(transaction, threshold, analysis, "Slack");
 }
 
 export async function runTelegramAlertJob(job: AlertJob, ports: AlertPorts) {

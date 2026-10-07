@@ -13,6 +13,7 @@ import { SyncRefreshControl } from "@/components/safes/sync-refresh-control";
 import { TransactionHistory } from "@/components/safes/transaction-history";
 import { TransferActivity } from "@/components/safes/transfer-activity";
 import { TelegramAlertsCard } from "@/components/safes/telegram-alerts-card";
+import { SlackAlertsCard } from "@/components/safes/slack-alerts-card";
 import {
   getCachePort,
   getChainPort,
@@ -109,6 +110,8 @@ export default async function SafeDashboardPage({
     moduleAnalysisCoverage,
     telegramSubscriptions,
     latestTelegramDeliveryAt,
+    slackSubscriptions,
+    latestSlackDeliveryAt,
   ] = await Promise.all([
     resolveSyncSummary(persistence, safe),
     persistence.listTransactions(safe, null, 25),
@@ -129,6 +132,12 @@ export default async function SafeDashboardPage({
       : Promise.resolve([]),
     profileId
       ? persistence.findLatestTelegramDeliveryAt(profileId, safe)
+      : Promise.resolve(null),
+    profileId
+      ? persistence.listSlackSubscriptionsForProfile(profileId, safe)
+      : Promise.resolve([]),
+    profileId
+      ? persistence.findLatestSlackDeliveryAt(profileId, safe)
       : Promise.resolve(null),
   ]);
   const [transactions, moduleAnalyses, transferViews] = await Promise.all([
@@ -201,6 +210,52 @@ export default async function SafeDashboardPage({
       (activeTelegramSubscriptions.length > 0 && latestTelegramPollAt === null
         ? "No successful monitoring check has been recorded yet. Use Check now to verify the queue."
         : monitoringIsStale
+          ? "Monitoring is delayed. Use Check now; if it fails, inspect the queue service quota and delivery logs."
+          : null),
+  };
+  const activeSlackSubscriptions = slackSubscriptions.filter(
+    (subscription) => subscription.enabled,
+  );
+  const visibleSlackSubscriptions =
+    activeSlackSubscriptions.length > 0
+      ? activeSlackSubscriptions
+      : slackSubscriptions;
+  const latestSlackPollAt = visibleSlackSubscriptions.reduce<number | null>(
+    (latest, subscription) =>
+      subscription.lastPolledAt !== null &&
+      (latest === null || subscription.lastPolledAt > latest)
+        ? subscription.lastPolledAt
+        : latest,
+    null,
+  );
+  const reportedSlackHealthError = visibleSlackSubscriptions.find(
+    (subscription) =>
+      subscription.lastDeliveryError !== null ||
+      subscription.lastPollError !== null,
+  );
+  const slackMonitoringIsStale =
+    latestSlackPollAt !== null &&
+    latestSlackPollAt < currentUnixTime() - 3 * 60;
+  const slackStatus = {
+    state:
+      slackSubscriptions.length === 0
+        ? ("disconnected" as const)
+        : activeSlackSubscriptions.length > 0
+          ? ("active" as const)
+          : ("paused" as const),
+    channels: visibleSlackSubscriptions.map(
+      (subscription) =>
+        subscription.channelLabel ??
+        `Slack channel ••••${subscription.channelId.slice(-4)}`,
+    ),
+    lastPolledAt: latestSlackPollAt,
+    lastAlertAt: latestSlackDeliveryAt,
+    healthError:
+      reportedSlackHealthError?.lastDeliveryError ??
+      reportedSlackHealthError?.lastPollError ??
+      (activeSlackSubscriptions.length > 0 && latestSlackPollAt === null
+        ? "No successful monitoring check has been recorded yet. Use Check now to verify the queue."
+        : slackMonitoringIsStale
           ? "Monitoring is delayed. Use Check now; if it fails, inspect the queue service quota and delivery logs."
           : null),
   };
@@ -471,6 +526,12 @@ export default async function SafeDashboardPage({
           address={safe.address}
           chainId={safe.chainId}
           status={telegramStatus}
+        />
+
+        <SlackAlertsCard
+          address={safe.address}
+          chainId={safe.chainId}
+          status={slackStatus}
         />
 
         <TransactionHistory

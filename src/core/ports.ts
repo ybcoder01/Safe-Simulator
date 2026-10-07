@@ -22,6 +22,7 @@ import type {
   SyncCursor,
   TelegramAlertReceipt,
   TelegramSubscription,
+  SlackSubscription,
   TokenBalance,
   TransferRecord,
   TransactionSummaryRecord,
@@ -307,6 +308,70 @@ export interface PersistencePort {
     verificationId: string,
   ): Promise<TelegramAlertReceipt | null>;
   releaseTelegramDelivery(deliveryId: string): Promise<void>;
+  createSlackLinkToken(input: {
+    readonly tokenHash: string;
+    readonly profileId: string;
+    readonly safe: SafeRef;
+    readonly expiresAt: number;
+  }): Promise<void>;
+  consumeSlackLinkToken(
+    tokenHash: string,
+    teamId: string,
+    channelId: string,
+    channelLabel: string | null,
+    now: number,
+  ): Promise<SlackSubscription | null>;
+  listSlackSubscriptions(safe: SafeRef): Promise<readonly SlackSubscription[]>;
+  listSlackSubscriptionsForChannel(
+    teamId: string,
+    channelId: string,
+  ): Promise<readonly SlackSubscription[]>;
+  listSlackSubscriptionsForProfile(
+    profileId: string,
+    safe: SafeRef,
+  ): Promise<readonly SlackSubscription[]>;
+  setSlackSubscriptionsEnabled(
+    profileId: string,
+    safe: SafeRef,
+    enabled: boolean,
+  ): Promise<number>;
+  disconnectSlackSubscriptionsForProfile(
+    profileId: string,
+    safe: SafeRef,
+    disconnectedAt: number,
+  ): Promise<number>;
+  disableSlackSubscriptionsForChannel(
+    teamId: string,
+    channelId: string,
+  ): Promise<number>;
+  recordSlackWatchResult(
+    safe: SafeRef,
+    checkedAt: number,
+    error: string | null,
+  ): Promise<void>;
+  findLatestSlackDeliveryAt(
+    profileId: string,
+    safe: SafeRef,
+  ): Promise<number | null>;
+  recordSlackDeliveryResult(
+    subscriptionId: string,
+    attemptedAt: number,
+    error: string | null,
+  ): Promise<void>;
+  claimSlackDelivery(
+    subscriptionId: string,
+    safeTxHash: Hex,
+    eventKey: string,
+  ): Promise<string | null>;
+  completeSlackDelivery(deliveryId: string, sentAt: number): Promise<void>;
+  saveSlackAlertReceipt(
+    deliveryId: string,
+    receipt: TelegramAlertReceipt,
+  ): Promise<void>;
+  findSlackAlertReceipt(
+    verificationId: string,
+  ): Promise<TelegramAlertReceipt | null>;
+  releaseSlackDelivery(deliveryId: string): Promise<void>;
 }
 
 export interface CachePort {
@@ -356,6 +421,14 @@ export interface RecurringQueuePort extends QueuePort {
 export interface TelegramDeliveryPort {
   sendMessage(input: {
     readonly chatId: string;
+    readonly text: string;
+    readonly verificationUrl?: string;
+  }): Promise<void>;
+}
+
+export interface SlackDeliveryPort {
+  sendMessage(input: {
+    readonly channelId: string;
     readonly text: string;
     readonly verificationUrl?: string;
   }): Promise<void>;

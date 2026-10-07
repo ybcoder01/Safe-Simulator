@@ -1,0 +1,26 @@
+display_information:
+  name: Safe Inspector Alerts
+  description: Independent Safe signer alerts with verified safety reports
+  background_color: "#071a13"
+features:
+  bot_user:
+    display_name: Safe Inspector Alerts
+    always_online: false
+  slash_commands:
+    - command: /safe-alerts
+      url: https://safe-simulator.vercel.app/api/v1/slack/webhook
+      description: Connect and manage Safe Inspector alerts
+      usage_hint: connect <code> | list | stop
+      should_escape: false
+oauth_config:
+  scopes:
+    bot:
+      - commands
+      - chat:write
+      - chat:write.public
+settings:
+  interactivity:
+    is_enabled: false
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false

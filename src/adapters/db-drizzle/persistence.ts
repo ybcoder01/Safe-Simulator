@@ -27,6 +27,7 @@ import type {
   SafeSnapshot,
   SafeTransaction,
   SimulationOutput,
+  SlackSubscription,
   SyncCursor,
   TelegramAlertReceipt,
   TelegramAlertReceiptPayload,
@@ -52,6 +53,9 @@ import {
   safeModules,
   safeOwners,
   safes,
+  slackDeliveries,
+  slackLinkTokens,
+  slackSubscriptions,
   syncCursors,
   telegramDeliveries,
   telegramLinkTokens,
@@ -1538,22 +1542,45 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
     cursor: string | null,
     limit: number,
   ): Promise<Page<SafeRef>> {
-    const rows = await this.db
-      .selectDistinct({
-        cursor: safes.id,
-        chainId: safes.chainId,
-        address: safes.address,
-      })
-      .from(telegramSubscriptions)
-      .innerJoin(safes, eq(telegramSubscriptions.safeId, safes.id))
-      .where(
-        and(
-          eq(telegramSubscriptions.enabled, true),
-          cursor ? gt(safes.id, cursor) : undefined,
-        ),
-      )
-      .orderBy(asc(safes.id))
-      .limit(limit + 1);
+    const [telegramRows, slackRows] = await Promise.all([
+      this.db
+        .selectDistinct({
+          cursor: safes.id,
+          chainId: safes.chainId,
+          address: safes.address,
+        })
+        .from(telegramSubscriptions)
+        .innerJoin(safes, eq(telegramSubscriptions.safeId, safes.id))
+        .where(
+          and(
+            eq(telegramSubscriptions.enabled, true),
+            cursor ? gt(safes.id, cursor) : undefined,
+          ),
+        )
+        .orderBy(asc(safes.id))
+        .limit(limit + 1),
+      this.db
+        .selectDistinct({
+          cursor: safes.id,
+          chainId: safes.chainId,
+          address: safes.address,
+        })
+        .from(slackSubscriptions)
+        .innerJoin(safes, eq(slackSubscriptions.safeId, safes.id))
+        .where(
+          and(
+            eq(slackSubscriptions.enabled, true),
+            cursor ? gt(safes.id, cursor) : undefined,
+          ),
+        )
+        .orderBy(asc(safes.id))
+        .limit(limit + 1),
+    ]);
+    const rows = Array.from(
+      new Map(
+        [...telegramRows, ...slackRows].map((row) => [row.cursor, row]),
+      ).values(),
+    ).sort((left, right) => left.cursor.localeCompare(right.cursor));
     const page = rows.slice(0, limit);
     return {
       items: page.map((row) => ({
@@ -1791,5 +1818,357 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
     await this.db
       .delete(telegramDeliveries)
       .where(eq(telegramDeliveries.id, deliveryId));
+  }
+
+  private slackSubscriptionFromRow(
+    row: typeof slackSubscriptions.$inferSelect,
+    safe: SafeRef,
+  ): SlackSubscription {
+    return {
+      id: row.id,
+      profileId: row.profileId,
+      safe,
+      teamId: row.teamId,
+      channelId: row.channelId,
+      channelLabel: row.channelLabel,
+      enabled: row.enabled,
+      disconnectedAt: row.disconnectedAt
+        ? asUnixTime(row.disconnectedAt)
+        : null,
+      lastPolledAt: row.lastPolledAt ? asUnixTime(row.lastPolledAt) : null,
+      lastPollError: row.lastPollError,
+      lastDeliveryAttemptAt: row.lastDeliveryAttemptAt
+        ? asUnixTime(row.lastDeliveryAttemptAt)
+        : null,
+      lastDeliveryError: row.lastDeliveryError,
+      createdAt: asUnixTime(row.createdAt),
+    };
+  }
+
+  async createSlackLinkToken(input: {
+    readonly tokenHash: string;
+    readonly profileId: string;
+    readonly safe: SafeRef;
+    readonly expiresAt: number;
+  }): Promise<void> {
+    const safe = await this.requireSafeRow(input.safe);
+    await this.requireProfileBookmark(input.profileId, safe.id);
+    await this.db.insert(slackLinkTokens).values({
+      tokenHash: input.tokenHash,
+      profileId: input.profileId,
+      safeId: safe.id,
+      expiresAt: asDate(input.expiresAt),
+    });
+  }
+
+  async consumeSlackLinkToken(
+    tokenHash: string,
+    teamId: string,
+    channelId: string,
+    channelLabel: string | null,
+    now: number,
+  ): Promise<SlackSubscription | null> {
+    return this.db.transaction(async (tx) => {
+      const [token] = await tx
+        .update(slackLinkTokens)
+        .set({ consumedAt: asDate(now) })
+        .where(
+          and(
+            eq(slackLinkTokens.tokenHash, tokenHash),
+            isNull(slackLinkTokens.consumedAt),
+            gt(slackLinkTokens.expiresAt, asDate(now)),
+          ),
+        )
+        .returning();
+      if (!token) return null;
+      const [safe] = await tx
+        .select()
+        .from(safes)
+        .where(eq(safes.id, token.safeId))
+        .limit(1);
+      if (!safe) return null;
+      const [subscription] = await tx
+        .insert(slackSubscriptions)
+        .values({
+          profileId: token.profileId,
+          safeId: token.safeId,
+          teamId,
+          channelId,
+          channelLabel,
+        })
+        .onConflictDoUpdate({
+          target: [
+            slackSubscriptions.profileId,
+            slackSubscriptions.safeId,
+            slackSubscriptions.teamId,
+            slackSubscriptions.channelId,
+          ],
+          set: {
+            channelLabel,
+            enabled: true,
+            disconnectedAt: null,
+            lastPollError: null,
+            createdAt: asDate(now),
+          },
+        })
+        .returning();
+      return subscription
+        ? this.slackSubscriptionFromRow(subscription, {
+            chainId: safe.chainId,
+            address: safe.address as Address,
+          })
+        : null;
+    });
+  }
+
+  async listSlackSubscriptions(
+    safeRef: SafeRef,
+  ): Promise<readonly SlackSubscription[]> {
+    const safe = await this.findSafeRow(safeRef);
+    if (!safe) return [];
+    const rows = await this.db
+      .select()
+      .from(slackSubscriptions)
+      .where(
+        and(
+          eq(slackSubscriptions.safeId, safe.id),
+          eq(slackSubscriptions.enabled, true),
+        ),
+      );
+    return rows.map((row) => this.slackSubscriptionFromRow(row, safeRef));
+  }
+
+  async listSlackSubscriptionsForChannel(
+    teamId: string,
+    channelId: string,
+  ): Promise<readonly SlackSubscription[]> {
+    const rows = await this.db
+      .select({ subscription: slackSubscriptions, safe: safes })
+      .from(slackSubscriptions)
+      .innerJoin(safes, eq(slackSubscriptions.safeId, safes.id))
+      .where(
+        and(
+          eq(slackSubscriptions.teamId, teamId),
+          eq(slackSubscriptions.channelId, channelId),
+          eq(slackSubscriptions.enabled, true),
+        ),
+      )
+      .orderBy(desc(slackSubscriptions.createdAt));
+    return rows.map(({ subscription, safe }) =>
+      this.slackSubscriptionFromRow(subscription, {
+        chainId: safe.chainId,
+        address: safe.address as Address,
+      }),
+    );
+  }
+
+  async listSlackSubscriptionsForProfile(
+    profileId: string,
+    safeRef: SafeRef,
+  ): Promise<readonly SlackSubscription[]> {
+    const safe = await this.findSafeRow(safeRef);
+    if (!safe) return [];
+    const rows = await this.db
+      .select()
+      .from(slackSubscriptions)
+      .where(
+        and(
+          eq(slackSubscriptions.profileId, profileId),
+          eq(slackSubscriptions.safeId, safe.id),
+          isNull(slackSubscriptions.disconnectedAt),
+        ),
+      )
+      .orderBy(desc(slackSubscriptions.createdAt));
+    return rows.map((row) => this.slackSubscriptionFromRow(row, safeRef));
+  }
+
+  async setSlackSubscriptionsEnabled(
+    profileId: string,
+    safeRef: SafeRef,
+    enabled: boolean,
+  ): Promise<number> {
+    const safe = await this.findSafeRow(safeRef);
+    if (!safe) return 0;
+    const rows = await this.db
+      .update(slackSubscriptions)
+      .set({ enabled, ...(enabled ? { lastPollError: null } : {}) })
+      .where(
+        and(
+          eq(slackSubscriptions.profileId, profileId),
+          eq(slackSubscriptions.safeId, safe.id),
+          isNull(slackSubscriptions.disconnectedAt),
+        ),
+      )
+      .returning({ id: slackSubscriptions.id });
+    return rows.length;
+  }
+
+  async disconnectSlackSubscriptionsForProfile(
+    profileId: string,
+    safeRef: SafeRef,
+    disconnectedAt: number,
+  ): Promise<number> {
+    const safe = await this.findSafeRow(safeRef);
+    if (!safe) return 0;
+    const rows = await this.db
+      .update(slackSubscriptions)
+      .set({ enabled: false, disconnectedAt: asDate(disconnectedAt) })
+      .where(
+        and(
+          eq(slackSubscriptions.profileId, profileId),
+          eq(slackSubscriptions.safeId, safe.id),
+        ),
+      )
+      .returning({ id: slackSubscriptions.id });
+    return rows.length;
+  }
+
+  async disableSlackSubscriptionsForChannel(
+    teamId: string,
+    channelId: string,
+  ): Promise<number> {
+    const rows = await this.db
+      .update(slackSubscriptions)
+      .set({ enabled: false })
+      .where(
+        and(
+          eq(slackSubscriptions.teamId, teamId),
+          eq(slackSubscriptions.channelId, channelId),
+          eq(slackSubscriptions.enabled, true),
+        ),
+      )
+      .returning({ id: slackSubscriptions.id });
+    return rows.length;
+  }
+
+  async recordSlackWatchResult(
+    safeRef: SafeRef,
+    checkedAt: number,
+    error: string | null,
+  ): Promise<void> {
+    const safe = await this.findSafeRow(safeRef);
+    if (!safe) return;
+    await this.db
+      .update(slackSubscriptions)
+      .set({ lastPolledAt: asDate(checkedAt), lastPollError: error })
+      .where(
+        and(
+          eq(slackSubscriptions.safeId, safe.id),
+          eq(slackSubscriptions.enabled, true),
+        ),
+      );
+  }
+
+  async findLatestSlackDeliveryAt(
+    profileId: string,
+    safeRef: SafeRef,
+  ): Promise<number | null> {
+    const safe = await this.findSafeRow(safeRef);
+    if (!safe) return null;
+    const [row] = await this.db
+      .select({ sentAt: slackDeliveries.sentAt })
+      .from(slackDeliveries)
+      .innerJoin(
+        slackSubscriptions,
+        eq(slackDeliveries.subscriptionId, slackSubscriptions.id),
+      )
+      .where(
+        and(
+          eq(slackSubscriptions.profileId, profileId),
+          eq(slackSubscriptions.safeId, safe.id),
+          eq(slackDeliveries.status, "sent"),
+        ),
+      )
+      .orderBy(desc(slackDeliveries.sentAt))
+      .limit(1);
+    return row?.sentAt ? asUnixTime(row.sentAt) : null;
+  }
+
+  async recordSlackDeliveryResult(
+    subscriptionId: string,
+    attemptedAt: number,
+    error: string | null,
+  ): Promise<void> {
+    await this.db
+      .update(slackSubscriptions)
+      .set({
+        lastDeliveryAttemptAt: asDate(attemptedAt),
+        lastDeliveryError: error,
+      })
+      .where(eq(slackSubscriptions.id, subscriptionId));
+  }
+
+  async claimSlackDelivery(
+    subscriptionId: string,
+    safeTxHash: Hex,
+    eventKey: string,
+  ): Promise<string | null> {
+    const [row] = await this.db
+      .insert(slackDeliveries)
+      .values({ subscriptionId, safeTxHash, eventKey })
+      .onConflictDoNothing()
+      .returning({ id: slackDeliveries.id });
+    return row?.id ?? null;
+  }
+
+  async completeSlackDelivery(
+    deliveryId: string,
+    sentAt: number,
+  ): Promise<void> {
+    await this.db
+      .update(slackDeliveries)
+      .set({ status: "sent", sentAt: asDate(sentAt) })
+      .where(eq(slackDeliveries.id, deliveryId));
+  }
+
+  async saveSlackAlertReceipt(
+    deliveryId: string,
+    receipt: TelegramAlertReceipt,
+  ): Promise<void> {
+    await this.db
+      .update(slackDeliveries)
+      .set({
+        verificationId: receipt.payload.verificationId,
+        receiptPayload: receipt.payload,
+        payloadDigest: receipt.payloadDigest,
+        receiptSignature: receipt.signature,
+        signingKeyId: receipt.signingKeyId,
+      })
+      .where(eq(slackDeliveries.id, deliveryId));
+  }
+
+  async findSlackAlertReceipt(
+    verificationId: string,
+  ): Promise<TelegramAlertReceipt | null> {
+    const [row] = await this.db
+      .select({
+        payload: slackDeliveries.receiptPayload,
+        payloadDigest: slackDeliveries.payloadDigest,
+        signature: slackDeliveries.receiptSignature,
+        signingKeyId: slackDeliveries.signingKeyId,
+      })
+      .from(slackDeliveries)
+      .where(eq(slackDeliveries.verificationId, verificationId))
+      .limit(1);
+    if (
+      !row?.payload ||
+      !row.payloadDigest ||
+      !row.signature ||
+      !row.signingKeyId
+    ) {
+      return null;
+    }
+    return {
+      payload: row.payload as TelegramAlertReceiptPayload,
+      payloadDigest: row.payloadDigest,
+      signature: row.signature,
+      signingKeyId: row.signingKeyId,
+    };
+  }
+
+  async releaseSlackDelivery(deliveryId: string): Promise<void> {
+    await this.db
+      .delete(slackDeliveries)
+      .where(eq(slackDeliveries.id, deliveryId));
   }
 }

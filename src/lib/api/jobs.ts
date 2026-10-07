@@ -54,6 +54,15 @@ export const queueJobSchema = z.discriminatedUnion("type", [
     attempt: z.number().int().min(0).max(5),
   }),
   z.object({
+    type: z.literal("slack-alert"),
+    safe: safeRefSchema,
+    safeTxHash: z
+      .string()
+      .regex(/^0x[0-9a-fA-F]{64}$/)
+      .transform((value) => value as Hex),
+    attempt: z.number().int().min(0).max(5),
+  }),
+  z.object({
     type: z.literal("reanalyze"),
     safe: safeRefSchema,
     engineVersion: z.string().min(1).max(100),

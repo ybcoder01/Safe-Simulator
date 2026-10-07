@@ -18,7 +18,7 @@ Imported Safes can also preview a draft target call before a proposal exists. Dr
 - Evidence-based verdicts with profile-scoped trusted and flagged addresses plus a pinned contract registry.
 - Quick Trust and Flag actions for addresses identified in a transaction.
 - Browser-local search across loaded Safe activity.
-- Optional Telegram alerts for new owner signatures, threshold changes, canonical transaction details, and independent safety warnings.
+- Optional Telegram and Slack alerts for new owner signatures, threshold changes, canonical transaction details, and independent safety warnings.
 - Browser-local review progress with skip-completed queue navigation.
 - Canonical block-anchor checks before immutable execution evidence is reused.
 - Dedicated module-execution replay with separate privileged-path verdicts and findings.
@@ -64,6 +64,6 @@ See [docs/OPERATIONS.md](docs/OPERATIONS.md) for deployment verification, Safe r
 
 See [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md) for the living product
 status, current production state, implemented capabilities, security boundaries,
-Telegram alert coverage, acceptance gates, and prioritized next work.
+Telegram and Slack alert coverage, acceptance gates, and prioritized next work.
 
 The original architectural brief and staged implementation plan remain available in [INITIAL_Project_SCOPE.md](INITIAL_Project_SCOPE.md).

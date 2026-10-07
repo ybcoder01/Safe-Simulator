@@ -8,6 +8,7 @@ import { HostedReadinessAdapter } from "@/adapters/health-hosted/readiness";
 import { QStashQueueAdapter } from "@/adapters/queue-qstash/queue";
 import { SafeApiAdapter } from "@/adapters/safe-api/safe-data";
 import { RpcSimulationAdapter } from "@/adapters/simulator-rpc/simulation";
+import { SlackBotAdapter } from "@/adapters/slack-bot/client";
 import { TelegramBotAdapter } from "@/adapters/telegram-bot/client";
 import { ImportSafeService } from "@/core/safes/import-safe";
 
@@ -21,6 +22,7 @@ let rateLimit: UpstashRateLimitAdapter | null = null;
 let safeData: SafeApiAdapter | null = null;
 let simulation: RpcSimulationAdapter | null = null;
 let telegram: TelegramBotAdapter | null = null;
+let slack: SlackBotAdapter | null = null;
 
 export function getChainPort() {
   chain ??= new ViemChainAdapter();
@@ -70,6 +72,11 @@ export function getSimulationPort() {
 export function getTelegramDeliveryPort() {
   telegram ??= new TelegramBotAdapter();
   return telegram;
+}
+
+export function getSlackDeliveryPort() {
+  slack ??= new SlackBotAdapter();
+  return slack;
 }
 
 export function getImportSafeService() {

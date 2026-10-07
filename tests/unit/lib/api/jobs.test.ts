@@ -8,6 +8,17 @@ const safe = {
 };
 
 describe("queue job validation", () => {
+  it("accepts Slack alert delivery jobs", () => {
+    expect(
+      queueJobSchema.safeParse({
+        type: "slack-alert",
+        safe,
+        safeTxHash: `0x${"a".repeat(64)}`,
+        attempt: 0,
+      }).success,
+    ).toBe(true);
+  });
+
   it("requires a stable run ID for incremental synchronization", () => {
     const job = {
       type: "incremental-sync",

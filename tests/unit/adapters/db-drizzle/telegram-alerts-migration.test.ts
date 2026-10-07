@@ -15,6 +15,9 @@ const controlCenterMigrationPath = fileURLToPath(
     import.meta.url,
   ),
 );
+const slackMigrationPath = fileURLToPath(
+  new URL("../../../../drizzle/0009_slack_alerts.sql", import.meta.url),
+);
 
 describe("Telegram alert migration", () => {
   it("adds only the three Telegram persistence tables", () => {
@@ -53,5 +56,19 @@ describe("Telegram alert migration", () => {
     expect(sql).toContain('ADD COLUMN "last_delivery_error" text');
     expect(sql).not.toContain("chat_id");
     expect(sql).not.toContain("token");
+  });
+
+  it("adds Slack connection, subscription, delivery, and signed receipt storage", () => {
+    const sql = readFileSync(slackMigrationPath, "utf8");
+
+    expect(sql).toContain('CREATE TABLE "slack_link_tokens"');
+    expect(sql).toContain('CREATE TABLE "slack_subscriptions"');
+    expect(sql).toContain('CREATE TABLE "slack_deliveries"');
+    expect(sql).toContain('"receipt_signature" text');
+    expect(sql).toContain(
+      'CREATE UNIQUE INDEX "slack_deliveries_subscription_event_unique"',
+    );
+    expect(sql).not.toContain("bot_token");
+    expect(sql).not.toContain("signing_secret");
   });
 });

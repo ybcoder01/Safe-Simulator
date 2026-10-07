@@ -227,6 +227,56 @@ test alert, then apply it to Production before merging or promoting the code.
 Disconnect is a soft state change so historical signed alert receipts remain
 verifiable.
 
+## Slack transaction alerts
+
+Slack is an optional second delivery transport for the same independently
+analyzed and signed Safe alerts. It never signs, confirms, proposes, relays, or
+executes a transaction. This initial release supports one installed Slack
+workspace per deployment; multi-workspace OAuth is a later rollout step.
+
+To configure it:
+
+1. Apply additive migration `0009_slack_alerts.sql` to the target database.
+   The Safe dashboard and shared alert sweep query the Slack tables, so apply
+   the migration before deploying the dependent code.
+2. Create a Slack app from [`slack-app-manifest.yaml`](slack-app-manifest.yaml).
+   The manifest declares `/safe-alerts`, the production webhook URL, and the
+   `commands`, `chat:write`, and `chat:write.public` bot scopes. The public
+   posting scope lets the selected public channel receive later alerts without
+   relying on the command invoker's membership state. Invite the bot explicitly
+   before connecting a private channel.
+3. Install the app to the intended workspace. Store the resulting bot token as
+   Vercel secret `SLACK_BOT_TOKEN` and the app's signing secret as Vercel secret
+   `SLACK_SIGNING_SECRET`. Never store either value in an `.env` file, source,
+   logs, screenshots, pull requests, or support messages.
+4. Redeploy and confirm Slack accepts
+   `https://safe-simulator.vercel.app/api/v1/slack/webhook` as the slash-command
+   request URL. Every inbound request is verified with Slack's signing secret.
+5. On a bookmarked Safe dashboard, select **Connect Slack**, copy the one-use
+   command, and run it in the exact destination channel. Codes expire after ten
+   minutes, are single-use, and are stored only as SHA-256 hashes.
+6. Select **Send test alert**. Confirm exactly one message reaches the selected
+   channel and that no Safe proposal or blockchain transaction was created.
+7. Propose and sign a harmless Safe transaction. Confirm one alert arrives
+   after the first observed signature, opens the official signed verification
+   report, and does not contain an approval or signing action.
+8. Add another signature and confirm one new lifecycle alert arrives. Run
+   `/safe-alerts list` to check monitoring and `/safe-alerts stop` to disable
+   alerts for that channel.
+
+Slack and Telegram share the bounded two-minute QStash sweep and transaction
+analysis. A changed Safe proposal queues analysis once, then independently
+idempotent `telegram-alert` and `slack-alert` deliveries. Slack delivery records
+retain only channel/workspace identifiers, delivery health, and signed receipt
+evidence; the bot token and signing secret remain in Vercel secret storage.
+
+If the Slack bot token may be compromised, revoke or rotate it in Slack, disable
+outbound Slack alert jobs, preserve delivery logs, reinstall if required, update
+`SLACK_BOT_TOKEN`, and redeploy. Rotate `SLACK_SIGNING_SECRET` if inbound request
+authentication may also be compromised. These transport credentials are
+separate from the Ed25519 alert-signing identity, so a transport compromise
+cannot create a verification report that validates on the official domain.
+
 ## Execution-evidence version changes
 
 The current execution namespace is defined by `EXECUTION_EVIDENCE_ENGINE_VERSION`. Evidence also includes its canonical block hash.
