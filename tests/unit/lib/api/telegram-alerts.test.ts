@@ -266,6 +266,7 @@ describe("Telegram transaction alerts", () => {
       {
         chain: { getSafeSnapshot: vi.fn().mockResolvedValue(currentSnapshot) },
         persistence: {
+          listSlackSubscriptions: vi.fn().mockResolvedValue([]),
           listTelegramSubscriptions: vi.fn().mockResolvedValue([
             {
               id: "sub",
@@ -277,6 +278,7 @@ describe("Telegram transaction alerts", () => {
             },
           ]),
           findTransaction: vi.fn().mockResolvedValue(null),
+          recordSlackWatchResult: vi.fn().mockResolvedValue(undefined),
           recordTelegramWatchResult: vi.fn().mockResolvedValue(undefined),
           upsertSafe,
           upsertTransactions,
@@ -316,6 +318,7 @@ describe("Telegram transaction alerts", () => {
           },
           persistence: {
             listTelegramWatchedSafes,
+            listSlackSubscriptions: vi.fn().mockResolvedValue([]),
             listTelegramSubscriptions: vi.fn().mockResolvedValue([
               {
                 id: "sub",
@@ -333,6 +336,7 @@ describe("Telegram transaction alerts", () => {
               },
             ]),
             findTransaction: vi.fn().mockResolvedValue(transaction()),
+            recordSlackWatchResult: vi.fn().mockResolvedValue(undefined),
             recordTelegramWatchResult: vi.fn().mockResolvedValue(undefined),
             upsertSafe: vi.fn().mockResolvedValue(undefined),
             upsertTransactions: vi.fn().mockResolvedValue(undefined),

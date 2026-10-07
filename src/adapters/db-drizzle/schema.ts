@@ -170,6 +170,60 @@ export const telegramSubscriptions = pgTable(
   ],
 );
 
+export const slackLinkTokens = pgTable(
+  "slack_link_tokens",
+  {
+    tokenHash: varchar("token_hash", { length: 64 }).primaryKey(),
+    profileId: uuid("profile_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
+    safeId: uuid("safe_id")
+      .notNull()
+      .references(() => safes.id, { onDelete: "cascade" }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    createdAt,
+  },
+  (table) => [index("slack_link_tokens_expiry_idx").on(table.expiresAt)],
+);
+
+export const slackSubscriptions = pgTable(
+  "slack_subscriptions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    profileId: uuid("profile_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
+    safeId: uuid("safe_id")
+      .notNull()
+      .references(() => safes.id, { onDelete: "cascade" }),
+    teamId: text("team_id").notNull(),
+    channelId: text("channel_id").notNull(),
+    channelLabel: text("channel_label"),
+    enabled: boolean("enabled").notNull().default(true),
+    disconnectedAt: timestamp("disconnected_at", { withTimezone: true }),
+    lastPolledAt: timestamp("last_polled_at", { withTimezone: true }),
+    lastPollError: text("last_poll_error"),
+    lastDeliveryAttemptAt: timestamp("last_delivery_attempt_at", {
+      withTimezone: true,
+    }),
+    lastDeliveryError: text("last_delivery_error"),
+    createdAt,
+  },
+  (table) => [
+    uniqueIndex("slack_subscriptions_profile_safe_channel_unique").on(
+      table.profileId,
+      table.safeId,
+      table.teamId,
+      table.channelId,
+    ),
+    index("slack_subscriptions_safe_enabled_idx").on(
+      table.safeId,
+      table.enabled,
+    ),
+  ],
+);
+
 export const transactions = pgTable(
   "transactions",
   {
@@ -494,6 +548,35 @@ export const telegramDeliveries = pgTable(
       table.eventKey,
     ),
     uniqueIndex("telegram_deliveries_verification_id_unique").on(
+      table.verificationId,
+    ),
+  ],
+);
+
+export const slackDeliveries = pgTable(
+  "slack_deliveries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    subscriptionId: uuid("subscription_id")
+      .notNull()
+      .references(() => slackSubscriptions.id, { onDelete: "cascade" }),
+    safeTxHash: varchar("safe_tx_hash", { length: 66 }).notNull(),
+    eventKey: text("event_key").notNull(),
+    verificationId: varchar("verification_id", { length: 43 }),
+    receiptPayload: jsonb("receipt_payload"),
+    payloadDigest: varchar("payload_digest", { length: 64 }),
+    receiptSignature: text("receipt_signature"),
+    signingKeyId: varchar("signing_key_id", { length: 64 }),
+    status: telegramDeliveryStatusEnum("status").notNull().default("pending"),
+    createdAt,
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("slack_deliveries_subscription_event_unique").on(
+      table.subscriptionId,
+      table.eventKey,
+    ),
+    uniqueIndex("slack_deliveries_verification_id_unique").on(
       table.verificationId,
     ),
   ],

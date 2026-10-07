@@ -12,7 +12,7 @@ interface PageProps {
 }
 
 export const metadata: Metadata = {
-  title: "Verify Telegram alert | Safe Inspector",
+  title: "Verify alert | Safe Inspector",
   robots: { index: false, follow: false },
 };
 
@@ -41,8 +41,10 @@ function verdictLabel(verdict: string): string {
 
 export default async function AlertVerificationPage({ params }: PageProps) {
   const { verificationId } = await params;
+  const persistence = getPersistencePort();
   const receipt = isTelegramVerificationId(verificationId)
-    ? await getPersistencePort().findTelegramAlertReceipt(verificationId)
+    ? ((await persistence.findTelegramAlertReceipt(verificationId)) ??
+      (await persistence.findSlackAlertReceipt(verificationId)))
     : null;
   const authentic = receipt ? verifyTelegramAlertReceipt(receipt) : false;
   const payload = receipt?.payload;
@@ -79,7 +81,7 @@ export default async function AlertVerificationPage({ params }: PageProps) {
             <p>
               {authentic
                 ? "The saved alert details match an independently signed Safe Inspector receipt."
-                : "Do not rely on this Telegram message or sign because of it. The ID is unknown, altered, or its signature is invalid."}
+                : "Do not rely on this notification or sign because of it. The ID is unknown, altered, or its signature is invalid."}
             </p>
           </div>
         </div>

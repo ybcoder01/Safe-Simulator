@@ -7,6 +7,7 @@ import {
   getQueuePort,
   getSafeDataPort,
   getSimulationPort,
+  getSlackDeliveryPort,
   getTelegramDeliveryPort,
 } from "@/container";
 import { enqueueSafeSync, runBackfillPage } from "@/core/ingestion/backfill";
@@ -19,6 +20,7 @@ import { MODULE_ANALYSIS_ENGINE_VERSION } from "@/lib/api/module-analysis";
 import { runAnalyzeModuleJob } from "@/lib/api/module-analysis-job";
 import { runModuleReanalysisPage } from "@/lib/api/module-reanalysis-job";
 import { runReanalysisPage } from "@/lib/api/reanalysis-job";
+import { runSlackAlertJob } from "@/lib/api/slack-alerts";
 import {
   runTelegramAlertJob,
   runTelegramSweepJob,
@@ -194,6 +196,34 @@ export async function POST(request: Request) {
         return Response.json(result);
       } catch (error) {
         console.error("[telegram-alert] failed", {
+          chainId: job.safe.chainId,
+          safe: job.safe.address,
+          safeTxHash: job.safeTxHash,
+          attempt: job.attempt,
+          error: errorDetails(error),
+        });
+        throw error;
+      }
+    case "slack-alert":
+      try {
+        const result = await runSlackAlertJob(job, {
+          chain: getChainPort(),
+          persistence,
+          queue,
+          slack: getSlackDeliveryPort(),
+          now,
+          appUrl: applicationUrl(),
+        });
+        console.info("[slack-alert] complete", {
+          chainId: job.safe.chainId,
+          safe: job.safe.address,
+          safeTxHash: job.safeTxHash,
+          attempt: job.attempt,
+          ...result,
+        });
+        return Response.json(result);
+      } catch (error) {
+        console.error("[slack-alert] failed", {
           chainId: job.safe.chainId,
           safe: job.safe.address,
           safeTxHash: job.safeTxHash,

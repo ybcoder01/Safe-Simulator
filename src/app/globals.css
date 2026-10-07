@@ -3958,6 +3958,24 @@ select {
   color: var(--danger);
 }
 
+.slack-link-command {
+  display: grid;
+  gap: 0.55rem;
+  border: 1px solid rgba(93, 234, 176, 0.38);
+  border-radius: 0.8rem;
+  background: rgba(93, 234, 176, 0.07);
+  padding: 0.85rem 1rem;
+}
+
+.slack-link-command code {
+  overflow-wrap: anywhere;
+  color: var(--green);
+}
+
+.slack-link-command .button {
+  justify-self: start;
+}
+
 .telegram-alert-controls {
   display: flex;
   flex-wrap: wrap;

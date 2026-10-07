@@ -4,6 +4,7 @@ Last updated: 2026-10-07
 Production: <https://safe-simulator.vercel.app>  
 Repository: <https://github.com/ybcoder01/Safe-Simulator>  
 Telegram bot: `@safealerts_bot`
+Slack app: implemented; deployment and acceptance testing pending
 
 This is the living product and delivery record for Safe Inspector. Update it
 whenever a feature, production dependency, security boundary, deployment state,
@@ -44,6 +45,7 @@ replacement for a signing wallet or hardware-wallet verification.
 | Beginner-facing verdict         | Live     | Clear green, yellow, orange, and red guidance with plain-language next actions.                                    |
 | XDC protocol and token identity | Live     | Reviewed registry, protocol logos, token logos, and deterministic fallbacks.                                       |
 | Telegram alerts                 | Live     | `@safealerts_bot` is connected to Production and has delivered an end-to-end signer alert for an XDC Safe.         |
+| Slack alerts                    | Review   | Channel linking, controls, signed reports, and idempotent delivery are implemented; deployment is pending.         |
 | Signed alert verification       | Live     | Unique verification IDs, Ed25519-signed receipts, key rotation, and the no-signing verification page are deployed. |
 | Production database             | Live     | Neon Postgres; Telegram migrations `0006`, `0007`, and `0008` were applied and verified.                           |
 | Queue and scheduling            | Degraded | QStash reached its 1,000-message daily limit; a shared-sweep and direct-refresh fix is implemented for deployment. |
@@ -305,7 +307,7 @@ Full sources and contract counts are maintained in
 | Chain client            | Viem with ranked standard, archive, and optional trace RPCs                      |
 | Safe data               | Safe Transaction Service for Ethereum and XDC                                    |
 | Contract metadata       | Sourcify, configured explorer evidence, on-chain bytecode, and pinned registries |
-| Alert delivery          | Telegram Bot API webhook and outbound messages                                   |
+| Alert delivery          | Telegram Bot API plus Slack signed webhooks and outbound messages                |
 
 Layering rules:
 
@@ -328,6 +330,11 @@ Applied migration series:
 6. `0005_transaction_summaries.sql`
 7. `0006_melodic_living_mummy.sql`
 8. `0007_mean_wither.sql`
+9. `0008_telegram_control_center.sql`
+
+Pending migration:
+
+10. `0009_slack_alerts.sql`
 
 Migration `0006` adds:
 
@@ -344,6 +351,12 @@ recovery plan says otherwise.
 Migration `0007` adds the verification ID, signed receipt payload, digest,
 signature, and signing-key identifier to Telegram delivery records. It must be
 applied before deploying the signed-alert code.
+
+Migration `0008` adds Telegram control-center delivery health fields.
+
+Migration `0009` adds hashed Slack link tokens, channel subscriptions,
+idempotent delivery claims, health fields, and signed receipt storage. It is
+implemented but not yet applied to Preview or Production.
 
 ## 10. Runtime configuration
 
@@ -378,6 +391,16 @@ The alert-signing private key is a separate Ed25519 identity and must never be
 the Telegram bot token or webhook secret. `ALERT_SIGNING_PUBLIC_KEYS` is a JSON
 key ring indexed by key ID; old public keys remain in the ring so historical
 receipts continue to verify after rotation.
+
+### Slack
+
+- `SLACK_BOT_TOKEN`
+- `SLACK_SIGNING_SECRET`
+
+Slack credentials are not configured yet. They must be stored as Vercel
+secrets, never in repository `.env` files. Slack reuses the separate Ed25519
+alert-signing identity so every real message links to the same independently
+verifiable official-domain report as Telegram.
 
 ### Chain providers
 
@@ -555,6 +578,9 @@ After an alert-format or delivery change:
 
 - Deploy and acceptance-test the implemented in-app Telegram control center and
   migration `0008`.
+- Apply migration `0009`, install the Slack app from the reviewed manifest,
+  configure its Vercel secrets, and complete the harmless-transaction Slack
+  acceptance test before marking Slack live.
 - Improve non-technical wording for remaining fallback finding titles.
 
 ### P1: threat coverage
@@ -576,23 +602,24 @@ After an alert-format or delivery change:
 
 ## 16. Decision log
 
-| Date       | Decision                                                                                                                                                                                             |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-09-25 | Telegram alerts were deployed and configured using `@safealerts_bot`.                                                                                                                                |
-| 2026-09-25 | Telegram webhook registration was confirmed by Telegram with zero pending updates.                                                                                                                   |
-| 2026-09-25 | Migration `0006` was applied directly to the reviewed Neon Production database and the new tables were verified.                                                                                     |
-| 2026-09-25 | Telegram credentials remain only in Vercel Production secret storage; local registration artifacts were removed.                                                                                     |
-| 2026-09-25 | End-to-end Telegram delivery testing became the next release gate; no additional feature PR should precede it unless it fixes a blocker.                                                             |
-| 2026-09-25 | Bot-token compromise was elevated to a P0 threat: Telegram is notification-only, and independently verifiable signed alert receipts are required before broad rollout.                               |
-| 2026-09-25 | A local feature branch implemented unique alert IDs, separately signed Ed25519 receipts, key-rotation support, and an official no-signing verification page; deployment remains pending review.      |
-| 2026-09-26 | Signed alert verification is deployed, migration `0007` and the signing key are active, and a live XDC signer alert was delivered and verified.                                                      |
-| 2026-09-26 | Telegram previews were redesigned as status-aware, novice-first decision cards; complete technical evidence remains in the signed report.                                                            |
-| 2026-09-26 | Telegram polling moved from a failure-prone self-rescheduling job chain to deterministic per-Safe QStash schedules; delivery IDs now include the Safe transaction hash.                              |
-| 2026-09-27 | Normal XDC Safe v1.5 and independently resolved token-proxy delegation are treated as infrastructure, preventing a clean pre-sign check from becoming a false critical execution alert.              |
-| 2026-09-27 | Fathom's documented pool-library delegation, verified interest-rate strategy, Safe movement endpoint, and zero-address mint endpoint are classified as expected execution evidence.                  |
-| 2026-10-07 | A per-Safe Telegram control center, persisted delivery health, no-transaction test alerts, pause/resume/disconnect controls, and queue-independent Safe import recovery were implemented for review. |
-| 2026-10-07 | Production QStash was confirmed over its Free-plan daily message limit (1.2K/1K); paid capacity or a capacity-reviewed polling redesign is required for continuous one-minute alerts.                |
-| 2026-10-07 | A shared two-minute Telegram sweep and queue-independent bounded dashboard refresh fallback were implemented to remove per-Safe polling amplification and keep manual recovery usable at quota.      |
+| Date       | Decision                                                                                                                                                                                                                        |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-25 | Telegram alerts were deployed and configured using `@safealerts_bot`.                                                                                                                                                           |
+| 2026-09-25 | Telegram webhook registration was confirmed by Telegram with zero pending updates.                                                                                                                                              |
+| 2026-09-25 | Migration `0006` was applied directly to the reviewed Neon Production database and the new tables were verified.                                                                                                                |
+| 2026-09-25 | Telegram credentials remain only in Vercel Production secret storage; local registration artifacts were removed.                                                                                                                |
+| 2026-09-25 | End-to-end Telegram delivery testing became the next release gate; no additional feature PR should precede it unless it fixes a blocker.                                                                                        |
+| 2026-09-25 | Bot-token compromise was elevated to a P0 threat: Telegram is notification-only, and independently verifiable signed alert receipts are required before broad rollout.                                                          |
+| 2026-09-25 | A local feature branch implemented unique alert IDs, separately signed Ed25519 receipts, key-rotation support, and an official no-signing verification page; deployment remains pending review.                                 |
+| 2026-09-26 | Signed alert verification is deployed, migration `0007` and the signing key are active, and a live XDC signer alert was delivered and verified.                                                                                 |
+| 2026-09-26 | Telegram previews were redesigned as status-aware, novice-first decision cards; complete technical evidence remains in the signed report.                                                                                       |
+| 2026-09-26 | Telegram polling moved from a failure-prone self-rescheduling job chain to deterministic per-Safe QStash schedules; delivery IDs now include the Safe transaction hash.                                                         |
+| 2026-09-27 | Normal XDC Safe v1.5 and independently resolved token-proxy delegation are treated as infrastructure, preventing a clean pre-sign check from becoming a false critical execution alert.                                         |
+| 2026-09-27 | Fathom's documented pool-library delegation, verified interest-rate strategy, Safe movement endpoint, and zero-address mint endpoint are classified as expected execution evidence.                                             |
+| 2026-10-07 | A per-Safe Telegram control center, persisted delivery health, no-transaction test alerts, pause/resume/disconnect controls, and queue-independent Safe import recovery were implemented for review.                            |
+| 2026-10-07 | Production QStash was confirmed over its Free-plan daily message limit (1.2K/1K); paid capacity or a capacity-reviewed polling redesign is required for continuous one-minute alerts.                                           |
+| 2026-10-07 | A shared two-minute Telegram sweep and queue-independent bounded dashboard refresh fallback were implemented to remove per-Safe polling amplification and keep manual recovery usable at quota.                                 |
+| 2026-10-07 | A single-workspace Slack alert transport was implemented with signed webhook verification, one-use channel linking, shared monitoring, idempotent delivery, signed reports, and dashboard controls; deployment remains pending. |
 
 ## 17. Related documents
 

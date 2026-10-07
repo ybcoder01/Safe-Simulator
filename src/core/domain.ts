@@ -323,6 +323,22 @@ export interface TelegramSubscription {
   readonly createdAt: UnixTime;
 }
 
+export interface SlackSubscription {
+  readonly id: string;
+  readonly profileId: string;
+  readonly safe: SafeRef;
+  readonly teamId: string;
+  readonly channelId: string;
+  readonly channelLabel: string | null;
+  readonly enabled: boolean;
+  readonly disconnectedAt: UnixTime | null;
+  readonly lastPolledAt: UnixTime | null;
+  readonly lastPollError: string | null;
+  readonly lastDeliveryAttemptAt: UnixTime | null;
+  readonly lastDeliveryError: string | null;
+  readonly createdAt: UnixTime;
+}
+
 export interface TelegramAlertReceiptPayload {
   readonly version: 1;
   readonly verificationId: string;
@@ -381,6 +397,12 @@ export type QueueJob =
     }
   | {
       readonly type: "telegram-alert";
+      readonly safe: SafeRef;
+      readonly safeTxHash: Hex;
+      readonly attempt: number;
+    }
+  | {
+      readonly type: "slack-alert";
       readonly safe: SafeRef;
       readonly safeTxHash: Hex;
       readonly attempt: number;
