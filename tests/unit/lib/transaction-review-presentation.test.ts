@@ -37,6 +37,7 @@ const input = {
     },
   },
   primaryAction: "Approve 1 USDC",
+  targetKnown: true,
   target: {
     accountType: "contract" as const,
     anchor: "latest" as const,
@@ -45,6 +46,7 @@ const input = {
   transaction: {
     data: "0x1234" as const,
     operation: "call" as const,
+    status: "pending" as const,
     value: 0n,
   },
 };
@@ -115,7 +117,12 @@ describe("transaction review presentation", () => {
       ...input,
       target: { accountType: "wallet", anchor: "latest" },
       targetVerified: false,
-      transaction: { data: "0x", operation: "call", value: 12n },
+      transaction: {
+        data: "0x",
+        operation: "call",
+        status: "pending",
+        value: 12n,
+      },
     });
 
     expect(result.targetType).toBe("Wallet address");
@@ -141,5 +148,40 @@ describe("transaction review presentation", () => {
 
     expect(result.signal).toBe("unknown");
     expect(result.signal).not.toBe("clear");
+  });
+
+  it("explains address-injection uncertainty in plain language", () => {
+    const result = resolveTransactionReviewPresentation({
+      ...input,
+      evidence: {
+        ...evidence,
+        findings: [
+          {
+            code: "internal-call-trust-unresolved",
+            severity: "warning",
+            title: "Internal call target trust is incomplete",
+            detail: "An address is unknown.",
+            addresses: [],
+          },
+        ],
+      },
+    });
+
+    expect(result.addressCheckTitle).toBe("Some addresses need verification");
+    expect(result.addressCheckDetail).toContain("does not prove");
+    expect(result.addressChecks).toContain(
+      "The transaction routes through at least one unrecognized contract.",
+    );
+  });
+
+  it("uses post-execution guidance for an executed transaction", () => {
+    const result = resolveTransactionReviewPresentation({
+      ...input,
+      evidence: withFinding("critical"),
+      transaction: { ...input.transaction, status: "executed" },
+    });
+
+    expect(result.title).toBe("Review this executed transaction");
+    expect(result.nextStep).toContain("Revoke unexpected access");
   });
 });

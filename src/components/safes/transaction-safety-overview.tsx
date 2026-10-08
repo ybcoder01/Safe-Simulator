@@ -54,13 +54,16 @@ export function TransactionSafetyOverview({
 
       <div className="safety-overview-grid">
         <article>
-          <span className="safety-card-label">What this transaction does</span>
+          <span className="safety-card-label">What is this transaction?</span>
           <strong>{presentation.actionSummary}</strong>
-          <p>{presentation.nextStep}</p>
+          <p>
+            This is the action Safe Inspector reconstructed from the signed
+            transaction and its blockchain execution evidence.
+          </p>
         </article>
 
         <article>
-          <span className="safety-card-label">You are interacting with</span>
+          <span className="safety-card-label">Which project is involved?</span>
           <div className="safety-target-heading">
             {targetTokenSymbol ? (
               <TokenIdentity
@@ -99,14 +102,30 @@ export function TransactionSafetyOverview({
           </div>
         </article>
 
-        <article className="safety-next-step-card">
-          <span className="safety-card-label">What you should do</span>
-          <strong>{presentation.nextStep}</strong>
-          <p>
-            Compare the destination, amount, and requested access with the
-            action you intended to approve in Safe Wallet.
-          </p>
+        <article className="safety-address-check-card">
+          <span className="safety-card-label">
+            Was an address or permission changed?
+          </span>
+          <strong>{presentation.addressCheckTitle}</strong>
+          <p>{presentation.addressCheckDetail}</p>
+          {presentation.addressChecks.length > 0 ? (
+            <ul className="safety-check-list">
+              {presentation.addressChecks.map((check) => (
+                <li key={check}>{check}</li>
+              ))}
+            </ul>
+          ) : null}
         </article>
+      </div>
+
+      <div className="safety-approval-step">
+        <span className="safety-card-label">Before the final approval</span>
+        <strong>{presentation.nextStep}</strong>
+        <p>
+          Do not approve from an alert or shortened address alone. Compare the
+          full destination, token, amount, recipient, and spender with the
+          original request in a separate trusted view.
+        </p>
       </div>
 
       <p className="safety-boundary-note">

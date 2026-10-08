@@ -106,4 +106,30 @@ describe("calldata summaries", () => {
       "Add liquidity to a pool (1000 and 1 base units; minimum 900 LP base units)",
     );
   });
+
+  it("explains the Silo wrapped-native withdrawal batch in plain language", () => {
+    const batch: DecodedCall = {
+      method: "multicall",
+      parameters: [
+        {
+          name: "",
+          type: "bytes[]",
+          value: JSON.stringify([
+            "0x5eac01df" + "00".repeat(128),
+            "0x39f47693" + "00".repeat(64),
+            "0x24a084df" + "00".repeat(64),
+          ]),
+          nestedCalls: [],
+        },
+      ],
+      to: null,
+      value: null,
+      data: null,
+      operation: null,
+    };
+
+    expect(decodedCallSummary(batch)).toBe(
+      "Withdraw wrapped native assets, unwrap them, and send native assets to the recipient",
+    );
+  });
 });
