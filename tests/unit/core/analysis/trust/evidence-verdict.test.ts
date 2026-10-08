@@ -1111,4 +1111,51 @@ describe("evaluateEvidenceVerdict", () => {
       }),
     );
   });
+
+  it("treats on-chain attested addresses as known without calling them trusted", () => {
+    const result = evaluateEvidenceVerdict(
+      input({
+        callTrace: "complete",
+        internalCalls: [
+          { depth: 2, from: target, to: token, operation: "call" },
+        ],
+        attestedAddresses: [{ address: token, label: "Silo market asset" }],
+      }),
+    );
+
+    expect(result.addresses).toContainEqual(
+      expect.objectContaining({
+        address: token,
+        label: "Silo market asset",
+        status: "known",
+        source: "attestation",
+      }),
+    );
+    expect(result.findings.map((finding) => finding.code)).not.toContain(
+      "internal-call-trust-unresolved",
+    );
+  });
+
+  it("preserves route-attestation findings in the final verdict", () => {
+    const result = evaluateEvidenceVerdict(
+      input({
+        additionalFindings: [
+          {
+            code: "protocol-route-attestation-incomplete",
+            severity: "warning",
+            title: "Route incomplete",
+            detail: "One address is unresolved.",
+            addresses: [spender],
+          },
+        ],
+      }),
+    );
+
+    expect(result.verdict).toBe("unverified");
+    expect(result.findings).toContainEqual(
+      expect.objectContaining({
+        code: "protocol-route-attestation-incomplete",
+      }),
+    );
+  });
 });

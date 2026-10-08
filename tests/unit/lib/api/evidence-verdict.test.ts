@@ -192,4 +192,74 @@ describe("resolveEvidenceVerdict", () => {
 
     expect(result.verdict).toBe("trusted");
   });
+
+  it("recognizes an exact team-approved Silo market without treating factory origin as trust", () => {
+    const routeAttestation = {
+      protocol: "silo" as const,
+      status: "review" as const,
+      title: "Factory-created Silo market verified",
+      detail: "The route matches the live market configuration.",
+      addresses: [{ address: target, label: "Silo market vault" }],
+      proxyBoundaries: [],
+      findings: [
+        {
+          code: "silo-permissionless-market",
+          severity: "warning" as const,
+          title: "Permissionless market",
+          detail: "Factory origin does not establish market safety.",
+          addresses: [target],
+        },
+      ],
+    };
+    const unapproved = resolveEvidenceVerdict(
+      transaction,
+      {
+        ...contract({ verified: true, source: "sourcify" }),
+        provenance: "verified-abi",
+        signature: null,
+      },
+      execution(),
+      [],
+      null,
+      null,
+      null,
+      "unavailable",
+      [],
+      "contract",
+      routeAttestation,
+    );
+    const approved = resolveEvidenceVerdict(
+      transaction,
+      {
+        ...contract({ verified: true, source: "sourcify" }),
+        provenance: "verified-abi",
+        signature: null,
+      },
+      execution(),
+      [{ address: target, label: "Approved Silo market", trust: "trusted" }],
+      null,
+      null,
+      null,
+      "unavailable",
+      [],
+      "contract",
+      routeAttestation,
+    );
+
+    expect(unapproved.findings).toContainEqual(
+      expect.objectContaining({
+        code: "silo-permissionless-market",
+        severity: "warning",
+      }),
+    );
+    expect(approved.findings).toContainEqual(
+      expect.objectContaining({
+        code: "silo-approved-market",
+        severity: "info",
+      }),
+    );
+    expect(approved.findings.map((finding) => finding.code)).not.toContain(
+      "silo-permissionless-market",
+    );
+  });
 });

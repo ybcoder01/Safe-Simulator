@@ -63,6 +63,22 @@ const GUIDANCE_BY_CODE = new Map<string, FindingGuidance>([
     },
   ],
   [
+    "protocol-route-attestation-incomplete",
+    {
+      label: "Review the unmatched Silo contract",
+      action:
+        "Do not give final approval until every traced contract appears in the official deployment registry or the market configuration proven through the Silo Factory.",
+    },
+  ],
+  [
+    "silo-permissionless-market",
+    {
+      label: "Confirm this specific Silo market",
+      action:
+        "Factory origin is confirmed, but Silo markets are permissionless. Confirm the market, assets, deployer, hooks, and oracles against your team's approved market record.",
+    },
+  ],
+  [
     "additional-evidence-check",
     {
       label: "Review the remaining evidence",

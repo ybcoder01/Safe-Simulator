@@ -28,6 +28,10 @@ import {
   type InternalProxyBoundary,
 } from "@/lib/api/internal-proxy-boundaries";
 import {
+  resolveProtocolRouteAttestation,
+  type ProtocolRouteAttestation,
+} from "@/lib/api/protocol-route-attestation";
+import {
   EXECUTION_EVIDENCE_ENGINE_VERSION,
   resolveExecutionInsight,
   type ExecutionInsight,
@@ -57,6 +61,7 @@ export interface NeutralTransactionAnalysis {
   readonly storageAnalysis: StorageChangeAnalysis;
   readonly targetRuntimeCode: TargetRuntimeCodeEvidence;
   readonly internalProxyBoundaries: readonly InternalProxyBoundary[];
+  readonly routeAttestation: ProtocolRouteAttestation;
   readonly baselineVerdict: ReturnType<typeof resolveEvidenceVerdict>;
   readonly persisted: AnalysisResult;
 }
@@ -155,26 +160,31 @@ export async function resolveNeutralTransactionAnalysis(
     ),
     resolveTargetRuntimeCodeEvidence(transaction, ports.chain),
   ]);
-  const [approvalRisk, storageAnalysis, internalProxyBoundaries] =
-    await Promise.all([
-      resolveApprovalRisk(ports.chain, transaction, contract, execution),
-      resolveStorageChangeAnalysis(
-        ports.abi,
-        transaction.safe.chainId,
-        execution,
-      ),
-      resolveInternalProxyBoundaries(
-        ports.abi,
-        transaction.safe.chainId,
-        execution.internalCalls,
-        [
-          transaction.safe.address,
-          transaction.to,
-          ...contract.implementationChain.map((address) => address as Address),
-        ],
-        transaction.blockNumber ?? undefined,
-      ),
-    ]);
+  const [
+    approvalRisk,
+    storageAnalysis,
+    internalProxyBoundaries,
+    routeAttestation,
+  ] = await Promise.all([
+    resolveApprovalRisk(ports.chain, transaction, contract, execution),
+    resolveStorageChangeAnalysis(
+      ports.abi,
+      transaction.safe.chainId,
+      execution,
+    ),
+    resolveInternalProxyBoundaries(
+      ports.abi,
+      transaction.safe.chainId,
+      execution.internalCalls,
+      [
+        transaction.safe.address,
+        transaction.to,
+        ...contract.implementationChain.map((address) => address as Address),
+      ],
+      transaction.blockNumber ?? undefined,
+    ),
+    resolveProtocolRouteAttestation(ports.chain, transaction, execution),
+  ]);
   const baselineVerdict = resolveEvidenceVerdict(
     transaction,
     contract,
@@ -186,6 +196,7 @@ export async function resolveNeutralTransactionAnalysis(
     targetRuntimeCode.anchor,
     internalProxyBoundaries,
     targetRuntimeCode.accountType,
+    routeAttestation,
   );
   const simulation = await loadImmutableSimulation(
     transaction,
@@ -211,6 +222,7 @@ export async function resolveNeutralTransactionAnalysis(
     storageAnalysis,
     targetRuntimeCode,
     internalProxyBoundaries,
+    routeAttestation,
     baselineVerdict,
     persisted,
   };

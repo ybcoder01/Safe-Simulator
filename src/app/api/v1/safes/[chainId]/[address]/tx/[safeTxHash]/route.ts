@@ -148,6 +148,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     analysis.targetRuntimeCode.anchor,
     analysis.internalProxyBoundaries,
     analysis.targetRuntimeCode.accountType,
+    analysis.routeAttestation,
   );
 
   return NextResponse.json({
@@ -164,6 +165,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       balanceChanges,
       contractVerification,
       storageAnalysis: analysis.storageAnalysis,
+      routeAttestation: analysis.routeAttestation,
       verdict,
     },
   });

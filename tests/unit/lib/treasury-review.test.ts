@@ -222,6 +222,28 @@ describe("treasury review checks", () => {
     });
   });
 
+  it("separates a genuine Silo route from approval of its permissionless market", () => {
+    const checks = resolveTreasuryReviewChecks(
+      input({
+        protocolLabel: "Silo",
+        findings: [
+          {
+            code: "silo-permissionless-market",
+            severity: "warning",
+            title: "Permissionless market",
+            detail: "The market is factory-created but not team-approved.",
+            addresses: [target],
+          },
+        ],
+      }),
+    );
+
+    expect(check(checks, "identity")).toMatchObject({
+      status: "review",
+      title: "Silo route verified; market needs approval",
+    });
+  });
+
   it("blocks Safe authority changes in the signer checklist", () => {
     const checks = resolveTreasuryReviewChecks(
       input({

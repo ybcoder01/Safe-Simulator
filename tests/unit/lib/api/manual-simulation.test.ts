@@ -237,6 +237,8 @@ describe("resolveManualSimulation", () => {
       null,
       "unavailable",
       [],
+      "contract",
+      expect.objectContaining({ status: "not-applicable" }),
     );
   });
 });

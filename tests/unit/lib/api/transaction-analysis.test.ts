@@ -251,6 +251,7 @@ describe("resolveNeutralTransactionAnalysis", () => {
       "transaction-block",
       [],
       "contract",
+      expect.objectContaining({ status: "not-applicable" }),
     );
     expect(result.persisted.engineVersion).toBe(
       TRANSACTION_ANALYSIS_ENGINE_VERSION,
@@ -284,6 +285,7 @@ describe("resolveNeutralTransactionAnalysis", () => {
       "transaction-block",
       [],
       "contract",
+      expect.objectContaining({ status: "not-applicable" }),
     );
   });
 
@@ -313,6 +315,7 @@ describe("resolveNeutralTransactionAnalysis", () => {
       "latest",
       [],
       "contract",
+      expect.objectContaining({ status: "not-applicable" }),
     );
   });
 
@@ -347,6 +350,7 @@ describe("resolveNeutralTransactionAnalysis", () => {
       "latest-fallback",
       [],
       "contract",
+      expect.objectContaining({ status: "not-applicable" }),
     );
   });
 
@@ -374,6 +378,7 @@ describe("resolveNeutralTransactionAnalysis", () => {
       "transaction-block",
       [],
       "wallet",
+      expect.objectContaining({ status: "not-applicable" }),
     );
   });
 

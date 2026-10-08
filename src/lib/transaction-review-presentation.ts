@@ -80,6 +80,12 @@ const ADDRESS_CHECK_COPY: Readonly<Record<string, string>> = {
     "A token spender or spending permission needs confirmation.",
   "protocol-path-unconfirmed":
     "Part of the project's internal contract route could not be independently confirmed.",
+  "protocol-route-attestation-incomplete":
+    "The Silo router and market factory were confirmed, but part of the route remains unmatched.",
+  "silo-permissionless-market":
+    "The Silo route is genuine, but this permissionless market still needs team approval.",
+  "silo-approved-market":
+    "The Silo route is genuine and this exact market is approved by your team.",
   "target-address-unconfirmed":
     "The main destination contract could not be independently confirmed.",
   "safe-control-change": "The transaction changes who can control this Safe.",

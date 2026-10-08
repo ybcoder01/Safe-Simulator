@@ -22,6 +22,7 @@ import {
   type ExecutionInsight,
 } from "@/lib/api/execution-insight";
 import { resolveInternalProxyBoundaries } from "@/lib/api/internal-proxy-boundaries";
+import { resolveProtocolRouteAttestation } from "@/lib/api/protocol-route-attestation";
 import { resolveStorageChangeAnalysis } from "@/lib/api/storage-changes";
 
 const MAX_CALLDATA_HEX_CHARACTERS = 65_536;
@@ -160,20 +161,22 @@ export async function resolveManualSimulation(
     ),
   ]);
   const execution = executionInsightFromTargetCall(output, safe.address);
-  const [approvals, storage, internalProxyBoundaries] = await Promise.all([
-    resolveApprovalRisk(ports.chain, transaction, contract, execution),
-    resolveStorageChangeAnalysis(ports.abi, safe.chainId, execution),
-    resolveInternalProxyBoundaries(
-      ports.abi,
-      safe.chainId,
-      execution.internalCalls,
-      [
-        safe.address,
-        transaction.to,
-        ...contract.implementationChain.map((address) => address as Address),
-      ],
-    ),
-  ]);
+  const [approvals, storage, internalProxyBoundaries, routeAttestation] =
+    await Promise.all([
+      resolveApprovalRisk(ports.chain, transaction, contract, execution),
+      resolveStorageChangeAnalysis(ports.abi, safe.chainId, execution),
+      resolveInternalProxyBoundaries(
+        ports.abi,
+        safe.chainId,
+        execution.internalCalls,
+        [
+          safe.address,
+          transaction.to,
+          ...contract.implementationChain.map((address) => address as Address),
+        ],
+      ),
+      resolveProtocolRouteAttestation(ports.chain, transaction, execution),
+    ]);
   const verdict = resolveEvidenceVerdict(
     transaction,
     contract,
@@ -184,6 +187,8 @@ export async function resolveManualSimulation(
     null,
     "unavailable",
     internalProxyBoundaries,
+    "contract",
+    routeAttestation,
   );
 
   return {
