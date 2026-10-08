@@ -2,7 +2,7 @@ import type { Address, ChainId } from "@/core/domain";
 import type { AbiPort } from "@/core/ports";
 import type { ExecutionInsight } from "@/lib/api/execution-insight";
 
-const MAX_INTERNAL_PROXY_SOURCES = 8;
+const MAX_INTERNAL_PROXY_SOURCES = 24;
 
 export interface InternalProxyBoundary {
   readonly proxy: Address;

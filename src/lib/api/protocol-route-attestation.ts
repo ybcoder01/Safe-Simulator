@@ -46,6 +46,13 @@ export interface AttestedProtocolAddress {
   readonly label: string;
 }
 
+export interface ProtocolVerificationCheck {
+  readonly key: "destination" | "factory" | "configuration" | "route";
+  readonly status: "pass" | "review" | "fail";
+  readonly title: string;
+  readonly detail: string;
+}
+
 export interface ProtocolRouteAttestation {
   readonly protocol: "silo" | null;
   readonly status: "not-applicable" | "verified" | "review" | "unavailable";
@@ -53,6 +60,7 @@ export interface ProtocolRouteAttestation {
   readonly detail: string;
   readonly addresses: readonly AttestedProtocolAddress[];
   readonly proxyBoundaries: readonly InternalProxyBoundary[];
+  readonly checks: readonly ProtocolVerificationCheck[];
   readonly findings: readonly Finding[];
 }
 
@@ -225,8 +233,37 @@ function notApplicable(): ProtocolRouteAttestation {
     detail: "The destination does not use a supported route attestor.",
     addresses: [],
     proxyBoundaries: [],
+    checks: [],
     findings: [],
   };
+}
+
+function expandAttestedProxyGraph(
+  addresses: readonly AttestedProtocolAddress[],
+  boundaries: readonly InternalProxyBoundary[],
+): readonly AttestedProtocolAddress[] {
+  const expanded = [...addresses];
+  const known = new Set(addresses.map((item) => addressKey(item.address)));
+  let changed = true;
+
+  while (changed) {
+    changed = false;
+    for (const boundary of boundaries) {
+      if (
+        known.has(addressKey(boundary.proxy)) &&
+        !known.has(addressKey(boundary.implementation))
+      ) {
+        expanded.push({
+          address: boundary.implementation,
+          label: "Verified implementation used by the Silo route",
+        });
+        known.add(addressKey(boundary.implementation));
+        changed = true;
+      }
+    }
+  }
+
+  return uniqueAddresses(expanded);
 }
 
 /**
@@ -238,6 +275,7 @@ export async function resolveProtocolRouteAttestation(
   chain: ChainPort,
   transaction: SafeTransaction,
   execution: Pick<ExecutionInsight, "internalCalls">,
+  resolvedProxyBoundaries: readonly InternalProxyBoundary[] = [],
 ): Promise<ProtocolRouteAttestation> {
   const target = findContractRegistryEntry(
     transaction.safe.chainId,
@@ -268,7 +306,8 @@ export async function resolveProtocolRouteAttestation(
         addressKey(address) !== addressKey(transaction.safe.address) &&
         addressKey(address) !== addressKey(transaction.to) &&
         addressKey(address) !== ZERO_ADDRESS &&
-        !isPrecompile(address),
+        !isPrecompile(address) &&
+        findContractRegistryEntry(50, address)?.protocol !== "safe",
     )
     .slice(0, MAX_CANDIDATE_CONTRACTS);
 
@@ -285,6 +324,22 @@ export async function resolveProtocolRouteAttestation(
         "The official router was recognized, but no traced market could be verified through the official Silo Factory.",
       addresses: staticSiloAddresses,
       proxyBoundaries: [],
+      checks: [
+        {
+          key: "destination",
+          status: "pass",
+          title: "Official Silo router",
+          detail:
+            "The transaction destination matches the reviewed Silo deployment record.",
+        },
+        {
+          key: "factory",
+          status: "fail",
+          title: "Market origin not confirmed",
+          detail:
+            "No market in the executed route could be linked to the official Silo Factory.",
+        },
+      ],
       findings: [
         {
           code: "protocol-route-attestation-incomplete",
@@ -304,10 +359,14 @@ export async function resolveProtocolRouteAttestation(
   const incompleteMarkets = markets.filter(
     (_, index) => marketEvidence[index] === null,
   );
-  const attested = uniqueAddresses([
+  const baseAttested = uniqueAddresses([
     ...staticSiloAddresses,
     ...marketEvidence.flatMap((items) => items ?? []),
   ]);
+  const attested = expandAttestedProxyGraph(
+    baseAttested,
+    resolvedProxyBoundaries,
+  );
   const attestedKeys = new Set(
     attested.map((item) => addressKey(item.address)),
   );
@@ -322,7 +381,8 @@ export async function resolveProtocolRouteAttestation(
             addressKey(address) !== addressKey(transaction.safe.address) &&
             addressKey(address) !== ZERO_ADDRESS &&
             !isPrecompile(address) &&
-            !attestedKeys.has(addressKey(address)),
+            !attestedKeys.has(addressKey(address)) &&
+            findContractRegistryEntry(50, address)?.protocol !== "safe",
         )
         .map((address) => [addressKey(address), address]),
     ).values(),
@@ -337,8 +397,13 @@ export async function resolveProtocolRouteAttestation(
       )
       .map((entry) => addressKey(entry.address)),
   );
-  const proxyBoundaries = uniqueBoundaries(
-    execution.internalCalls
+  const proxyBoundaries = uniqueBoundaries([
+    ...resolvedProxyBoundaries.filter(
+      (boundary) =>
+        attestedKeys.has(addressKey(boundary.proxy)) &&
+        attestedKeys.has(addressKey(boundary.implementation)),
+    ),
+    ...execution.internalCalls
       .filter(
         (call) =>
           call.operation === "delegatecall" &&
@@ -351,7 +416,7 @@ export async function resolveProtocolRouteAttestation(
         proxy: getAddress(call.from) as Address,
         implementation: getAddress(call.to) as Address,
       })),
-  );
+  ]);
 
   if (incompleteMarkets.length > 0 || unknownTargets.length > 0) {
     const addresses = [...incompleteMarkets, ...unknownTargets];
@@ -363,6 +428,46 @@ export async function resolveProtocolRouteAttestation(
         "Factory lineage was found, but at least one market relationship or traced contract is still unresolved.",
       addresses: attested,
       proxyBoundaries,
+      checks: [
+        {
+          key: "destination",
+          status: "pass",
+          title: "Official Silo router",
+          detail:
+            "The destination matches the reviewed Silo deployment record.",
+        },
+        {
+          key: "factory",
+          status: "pass",
+          title: "Market created by the official factory",
+          detail:
+            "The market address is recognized by Silo's live factory contract.",
+        },
+        {
+          key: "configuration",
+          status: incompleteMarkets.length > 0 ? "fail" : "pass",
+          title:
+            incompleteMarkets.length > 0
+              ? "Market configuration could not be fully read"
+              : "Market assets and configuration confirmed",
+          detail:
+            incompleteMarkets.length > 0
+              ? "At least one market relationship could not be independently reconstructed."
+              : "The paired vaults, assets, share tokens, oracles, rate models, and hooks were read from the live Silo configuration.",
+        },
+        {
+          key: "route",
+          status: unknownTargets.length > 0 ? "review" : "pass",
+          title:
+            unknownTargets.length > 0
+              ? `${unknownTargets.length} connected contract${unknownTargets.length === 1 ? "" : "s"} still unconfirmed`
+              : "All traced contracts accounted for",
+          detail:
+            unknownTargets.length > 0
+              ? "Do not give final approval until every connected contract is linked to the expected Silo route."
+              : "No contract outside the reconstructed route appeared in the trace.",
+        },
+      ],
       findings: [
         {
           code: "protocol-route-attestation-incomplete",
@@ -384,6 +489,35 @@ export async function resolveProtocolRouteAttestation(
       "Every traced contract belongs to the market's live Silo configuration or the pinned Silo deployment registry. Silo markets are permissionless, so factory origin alone does not prove the market configuration is safe.",
     addresses: attested,
     proxyBoundaries,
+    checks: [
+      {
+        key: "destination",
+        status: "pass",
+        title: "Official Silo router",
+        detail: "The destination matches the reviewed Silo deployment record.",
+      },
+      {
+        key: "factory",
+        status: "pass",
+        title: "Market created by the official factory",
+        detail:
+          "The market address is recognized by Silo's live factory contract.",
+      },
+      {
+        key: "configuration",
+        status: "pass",
+        title: "Market assets and configuration confirmed",
+        detail:
+          "The live market configuration matches the contracts used in the route.",
+      },
+      {
+        key: "route",
+        status: "pass",
+        title: "All connected contracts accounted for",
+        detail:
+          "Every traced contract is linked to the proven Silo market graph.",
+      },
+    ],
     findings: [
       {
         code: "silo-permissionless-market",

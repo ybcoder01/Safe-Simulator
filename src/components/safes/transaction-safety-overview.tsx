@@ -3,6 +3,7 @@ import { CopyIdentifierButton } from "@/components/shared/copy-identifier-button
 import { ProtocolMark } from "@/components/shared/protocol-mark";
 import { TokenIdentity } from "@/components/shared/token-identity";
 import type { AddressBookView } from "@/lib/api/address-book";
+import type { ProtocolRouteAttestation } from "@/lib/api/protocol-route-attestation";
 import type { TransactionReviewPresentation } from "@/lib/transaction-review-presentation";
 import type { TreasuryReviewCheck } from "@/lib/treasury-review";
 
@@ -12,6 +13,7 @@ interface Props {
   readonly presentation: TransactionReviewPresentation;
   readonly protocolLabel: string | null;
   readonly protocolLogoKey: string | null;
+  readonly routeAttestation: ProtocolRouteAttestation;
   readonly targetAddress: string;
   readonly targetLabel: string | null;
   readonly targetTokenSymbol: string | null;
@@ -32,6 +34,7 @@ export function TransactionSafetyOverview({
   presentation,
   protocolLabel,
   protocolLogoKey,
+  routeAttestation,
   targetAddress,
   targetLabel,
   targetTokenSymbol,
@@ -67,6 +70,43 @@ export function TransactionSafetyOverview({
           </div>
           <p>{treasuryFocus}</p>
         </div>
+        {routeAttestation.checks.length > 0 ? (
+          <div
+            className="protocol-verification"
+            aria-labelledby="protocol-verification-title"
+          >
+            <div className="protocol-verification-heading">
+              <span className="safety-card-label">
+                How we verified this project
+              </span>
+              <h4 id="protocol-verification-title">Contract route checks</h4>
+              <p>
+                Each check uses the official deployment registry or live
+                on-chain relationships—not a contract name alone.
+              </p>
+            </div>
+            <ul className="protocol-verification-list">
+              {routeAttestation.checks.map((check) => (
+                <li
+                  className={`protocol-verification-${check.status}`}
+                  key={check.key}
+                >
+                  <span aria-hidden="true">
+                    {check.status === "pass"
+                      ? "✓"
+                      : check.status === "fail"
+                        ? "×"
+                        : "!"}
+                  </span>
+                  <div>
+                    <strong>{check.title}</strong>
+                    <p>{check.detail}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
         <div className="treasury-check-list">
           {treasuryChecks.map((check) => (
             <article

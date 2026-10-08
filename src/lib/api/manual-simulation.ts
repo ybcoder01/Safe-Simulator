@@ -161,22 +161,26 @@ export async function resolveManualSimulation(
     ),
   ]);
   const execution = executionInsightFromTargetCall(output, safe.address);
-  const [approvals, storage, internalProxyBoundaries, routeAttestation] =
-    await Promise.all([
-      resolveApprovalRisk(ports.chain, transaction, contract, execution),
-      resolveStorageChangeAnalysis(ports.abi, safe.chainId, execution),
-      resolveInternalProxyBoundaries(
-        ports.abi,
-        safe.chainId,
-        execution.internalCalls,
-        [
-          safe.address,
-          transaction.to,
-          ...contract.implementationChain.map((address) => address as Address),
-        ],
-      ),
-      resolveProtocolRouteAttestation(ports.chain, transaction, execution),
-    ]);
+  const [approvals, storage, internalProxyBoundaries] = await Promise.all([
+    resolveApprovalRisk(ports.chain, transaction, contract, execution),
+    resolveStorageChangeAnalysis(ports.abi, safe.chainId, execution),
+    resolveInternalProxyBoundaries(
+      ports.abi,
+      safe.chainId,
+      execution.internalCalls,
+      [
+        safe.address,
+        transaction.to,
+        ...contract.implementationChain.map((address) => address as Address),
+      ],
+    ),
+  ]);
+  const routeAttestation = await resolveProtocolRouteAttestation(
+    ports.chain,
+    transaction,
+    execution,
+    internalProxyBoundaries,
+  );
   const verdict = resolveEvidenceVerdict(
     transaction,
     contract,

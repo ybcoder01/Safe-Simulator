@@ -201,6 +201,7 @@ describe("resolveEvidenceVerdict", () => {
       detail: "The route matches the live market configuration.",
       addresses: [{ address: target, label: "Silo market vault" }],
       proxyBoundaries: [],
+      checks: [],
       findings: [
         {
           code: "silo-permissionless-market",

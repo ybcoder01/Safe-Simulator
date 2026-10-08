@@ -76,6 +76,15 @@ resolves the paired vaults with `getSilos()`, and reads the assets, share tokens
 oracles, interest-rate model, and hook receiver from `getConfig()`. Exact
 proxy-to-implementation delegate-call boundaries are accepted only when both
 ends match this proven graph or the pinned Silo deployment manifest.
+Safe singleton calls are classified as execution infrastructure and are not
+misreported as Silo dependencies. Independently resolved proxy boundaries are
+fed back into the graph before unresolved route targets are calculated.
+
+The transaction overview exposes these proofs as a beginner-facing checklist:
+official destination, official factory origin, live market configuration, and
+complete connected-contract route. Each item has a visible pass, review, or
+fail state; raw addresses remain available in the technical evidence rather
+than being used as the primary explanation.
 
 This attestation proves contract relationships, not market safety. Silo's own
 factory interface warns that anyone can deploy a market with custom
