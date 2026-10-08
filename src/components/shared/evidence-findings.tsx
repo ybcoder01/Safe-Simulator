@@ -3,22 +3,26 @@ import { findingGuidance, findingReviewSummary } from "@/lib/finding-guidance";
 
 interface EvidenceFindingsProps {
   readonly findings: readonly Finding[];
+  readonly showRecommendation?: boolean;
   readonly showAddresses?: boolean;
 }
 
 export function EvidenceFindings({
   findings,
+  showRecommendation = true,
   showAddresses = false,
 }: EvidenceFindingsProps) {
   const summary = findingReviewSummary(findings);
 
   return (
     <div className="evidence-guidance">
-      <div className={`review-guidance review-guidance-${summary.tone}`}>
-        <span>Recommended decision</span>
-        <strong>{summary.title}</strong>
-        <p>{summary.detail}</p>
-      </div>
+      {showRecommendation ? (
+        <div className={`review-guidance review-guidance-${summary.tone}`}>
+          <span>Recommended decision</span>
+          <strong>{summary.title}</strong>
+          <p>{summary.detail}</p>
+        </div>
+      ) : null}
 
       <div className="simulation-findings">
         {findings.map((finding, index) => {

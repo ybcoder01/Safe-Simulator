@@ -564,6 +564,38 @@ describe("evaluateEvidenceVerdict", () => {
     );
   });
 
+  it("recognizes a documented protocol implementation delegated from its active router", () => {
+    const router = "0x4fFf70C17fb974121a1Ad64C97b04a2e38DbfE7C" as Address;
+    const implementation =
+      "0xA8C5eb9ae9c7a8fab4116d1e9c1FCfc8A478b390" as Address;
+    const result = evaluateEvidenceVerdict(
+      input({
+        target: router,
+        callTrace: "complete",
+        internalCalls: [
+          {
+            depth: 2,
+            from: router,
+            to: implementation,
+            operation: "delegatecall",
+          },
+        ],
+        registry: contractRegistryEntriesForChain(50),
+      }),
+    );
+
+    expect(result.findings).toContainEqual(
+      expect.objectContaining({
+        code: "expected-protocol-library-delegation",
+        severity: "info",
+        addresses: [implementation.toLowerCase()],
+      }),
+    );
+    expect(result.findings.map((item) => item.code)).not.toContain(
+      "internal-delegatecall",
+    );
+  });
+
   it("keeps the observed Fathom supply execution aligned with its clean pre-sign result", () => {
     const pool = "0x70d8005E3c8C7e383FE35Fa40156042F3393449F" as Address;
     const poolImplementation =

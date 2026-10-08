@@ -18,7 +18,7 @@ import type { TokenBalanceChangeResult } from "@/lib/api/token-balance-changes";
 import type { TokenMetadataResult } from "@/lib/api/token-metadata";
 import type { XdcContractVerificationResult } from "@/lib/api/xdcscan-verification";
 
-export const TRANSACTION_SUMMARY_PROMPT_VERSION = "transaction-summary-v3";
+export const TRANSACTION_SUMMARY_PROMPT_VERSION = "transaction-summary-v4";
 export const DEFAULT_OPENROUTER_MODEL = "openai/gpt-5.4-mini";
 
 const MAX_ARRAY_ITEMS = 24;
@@ -241,6 +241,7 @@ export interface TransactionSummaryEvidenceInput {
   readonly approvalRisk: ApprovalRiskResult;
   readonly storageAnalysis: StorageChangeAnalysis;
   readonly baselineVerdict: EvidenceVerdict;
+  readonly signerVerdict: EvidenceVerdict;
   readonly tokenMetadata: TokenMetadataResult;
   readonly balanceChanges: TokenBalanceChangeResult;
   readonly contractVerification: XdcContractVerificationResult;
@@ -285,7 +286,12 @@ export function buildTransactionSummaryEvidence(
       functionSignature: input.contract.signature,
       decoded: input.contract.decoded,
     },
-    deterministicVerdict: input.baselineVerdict,
+    deterministicVerdict: input.signerVerdict,
+    technicalVerdict: {
+      verdict: input.baselineVerdict.verdict,
+      coverage: input.baselineVerdict.coverage,
+      trustBoundary: input.baselineVerdict.trustBoundary,
+    },
     execution: input.execution,
     approvalRisk: input.approvalRisk,
     deterministicApprovalAmounts: buildTransactionSummaryApprovalAmounts(

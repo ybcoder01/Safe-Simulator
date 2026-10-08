@@ -221,7 +221,7 @@ function isExpectedProtocolLibraryDelegation(
       entry.chainId === input.chainId &&
       addressKey(entry.address) === addressKey(call.to) &&
       entry.protocol === target.protocol &&
-      entry.role === "library" &&
+      (entry.role === "library" || entry.role === "implementation") &&
       entry.source === "protocol-documentation" &&
       entry.trustPolicy === "identity-only" &&
       entry.lifecycle === "internal",

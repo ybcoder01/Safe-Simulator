@@ -51,6 +51,7 @@ import { resolveExecutionTokenMetadata } from "@/lib/api/token-metadata";
 import { explorerTransactionUrl } from "@/lib/explorer-links";
 import { PROTOCOL_LABELS } from "@/lib/protocol-directory";
 import { resolveTransactionReviewPresentation } from "@/lib/transaction-review-presentation";
+import { resolveUserFacingFindings } from "@/lib/user-facing-findings";
 import {
   buildTransactionSummaryEvidence,
   configuredOpenRouterModel,
@@ -296,15 +297,6 @@ export default async function TransactionDetailPage({
       : (networkAction ??
         transaction.summary ??
         `${transaction.operation === "delegatecall" ? "Delegate call" : "Contract call"} to ${shorten(transaction.to)}`);
-  const criticalFindingCount = verdict.findings.filter(
-    (finding) => finding.severity === "critical",
-  ).length;
-  const warningFindingCount = verdict.findings.filter(
-    (finding) => finding.severity === "warning",
-  ).length;
-  const attentionFindings = verdict.findings.filter(
-    (finding) => finding.severity !== "info",
-  );
   const infiniteAuthorization = [
     ...approvalRisk.requests,
     ...approvalRisk.executedChanges,
@@ -324,13 +316,40 @@ export default async function TransactionDetailPage({
       item.address.toLowerCase() === persisted.to.toLowerCase() &&
       item.status === "verified",
   );
-  const reviewPresentation = resolveTransactionReviewPresentation({
+  const targetVerified = insight.metadata.verified || targetSourceVerified;
+  const userFacingFindings = resolveUserFacingFindings({
     evidence: verdict,
+    identifiedAddresses: [
+      persisted.safe.address,
+      persisted.to,
+      ...verdict.addresses
+        .filter(
+          (assessment) =>
+            assessment.source === "profile" || assessment.source === "registry",
+        )
+        .map((assessment) => assessment.address),
+    ],
+    protocolLabel,
+    targetKnown: targetRegistryEntry !== undefined,
+    targetVerified,
+  });
+  const criticalFindingCount = userFacingFindings.filter(
+    (finding) => finding.severity === "critical",
+  ).length;
+  const warningFindingCount = userFacingFindings.filter(
+    (finding) => finding.severity === "warning",
+  ).length;
+  const rawAttentionFindings = verdict.findings.filter(
+    (finding) => finding.severity !== "info",
+  );
+  const effectiveEvidence = { ...verdict, findings: userFacingFindings };
+  const reviewPresentation = resolveTransactionReviewPresentation({
+    evidence: effectiveEvidence,
     execution,
     primaryAction,
     targetKnown: targetRegistryEntry !== undefined,
     target: targetRuntimeCode,
-    targetVerified: insight.metadata.verified || targetSourceVerified,
+    targetVerified,
     transaction: persisted,
   });
   let initialSummary: SummaryView | null = null;
@@ -343,6 +362,7 @@ export default async function TransactionDetailPage({
       approvalRisk,
       storageAnalysis,
       baselineVerdict,
+      signerVerdict: effectiveEvidence,
       tokenMetadata,
       balanceChanges,
       contractVerification,
@@ -662,18 +682,11 @@ export default async function TransactionDetailPage({
           {criticalFindingCount > 0 || warningFindingCount > 0 ? (
             <div className="calldata">
               <span>Why this needs review</span>
-              {verdict.findings
-                .filter(
-                  (finding) =>
-                    finding.severity === "critical" ||
-                    finding.severity === "warning",
-                )
-                .slice(0, 3)
-                .map((finding) => (
-                  <strong key={"impact-finding-" + finding.code}>
-                    {finding.severity}: {finding.title}
-                  </strong>
-                ))}
+              {userFacingFindings.slice(0, 3).map((finding) => (
+                <strong key={"impact-finding-" + finding.code}>
+                  {finding.severity}: {finding.title}
+                </strong>
+              ))}
             </div>
           ) : null}
 
@@ -707,7 +720,7 @@ export default async function TransactionDetailPage({
               initialSummary={initialSummary}
             />
           ) : null}
-          <EvidenceFindings findings={attentionFindings} showAddresses />
+          <EvidenceFindings findings={userFacingFindings} />
         </section>
 
         <details
@@ -802,6 +815,16 @@ export default async function TransactionDetailPage({
               <code>{assessment.address}</code>
             </div>
           ))}
+          {rawAttentionFindings.length > 0 ? (
+            <div className="calldata">
+              <span>Raw engine findings</span>
+              <EvidenceFindings
+                findings={rawAttentionFindings}
+                showAddresses
+                showRecommendation={false}
+              />
+            </div>
+          ) : null}
         </section>
 
         {safe.data.chainId === 50 ? (
