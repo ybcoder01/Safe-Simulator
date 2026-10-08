@@ -258,10 +258,21 @@ The address check covers flagged and unknown participants, new or unlimited
 spenders, Permit2 requests, owner and threshold changes, module and guard
 changes, unexplained storage changes, unverified targets, and unrecognized
 internal contract routing. An unknown address is never labelled malicious by
-default. The report says that injection could not be ruled out, explains what
-could not be verified, and tells signers which full addresses and permissions
-to compare independently. Raw traces, calldata, and engine terminology remain
-available under technical details instead of leading the review.
+default. The report separates three outcomes: an address matched independent
+evidence, an address is unverified because no expected-address baseline exists,
+or an actual mismatch was found against an independently recorded expected
+address. Only the last outcome may be described as address replacement. Raw
+traces, calldata, and engine terminology remain available under technical
+details instead of leading the review.
+
+An address-injection detector cannot infer user intent from blockchain data
+alone. High-confidence detection requires a baseline that the transaction did
+not create: a team-approved address-book entry, an official protocol deployment
+or live factory relationship, or a separately captured and authenticated
+transaction intent. The analyzer compares the actual target, recipients,
+spenders, owners, modules, guards, and implementation addresses against those
+sources. A mismatch is red; a missing baseline remains amber and is never
+reported as a detected injection.
 
 The treasury checklist adds five explicit, text-labelled signals:
 
@@ -611,6 +622,10 @@ After an alert-format or delivery change:
   multisig proposal path.
 - Add organization policies for refund receiver, gas token, value limits,
   approved recipients, and expected protocols.
+- Add authenticated transaction-intent records so a proposer can independently
+  commit the expected target, recipient, spender, assets, amounts, and protocol
+  before Safe calldata is circulated. Compare proposals against that record and
+  make any exact mismatch a blocking address-replacement alert.
 - Evaluate reputable real-time threat-intelligence sources for malicious
   addresses without treating third-party labels as infallible.
 

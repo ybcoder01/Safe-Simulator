@@ -119,6 +119,16 @@ export function TransactionSummaryDialog({ endpoint, initialSummary }: Props) {
                 <span>AI view only</span>
                 <strong>{stanceLabel[summary.summary.stance]}</strong>
               </div>
+
+              <section className="summary-checks summary-checks-primary">
+                <h4>Before signing</h4>
+                <ol>
+                  {summary.summary.checksBeforeSigning.map((item, index) => (
+                    <li key={`check-${index}`}>{item}</li>
+                  ))}
+                </ol>
+              </section>
+
               <h3>{summary.summary.headline}</h3>
               <p>{summary.summary.plainLanguage}</p>
 
@@ -148,15 +158,6 @@ export function TransactionSummaryDialog({ endpoint, initialSummary }: Props) {
                   )}
                 </section>
               </div>
-
-              <section className="summary-checks">
-                <h4>Before signing</h4>
-                <ol>
-                  {summary.summary.checksBeforeSigning.map((item, index) => (
-                    <li key={`check-${index}`}>{item}</li>
-                  ))}
-                </ol>
-              </section>
 
               {summary.summary.limitations.length > 0 ? (
                 <section className="summary-limitations">

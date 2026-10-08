@@ -3941,6 +3941,16 @@ select {
   margin: 0 0 0.65rem;
 }
 
+.summary-checks-primary {
+  border-color: rgba(255, 190, 92, 0.4);
+  background: rgba(255, 190, 92, 0.075);
+}
+
+.summary-checks-primary h4 {
+  color: #ffcf82;
+  font-size: 1.05rem;
+}
+
 .summary-meta {
   overflow-wrap: anywhere;
   font-family: var(--font-mono);
