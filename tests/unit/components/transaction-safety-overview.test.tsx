@@ -13,6 +13,9 @@ const presentation: TransactionReviewPresentation = {
   targetType: "Verified smart contract",
   targetExplanation: "This address runs verified smart-contract code.",
   actionSummary: "Approve 1 USDC",
+  addressCheckTitle: "No obvious address replacement found",
+  addressCheckDetail: "The important addresses matched available evidence.",
+  addressChecks: [],
 };
 
 describe("TransactionSafetyOverview", () => {
@@ -35,7 +38,9 @@ describe("TransactionSafetyOverview", () => {
     expect(html).toContain("Verified smart contract");
     expect(html).toContain('aria-hidden="true">✓');
     expect(html).toContain('safety-state-label">No warnings');
-    expect(html).toContain("What you should do");
+    expect(html).toContain("Which project is involved?");
+    expect(html).toContain("Was an address or permission changed?");
+    expect(html).toContain("Before the final approval");
     expect(html).not.toContain('safety-state-label">clear');
   });
 });

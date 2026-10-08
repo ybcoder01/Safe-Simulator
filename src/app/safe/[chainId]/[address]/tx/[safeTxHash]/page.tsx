@@ -257,10 +257,45 @@ export default async function TransactionDetailPage({
   const executedExplorerUrl = transaction.executedTxHash
     ? explorerTransactionUrl(safe.data.chainId, transaction.executedTxHash)
     : null;
-  const primaryAction = decoded
-    ? decodedCallSummary(decoded)
-    : (transaction.summary ??
-      `${transaction.operation === "delegatecall" ? "Delegate call" : "Contract call"} to ${shorten(transaction.to)}`);
+  const targetRegistryEntry = findContractRegistryEntry(
+    safe.data.chainId,
+    persisted.to,
+  );
+  const protocolLabel = targetRegistryEntry
+    ? (PROTOCOL_LABELS[targetRegistryEntry.protocol] ??
+      targetRegistryEntry.protocol)
+    : null;
+  const decodedAction = decoded ? decodedCallSummary(decoded) : null;
+  const wrappedNativeMovement = execution.tokenMovements.find(
+    (movement) =>
+      tokenMetadataByAddress.get(movement.token.toLowerCase())?.symbol ===
+      "WXDC",
+  );
+  const wrappedNativeAmount = wrappedNativeMovement
+    ? formatTokenAmount(
+        wrappedNativeMovement.amount,
+        tokenMetadataByAddress.get(wrappedNativeMovement.token.toLowerCase())
+          ?.decimals ?? null,
+      )
+    : null;
+  const networkAction =
+    safe.data.chainId === 50 && decodedAction
+      ? decodedAction
+          .replaceAll("wrapped native assets", "WXDC")
+          .replaceAll("native assets", "XDC")
+          .replace(
+            /^(Withdraw|Borrow) WXDC/,
+            wrappedNativeAmount ? `$1 ${wrappedNativeAmount} WXDC` : "$1 WXDC",
+          )
+      : decodedAction;
+  const primaryAction =
+    decoded?.method.split("(").at(0)?.toLowerCase() === "multicall" &&
+    networkAction &&
+    protocolLabel
+      ? `${networkAction} through ${protocolLabel}`
+      : (networkAction ??
+        transaction.summary ??
+        `${transaction.operation === "delegatecall" ? "Delegate call" : "Contract call"} to ${shorten(transaction.to)}`);
   const criticalFindingCount = verdict.findings.filter(
     (finding) => finding.severity === "critical",
   ).length;
@@ -280,20 +315,22 @@ export default async function TransactionDetailPage({
     0,
     3,
   );
-  const targetRegistryEntry = findContractRegistryEntry(
-    safe.data.chainId,
-    persisted.to,
-  );
   const targetTokenEntry = findTokenRegistryEntry(
     safe.data.chainId,
     persisted.to,
+  );
+  const targetSourceVerified = contractVerification.items.some(
+    (item) =>
+      item.address.toLowerCase() === persisted.to.toLowerCase() &&
+      item.status === "verified",
   );
   const reviewPresentation = resolveTransactionReviewPresentation({
     evidence: verdict,
     execution,
     primaryAction,
+    targetKnown: targetRegistryEntry !== undefined,
     target: targetRuntimeCode,
-    targetVerified: insight.metadata.verified,
+    targetVerified: insight.metadata.verified || targetSourceVerified,
     transaction: persisted,
   });
   let initialSummary: SummaryView | null = null;
@@ -411,12 +448,7 @@ export default async function TransactionDetailPage({
           addressBook={addressBook}
           chainId={safe.data.chainId}
           presentation={reviewPresentation}
-          protocolLabel={
-            targetRegistryEntry
-              ? (PROTOCOL_LABELS[targetRegistryEntry.protocol] ??
-                targetRegistryEntry.protocol)
-              : null
-          }
+          protocolLabel={protocolLabel}
           protocolLogoKey={targetRegistryEntry?.logoKey ?? null}
           targetAddress={persisted.to}
           targetLabel={

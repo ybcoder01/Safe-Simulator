@@ -11,6 +11,7 @@ export interface TransactionReviewPresentation {
   readonly title:
     | "No known risks found"
     | "Do not proceed"
+    | "Review this executed transaction"
     | "Review before proceeding"
     | "Unable to verify";
   readonly detail: string;
@@ -22,15 +23,95 @@ export interface TransactionReviewPresentation {
     | "Unknown address type";
   readonly targetExplanation: string;
   readonly actionSummary: string;
+  readonly addressCheckTitle: string;
+  readonly addressCheckDetail: string;
+  readonly addressChecks: readonly string[];
 }
 
 interface PresentationInput {
   readonly evidence: EvidenceVerdict;
   readonly execution: Pick<ExecutionInsight, "coverage" | "mode" | "success">;
   readonly primaryAction: string;
+  readonly targetKnown: boolean;
   readonly target: Pick<TargetRuntimeCodeEvidence, "accountType" | "anchor">;
   readonly targetVerified: boolean;
-  readonly transaction: Pick<SafeTransaction, "data" | "operation" | "value">;
+  readonly transaction: Pick<
+    SafeTransaction,
+    "data" | "operation" | "status" | "value"
+  >;
+}
+
+const ADDRESS_CHECK_COPY: Readonly<Record<string, string>> = {
+  "explicitly-flagged-address":
+    "A known flagged address is involved in this transaction.",
+  "new-approval-spender":
+    "A new address would receive permission to spend this Safe's tokens.",
+  "infinite-allowance":
+    "An address would receive unlimited permission to spend a token.",
+  "requested-infinite-allowance":
+    "The transaction requests unlimited token spending permission.",
+  "requested-operator-all":
+    "An operator would receive control over every compatible token.",
+  "maximum-permit2-signature-transfer":
+    "A Permit2 signature could authorize the maximum possible token amount.",
+  "permit2-signature-transfer":
+    "A Permit2 signature can authorize a spender without a normal token allowance.",
+  "safe-owner-change": "The transaction changes who can control this Safe.",
+  "safe-threshold-change":
+    "The transaction changes how many owner approvals are required.",
+  "safe-module-change":
+    "The transaction changes a module that may bypass the normal owner approval flow.",
+  "safe-guard-change": "The transaction changes the Safe's transaction guard.",
+  "spender-trust-unresolved":
+    "The token spender could not be matched to a trusted project address.",
+  "movement-trust-unresolved":
+    "At least one token or transfer participant could not be identified.",
+  "internal-call-trust-unresolved":
+    "The transaction routes through at least one unrecognized contract.",
+  "internal-delegatecall":
+    "An internal contract runs code with another contract's permissions.",
+  "unverified-target":
+    "The destination contract's published source could not be verified.",
+  "unrecognized-storage-change":
+    "The simulation found a contract storage change it could not explain.",
+};
+
+function addressCheckPresentation(
+  input: PresentationInput,
+): Pick<
+  TransactionReviewPresentation,
+  "addressCheckDetail" | "addressChecks" | "addressCheckTitle"
+> {
+  const checks = [
+    ...new Set(
+      input.evidence.findings.flatMap((finding) => {
+        const copy = ADDRESS_CHECK_COPY[finding.code];
+        return copy ? [copy] : [];
+      }),
+    ),
+  ].slice(0, 3);
+
+  if (!input.targetKnown) {
+    checks.unshift(
+      "The main destination is not in the reviewed protocol registry.",
+    );
+  }
+
+  if (checks.length > 0) {
+    return {
+      addressCheckTitle: "Some addresses need verification",
+      addressCheckDetail:
+        "This does not prove an address was injected. It means Safe Inspector could not confirm every important address from independent project records.",
+      addressChecks: checks.slice(0, 3),
+    };
+  }
+
+  return {
+    addressCheckTitle: "No obvious address replacement found",
+    addressCheckDetail:
+      "The destination and high-impact addresses matched the evidence available to Safe Inspector. Still compare them with the transaction you intended to create.",
+    addressChecks: [],
+  };
 }
 
 function actionSummary(input: PresentationInput): string {
@@ -86,6 +167,7 @@ export function resolveTransactionReviewPresentation(
   input: PresentationInput,
 ): TransactionReviewPresentation {
   const target = targetPresentation(input);
+  const addressCheck = addressCheckPresentation(input);
   const hasCritical = input.evidence.findings.some(
     (finding) => finding.severity === "critical",
   );
@@ -101,13 +183,21 @@ export function resolveTransactionReviewPresentation(
   if (hasCritical || input.execution.success === false) {
     return {
       ...target,
+      ...addressCheck,
       signal: "blocked",
       icon: "×",
-      title: "Do not proceed",
+      title:
+        input.transaction.status === "executed"
+          ? "Review this executed transaction"
+          : "Do not proceed",
       detail:
-        "The available evidence found a critical risk or a failed execution outcome.",
+        input.transaction.status === "executed"
+          ? "This transaction already went through, but the evidence contains a serious warning that should be investigated."
+          : "A serious warning or failed simulation was found. Do not give the final approval until it is explained.",
       nextStep:
-        "Stop and independently verify the highlighted addresses, permissions, and contract behavior before taking any action.",
+        input.transaction.status === "executed"
+          ? "Confirm the project, destination, recipients, and permissions now. Revoke unexpected access and contact the other signers if anything is unfamiliar."
+          : "Confirm the project, full destination address, recipients, and permissions with the proposer before anyone gives the final approval.",
       actionSummary: actionSummary(input),
     };
   }
@@ -115,6 +205,7 @@ export function resolveTransactionReviewPresentation(
   if (essentialEvidenceUnavailable) {
     return {
       ...target,
+      ...addressCheck,
       signal: "unknown",
       icon: "?",
       title: "Unable to verify",
@@ -129,6 +220,7 @@ export function resolveTransactionReviewPresentation(
   if (hasWarning || input.target.anchor === "latest-fallback") {
     return {
       ...target,
+      ...addressCheck,
       signal: "review",
       icon: "!",
       title: "Review before proceeding",
@@ -142,6 +234,7 @@ export function resolveTransactionReviewPresentation(
 
   return {
     ...target,
+    ...addressCheck,
     signal: "clear",
     icon: "✓",
     title: "No known risks found",

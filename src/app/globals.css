@@ -1142,6 +1142,31 @@ select {
   line-height: 1.55;
 }
 
+.safety-check-list {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--text);
+  line-height: 1.45;
+}
+
+.safety-approval-step {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0 1.35rem;
+  padding: 1.1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.85rem;
+  background: rgba(255, 190, 92, 0.045);
+}
+
+.safety-approval-step > p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
 .safety-card-label {
   color: var(--faint);
   font-size: 0.68rem;
@@ -1269,6 +1294,7 @@ select {
   }
 
   .safety-overview-grid,
+  .safety-approval-step,
   .safety-boundary-note {
     padding-right: 0.9rem;
     padding-left: 0.9rem;

@@ -103,6 +103,63 @@ function methodName(method: string) {
   return method.split("(").at(0)?.toLowerCase() ?? method.toLowerCase();
 }
 
+function encodedBatchSelectors(call: DecodedCall): readonly string[] {
+  const bytesArray = call.parameters.find(
+    (parameter) => parameter.type === "bytes[]",
+  );
+  if (!bytesArray) return [];
+
+  try {
+    const values = JSON.parse(bytesArray.value) as unknown;
+    return Array.isArray(values)
+      ? values.flatMap((value) =>
+          typeof value === "string" && /^0x[0-9a-f]{8}/i.test(value)
+            ? [value.slice(0, 10).toLowerCase()]
+            : [],
+        )
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function encodedBatchSummary(call: DecodedCall): string | null {
+  const selectors = encodedBatchSelectors(call);
+  if (selectors.length === 0) return null;
+  const includes = (selector: string) => selectors.includes(selector);
+
+  if (
+    includes("0x5eac01df") &&
+    includes("0x39f47693") &&
+    includes("0x24a084df")
+  ) {
+    return "Withdraw wrapped native assets, unwrap them, and send native assets to the recipient";
+  }
+  if (
+    includes("0x6c665a55") &&
+    includes("0x39f47693") &&
+    includes("0x24a084df")
+  ) {
+    return "Borrow wrapped native assets, unwrap them, and send native assets to the recipient";
+  }
+  if (
+    includes("0x23b872dd") &&
+    includes("0xe1f21c67") &&
+    includes("0xf19ed6be")
+  ) {
+    return "Move tokens into a lending market and deposit them";
+  }
+  if (
+    includes("0xbf376c7a") &&
+    includes("0xe1f21c67") &&
+    includes("0x22867d78")
+  ) {
+    return "Wrap native assets and repay a lending position";
+  }
+
+  return `Batch of ${selectors.length} encoded calls`;
+}
+
 export function decodedCallSummary(call: DecodedCall) {
   const method = methodName(call.method);
   const target = parameterValue(call, ["spender", "to", "recipient"], 0);
@@ -124,6 +181,9 @@ export function decodedCallSummary(call: DecodedCall) {
   }
   if (method === "multisend" && nestedCount > 0) {
     return `Batch of ${nestedCount} decoded calls`;
+  }
+  if (method === "multicall") {
+    return encodedBatchSummary(call) ?? "Call a batch of contract actions";
   }
   if (method === "add_liquidity") {
     const amounts = parameterValue(call, ["amounts"], 0);

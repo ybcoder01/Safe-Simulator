@@ -158,7 +158,7 @@ describe("transaction summary privacy and provider boundary", () => {
   });
 
   it("uses a new prompt version for deterministic token amount labels", () => {
-    expect(TRANSACTION_SUMMARY_PROMPT_VERSION).toBe("transaction-summary-v2");
+    expect(TRANSACTION_SUMMARY_PROMPT_VERSION).toBe("transaction-summary-v3");
   });
 
   it("rejects raw base units mislabeled as whole-token units", async () => {
