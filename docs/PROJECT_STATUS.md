@@ -262,6 +262,22 @@ could not be verified, and tells signers which full addresses and permissions
 to compare independently. Raw traces, calldata, and engine terminology remain
 available under technical details instead of leading the review.
 
+The treasury checklist adds five explicit, text-labelled signals:
+
+1. current project or wallet identity;
+2. prior successful use of the exact destination by this Safe;
+3. asset-recipient history and lookalike-address detection;
+4. Safe authority and token-spending permissions; and
+5. simulation outcome.
+
+First-time destinations and recipients are amber and require verification; they
+are not automatically called malicious. A new address that shares the same
+visible beginning and ending as a previously used address but differs in the
+middle is treated as a blocking address-poisoning pattern. Previous use remains
+context rather than proof of safety, so identity, permissions, recipients, and
+simulation are evaluated independently. Historical contract-bytecode comparison
+is not claimed until code and implementation snapshots are durably stored.
+
 ## 6. Core analysis coverage
 
 - Safe Transaction Service decoded payloads and confirmations.
@@ -583,6 +599,8 @@ After an alert-format or delivery change:
 - Deploy and acceptance-test the consolidated protocol-path summary and
   address-injection checks on representative transfer, approval, lending,
   batch, Safe-configuration, and unknown-contract fixtures.
+- Persist contract code hashes and implementation chains so the treasury card
+  can compare the current contract with the exact version used previously.
 - Improve non-technical wording for remaining fallback finding titles inside
   technical details.
 
@@ -605,24 +623,25 @@ After an alert-format or delivery change:
 
 ## 16. Decision log
 
-| Date       | Decision                                                                                                                                                                                                                                 |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-09-25 | Telegram alerts were deployed and configured using `@safealerts_bot`.                                                                                                                                                                    |
-| 2026-09-25 | Telegram webhook registration was confirmed by Telegram with zero pending updates.                                                                                                                                                       |
-| 2026-09-25 | Migration `0006` was applied directly to the reviewed Neon Production database and the new tables were verified.                                                                                                                         |
-| 2026-09-25 | Telegram credentials remain only in Vercel Production secret storage; local registration artifacts were removed.                                                                                                                         |
-| 2026-09-25 | End-to-end Telegram delivery testing became the next release gate; no additional feature PR should precede it unless it fixes a blocker.                                                                                                 |
-| 2026-09-25 | Bot-token compromise was elevated to a P0 threat: Telegram is notification-only, and independently verifiable signed alert receipts are required before broad rollout.                                                                   |
-| 2026-09-25 | A local feature branch implemented unique alert IDs, separately signed Ed25519 receipts, key-rotation support, and an official no-signing verification page; deployment remains pending review.                                          |
-| 2026-09-26 | Signed alert verification is deployed, migration `0007` and the signing key are active, and a live XDC signer alert was delivered and verified.                                                                                          |
-| 2026-09-26 | Telegram previews were redesigned as status-aware, novice-first decision cards; complete technical evidence remains in the signed report.                                                                                                |
-| 2026-09-26 | Telegram polling moved from a failure-prone self-rescheduling job chain to deterministic per-Safe QStash schedules; delivery IDs now include the Safe transaction hash.                                                                  |
-| 2026-09-27 | Normal XDC Safe v1.5 and independently resolved token-proxy delegation are treated as infrastructure, preventing a clean pre-sign check from becoming a false critical execution alert.                                                  |
-| 2026-09-27 | Fathom's documented pool-library delegation, verified interest-rate strategy, Safe movement endpoint, and zero-address mint endpoint are classified as expected execution evidence.                                                      |
-| 2026-10-07 | A per-Safe Telegram control center, persisted delivery health, no-transaction test alerts, pause/resume/disconnect controls, and queue-independent Safe import recovery were implemented for review.                                     |
-| 2026-10-07 | Production QStash was confirmed over its Free-plan daily message limit (1.2K/1K); paid capacity or a capacity-reviewed polling redesign is required for continuous one-minute alerts.                                                    |
-| 2026-10-07 | A shared two-minute Telegram sweep and queue-independent bounded dashboard refresh fallback were implemented to remove per-Safe polling amplification and keep manual recovery usable at quota.                                          |
-| 2026-10-08 | Transaction reports were redesigned to lead with action, project identity, address/permission substitution checks, and a concrete final-approval checklist; unknown evidence is described as uncertainty rather than proof of an attack. |
+| Date       | Decision                                                                                                                                                                                                                                             |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-25 | Telegram alerts were deployed and configured using `@safealerts_bot`.                                                                                                                                                                                |
+| 2026-09-25 | Telegram webhook registration was confirmed by Telegram with zero pending updates.                                                                                                                                                                   |
+| 2026-09-25 | Migration `0006` was applied directly to the reviewed Neon Production database and the new tables were verified.                                                                                                                                     |
+| 2026-09-25 | Telegram credentials remain only in Vercel Production secret storage; local registration artifacts were removed.                                                                                                                                     |
+| 2026-09-25 | End-to-end Telegram delivery testing became the next release gate; no additional feature PR should precede it unless it fixes a blocker.                                                                                                             |
+| 2026-09-25 | Bot-token compromise was elevated to a P0 threat: Telegram is notification-only, and independently verifiable signed alert receipts are required before broad rollout.                                                                               |
+| 2026-09-25 | A local feature branch implemented unique alert IDs, separately signed Ed25519 receipts, key-rotation support, and an official no-signing verification page; deployment remains pending review.                                                      |
+| 2026-09-26 | Signed alert verification is deployed, migration `0007` and the signing key are active, and a live XDC signer alert was delivered and verified.                                                                                                      |
+| 2026-09-26 | Telegram previews were redesigned as status-aware, novice-first decision cards; complete technical evidence remains in the signed report.                                                                                                            |
+| 2026-09-26 | Telegram polling moved from a failure-prone self-rescheduling job chain to deterministic per-Safe QStash schedules; delivery IDs now include the Safe transaction hash.                                                                              |
+| 2026-09-27 | Normal XDC Safe v1.5 and independently resolved token-proxy delegation are treated as infrastructure, preventing a clean pre-sign check from becoming a false critical execution alert.                                                              |
+| 2026-09-27 | Fathom's documented pool-library delegation, verified interest-rate strategy, Safe movement endpoint, and zero-address mint endpoint are classified as expected execution evidence.                                                                  |
+| 2026-10-07 | A per-Safe Telegram control center, persisted delivery health, no-transaction test alerts, pause/resume/disconnect controls, and queue-independent Safe import recovery were implemented for review.                                                 |
+| 2026-10-07 | Production QStash was confirmed over its Free-plan daily message limit (1.2K/1K); paid capacity or a capacity-reviewed polling redesign is required for continuous one-minute alerts.                                                                |
+| 2026-10-07 | A shared two-minute Telegram sweep and queue-independent bounded dashboard refresh fallback were implemented to remove per-Safe polling amplification and keep manual recovery usable at quota.                                                      |
+| 2026-10-08 | Transaction reports were redesigned to lead with action, project identity, address/permission substitution checks, and a concrete final-approval checklist; unknown evidence is described as uncertainty rather than proof of an attack.             |
+| 2026-10-08 | Treasury review gained exact destination and recipient history, first-interaction indicators, lookalike-address blocking, permission checks, and transaction-type-specific signer prompts without claiming unavailable historical bytecode evidence. |
 
 ## 17. Related documents
 

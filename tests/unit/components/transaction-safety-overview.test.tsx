@@ -30,6 +30,16 @@ describe("TransactionSafetyOverview", () => {
         targetAddress="0x1111111111111111111111111111111111111111"
         targetLabel="Example contract"
         targetTokenSymbol={null}
+        treasuryChecks={[
+          {
+            key: "history",
+            label: "Previous interaction",
+            status: "new",
+            title: "Not previously used by this Safe",
+            detail: "Verify this exact destination.",
+          },
+        ]}
+        treasuryFocus="Confirm the complete destination and amount."
       />,
     );
 
@@ -41,6 +51,10 @@ describe("TransactionSafetyOverview", () => {
     expect(html).toContain("Which project is involved?");
     expect(html).toContain("Was an address or permission changed?");
     expect(html).toContain("Before the final approval");
+    expect(html).toContain("Treasury approval checklist");
+    expect(html).toContain("Not previously used by this Safe");
+    expect(html).toContain("treasury-check-new");
+    expect(html).toContain('aria-hidden="true">×');
     expect(html).not.toContain('safety-state-label">clear');
   });
 });

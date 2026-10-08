@@ -4,6 +4,7 @@ import { ProtocolMark } from "@/components/shared/protocol-mark";
 import { TokenIdentity } from "@/components/shared/token-identity";
 import type { AddressBookView } from "@/lib/api/address-book";
 import type { TransactionReviewPresentation } from "@/lib/transaction-review-presentation";
+import type { TreasuryReviewCheck } from "@/lib/treasury-review";
 
 interface Props {
   readonly addressBook: readonly AddressBookView[];
@@ -14,6 +15,8 @@ interface Props {
   readonly targetAddress: string;
   readonly targetLabel: string | null;
   readonly targetTokenSymbol: string | null;
+  readonly treasuryChecks: readonly TreasuryReviewCheck[];
+  readonly treasuryFocus: string;
 }
 
 const SIGNAL_LABELS = {
@@ -32,6 +35,8 @@ export function TransactionSafetyOverview({
   targetAddress,
   targetLabel,
   targetTokenSymbol,
+  treasuryChecks,
+  treasuryFocus,
 }: Props) {
   return (
     <section
@@ -50,6 +55,46 @@ export function TransactionSafetyOverview({
         <span className="safety-state-label">
           {SIGNAL_LABELS[presentation.signal]}
         </span>
+      </div>
+
+      <div className="treasury-review" aria-labelledby="treasury-review-title">
+        <div className="treasury-review-heading">
+          <div>
+            <span className="safety-card-label">
+              Treasury approval checklist
+            </span>
+            <h3 id="treasury-review-title">What every signer should confirm</h3>
+          </div>
+          <p>{treasuryFocus}</p>
+        </div>
+        <div className="treasury-check-list">
+          {treasuryChecks.map((check) => (
+            <article
+              className={`treasury-check treasury-check-${check.status}`}
+              key={check.key}
+            >
+              <span className="treasury-check-icon" aria-hidden="true">
+                {check.status === "pass"
+                  ? "✓"
+                  : check.status === "review"
+                    ? "!"
+                    : check.status === "unknown"
+                      ? "?"
+                      : "×"}
+              </span>
+              <div>
+                <span>{check.label}</span>
+                <strong>{check.title}</strong>
+                <p>{check.detail}</p>
+              </div>
+            </article>
+          ))}
+        </div>
+        <p className="treasury-history-boundary">
+          A previous interaction is context, not proof of safety. Project
+          contracts can be upgraded or compromised, so the current identity,
+          permissions, recipients, and simulation are checked separately.
+        </p>
       </div>
 
       <div className="safety-overview-grid">

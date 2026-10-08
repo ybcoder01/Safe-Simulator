@@ -51,6 +51,10 @@ import { resolveExecutionTokenMetadata } from "@/lib/api/token-metadata";
 import { explorerTransactionUrl } from "@/lib/explorer-links";
 import { PROTOCOL_LABELS } from "@/lib/protocol-directory";
 import { resolveTransactionReviewPresentation } from "@/lib/transaction-review-presentation";
+import {
+  resolveTreasuryReviewChecks,
+  treasuryReviewFocus,
+} from "@/lib/treasury-review";
 import { resolveUserFacingFindings } from "@/lib/user-facing-findings";
 import {
   buildTransactionSummaryEvidence,
@@ -133,6 +137,8 @@ export default async function TransactionDetailPage({
     rawPayload,
     targetRuntimeCode,
     reviewQueue,
+    transactionHistoryPage,
+    transferHistoryPage,
   ] = await Promise.all([
     Promise.resolve(toTransactionView(persisted)),
     resolveContractInsight(safeData, abi, persisted),
@@ -148,6 +154,8 @@ export default async function TransactionDetailPage({
     safeData.getMultisigTransaction(safe.data, hash.data).catch(() => null),
     resolveTargetRuntimeCodeEvidence(persisted, chain),
     reviewQueuePromise,
+    persistence.listTransactions(safe.data, null, 250).catch(() => null),
+    persistence.listTransfers(safe.data, null, 250).catch(() => null),
   ]);
   const lifecycleStatus = transactionLifecycleStatus(
     transaction,
@@ -279,6 +287,7 @@ export default async function TransactionDetailPage({
           ?.decimals ?? null,
       )
     : null;
+  const activity = classifyTransactionActivity(persisted);
   const networkAction =
     safe.data.chainId === 50 && decodedAction
       ? decodedAction
@@ -352,11 +361,26 @@ export default async function TransactionDetailPage({
     targetVerified,
     transaction: persisted,
   });
+  const treasuryChecks = resolveTreasuryReviewChecks({
+    activity,
+    addressBook,
+    execution,
+    findings: userFacingFindings,
+    historyLoaded: transactionHistoryPage !== null,
+    previousTransactions: transactionHistoryPage?.items ?? [],
+    previousTransfers: transferHistoryPage?.items ?? [],
+    protocolLabel,
+    targetAccountType: targetRuntimeCode.accountType,
+    targetKnown: targetRegistryEntry !== undefined,
+    targetVerified,
+    transferHistoryLoaded: transferHistoryPage !== null,
+    transaction: persisted,
+  });
   let initialSummary: SummaryView | null = null;
   if (profileId) {
     const summaryEvidence = buildTransactionSummaryEvidence({
       transaction: persisted,
-      activity: classifyTransactionActivity(persisted),
+      activity,
       contract: insight,
       execution,
       approvalRisk,
@@ -475,6 +499,8 @@ export default async function TransactionDetailPage({
             insight.metadata.label ?? targetRegistryEntry?.label ?? null
           }
           targetTokenSymbol={targetTokenEntry?.symbol ?? null}
+          treasuryChecks={treasuryChecks}
+          treasuryFocus={treasuryReviewFocus(activity.type)}
         />
 
         <section
