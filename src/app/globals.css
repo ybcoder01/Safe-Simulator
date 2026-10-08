@@ -1119,6 +1119,118 @@ select {
   padding: 0 1.35rem;
 }
 
+.treasury-review {
+  display: grid;
+  gap: 1rem;
+  margin: 0 1.35rem;
+  padding: 1.1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.85rem;
+  background: #08130f;
+}
+
+.treasury-review-heading {
+  display: flex;
+  gap: 1rem;
+  align-items: end;
+  justify-content: space-between;
+}
+
+.treasury-review-heading h3,
+.treasury-review-heading p,
+.treasury-history-boundary,
+.treasury-check p {
+  margin: 0;
+}
+
+.treasury-review-heading h3 {
+  margin-top: 0.35rem;
+  font-size: 1.25rem;
+}
+
+.treasury-review-heading > p {
+  max-width: 38rem;
+  color: var(--muted);
+  line-height: 1.5;
+  text-align: right;
+}
+
+.treasury-check-list {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.treasury-check {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.7rem;
+  min-width: 0;
+  padding: 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.treasury-check-icon {
+  display: grid;
+  width: 1.7rem;
+  height: 1.7rem;
+  place-items: center;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font-weight: 800;
+}
+
+.treasury-check > div {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.treasury-check > div > span {
+  color: var(--faint);
+  font-family: var(--font-geist-mono);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.treasury-check strong {
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+
+.treasury-check p,
+.treasury-history-boundary {
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.treasury-check-pass .treasury-check-icon {
+  color: var(--green);
+}
+
+.treasury-check-new .treasury-check-icon,
+.treasury-check-review .treasury-check-icon {
+  color: #ffbe5c;
+}
+
+.treasury-check-block .treasury-check-icon {
+  color: #ff7668;
+}
+
+.treasury-check-unknown .treasury-check-icon {
+  color: #b5c0ba;
+}
+
+.treasury-history-boundary {
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--line);
+}
+
 .safety-overview-grid article {
   display: grid;
   gap: 0.75rem;
@@ -1262,12 +1374,25 @@ select {
 }
 
 @media (max-width: 900px) {
+  .treasury-check-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .safety-overview-grid {
     grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 700px) {
+  .treasury-review-heading {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .treasury-review-heading > p {
+    text-align: left;
+  }
+
   .safety-verdict {
     grid-template-columns: auto minmax(0, 1fr);
   }
@@ -1294,10 +1419,20 @@ select {
   }
 
   .safety-overview-grid,
+  .treasury-review,
   .safety-approval-step,
   .safety-boundary-note {
     padding-right: 0.9rem;
     padding-left: 0.9rem;
+  }
+
+  .treasury-review {
+    margin-right: 0.9rem;
+    margin-left: 0.9rem;
+  }
+
+  .treasury-check-list {
+    grid-template-columns: 1fr;
   }
 }
 
