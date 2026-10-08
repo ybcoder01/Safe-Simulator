@@ -67,6 +67,7 @@ describe("transaction summary privacy and provider boundary", () => {
     const fetcher = vi.fn(
       async (_input: string | URL | Request, init?: RequestInit) => {
         const body = JSON.parse(String(init?.body)) as {
+          messages: Array<{ role: string; content: string }>;
           provider: Record<string, unknown>;
           response_format: { type: string; json_schema: { strict: boolean } };
           temperature?: unknown;
@@ -84,6 +85,12 @@ describe("transaction summary privacy and provider boundary", () => {
         expect(body).not.toHaveProperty("temperature");
         expect(body).not.toHaveProperty("max_tokens");
         expect(body.max_completion_tokens).toBe(900);
+        expect(body.messages[0]?.content).toContain(
+          "Address replacement requires a comparison with an independent expected address",
+        );
+        expect(body.messages[0]?.content).toContain(
+          "the zero address normally means minting or burning",
+        );
         expect(init?.signal).toBeInstanceOf(AbortSignal);
 
         return new Response(
@@ -158,7 +165,7 @@ describe("transaction summary privacy and provider boundary", () => {
   });
 
   it("uses a new prompt version for the consolidated signer verdict", () => {
-    expect(TRANSACTION_SUMMARY_PROMPT_VERSION).toBe("transaction-summary-v4");
+    expect(TRANSACTION_SUMMARY_PROMPT_VERSION).toBe("transaction-summary-v5");
   });
 
   it("rejects raw base units mislabeled as whole-token units", async () => {

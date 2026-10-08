@@ -28,6 +28,13 @@ describe("TransactionSummaryDialog", () => {
     );
 
     expect(html).toContain("Liquidity deposit identified");
+    expect(html.indexOf("Before signing")).toBeLessThan(
+      html.indexOf("Liquidity deposit identified"),
+    );
+    expect(html.indexOf("Before signing")).toBeLessThan(
+      html.indexOf("What it does"),
+    );
+    expect(html).toContain("summary-checks-primary");
     expect(html).toContain("Reused saved summary");
     expect(html).not.toContain("No saved AI summary yet");
   });

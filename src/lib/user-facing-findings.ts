@@ -156,7 +156,7 @@ export function resolveUserFacingFindings(
         "recipient-address-unconfirmed",
         "warning",
         "The recipient address could not be confirmed",
-        "This does not prove address injection, but the destination may have been replaced. Compare the complete recipient address with the original request before the final approval.",
+        "No independent expected-address record was available for this recipient. This is not proof of address injection. Compare the complete recipient address with the original request before the final approval.",
         unknownRecipients,
       ),
     );
