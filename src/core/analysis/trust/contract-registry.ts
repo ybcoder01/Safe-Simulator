@@ -1,7 +1,7 @@
 import type { Address, ChainId, Hex } from "../../domain";
 import { xdcProtocolRegistryEntries } from "./xdc-protocol-registry";
 
-export const CONTRACT_REGISTRY_VERSION = "2026-09-27.2";
+export const CONTRACT_REGISTRY_VERSION = "2026-10-08.1";
 
 export type ContractRegistrySource =
   | "safe-deployments"

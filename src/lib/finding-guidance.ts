@@ -7,6 +7,70 @@ export interface FindingGuidance {
 
 const GUIDANCE_BY_CODE = new Map<string, FindingGuidance>([
   [
+    "flagged-address-involved",
+    {
+      label: "Stop and verify the address",
+      action:
+        "Do not approve. Compare the complete address with an independent source and contact the other Safe owners before taking any action.",
+    },
+  ],
+  [
+    "safe-control-change",
+    {
+      label: "Confirm the Safe control change",
+      action:
+        "Verify the owner, threshold, module, guard, fallback handler, or implementation change with every Safe owner before approving.",
+    },
+  ],
+  [
+    "unlimited-spending-access",
+    {
+      label: "Limit or reject the permission",
+      action:
+        "Confirm the complete spender address. Use a bounded amount unless unlimited access is explicitly required and independently verified.",
+    },
+  ],
+  [
+    "recipient-address-unconfirmed",
+    {
+      label: "Confirm the recipient",
+      action:
+        "Compare the complete recipient address with the original payment or protocol request before the final approval.",
+    },
+  ],
+  [
+    "spender-address-check",
+    {
+      label: "Confirm the spender and amount",
+      action:
+        "Verify the complete spender address and allowance against the intended project action before approving.",
+    },
+  ],
+  [
+    "target-address-unconfirmed",
+    {
+      label: "Confirm the main contract",
+      action:
+        "Match the complete destination address with the project's official deployment documentation before approving.",
+    },
+  ],
+  [
+    "protocol-path-unconfirmed",
+    {
+      label: "Confirm the project route",
+      action:
+        "The main project is recognized, but part of its internal route is not independently matched yet. Review the unmatched route before the final approval.",
+    },
+  ],
+  [
+    "additional-evidence-check",
+    {
+      label: "Review the remaining evidence",
+      action:
+        "Open Technical details and resolve the remaining evidence item before approving.",
+    },
+  ],
+  [
     "delegatecall-operation",
     {
       label: "Verify storage authority",

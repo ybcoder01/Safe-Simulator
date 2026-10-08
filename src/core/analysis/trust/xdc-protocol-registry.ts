@@ -704,6 +704,21 @@ const groups: readonly ProtocolDeploymentGroup[] = [
   {
     protocol: "silo",
     reference:
+      "https://github.com/silo-finance/silo-contracts-v3/blob/31b98b3b899494ebfbd6306d17f50666480967bd/MOREDOCS.md#standard-json-for-contract-verification",
+    logoKey: "silo",
+    deployments: [
+      [
+        "0xA8C5eb9ae9c7a8fab4116d1e9c1FCfc8A478b390",
+        "Silo Router V2 Implementation",
+        "implementation",
+        "identity-only",
+        "internal",
+      ],
+    ],
+  },
+  {
+    protocol: "silo",
+    reference:
       "https://github.com/silo-finance/silo-contracts-v3/tree/31b98b3b899494ebfbd6306d17f50666480967bd/silo-oracles/deployments/xdc",
     logoKey: "silo",
     deployments: [

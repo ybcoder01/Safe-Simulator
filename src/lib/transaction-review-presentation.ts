@@ -74,6 +74,18 @@ const ADDRESS_CHECK_COPY: Readonly<Record<string, string>> = {
     "The destination contract's published source could not be verified.",
   "unrecognized-storage-change":
     "The simulation found a contract storage change it could not explain.",
+  "recipient-address-unconfirmed":
+    "The recipient address could not be independently confirmed.",
+  "spender-address-check":
+    "A token spender or spending permission needs confirmation.",
+  "protocol-path-unconfirmed":
+    "Part of the project's internal contract route could not be independently confirmed.",
+  "target-address-unconfirmed":
+    "The main destination contract could not be independently confirmed.",
+  "safe-control-change": "The transaction changes who can control this Safe.",
+  "unlimited-spending-access":
+    "A contract or operator would receive unlimited token access.",
+  "flagged-address-involved": "A previously flagged address is involved.",
 };
 
 function addressCheckPresentation(

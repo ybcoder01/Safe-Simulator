@@ -157,8 +157,8 @@ describe("transaction summary privacy and provider boundary", () => {
     } satisfies Partial<TransactionSummaryProviderError>);
   });
 
-  it("uses a new prompt version for deterministic token amount labels", () => {
-    expect(TRANSACTION_SUMMARY_PROMPT_VERSION).toBe("transaction-summary-v3");
+  it("uses a new prompt version for the consolidated signer verdict", () => {
+    expect(TRANSACTION_SUMMARY_PROMPT_VERSION).toBe("transaction-summary-v4");
   });
 
   it("rejects raw base units mislabeled as whole-token units", async () => {

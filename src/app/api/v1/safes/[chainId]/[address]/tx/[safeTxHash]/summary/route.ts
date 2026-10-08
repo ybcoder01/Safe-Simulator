@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 
 import { classifyTransactionActivity } from "@/core/analysis/decoding/activity";
+import { findContractRegistryEntry } from "@/core/analysis/trust/contract-registry";
 import type { TransactionSummaryRecord } from "@/core/domain";
 import {
   getAbiPort,
@@ -40,6 +41,8 @@ import {
   collectXdcContractReferences,
   resolveXdcContractVerification,
 } from "@/lib/api/xdcscan-verification";
+import { PROTOCOL_LABELS } from "@/lib/protocol-directory";
+import { resolveUserFacingFindings } from "@/lib/user-facing-findings";
 
 interface RouteContext {
   readonly params: Promise<{
@@ -217,6 +220,38 @@ export async function POST(request: NextRequest, context: RouteContext) {
       approvalRisk: analysis.approvalRisk,
       storageAnalysis: analysis.storageAnalysis,
       baselineVerdict: analysis.baselineVerdict,
+      signerVerdict: (() => {
+        const targetRegistryEntry = findContractRegistryEntry(
+          transaction.safe.chainId,
+          transaction.to,
+        );
+        const targetVerified =
+          analysis.contract.metadata.verified ||
+          contractVerification.items.some(
+            (item) =>
+              item.address.toLowerCase() === transaction.to.toLowerCase() &&
+              item.status === "verified",
+          );
+        return {
+          ...analysis.baselineVerdict,
+          findings: resolveUserFacingFindings({
+            evidence: analysis.baselineVerdict,
+            identifiedAddresses: [
+              transaction.safe.address,
+              transaction.to,
+              ...analysis.baselineVerdict.addresses
+                .filter((assessment) => assessment.source === "registry")
+                .map((assessment) => assessment.address),
+            ],
+            protocolLabel: targetRegistryEntry
+              ? (PROTOCOL_LABELS[targetRegistryEntry.protocol] ??
+                targetRegistryEntry.protocol)
+              : null,
+            targetKnown: targetRegistryEntry !== undefined,
+            targetVerified,
+          }),
+        };
+      })(),
       tokenMetadata,
       balanceChanges,
       contractVerification,

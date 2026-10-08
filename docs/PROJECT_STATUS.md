@@ -166,6 +166,13 @@ verification identity, and evidence details remain available in the signed
 report. This keeps Telegram readable without weakening independent
 verification.
 
+The web report applies the same novice-first rule. Repeated delegate-call,
+decode, movement-trust, and internal-target findings are consolidated into one
+project-route check. Recipient replacement, spender permissions, unlimited
+access, Safe control changes, and explicitly flagged addresses remain separate
+because they require different signer decisions. The original engine findings
+and complete addresses remain under Technical details.
+
 Delivery is idempotent for each subscriber and exact proposal state. Queue
 retries cannot intentionally deliver the same state twice.
 
@@ -279,7 +286,7 @@ reused only after the chain anchor is verified.
 
 ## 7. XDC protocol and token registry
 
-The source-controlled XDC registry currently contains 171 reviewed protocol
+The source-controlled XDC registry currently contains 172 reviewed protocol
 identities. Identity establishes who a contract is; it does not make every
 interaction safe.
 
@@ -287,7 +294,7 @@ interaction safe.
 | --------- | ------: | --------------------: | ------------: |
 | XSwap     |       8 |                     8 |             0 |
 | Curve     |      26 |                     8 |            18 |
-| Silo      |      37 |                     9 |            28 |
+| Silo      |      38 |                     9 |            29 |
 | Morpho    |       8 |                     6 |             2 |
 | Fathom    |      62 |                    12 |            50 |
 | Oku Trade |      17 |                     9 |             8 |
@@ -573,9 +580,9 @@ After an alert-format or delivery change:
 
 - Deploy and acceptance-test the implemented in-app Telegram control center and
   migration `0008`.
-- Review, deploy, and acceptance-test the novice-facing transaction summary and
-  address-injection check on representative transfer, approval, lending, batch,
-  Safe-configuration, and unknown-contract fixtures.
+- Deploy and acceptance-test the consolidated protocol-path summary and
+  address-injection checks on representative transfer, approval, lending,
+  batch, Safe-configuration, and unknown-contract fixtures.
 - Improve non-technical wording for remaining fallback finding titles inside
   technical details.
 

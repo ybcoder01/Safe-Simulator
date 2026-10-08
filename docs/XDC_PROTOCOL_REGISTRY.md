@@ -1,8 +1,11 @@
 # XDC protocol registry
 
-Contract registry version: `2026-09-03.2`  
-Token registry version: `2026-09-04.1`  
-Latest token identity review: 2026-09-04  
+Contract registry version: `2026-10-08.1`
+
+Token registry version: `2026-09-04.1`
+
+Latest token identity review: 2026-09-04
+
 Network: XDC mainnet, chain ID 50
 
 ## Trust boundary
@@ -25,13 +28,13 @@ by themselves.
 
 ## Included publisher records
 
-The source-controlled manifest contains 171 unique XDC protocol identities.
+The source-controlled manifest contains 172 unique XDC protocol identities.
 
 | Publisher or protocol                           | Entries | Protocol whitelist | Identity only | Evidence                                                                                                                                                |
 | ----------------------------------------------- | ------: | -----------------: | ------------: | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | XSwap                                           |       8 |                  8 |             0 | [Publisher evidence](https://docs.xspswap.finance/xswap-protocol/contracts/xswap-protocol-contracts)                                                    |
 | Curve                                           |      26 |                  8 |            18 | [Publisher evidence](https://github.com/curvefi/curve-core/blob/fdcddede6c0564bb48eba8bbdfff72da8f650024/deployments/prod/xdc.yaml)                     |
-| Silo                                            |      37 |                  9 |            28 | [Publisher evidence](https://github.com/silo-finance/silo-contracts-v3/tree/31b98b3b899494ebfbd6306d17f50666480967bd/silo-core/deployments/xdc)         |
+| Silo                                            |      38 |                  9 |            29 | [Publisher evidence](https://github.com/silo-finance/silo-contracts-v3/tree/31b98b3b899494ebfbd6306d17f50666480967bd/silo-core/deployments/xdc)         |
 | Morpho                                          |       8 |                  6 |             2 | [Publisher evidence](https://docs.morpho.org/developers/contracts/addresses/#morpho-blue/xdc)                                                           |
 | Fathom                                          |      62 |                 12 |            50 | [Publisher evidence](https://docs.fathom.fi/lending/deployments/xdc-network)                                                                            |
 | Uniswap-compatible deployment documented by Oku |      17 |                  9 |             8 | [Publisher evidence](https://docs.oku.trade/home/extra-information/deployed-contracts#xdc)                                                              |
@@ -49,6 +52,20 @@ does not claim governance by Uniswap Labs.
 Fathom is recorded as Fathom, not Aave. Its architecture is Aave-derived, but
 the official Aave deployment catalogue does not establish an Aave deployment
 on XDC.
+
+## Protocol path interpretation
+
+The signer-facing review groups repeated trace findings into one protocol-path
+check. A documented entry point, implementation, or library can identify an
+expected route, but it does not make an action safe by itself. Unexpected
+recipients, spenders, Safe control changes, unlimited permissions, and flagged
+addresses remain separate warnings.
+
+Factory-created pools, vaults, and markets are not trusted from name similarity
+or protocol branding. They require an independently resolved factory origin,
+implementation boundary, or explicit publisher record. Until that provenance
+is available, the UI shows one plain-language route uncertainty and preserves
+the complete raw trace under Technical details.
 
 ## Requested token identities
 
