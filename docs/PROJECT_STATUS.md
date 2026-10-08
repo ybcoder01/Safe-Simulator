@@ -34,21 +34,21 @@ replacement for a signing wallet or hardware-wallet verification.
 
 ## 2. Current production state
 
-| Area                            | State     | Notes                                                                                                              |
-| ------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------ |
-| Web application                 | Live      | Production domain is assigned and serving the merged application.                                                  |
-| Supported networks              | Live      | Ethereum mainnet (`1`) and XDC mainnet (`50`).                                                                     |
-| Safe import and discovery       | Live      | Imports by Safe address and public discovery by owner address.                                                     |
-| Transaction review              | Live      | Executed, pending, failed, and replaced transaction states are supported.                                          |
-| Draft simulation                | Live      | A target, native value, and calldata can be reviewed before a Safe proposal exists.                                |
-| Beginner-facing verdict         | Live      | Clear green, yellow, orange, and red guidance with plain-language next actions.                                    |
-| XDC protocol and token identity | Live      | Reviewed registry, protocol logos, token logos, and deterministic fallbacks.                                       |
-| Silo route attestation          | In review | Router, factory lineage, live market configuration, and exact internal route are checked automatically.            |
-| Telegram alerts                 | Live      | `@safealerts_bot` is connected to Production and has delivered an end-to-end signer alert for an XDC Safe.         |
-| Signed alert verification       | Live      | Unique verification IDs, Ed25519-signed receipts, key rotation, and the no-signing verification page are deployed. |
-| Production database             | Live      | Neon Postgres; Telegram migrations `0006`, `0007`, and `0008` were applied and verified.                           |
-| Queue and scheduling            | Degraded  | QStash reached its 1,000-message daily limit; a shared-sweep and direct-refresh fix is implemented for deployment. |
-| CI and previews                 | Live      | Formatting, linting, TypeScript, tests, build, and Vercel Preview checks.                                          |
+| Area                            | State     | Notes                                                                                                                      |
+| ------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Web application                 | Live      | Production domain is assigned and serving the merged application.                                                          |
+| Supported networks              | Live      | Ethereum mainnet (`1`) and XDC mainnet (`50`).                                                                             |
+| Safe import and discovery       | Live      | Imports by Safe address and public discovery by owner address.                                                             |
+| Transaction review              | Live      | Executed, pending, failed, and replaced transaction states are supported.                                                  |
+| Draft simulation                | Live      | A target, native value, and calldata can be reviewed before a Safe proposal exists.                                        |
+| Beginner-facing verdict         | Live      | Clear green, yellow, orange, and red guidance with plain-language next actions.                                            |
+| XDC protocol and token identity | Live      | Reviewed registry, protocol logos, token logos, and deterministic fallbacks.                                               |
+| Silo route attestation          | In review | Router, factory lineage, live configuration, proxy boundaries, and connected contracts are shown as plain-language checks. |
+| Telegram alerts                 | Live      | `@safealerts_bot` is connected to Production and has delivered an end-to-end signer alert for an XDC Safe.                 |
+| Signed alert verification       | Live      | Unique verification IDs, Ed25519-signed receipts, key rotation, and the no-signing verification page are deployed.         |
+| Production database             | Live      | Neon Postgres; Telegram migrations `0006`, `0007`, and `0008` were applied and verified.                                   |
+| Queue and scheduling            | Degraded  | QStash reached its 1,000-message daily limit; a shared-sweep and direct-refresh fix is implemented for deployment.         |
+| CI and previews                 | Live      | Formatting, linting, TypeScript, tests, build, and Vercel Preview checks.                                                  |
 
 The Telegram production deployment and signed verification flow corresponding
 to merged PRs `#134` and `#135` were verified Ready. Telegram confirmed the

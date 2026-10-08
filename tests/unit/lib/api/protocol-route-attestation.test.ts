@@ -22,6 +22,7 @@ const asset1 = "0x6666666666666666666666666666666666666666" as Address;
 const share0 = "0x7777777777777777777777777777777777777777" as Address;
 const share1 = "0x8888888888888888888888888888888888888888" as Address;
 const unknown = "0x9999999999999999999999999999999999999999" as Address;
+const safeSingleton = "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762" as Address;
 const zero = "0x0000000000000000000000000000000000000000" as Address;
 
 const factoryAbi = parseAbi([
@@ -222,6 +223,55 @@ describe("resolveProtocolRouteAttestation", () => {
       expect.objectContaining({
         code: "protocol-route-attestation-incomplete",
         addresses: [unknown],
+      }),
+    );
+  });
+
+  it("accepts an independently resolved proxy implementation in the route graph", async () => {
+    const result = await resolveProtocolRouteAttestation(
+      chainPort(),
+      transaction(),
+      { internalCalls: calls(true) },
+      [{ proxy: market0, implementation: unknown }],
+    );
+
+    expect(result.findings).not.toContainEqual(
+      expect.objectContaining({
+        code: "protocol-route-attestation-incomplete",
+      }),
+    );
+    expect(result.addresses).toContainEqual(
+      expect.objectContaining({ address: unknown }),
+    );
+    expect(result.checks).toContainEqual(
+      expect.objectContaining({ key: "route", status: "pass" }),
+    );
+  });
+
+  it("does not treat Safe infrastructure as an unresolved Silo dependency", async () => {
+    const result = await resolveProtocolRouteAttestation(
+      chainPort(),
+      transaction(),
+      {
+        internalCalls: [
+          ...calls(),
+          {
+            depth: 1,
+            from: safe,
+            to: safeSingleton,
+            input: "0x" as Hex,
+            value: "0",
+            operation: "delegatecall",
+            reverted: false,
+            error: null,
+          },
+        ],
+      },
+    );
+
+    expect(result.findings).not.toContainEqual(
+      expect.objectContaining({
+        code: "protocol-route-attestation-incomplete",
       }),
     );
   });

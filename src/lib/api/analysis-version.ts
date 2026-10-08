@@ -1,1 +1,1 @@
-export const TRANSACTION_ANALYSIS_ENGINE_VERSION = "transaction-analysis-v11";
+export const TRANSACTION_ANALYSIS_ENGINE_VERSION = "transaction-analysis-v12";

@@ -27,6 +27,29 @@ describe("TransactionSafetyOverview", () => {
         presentation={presentation}
         protocolLabel={null}
         protocolLogoKey={null}
+        routeAttestation={{
+          protocol: "silo",
+          status: "review",
+          title: "Silo route is only partly verified",
+          detail: "One connected contract remains unresolved.",
+          addresses: [],
+          proxyBoundaries: [],
+          findings: [],
+          checks: [
+            {
+              key: "destination",
+              status: "pass",
+              title: "Official Silo router",
+              detail: "The destination matches the reviewed deployment.",
+            },
+            {
+              key: "route",
+              status: "review",
+              title: "1 connected contract still unconfirmed",
+              detail: "Review it before signing.",
+            },
+          ],
+        }}
         targetAddress="0x1111111111111111111111111111111111111111"
         targetLabel="Example contract"
         targetTokenSymbol={null}
@@ -54,6 +77,10 @@ describe("TransactionSafetyOverview", () => {
     expect(html).toContain("Treasury approval checklist");
     expect(html).toContain("Not previously used by this Safe");
     expect(html).toContain("treasury-check-new");
+    expect(html).toContain("How we verified this project");
+    expect(html).toContain("Official Silo router");
+    expect(html).toContain("1 connected contract still unconfirmed");
+    expect(html).toContain("protocol-verification-review");
     expect(html).toContain('aria-hidden="true">×');
     expect(html).not.toContain('safety-state-label">clear');
   });

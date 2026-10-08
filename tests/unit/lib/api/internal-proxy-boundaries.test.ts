@@ -78,7 +78,7 @@ describe("resolveInternalProxyBoundaries", () => {
 
   it("deduplicates callers and caps external lookups", async () => {
     const sources = Array.from(
-      { length: 10 },
+      { length: 30 },
       (_, index) =>
         `0x${(index + 10).toString(16).padStart(40, "0")}` as Address,
     );
@@ -93,6 +93,6 @@ describe("resolveInternalProxyBoundaries", () => {
 
     await resolveInternalProxyBoundaries(abi, 50, calls, []);
 
-    expect(resolveImplementationChain).toHaveBeenCalledTimes(8);
+    expect(resolveImplementationChain).toHaveBeenCalledTimes(24);
   });
 });

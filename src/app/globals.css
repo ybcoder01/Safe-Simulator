@@ -1161,6 +1161,80 @@ select {
   gap: 0.75rem;
 }
 
+.protocol-verification {
+  display: grid;
+  grid-template-columns: minmax(13rem, 0.8fr) minmax(0, 2fr);
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(101, 242, 172, 0.22);
+  border-radius: 0.75rem;
+  background: rgba(101, 242, 172, 0.035);
+}
+
+.protocol-verification-heading h4,
+.protocol-verification-heading p,
+.protocol-verification-list,
+.protocol-verification-list p {
+  margin: 0;
+}
+
+.protocol-verification-heading h4 {
+  margin-top: 0.35rem;
+  font-size: 1.05rem;
+}
+
+.protocol-verification-heading p,
+.protocol-verification-list p {
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.protocol-verification-heading p {
+  margin-top: 0.45rem;
+}
+
+.protocol-verification-list {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0;
+  list-style: none;
+}
+
+.protocol-verification-list li {
+  display: grid;
+  grid-template-columns: 1.65rem minmax(0, 1fr);
+  gap: 0.65rem;
+  align-items: start;
+}
+
+.protocol-verification-list li > span {
+  display: grid;
+  width: 1.5rem;
+  height: 1.5rem;
+  place-items: center;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font-weight: 800;
+}
+
+.protocol-verification-list li > div {
+  display: grid;
+  gap: 0.18rem;
+}
+
+.protocol-verification-pass > span {
+  color: var(--green);
+}
+
+.protocol-verification-review > span {
+  color: #ffbe5c;
+}
+
+.protocol-verification-fail > span {
+  color: #ff7668;
+}
+
 .treasury-check {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -1384,6 +1458,10 @@ select {
 }
 
 @media (max-width: 700px) {
+  .protocol-verification {
+    grid-template-columns: 1fr;
+  }
+
   .treasury-review-heading {
     align-items: start;
     flex-direction: column;

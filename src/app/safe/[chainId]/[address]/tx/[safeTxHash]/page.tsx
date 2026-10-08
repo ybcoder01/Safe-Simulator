@@ -180,7 +180,6 @@ export default async function TransactionDetailPage({
     storageAnalysis,
     balanceChanges,
     internalProxyBoundaries,
-    routeAttestation,
   ] = await Promise.all([
     resolveApprovalRisk(chain, persisted, insight, execution),
     resolveExecutionTokenMetadata(
@@ -202,8 +201,13 @@ export default async function TransactionDetailPage({
       ],
       persisted.blockNumber ?? undefined,
     ),
-    resolveProtocolRouteAttestation(chain, persisted, execution),
   ]);
+  const routeAttestation = await resolveProtocolRouteAttestation(
+    chain,
+    persisted,
+    execution,
+    internalProxyBoundaries,
+  );
   const contractVerification = await resolveXdcContractVerification(
     cache,
     safe.data.chainId,
@@ -501,6 +505,7 @@ export default async function TransactionDetailPage({
           presentation={reviewPresentation}
           protocolLabel={protocolLabel}
           protocolLogoKey={targetRegistryEntry?.logoKey ?? null}
+          routeAttestation={routeAttestation}
           targetAddress={persisted.to}
           targetLabel={
             insight.metadata.label ?? targetRegistryEntry?.label ?? null

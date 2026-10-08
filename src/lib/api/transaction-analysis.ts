@@ -160,31 +160,32 @@ export async function resolveNeutralTransactionAnalysis(
     ),
     resolveTargetRuntimeCodeEvidence(transaction, ports.chain),
   ]);
-  const [
-    approvalRisk,
-    storageAnalysis,
+  const [approvalRisk, storageAnalysis, internalProxyBoundaries] =
+    await Promise.all([
+      resolveApprovalRisk(ports.chain, transaction, contract, execution),
+      resolveStorageChangeAnalysis(
+        ports.abi,
+        transaction.safe.chainId,
+        execution,
+      ),
+      resolveInternalProxyBoundaries(
+        ports.abi,
+        transaction.safe.chainId,
+        execution.internalCalls,
+        [
+          transaction.safe.address,
+          transaction.to,
+          ...contract.implementationChain.map((address) => address as Address),
+        ],
+        transaction.blockNumber ?? undefined,
+      ),
+    ]);
+  const routeAttestation = await resolveProtocolRouteAttestation(
+    ports.chain,
+    transaction,
+    execution,
     internalProxyBoundaries,
-    routeAttestation,
-  ] = await Promise.all([
-    resolveApprovalRisk(ports.chain, transaction, contract, execution),
-    resolveStorageChangeAnalysis(
-      ports.abi,
-      transaction.safe.chainId,
-      execution,
-    ),
-    resolveInternalProxyBoundaries(
-      ports.abi,
-      transaction.safe.chainId,
-      execution.internalCalls,
-      [
-        transaction.safe.address,
-        transaction.to,
-        ...contract.implementationChain.map((address) => address as Address),
-      ],
-      transaction.blockNumber ?? undefined,
-    ),
-    resolveProtocolRouteAttestation(ports.chain, transaction, execution),
-  ]);
+  );
   const baselineVerdict = resolveEvidenceVerdict(
     transaction,
     contract,
