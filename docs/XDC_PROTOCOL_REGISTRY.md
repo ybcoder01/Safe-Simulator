@@ -67,6 +67,31 @@ implementation boundary, or explicit publisher record. Until that provenance
 is available, the UI shows one plain-language route uncertainty and preserves
 the complete raw trace under Technical details.
 
+### Automated Silo route attestation
+
+Silo interactions receive an additional fail-closed route check. Starting from
+the pinned XDC Router V2 and Factory addresses, the analyzer verifies traced
+market vaults with `SiloFactory.isSilo`, reads each vault's live `config()`,
+resolves the paired vaults with `getSilos()`, and reads the assets, share tokens,
+oracles, interest-rate model, and hook receiver from `getConfig()`. Exact
+proxy-to-implementation delegate-call boundaries are accepted only when both
+ends match this proven graph or the pinned Silo deployment manifest.
+
+This attestation proves contract relationships, not market safety. Silo's own
+factory interface warns that anyone can deploy a market with custom
+configuration and implementation choices. Therefore:
+
+- an address outside the proven graph remains a signer warning;
+- a fully matched factory-created market still requires approval of that exact
+  market;
+- when every market vault is explicitly trusted in the Safe's address book, the
+  UI can show that the route is genuine and team-approved;
+- simulation findings, recipient checks, permissions, Safe control changes,
+  and explicitly flagged addresses always remain independent checks.
+
+The route attestor never discovers trust from a symbol, label, explorer tag, or
+factory membership alone.
+
 ## Requested token identities
 
 - Fathom USDC Underlying (`USDC`):

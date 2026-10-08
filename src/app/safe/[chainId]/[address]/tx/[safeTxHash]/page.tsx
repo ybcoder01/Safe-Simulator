@@ -43,6 +43,7 @@ import {
   resolveExecutionInsight,
 } from "@/lib/api/execution-insight";
 import { resolveInternalProxyBoundaries } from "@/lib/api/internal-proxy-boundaries";
+import { resolveProtocolRouteAttestation } from "@/lib/api/protocol-route-attestation";
 import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
 import { resolveStorageChangeAnalysis } from "@/lib/api/storage-changes";
 import { resolveTokenBalanceChanges } from "@/lib/api/token-balance-changes";
@@ -179,6 +180,7 @@ export default async function TransactionDetailPage({
     storageAnalysis,
     balanceChanges,
     internalProxyBoundaries,
+    routeAttestation,
   ] = await Promise.all([
     resolveApprovalRisk(chain, persisted, insight, execution),
     resolveExecutionTokenMetadata(
@@ -200,6 +202,7 @@ export default async function TransactionDetailPage({
       ],
       persisted.blockNumber ?? undefined,
     ),
+    resolveProtocolRouteAttestation(chain, persisted, execution),
   ]);
   const contractVerification = await resolveXdcContractVerification(
     cache,
@@ -243,6 +246,7 @@ export default async function TransactionDetailPage({
     targetRuntimeCode.anchor,
     internalProxyBoundaries,
     targetRuntimeCode.accountType,
+    routeAttestation,
   );
   const baselineVerdict = resolveEvidenceVerdict(
     persisted,
@@ -255,6 +259,7 @@ export default async function TransactionDetailPage({
     targetRuntimeCode.anchor,
     internalProxyBoundaries,
     targetRuntimeCode.accountType,
+    routeAttestation,
   );
   const tokenMetadataByAddress = new Map(
     tokenMetadata.items.map((metadata) => [
@@ -334,7 +339,9 @@ export default async function TransactionDetailPage({
       ...verdict.addresses
         .filter(
           (assessment) =>
-            assessment.source === "profile" || assessment.source === "registry",
+            assessment.source === "profile" ||
+            assessment.source === "registry" ||
+            assessment.source === "attestation",
         )
         .map((assessment) => assessment.address),
     ],

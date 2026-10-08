@@ -37,6 +37,11 @@ export interface EvidenceVerdictInput {
     readonly proxy: Address;
     readonly implementation: Address;
   }[];
+  readonly attestedAddresses?: readonly {
+    readonly address: Address;
+    readonly label: string;
+  }[];
+  readonly additionalFindings?: readonly Finding[];
   readonly decodeConfidence: DecodeConfidence;
   readonly movements: readonly {
     readonly token: Address;
@@ -85,7 +90,12 @@ export interface AddressTrustAssessment {
   readonly address: Address;
   readonly label: string | null;
   readonly status: Verdict;
-  readonly source: "profile" | "registry" | "verified-source" | "unresolved";
+  readonly source:
+    | "profile"
+    | "registry"
+    | "attestation"
+    | "verified-source"
+    | "unresolved";
   readonly roles: readonly AddressRole[];
 }
 
@@ -288,10 +298,17 @@ function assessAddresses(
     const current = records.get(key);
     if (!current || record.trust === "flagged") records.set(key, record);
   }
+  const attestations = new Map(
+    (input.attestedAddresses ?? []).map((item) => [
+      addressKey(item.address),
+      item,
+    ]),
+  );
 
   return [...roles.values()].map(({ address, roles: addressRoles }) => {
     const record = records.get(addressKey(address));
     const registryEntry = registry.get(addressKey(address));
+    const attestation = attestations.get(addressKey(address));
     const isVerifiedTarget =
       addressRoles.has("target") &&
       addressKey(address) === addressKey(input.target) &&
@@ -299,17 +316,22 @@ function assessAddresses(
 
     return {
       address,
-      label: record?.label ?? registryEntry?.label ?? null,
+      label:
+        record?.label ?? registryEntry?.label ?? attestation?.label ?? null,
       status:
         record?.trust ??
-        (registryEntry || isVerifiedTarget ? "known" : "unverified"),
+        (registryEntry || attestation || isVerifiedTarget
+          ? "known"
+          : "unverified"),
       source: record
         ? "profile"
         : registryEntry
           ? "registry"
-          : isVerifiedTarget
-            ? "verified-source"
-            : "unresolved",
+          : attestation
+            ? "attestation"
+            : isVerifiedTarget
+              ? "verified-source"
+              : "unresolved",
       roles: [...addressRoles],
     };
   });
@@ -753,6 +775,8 @@ export function evaluateEvidenceVerdict(
       addresses: unrecognizedStorageAddresses,
     });
   }
+
+  findings.push(...(input.additionalFindings ?? []));
 
   const traceDetail =
     input.callTrace === "complete"

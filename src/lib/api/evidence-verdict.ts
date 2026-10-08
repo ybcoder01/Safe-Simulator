@@ -15,6 +15,7 @@ import type { ApprovalRiskResult } from "@/lib/api/approval-risk";
 import type { ContractInsight } from "@/lib/api/contract-insight";
 import type { ExecutionInsight } from "@/lib/api/execution-insight";
 import type { InternalProxyBoundary } from "@/lib/api/internal-proxy-boundaries";
+import type { ProtocolRouteAttestation } from "@/lib/api/protocol-route-attestation";
 import type { StorageChangeAnalysis } from "@/lib/api/storage-changes";
 
 function decodeConfidence(
@@ -47,7 +48,41 @@ export function resolveEvidenceVerdict(
     | "unavailable" = "unavailable",
   internalProxyBoundaries: readonly InternalProxyBoundary[] = [],
   targetAccountType: "contract" | "wallet" | "unavailable" = "contract",
+  routeAttestation: ProtocolRouteAttestation | null = null,
 ): EvidenceVerdict {
+  const trustedProfileAddresses = new Set(
+    addressBook
+      .filter((entry) => entry.trust === "trusted")
+      .map((entry) => entry.address.toLowerCase()),
+  );
+  const routeFindings = (routeAttestation?.findings ?? []).map((finding) => {
+    if (
+      finding.code === "silo-permissionless-market" &&
+      finding.addresses.length > 0 &&
+      finding.addresses.every((address) =>
+        trustedProfileAddresses.has(address.toLowerCase()),
+      )
+    ) {
+      return {
+        ...finding,
+        code: "silo-approved-market",
+        severity: "info" as const,
+        title: "This exact Silo market is approved by your team",
+        detail:
+          "The route matches the official Silo Factory and live market configuration, and every market vault is trusted in this Safe's address book.",
+      };
+    }
+    return finding;
+  });
+  const attestedBoundaries = routeAttestation?.proxyBoundaries ?? [];
+  const mergedBoundaries = [
+    ...new Map(
+      [...internalProxyBoundaries, ...attestedBoundaries].map((boundary) => [
+        `${boundary.proxy.toLowerCase()}:${boundary.implementation.toLowerCase()}`,
+        boundary,
+      ]),
+    ).values(),
+  ];
   const executedAllowances = approvalRisk
     ? approvalRisk.executedChanges.map((allowance) => ({
         token: allowance.token,
@@ -75,7 +110,13 @@ export function resolveEvidenceVerdict(
     implementationChain: contract.implementationChain.map(
       (address) => address as Address,
     ),
-    internalProxyBoundaries,
+    internalProxyBoundaries: mergedBoundaries,
+    ...(routeAttestation
+      ? {
+          attestedAddresses: routeAttestation.addresses,
+          additionalFindings: routeFindings,
+        }
+      : {}),
     decodeConfidence: decodeConfidence(contract.provenance),
     movements: execution.tokenMovements.map((movement) => ({
       token: movement.token as Address,

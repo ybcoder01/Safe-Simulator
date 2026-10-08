@@ -189,4 +189,40 @@ describe("resolveUserFacingFindings", () => {
       }),
     );
   });
+
+  it("summarizes Silo route attestation in plain language", () => {
+    const result = resolveUserFacingFindings({
+      evidence: evidence([
+        finding("silo-permissionless-market", "warning", [target]),
+      ]),
+      identifiedAddresses: [target],
+      protocolLabel: "Silo",
+      targetKnown: true,
+      targetVerified: true,
+    });
+
+    expect(result).toEqual([
+      expect.objectContaining({
+        code: "silo-permissionless-market",
+        title: "Silo route verified; market approval still required",
+      }),
+    ]);
+  });
+
+  it("does not duplicate a Silo attestation failure as a generic route warning", () => {
+    const result = resolveUserFacingFindings({
+      evidence: evidence([
+        finding("internal-call-trust-unresolved", "warning", [unknown]),
+        finding("protocol-route-attestation-incomplete", "warning", [unknown]),
+      ]),
+      identifiedAddresses: [target],
+      protocolLabel: "Silo",
+      targetKnown: true,
+      targetVerified: true,
+    });
+
+    expect(result.map((item) => item.code)).toEqual([
+      "protocol-route-attestation-incomplete",
+    ]);
+  });
 });

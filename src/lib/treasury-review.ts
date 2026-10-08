@@ -149,6 +149,26 @@ function identityCheck(input: TreasuryReviewInput): TreasuryReviewCheck {
     };
   }
   if (input.targetKnown && input.targetVerified) {
+    if (codes.has("silo-permissionless-market")) {
+      return {
+        key: "identity",
+        label: "Project identity",
+        status: "review",
+        title: "Silo route verified; market needs approval",
+        detail:
+          "The complete route matches the official Silo Factory and live market configuration. Because anyone can deploy a Silo market, confirm that your team approves this specific market.",
+      };
+    }
+    if (codes.has("protocol-route-attestation-incomplete")) {
+      return {
+        key: "identity",
+        label: "Project identity",
+        status: "review",
+        title: "Silo route only partly verified",
+        detail:
+          "The official router and factory lineage were found, but at least one traced contract remains outside the proven market graph.",
+      };
+    }
     if (codes.has("protocol-path-unconfirmed")) {
       return {
         key: "identity",

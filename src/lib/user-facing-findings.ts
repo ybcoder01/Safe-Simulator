@@ -47,6 +47,9 @@ const CONSUMED_CODES = new Set([
   ...UNLIMITED_PERMISSION_CODES,
   ...BOUNDED_PERMISSION_CODES,
   ...PROTOCOL_PATH_CODES,
+  "silo-permissionless-market",
+  "silo-approved-market",
+  "protocol-route-attestation-incomplete",
   "explicitly-flagged-address",
   "unverified-target",
 ]);
@@ -220,7 +223,11 @@ export function resolveUserFacingFindings(
   const hasDelegateCall = effectivePathFindings.some(
     (item) => item.code === "internal-delegatecall",
   );
+  const routeAttestation = findings.find(
+    (item) => item.code === "protocol-route-attestation-incomplete",
+  );
   if (
+    !routeAttestation &&
     effectivePathFindings.length > 0 &&
     (unconfirmedPathAddresses.length > 0 ||
       !input.targetKnown ||
@@ -244,6 +251,33 @@ export function resolveUserFacingFindings(
             : `${project}'s internal contracts are identified, but a code-sharing boundary was not independently explained. This is one route-level uncertainty, not proof of multiple separate attacks.`
           : "The transaction entered contract code that could not be tied to a reviewed project route. Verify the complete destination and internal route before approving.",
         unconfirmedPathAddresses,
+      ),
+    );
+  }
+
+  if (routeAttestation) {
+    result.push(
+      finding(
+        routeAttestation.code,
+        routeAttestation.severity,
+        "Part of the Silo route is still unresolved",
+        "The official Silo router and factory-created market were confirmed, but at least one traced contract is outside the market relationships Safe Inspector could prove on-chain.",
+        routeAttestation.addresses,
+      ),
+    );
+  }
+
+  const permissionlessMarket = findings.find(
+    (item) => item.code === "silo-permissionless-market",
+  );
+  if (permissionlessMarket) {
+    result.push(
+      finding(
+        permissionlessMarket.code,
+        permissionlessMarket.severity,
+        "Silo route verified; market approval still required",
+        "The complete route matches the official Silo Factory and this market's live configuration. Anyone can create a Silo market, so confirm that your team approves this specific market before signing.",
+        permissionlessMarket.addresses,
       ),
     );
   }
