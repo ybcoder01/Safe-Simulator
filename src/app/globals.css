@@ -3930,9 +3930,18 @@ select {
 .summary-grid section,
 .summary-checks,
 .summary-limitations {
+  min-width: 0;
   border: 1px solid var(--line);
   border-radius: 0.75rem;
   padding: 1rem;
+  overflow-wrap: anywhere;
+}
+
+.summary-grid li,
+.summary-checks li,
+.summary-limitations li {
+  min-width: 0;
+  word-break: break-word;
 }
 
 .summary-grid h4,
