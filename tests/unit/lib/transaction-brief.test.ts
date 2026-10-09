@@ -79,7 +79,7 @@ describe("buildTransactionBrief", () => {
     expect(brief.sentence).toBe(
       "Your Safe received 1,200 USDC and turned in 1,198 sUSDC.",
     );
-    expect(brief.verdict.label).toBe("Went through as expected");
+    expect(brief.verdict.label).toBe("Went through. Looks normal");
   });
 
   it("says plainly when nothing moves", () => {
@@ -120,9 +120,7 @@ describe("buildTransactionBrief", () => {
   });
 
   it("maps each safety signal to one of the plain verdicts", () => {
-    expect(buildTransactionBrief(input()).verdict.label).toBe(
-      "Matches what you'd expect",
-    );
+    expect(buildTransactionBrief(input()).verdict.label).toBe("Looks normal");
     expect(
       buildTransactionBrief(
         input({
@@ -130,7 +128,7 @@ describe("buildTransactionBrief", () => {
           findings: [finding("silo-permissionless-market", "warning")],
         }),
       ).verdict,
-    ).toMatchObject({ id: "check", label: "Needs a check" });
+    ).toMatchObject({ id: "check", label: "Check before you sign" });
     expect(
       buildTransactionBrief(
         input({
@@ -138,7 +136,7 @@ describe("buildTransactionBrief", () => {
           findings: [finding("safe-control-change", "critical", "Control")],
         }),
       ).verdict,
-    ).toMatchObject({ id: "stop", label: "Do not sign yet" });
+    ).toMatchObject({ id: "stop", label: "Stop. Don't sign yet" });
     expect(buildTransactionBrief(input({ signal: "unknown" })).verdict.id).toBe(
       "unverified",
     );
@@ -153,7 +151,7 @@ describe("buildTransactionBrief", () => {
       }),
     );
 
-    expect(brief.verdict.label).toBe("Went through, investigate now");
+    expect(brief.verdict.label).toBe("Went through. Look into this now");
   });
 
   it("lists critical checks first with one short action each", () => {
@@ -207,6 +205,104 @@ describe("buildTransactionBrief", () => {
     expect(brief.confirmations.map((row) => row.confirmed)).toEqual([
       false,
       true,
+    ]);
+  });
+});
+
+describe("buildTransactionBrief simple view", () => {
+  const checks = [
+    {
+      key: "identity" as const,
+      label: "Project identity",
+      status: "pass" as const,
+      title: "Silo",
+      detail: "",
+    },
+    {
+      key: "history" as const,
+      label: "Previous interaction",
+      status: "new" as const,
+      title: "Not previously used",
+      detail: "",
+    },
+    {
+      key: "recipient" as const,
+      label: "Asset recipient",
+      status: "review" as const,
+      title: "Recipient needs confirmation",
+      detail: "",
+    },
+    {
+      key: "permissions" as const,
+      label: "Authority and permissions",
+      status: "block" as const,
+      title: "This changes who can control the Safe",
+      detail: "",
+    },
+    {
+      key: "simulation" as const,
+      label: "Simulation",
+      status: "unknown" as const,
+      title: "Simulation result unavailable",
+      detail: "",
+    },
+  ];
+
+  it("turns the treasury checks into four plain one-line rows", () => {
+    const brief = buildTransactionBrief(input({ treasuryChecks: checks }));
+
+    expect(brief.rows).toEqual([
+      {
+        key: "identity",
+        status: "ok",
+        label: "Who you're dealing with",
+        text: "Silo",
+      },
+      {
+        key: "recipient",
+        status: "check",
+        label: "Who gets the money",
+        text: "Recipient needs confirmation",
+      },
+      {
+        key: "permissions",
+        status: "stop",
+        label: "What it can access",
+        text: "This changes who can control the Safe",
+      },
+      {
+        key: "simulation",
+        status: "unknown",
+        label: "Test run",
+        text: "Simulation result unavailable",
+      },
+    ]);
+  });
+
+  it("asks for at most two actions, without repeats", () => {
+    const brief = buildTransactionBrief(
+      input({
+        signal: "review",
+        findings: [
+          finding("recipient-address-unconfirmed", "warning"),
+          finding("target-address-unconfirmed", "warning"),
+          finding("silo-permissionless-market", "warning"),
+          finding("spender-address-check", "warning"),
+        ],
+      }),
+    );
+
+    expect(brief.todo).toHaveLength(2);
+    expect(new Set(brief.todo).size).toBe(2);
+    expect(brief.verdict.reason).toBe("We couldn't confirm 4 things.");
+  });
+
+  it("falls back to one comparison step when nothing needs checking", () => {
+    expect(buildTransactionBrief(input()).todo).toEqual([
+      "Compare the amount and who gets it with what was requested.",
+    ]);
+    expect(buildTransactionBrief(input({ status: "executed" })).todo).toEqual([
+      "Compare the amount and who got it with what your team intended.",
     ]);
   });
 });

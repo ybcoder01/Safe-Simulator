@@ -18,10 +18,25 @@ const stage: AlertStage = {
 const brief: TransactionBrief = {
   verdict: {
     id: "check",
-    label: "Needs a check",
+    label: "Check before you sign",
     reason: "1 thing to confirm before you sign.",
   },
   sentence: "Your Safe receives 1,200 USDC.",
+  rows: [
+    {
+      key: "identity",
+      status: "ok",
+      label: "Who you're dealing with",
+      text: "Silo",
+    },
+    {
+      key: "recipient",
+      status: "check",
+      label: "Who gets the money",
+      text: "Recipient needs confirmation",
+    },
+  ],
+  todo: ["Confirm that your team chose this specific market."],
   effects: ["No spending permissions change."],
   checks: [
     {
@@ -80,43 +95,41 @@ function render(
 }
 
 describe("TransactionBriefPanel", () => {
-  it("leads with the verdict, the plain sentence, and the stage", () => {
+  it("opens with the verdict, the sentence, a few rows, and one to-do list", () => {
     const html = render();
 
-    expect(html).toContain("Needs a check");
-    expect(html).toContain("Safe to sign?");
+    expect(html).toContain("Check before you sign");
     expect(html).toContain("Your Safe receives 1,200 USDC.");
     expect(html).toContain("Waiting for the last signature (1 of 2 signed)");
-  });
-
-  it("draws the money flow with the Safe named plainly", () => {
-    const html = render();
-
-    expect(html).toContain("Your Safe");
-    expect(html).toContain("Silo market vault");
-    expect(html).toContain("1,200 USDC");
-  });
-
-  it("groups actions, harmless notes, and confirmations separately", () => {
-    const html = render();
-
-    expect(html).toContain("Check before signing");
+    expect(html).toContain("Who you&#x27;re dealing with");
+    expect(html).toContain("Who gets the money");
+    expect(html).toContain("Before you sign");
     expect(html).toContain(
       "Confirm that your team chose this specific market.",
     );
-    expect(html).toContain("Why this matters");
-    expect(html).toContain("Good to know");
-    expect(html).toContain("Not confirmed");
-    expect(html.indexOf("Not confirmed")).toBeLessThan(
-      html.indexOf("Confirmed</em>"),
-    );
+  });
+
+  it("keeps everything else behind one collapsed disclosure", () => {
+    const html = render();
+    const more = html.indexOf('<details class="brief-more">');
+
+    expect(more).toBeGreaterThan(html.indexOf("Before you sign"));
+    expect(html).not.toContain('<details class="brief-more" open');
+    for (const heading of [
+      "Where the money goes",
+      "Why each check matters",
+      "Good to know",
+      "What we confirmed, and what we could not",
+    ]) {
+      expect(html.indexOf(heading)).toBeGreaterThan(more);
+    }
+    expect(html.indexOf("Silo market vault")).toBeGreaterThan(more);
   });
 
   it("switches wording for an executed transaction", () => {
     const html = render({ executed: true });
 
-    expect(html).toContain("Worth checking now");
-    expect(html).toContain("Result of the safety check");
-    expect(html).not.toContain("Safe to sign?");
+    expect(html).toContain("What to look at");
+    expect(html).not.toContain("Before you sign");
   });
 });

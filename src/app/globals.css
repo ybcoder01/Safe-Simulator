@@ -5241,3 +5241,155 @@ select {
     grid-column: 2;
   }
 }
+
+/* Simple brief */
+.brief-rows {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.brief-row {
+  display: grid;
+  grid-template-columns: auto minmax(8rem, 12rem) minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 0.7rem;
+  background: #08130f;
+}
+
+.brief-row > span {
+  display: grid;
+  width: 1.6rem;
+  height: 1.6rem;
+  place-items: center;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  font-size: 0.85rem;
+  font-weight: 760;
+}
+
+.brief-row em {
+  color: var(--muted);
+  font-style: normal;
+}
+
+.brief-row-ok > span {
+  color: var(--green);
+}
+
+.brief-row-check > span {
+  color: #ffbe5c;
+}
+
+.brief-row-stop > span {
+  color: #ff7668;
+}
+
+.brief-row-unknown > span {
+  color: #b5c0ba;
+}
+
+.brief-todo {
+  display: grid;
+  gap: 0.5rem;
+  padding: 1rem 1.1rem;
+  border-left: 4px solid currentColor;
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.brief-todo h3,
+.brief-todo ul {
+  margin: 0;
+}
+
+.brief-todo h3 {
+  font-size: 1.05rem;
+}
+
+.brief-todo ul {
+  display: grid;
+  gap: 0.35rem;
+  padding-left: 1.1rem;
+  line-height: 1.5;
+}
+
+.brief-expected .brief-todo {
+  color: var(--green);
+}
+
+.brief-check .brief-todo {
+  color: #ffbe5c;
+}
+
+.brief-stop .brief-todo {
+  color: #ff7668;
+}
+
+.brief-unverified .brief-todo {
+  color: #b5c0ba;
+}
+
+.brief-todo li {
+  color: var(--ink);
+}
+
+.brief-more,
+.brief-alerts {
+  margin: 0 1.35rem 1.35rem;
+}
+
+.brief-alerts {
+  margin: 1rem 0 0;
+}
+
+.brief-more > summary,
+.brief-alerts > summary {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.brief-more > summary::-webkit-details-marker,
+.brief-alerts > summary::-webkit-details-marker {
+  display: none;
+}
+
+.brief-alerts > summary small {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--muted);
+}
+
+.brief-more[open] > summary > span:last-child,
+.brief-alerts[open] > summary > span:last-child {
+  transform: rotate(45deg);
+}
+
+.brief-more > .brief-group,
+.brief-more > .brief-boundary {
+  margin-top: 1.25rem;
+  padding-right: 0;
+  padding-left: 0;
+}
+
+@media (max-width: 720px) {
+  .brief-row {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .brief-row em {
+    grid-column: 2;
+  }
+}

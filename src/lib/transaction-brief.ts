@@ -27,6 +27,15 @@ export interface BriefCheckItem {
   readonly action: string;
 }
 
+export type BriefRowStatus = "ok" | "check" | "stop" | "unknown";
+
+export interface BriefRow {
+  readonly key: string;
+  readonly status: BriefRowStatus;
+  readonly label: string;
+  readonly text: string;
+}
+
 export interface BriefNote {
   readonly key: string;
   readonly normal: boolean;
@@ -67,6 +76,8 @@ export interface TransactionBrief {
   readonly verdict: BriefVerdict;
   readonly sentence: string;
   readonly effects: readonly string[];
+  readonly rows: readonly BriefRow[];
+  readonly todo: readonly string[];
   readonly checks: readonly BriefCheckItem[];
   readonly notes: readonly BriefNote[];
   readonly confirmations: readonly BriefConfirmation[];
@@ -76,17 +87,26 @@ const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const MAX_LISTED_AMOUNTS = 3;
 
 const PENDING_LABELS: Readonly<Record<BriefVerdictId, string>> = {
-  expected: "Matches what you'd expect",
-  check: "Needs a check",
-  stop: "Do not sign yet",
-  unverified: "Couldn't be checked yet",
+  expected: "Looks normal",
+  check: "Check before you sign",
+  stop: "Stop. Don't sign yet",
+  unverified: "We couldn't check this yet",
 };
 
 const EXECUTED_LABELS: Readonly<Record<BriefVerdictId, string>> = {
-  expected: "Went through as expected",
-  check: "Went through, but worth a check",
-  stop: "Went through, investigate now",
-  unverified: "Went through, couldn't be fully checked",
+  expected: "Went through. Looks normal",
+  check: "Went through. Worth a look",
+  stop: "Went through. Look into this now",
+  unverified: "Went through. We couldn't fully check it",
+};
+
+const MAX_TODO = 2;
+
+const ROW_LABELS: Readonly<Record<string, string>> = {
+  identity: "Who you're dealing with",
+  recipient: "Who gets the money",
+  permissions: "What it can access",
+  simulation: "Test run",
 };
 
 function plural(count: number, one: string, many: string): string {
@@ -129,18 +149,14 @@ function resolveVerdict(
       return {
         id: "expected",
         label: labels.expected,
-        reason: executed
-          ? "The checks we could run found no known risks. Compare the amounts and recipients below with what your team intended."
-          : "The checks we could run found no known risks. Still compare the amount and recipient with the original request.",
+        reason: "We found nothing unusual.",
       };
     case "blocked": {
       const critical = checks.find((item) => item.severity === "critical");
       return {
         id: "stop",
         label: labels.stop,
-        reason: critical
-          ? `${critical.title}. ${critical.action}`
-          : input.signalDetail,
+        reason: critical ? `${critical.title}.` : input.signalDetail,
       };
     }
     case "review": {
@@ -150,17 +166,51 @@ function resolveVerdict(
         label: labels.check,
         reason:
           count > 0
-            ? `${count} ${plural(count, "thing", "things")} to confirm${executed ? "" : " before you sign"}. ${plural(count, "It is a check", "These are checks")} we could not finish, not ${plural(count, "a sign", "signs")} that funds are lost.`
-            : input.signalDetail,
+            ? `We couldn't confirm ${count} ${plural(count, "thing", "things")}.`
+            : "We couldn't confirm everything.",
       };
     }
     case "unknown":
       return {
         id: "unverified",
         label: labels.unverified,
-        reason: input.signalDetail,
+        reason: "We don't have enough information to check it.",
       };
   }
+}
+
+function buildRows(
+  treasuryChecks: readonly TreasuryReviewCheck[],
+): readonly BriefRow[] {
+  return treasuryChecks
+    .filter((check) => check.key in ROW_LABELS)
+    .map((check) => ({
+      key: check.key,
+      label: ROW_LABELS[check.key] ?? check.label,
+      text: check.title,
+      status:
+        check.status === "pass"
+          ? ("ok" as const)
+          : check.status === "block"
+            ? ("stop" as const)
+            : check.status === "unknown"
+              ? ("unknown" as const)
+              : ("check" as const),
+    }));
+}
+
+function buildTodo(
+  input: TransactionBriefInput,
+  checks: readonly BriefCheckItem[],
+): readonly string[] {
+  if (checks.length === 0) {
+    return [
+      input.status === "executed"
+        ? "Compare the amount and who got it with what your team intended."
+        : "Compare the amount and who gets it with what was requested.",
+    ];
+  }
+  return [...new Set(checks.map((item) => item.action))].slice(0, MAX_TODO);
 }
 
 function describeEffects(input: TransactionBriefInput): {
@@ -308,6 +358,8 @@ export function buildTransactionBrief(
   return {
     verdict: resolveVerdict(input, checks),
     ...describeEffects(input),
+    rows: buildRows(input.treasuryChecks),
+    todo: buildTodo(input, checks),
     checks,
     notes,
     confirmations: buildConfirmations(input.routeChecks, input.treasuryChecks),

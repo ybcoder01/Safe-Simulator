@@ -96,6 +96,8 @@ export function TransactionBriefPanel({
   const { verdict } = brief;
   const shownFlow = flow.slice(0, MAX_FLOW_ROWS);
 
+  const ROW_ICONS = { ok: "✓", check: "!", stop: "×", unknown: "?" } as const;
+
   return (
     <section
       aria-labelledby="brief-sentence"
@@ -106,9 +108,6 @@ export function TransactionBriefPanel({
           {ICONS[verdict.id]}
         </span>
         <div>
-          <p className="eyebrow">
-            {executed ? "Result of the safety check" : "Safe to sign?"}
-          </p>
           <h2>{verdict.label}</h2>
           <p>{verdict.reason}</p>
         </div>
@@ -118,130 +117,152 @@ export function TransactionBriefPanel({
       </div>
 
       <div className="brief-body">
-        <p className="eyebrow">In plain words</p>
         <p className="brief-sentence" id="brief-sentence">
           {brief.sentence}
         </p>
 
-        {shownFlow.length > 0 ? (
-          <div className="brief-flow" aria-label="Where the money goes">
-            {shownFlow.map((row) => (
-              <div
-                className={`brief-flow-row brief-flow-${row.direction}`}
-                key={row.key}
-              >
-                <FlowNode
-                  address={row.from}
-                  addressBook={addressBook}
-                  chainId={chainId}
-                  knownLabels={knownLabels}
-                  safeAddress={safeAddress}
-                />
-                <div className="brief-flow-arrow">
-                  <strong>
-                    {row.amount ? `${row.amount} ` : ""}
-                    {row.symbol ?? "tokens"}
-                  </strong>
-                  <span aria-hidden="true">→</span>
-                </div>
-                <FlowNode
-                  address={row.to}
-                  addressBook={addressBook}
-                  chainId={chainId}
-                  knownLabels={knownLabels}
-                  safeAddress={safeAddress}
-                />
-              </div>
+        {brief.rows.length > 0 ? (
+          <ul className="brief-rows">
+            {brief.rows.map((row) => (
+              <li className={`brief-row brief-row-${row.status}`} key={row.key}>
+                <span aria-hidden="true">{ROW_ICONS[row.status]}</span>
+                <strong>{row.label}</strong>
+                <em>{row.text}</em>
+              </li>
             ))}
-            {totalMovements > shownFlow.length ? (
-              <p className="brief-flow-more">
-                {totalMovements - shownFlow.length} more{" "}
-                {totalMovements - shownFlow.length === 1
-                  ? "movement is"
-                  : "movements are"}{" "}
-                listed in the technical details.
-              </p>
-            ) : null}
+          </ul>
+        ) : null}
+
+        <div className="brief-todo">
+          <h3>{executed ? "What to look at" : "Before you sign"}</h3>
+          <ul>
+            {brief.todo.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      <details className="brief-more">
+        <summary>
+          <span>See the full detail</span>
+          <span aria-hidden="true">+</span>
+        </summary>
+
+        {shownFlow.length > 0 ? (
+          <div className="brief-group">
+            <h3>Where the money goes</h3>
+            <div className="brief-flow">
+              {shownFlow.map((row) => (
+                <div
+                  className={`brief-flow-row brief-flow-${row.direction}`}
+                  key={row.key}
+                >
+                  <FlowNode
+                    address={row.from}
+                    addressBook={addressBook}
+                    chainId={chainId}
+                    knownLabels={knownLabels}
+                    safeAddress={safeAddress}
+                  />
+                  <div className="brief-flow-arrow">
+                    <strong>
+                      {row.amount ? `${row.amount} ` : ""}
+                      {row.symbol ?? "tokens"}
+                    </strong>
+                    <span aria-hidden="true">→</span>
+                  </div>
+                  <FlowNode
+                    address={row.to}
+                    addressBook={addressBook}
+                    chainId={chainId}
+                    knownLabels={knownLabels}
+                    safeAddress={safeAddress}
+                  />
+                </div>
+              ))}
+              {totalMovements > shownFlow.length ? (
+                <p className="brief-flow-more">
+                  {totalMovements - shownFlow.length} more{" "}
+                  {totalMovements - shownFlow.length === 1
+                    ? "movement is"
+                    : "movements are"}{" "}
+                  listed in the technical details.
+                </p>
+              ) : null}
+            </div>
+            <ul className="brief-effects">
+              {brief.effects.map((effect) => (
+                <li key={effect}>{effect}</li>
+              ))}
+            </ul>
           </div>
         ) : null}
 
-        <ul className="brief-effects">
-          {brief.effects.map((effect) => (
-            <li key={effect}>{effect}</li>
-          ))}
-        </ul>
-      </div>
-
-      {brief.checks.length > 0 ? (
-        <div className="brief-group">
-          <h3>{executed ? "Worth checking now" : "Check before signing"}</h3>
-          <ol className="brief-checks">
-            {brief.checks.map((check) => (
-              <li
-                className={`brief-check brief-check-${check.severity}`}
-                key={check.key}
-              >
-                <strong>{check.title}</strong>
-                <p>
-                  <span>What to do:</span> {check.action}
-                </p>
-                <details>
-                  <summary>Why this matters</summary>
+        {brief.checks.length > 0 ? (
+          <div className="brief-group">
+            <h3>Why each check matters</h3>
+            <ol className="brief-checks">
+              {brief.checks.map((check) => (
+                <li
+                  className={`brief-check brief-check-${check.severity}`}
+                  key={check.key}
+                >
+                  <strong>{check.title}</strong>
                   <p>{check.why}</p>
-                </details>
-              </li>
-            ))}
-          </ol>
-        </div>
-      ) : null}
+                </li>
+              ))}
+            </ol>
+          </div>
+        ) : null}
 
-      {brief.notes.length > 0 ? (
-        <div className="brief-group">
-          <h3>Good to know</h3>
-          <ul className="brief-notes">
-            {brief.notes.map((note) => (
-              <li key={note.key}>
-                <span aria-hidden="true">{note.normal ? "✓" : "i"}</span>
-                <div>
-                  <strong>{note.title}</strong>
-                  <p>{note.text}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
+        {brief.notes.length > 0 ? (
+          <div className="brief-group">
+            <h3>Good to know</h3>
+            <ul className="brief-notes">
+              {brief.notes.map((note) => (
+                <li key={note.key}>
+                  <span aria-hidden="true">{note.normal ? "✓" : "i"}</span>
+                  <div>
+                    <strong>{note.title}</strong>
+                    <p>{note.text}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
 
-      {brief.confirmations.length > 0 ? (
-        <div className="brief-group">
-          <h3>What we confirmed, and what we could not</h3>
-          <ul className="brief-confirmations">
-            {brief.confirmations.map((row) => (
-              <li
-                className={
-                  row.confirmed ? "brief-confirmed" : "brief-not-confirmed"
-                }
-                key={row.key}
-              >
-                <span aria-hidden="true">{row.confirmed ? "✓" : "!"}</span>
-                <div>
-                  <strong>{row.label}</strong>
-                  <p>{row.text}</p>
-                </div>
-                <em>{row.confirmed ? "Confirmed" : "Not confirmed"}</em>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
+        {brief.confirmations.length > 0 ? (
+          <div className="brief-group">
+            <h3>What we confirmed, and what we could not</h3>
+            <ul className="brief-confirmations">
+              {brief.confirmations.map((row) => (
+                <li
+                  className={
+                    row.confirmed ? "brief-confirmed" : "brief-not-confirmed"
+                  }
+                  key={row.key}
+                >
+                  <span aria-hidden="true">{row.confirmed ? "✓" : "!"}</span>
+                  <div>
+                    <strong>{row.label}</strong>
+                    <p>{row.text}</p>
+                  </div>
+                  <em>{row.confirmed ? "Confirmed" : "Not confirmed"}</em>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
 
-      {children}
+        {children}
 
-      <p className="brief-boundary">
-        Safe Inspector is read-only: it cannot sign or run anything. This is
-        evidence-based guidance, not a guarantee. Compare the full recipient and
-        amount with the original request before you approve.
-      </p>
+        <p className="brief-boundary">
+          Safe Inspector is read-only: it cannot sign or run anything. This is
+          evidence-based guidance, not a guarantee.
+        </p>
+      </details>
     </section>
   );
 }
