@@ -173,6 +173,34 @@ describe("PublicAbiAdapter", () => {
     );
   });
 
+  it("resolves the target of an EIP-1167 minimal proxy clone from its bytecode", async () => {
+    const cloneCode = (to: Address) =>
+      `0x363d3d373d3d3d363d73${to.slice(2).toLowerCase()}5af43d82803e903d91602b57fd5bf3` as Hex;
+    const getCode = vi.fn(async (_chainId: number, address: Address) =>
+      address === target ? cloneCode(implementation) : ("0x6000" as Hex),
+    );
+    const adapter = new PublicAbiAdapter(makeChain({ getCode }));
+
+    await expect(
+      adapter.resolveImplementationChain(50, target),
+    ).resolves.toEqual([implementation]);
+  });
+
+  it("does not treat lookalike or malformed clone bytecode as a proxy", async () => {
+    const malformed =
+      `0x363d3d373d3d3d363d73${implementation.slice(2)}5af43d82803e903d91602b57fd5bf4` as Hex;
+    const withTrailingData =
+      `0x363d3d373d3d3d363d73${implementation.slice(2)}5af43d82803e903d91602b57fd5bf3aa` as Hex;
+    for (const code of [malformed, withTrailingData]) {
+      const adapter = new PublicAbiAdapter(
+        makeChain({ getCode: vi.fn().mockResolvedValue(code) }),
+      );
+      await expect(
+        adapter.resolveImplementationChain(50, target),
+      ).resolves.toEqual([]);
+    }
+  });
+
   it("anchors proxy storage and code reads to the supplied block", async () => {
     const storage = vi.fn(
       async (_chainId: number, address: Address, slot: Hex) =>
