@@ -460,10 +460,6 @@ export default async function TransactionDetailPage({
   for (const item of routeAttestation.addresses) {
     briefLabels[item.address.toLowerCase()] = item.label;
   }
-  if (targetRegistryEntry) {
-    briefLabels[persisted.to.toLowerCase()] =
-      insight.metadata.label ?? targetRegistryEntry.label;
-  }
   const brief = buildTransactionBrief({
     signal: reviewPresentation.signal,
     signalDetail: reviewPresentation.detail,

@@ -70,7 +70,7 @@ function FlowNode({
   const label = knownLabels[key] ?? null;
   return (
     <div className="brief-node">
-      {label ? <strong>{label}</strong> : <strong>Another address</strong>}
+      {label ? <strong>{label}</strong> : null}
       <AddressIdentity
         address={address}
         addressBook={addressBook}
