@@ -133,7 +133,6 @@ describe("buildStageTimeline", () => {
 
     expect(entries.map((entry) => entry.key)).toEqual([
       "pending:1",
-      "pending:2",
       "executed",
     ]);
     expect(entries[0]).toMatchObject({
@@ -143,11 +142,31 @@ describe("buildStageTimeline", () => {
     expect(entries[0]?.stage.label).toBe(
       "Waiting for the last signature (1 of 2 signed)",
     );
-    expect(entries[2]).toMatchObject({
+    expect(entries[1]).toMatchObject({
       current: true,
       alert: null,
       at: secondSignatureAt,
     });
+  });
+
+  it("still shows the ready stage when an alert was sent at it", () => {
+    const readyReceipt: AlertTimelineReceipt = {
+      ...preSignReceipt,
+      verificationId: "c".repeat(32),
+      issuedAt: secondSignatureAt + 2,
+      signatureCount: 2,
+    };
+    const entries = buildStageTimeline({
+      transaction: transaction(),
+      threshold: 2,
+      receipts: [preSignReceipt, readyReceipt],
+    });
+    expect(entries.map((entry) => entry.key)).toEqual([
+      "pending:1",
+      "pending:2",
+      "executed",
+    ]);
+    expect(entries[1]?.alert).toBe(readyReceipt);
   });
 
   it("attaches a later executed alert to the executed stage without moving the earlier one", () => {

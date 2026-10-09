@@ -187,6 +187,9 @@ export function buildStageTimeline(input: {
   );
   signed.forEach((confirmation, index) => {
     const count = index + 1;
+    const submittedWithExecution =
+      transaction.status !== "pending" && count === signed.length;
+    if (submittedWithExecution && count >= threshold) return;
     entries.set(entryKey("pending", count), {
       stage: resolveAlertStage({
         status: "pending",

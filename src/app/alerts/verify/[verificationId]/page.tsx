@@ -25,7 +25,7 @@ export const metadata: Metadata = {
 function formatTimestamp(timestamp: number): string {
   return new Intl.DateTimeFormat("en", {
     dateStyle: "medium",
-    timeStyle: "long",
+    timeStyle: "medium",
     timeZone: "UTC",
   }).format(new Date(timestamp * 1_000));
 }
@@ -103,7 +103,7 @@ export default async function AlertVerificationPage({ params }: PageProps) {
             </div>
 
             <dl className="alert-receipt-details">
-              <div>
+              <div className="alert-receipt-wide">
                 <dt>Safety result at alert time</dt>
                 <dd>{alertVerdictLabel(payload.verdict, payload.status)}</dd>
               </div>
