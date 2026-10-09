@@ -33,7 +33,12 @@ const brief: TransactionBrief = {
     },
   ],
   notes: [
-    { key: "n", title: "Normal Safe wallet behavior", text: "Nothing to do." },
+    {
+      key: "n",
+      normal: true,
+      title: "Normal Safe wallet behavior",
+      text: "Nothing to do.",
+    },
   ],
   confirmations: [
     {
@@ -100,7 +105,7 @@ describe("TransactionBriefPanel", () => {
       "Confirm that your team chose this specific market.",
     );
     expect(html).toContain("Why this matters");
-    expect(html).toContain("Fine, for your information");
+    expect(html).toContain("Good to know");
     expect(html).toContain("Not confirmed");
     expect(html.indexOf("Not confirmed")).toBeLessThan(
       html.indexOf("Confirmed</em>"),

@@ -29,6 +29,7 @@ export interface BriefCheckItem {
 
 export interface BriefNote {
   readonly key: string;
+  readonly normal: boolean;
   readonly title: string;
   readonly text: string;
 }
@@ -195,9 +196,7 @@ function describeEffects(input: TransactionBriefInput): {
   }
 
   const effects: string[] = [];
-  if (money.length > 0) {
-    effects.push(...money.map((item) => `Your Safe ${item}.`));
-  } else {
+  if (money.length === 0) {
     effects.push(
       executed
         ? "No tokens moved in or out of your Safe."
@@ -292,7 +291,16 @@ export function buildTransactionBrief(
         .filter((finding) => finding.severity === "info")
         .map((finding) => {
           const note = findingNote(finding);
-          return [note.title, { key: finding.code, ...note }] as const;
+          return [
+            note.title,
+            {
+              key: finding.code,
+              normal:
+                finding.code.startsWith("expected-") ||
+                finding.code === "silo-approved-market",
+              ...note,
+            },
+          ] as const;
         }),
     ).values(),
   ];

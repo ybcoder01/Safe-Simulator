@@ -62,7 +62,10 @@ describe("buildTransactionBrief", () => {
     expect(brief.sentence).toBe(
       "Your Safe receives 1,200 USDC and turns in 1,198 sUSDC.",
     );
-    expect(brief.effects).toContain("No spending permissions change.");
+    expect(brief.effects).toEqual([
+      "No spending permissions change.",
+      "Owners and security settings stay the same.",
+    ]);
     expect(brief.effects).toContain(
       "Owners and security settings stay the same.",
     );

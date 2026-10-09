@@ -197,11 +197,11 @@ export function TransactionBriefPanel({
 
       {brief.notes.length > 0 ? (
         <div className="brief-group">
-          <h3>Fine, for your information</h3>
+          <h3>Good to know</h3>
           <ul className="brief-notes">
             {brief.notes.map((note) => (
               <li key={note.key}>
-                <span aria-hidden="true">✓</span>
+                <span aria-hidden="true">{note.normal ? "✓" : "i"}</span>
                 <div>
                   <strong>{note.title}</strong>
                   <p>{note.text}</p>
