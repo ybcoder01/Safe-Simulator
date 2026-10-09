@@ -68,3 +68,18 @@ export function resolveTokenPresentation(
     known: identity.known,
   };
 }
+
+export function movementDirectionLabel(
+  direction: "inbound" | "outbound" | "self" | "external",
+): string {
+  switch (direction) {
+    case "outbound":
+      return "Left this Safe";
+    case "inbound":
+      return "Received by this Safe";
+    case "self":
+      return "Stayed inside this Safe";
+    case "external":
+      return "Moved between other contracts";
+  }
+}

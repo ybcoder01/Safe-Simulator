@@ -13,6 +13,10 @@ import {
 import { AddressBookEditor } from "@/components/safes/address-book-editor";
 import { ReviewQueueProgress } from "@/components/safes/review-queue-progress";
 import { TransactionReviewWorkflow } from "@/components/safes/transaction-review-workflow";
+import {
+  TransactionBriefPanel,
+  type BriefFlowRow,
+} from "@/components/safes/transaction-brief";
 import { TransactionSafetyOverview } from "@/components/safes/transaction-safety-overview";
 import {
   TransactionSummaryDialog,
@@ -20,6 +24,7 @@ import {
 } from "@/components/safes/transaction-summary-dialog";
 import { AddressIdentity } from "@/components/shared/address-identity";
 import { CopyIdentifierButton } from "@/components/shared/copy-identifier-button";
+import { AlertStageTimeline } from "@/components/shared/alert-stage-timeline";
 import { EvidenceFindings } from "@/components/shared/evidence-findings";
 import { EvidenceRefreshButton } from "@/components/shared/evidence-refresh-button";
 import { TokenIdentity } from "@/components/shared/token-identity";
@@ -47,6 +52,17 @@ import { resolveProtocolRouteAttestation } from "@/lib/api/protocol-route-attest
 import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
 import { resolveStorageChangeAnalysis } from "@/lib/api/storage-changes";
 import { resolveTokenBalanceChanges } from "@/lib/api/token-balance-changes";
+import { plainAlertFindingCode } from "@/lib/api/telegram-alerts";
+import { verifyTelegramAlertReceipt } from "@/lib/api/telegram-alert-receipts";
+import {
+  movementDirectionLabel,
+  resolveTokenPresentation,
+} from "@/lib/api/token-presentation";
+import {
+  buildStageTimeline,
+  currentStageFromTransaction,
+} from "@/lib/alert-stage";
+import { buildTransactionBrief } from "@/lib/transaction-brief";
 import { resolveTargetRuntimeCodeEvidence } from "@/lib/api/transaction-analysis";
 import { resolveExecutionTokenMetadata } from "@/lib/api/token-metadata";
 import { explorerTransactionUrl } from "@/lib/explorer-links";
@@ -158,6 +174,32 @@ export default async function TransactionDetailPage({
     persistence.listTransactions(safe.data, null, 250).catch(() => null),
     persistence.listTransfers(safe.data, null, 250).catch(() => null),
   ]);
+  const alertReceipts = profileId
+    ? await persistence
+        .listTelegramAlertReceipts(profileId, safe.data, hash.data)
+        .catch(() => [])
+    : [];
+  const authenticAlertReceipts = alertReceipts.filter((receipt) =>
+    verifyTelegramAlertReceipt(receipt),
+  );
+  const alertTimeline =
+    authenticAlertReceipts.length > 0
+      ? buildStageTimeline({
+          transaction: persisted,
+          threshold:
+            authenticAlertReceipts[0]?.payload.threshold ??
+            currentSafe.threshold,
+          receipts: authenticAlertReceipts.map(({ payload }) => ({
+            verificationId: payload.verificationId,
+            issuedAt: payload.issuedAt,
+            status: payload.status,
+            signatureCount: payload.signerAddresses.length,
+            threshold: payload.threshold,
+            verdict: payload.verdict,
+            findingCodes: payload.findingCodes,
+          })),
+        })
+      : [];
   const lifecycleStatus = transactionLifecycleStatus(
     transaction,
     currentSafe.nonce.toString(),
@@ -387,6 +429,56 @@ export default async function TransactionDetailPage({
     transferHistoryLoaded: transferHistoryPage !== null,
     transaction: persisted,
   });
+  const briefMovements = [...execution.tokenMovements]
+    .sort(
+      (a, b) =>
+        Number(b.direction === "inbound" || b.direction === "outbound") -
+        Number(a.direction === "inbound" || a.direction === "outbound"),
+    )
+    .map((movement) => {
+      const metadata = tokenMetadataByAddress.get(movement.token.toLowerCase());
+      return {
+        key: ["brief", movement.logIndex, movement.token].join(":"),
+        direction: movement.direction,
+        from: movement.from,
+        to: movement.to,
+        amount: formatTokenAmount(movement.amount, metadata?.decimals ?? null),
+        symbol: resolveTokenPresentation(
+          safe.data.chainId,
+          movement.token,
+          metadata?.symbol ?? null,
+        ).symbol,
+      };
+    });
+  const briefFlow: readonly BriefFlowRow[] = briefMovements;
+  const briefLabels: Record<string, string> = {};
+  for (const assessment of verdict.addresses) {
+    if (assessment.label) {
+      briefLabels[assessment.address.toLowerCase()] = assessment.label;
+    }
+  }
+  for (const item of routeAttestation.addresses) {
+    briefLabels[item.address.toLowerCase()] = item.label;
+  }
+  const brief = buildTransactionBrief({
+    signal: reviewPresentation.signal,
+    signalDetail: reviewPresentation.detail,
+    status: persisted.status,
+    safeAddress: persisted.safe.address,
+    movements: briefMovements,
+    infiniteApproval: infiniteAuthorization,
+    approvalChangeCount:
+      approvalRisk.requests.length + approvalRisk.executedChanges.length,
+    configChangeCount: execution.safeConfigurationChanges.length,
+    findings: userFacingFindings,
+    evidenceFindings: verdict.findings,
+    routeChecks: routeAttestation.checks,
+    treasuryChecks,
+  });
+  const currentStage = currentStageFromTransaction(
+    persisted,
+    currentSafe.threshold,
+  );
   let initialSummary: SummaryView | null = null;
   if (profileId) {
     const summaryEvidence = buildTransactionSummaryEvidence({
@@ -499,267 +591,330 @@ export default async function TransactionDetailPage({
           </section>
         ) : null}
 
-        <TransactionSafetyOverview
+        <TransactionBriefPanel
           addressBook={addressBook}
+          brief={brief}
           chainId={safe.data.chainId}
-          presentation={reviewPresentation}
-          protocolLabel={protocolLabel}
-          protocolLogoKey={targetRegistryEntry?.logoKey ?? null}
-          routeAttestation={routeAttestation}
-          targetAddress={persisted.to}
-          targetLabel={
-            insight.metadata.label ?? targetRegistryEntry?.label ?? null
-          }
-          targetTokenSymbol={targetTokenEntry?.symbol ?? null}
-          treasuryChecks={treasuryChecks}
-          treasuryFocus={treasuryReviewFocus(activity.type)}
-        />
-
-        <section
-          className="detail-panel transaction-impact-summary"
-          aria-labelledby="transaction-impact-title"
+          executed={persisted.status === "executed"}
+          flow={briefFlow}
+          knownLabels={briefLabels}
+          safeAddress={persisted.safe.address}
+          stage={currentStage}
+          totalMovements={briefMovements.length}
         >
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">What will happen</p>
-              <h2 id="transaction-impact-title">Transaction summary</h2>
-            </div>
-            <span>
-              {criticalFindingCount > 0
-                ? criticalFindingCount + " critical"
-                : warningFindingCount > 0
-                  ? warningFindingCount + " warnings"
-                  : "No material warning"}
-            </span>
-          </div>
-          <div className="panel-empty">
-            Start here. These are the changes Safe Inspector could identify from
-            the transaction and the available blockchain evidence.
-          </div>
-          <div className="detail-grid">
-            <div>
-              <span>Main action</span>
-              <strong>{primaryAction}</strong>
-            </div>
-            <div>
-              <span>Tokens moved</span>
-              <strong>
-                {execution.tokenMovements.length === 0
-                  ? "No token transfers found"
-                  : `${execution.tokenMovements.length} token ${execution.tokenMovements.length === 1 ? "transfer" : "transfers"}`}
-              </strong>
-            </div>
-            <div>
-              <span>Spending permissions</span>
-              <strong>
-                {infiniteAuthorization
-                  ? "Unlimited spending permission requested"
-                  : approvalRisk.requests.length === 0 &&
-                      approvalRisk.executedChanges.length === 0
-                    ? "No spending permission change found"
-                    : `${approvalRisk.requests.length + approvalRisk.executedChanges.length} spending permission ${approvalRisk.requests.length + approvalRisk.executedChanges.length === 1 ? "change" : "changes"}`}
-              </strong>
-            </div>
-            <div>
-              <span>Owners and security settings</span>
-              <strong>
-                {execution.safeConfigurationChanges.length === 0
-                  ? "No changes found"
-                  : `${execution.safeConfigurationChanges.length} Safe setting ${execution.safeConfigurationChanges.length === 1 ? "change" : "changes"}`}
-              </strong>
-            </div>
-          </div>
-
-          {impactMovements.length > 0 ? (
-            <>
-              <div className="calldata">
-                <span>Who moved assets</span>
-                <strong>
-                  {execution.tokenMovements.length} receipt-proven movement
-                  {execution.tokenMovements.length === 1 ? "" : "s"}
-                </strong>
-              </div>
-              {impactMovements.map((movement) => {
-                const metadata = tokenMetadataByAddress.get(
-                  movement.token.toLowerCase(),
-                );
-                const formatted = formatTokenAmount(
-                  movement.amount,
-                  metadata?.decimals ?? null,
-                );
-
-                return (
-                  <div
-                    className="calldata"
-                    key={["impact", movement.logIndex, movement.token].join(
-                      ":",
-                    )}
-                  >
-                    <span>
-                      {movement.direction} · receipt log {movement.logIndex}
-                    </span>
-                    <TokenIdentity
-                      amount={formatted}
-                      chainId={safe.data.chainId}
-                      symbol={metadata?.symbol}
-                      token={movement.token}
-                    />
-                    {formatted === null ? (
-                      <code>Raw: {movement.amount} base units</code>
-                    ) : null}
-                    <div className="approval-party">
-                      <span>From</span>
-                      <AddressIdentity
-                        address={movement.from}
-                        addressBook={addressBook}
-                        chainId={safe.data.chainId}
-                        compact
-                      />
-                    </div>
-                    <div className="approval-party">
-                      <span>To</span>
-                      <AddressIdentity
-                        address={movement.to}
-                        addressBook={addressBook}
-                        chainId={safe.data.chainId}
-                        compact
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-              {execution.tokenMovements.length > impactMovements.length ? (
-                <div className="panel-empty">
-                  {execution.tokenMovements.length - impactMovements.length}{" "}
-                  additional movements are listed in the receipt evidence.
-                </div>
-              ) : null}
-            </>
-          ) : null}
-
-          {impactApprovals.length > 0 ? (
-            <>
-              <div className="calldata">
-                <span>Who receives permissions</span>
-                <strong>
-                  {infiniteAuthorization
-                    ? "At least one unlimited authorization"
-                    : approvalRisk.requests.length +
-                      " decoded authorization " +
-                      (approvalRisk.requests.length === 1
-                        ? "request"
-                        : "requests")}
-                </strong>
-              </div>
-              {impactApprovals.map((approval, index) => {
-                const metadata = approval.token
-                  ? tokenMetadataByAddress.get(approval.token.toLowerCase())
-                  : null;
-                const formatted =
-                  approval.amount === null
-                    ? null
-                    : formatTokenAmount(
-                        approval.amount,
-                        metadata?.decimals ?? null,
-                      );
-
-                return (
-                  <div
-                    className="calldata"
-                    key={["impact-approval", index, approval.target].join(":")}
-                  >
-                    <span>
-                      {approval.standard} · {approval.method}
-                    </span>
-                    <strong>
-                      {approval.infinite
-                        ? "Unlimited authorization requested"
-                        : formatted
-                          ? formatted +
-                            (metadata?.symbol ? " " + metadata.symbol : "") +
-                            " requested"
-                          : "Authorization change requested"}
-                    </strong>
-                    {approval.spender ? (
-                      <div className="approval-party">
-                        <span>Spender or operator</span>
-                        <AddressIdentity
-                          address={approval.spender}
-                          addressBook={addressBook}
-                          chainId={safe.data.chainId}
-                          compact
-                        />
-                      </div>
-                    ) : (
-                      <code>Spender cannot be established from this call.</code>
-                    )}
-                  </div>
-                );
-              })}
-            </>
-          ) : null}
-
-          {impactConfigurationChanges.length > 0 ? (
-            <div className="calldata">
-              <span>Safe control changes</span>
-              {impactConfigurationChanges.map((change) => (
-                <strong
-                  key={[
-                    "impact-safe-change",
-                    change.logIndex,
-                    change.field,
-                  ].join(":")}
-                >
-                  {change.field}: {change.before ?? "unknown"} →{" "}
-                  {change.after ?? "not configured"}
-                </strong>
-              ))}
-            </div>
-          ) : null}
-
-          {criticalFindingCount > 0 || warningFindingCount > 0 ? (
-            <div className="calldata">
-              <span>Why this needs review</span>
-              {userFacingFindings.slice(0, 3).map((finding) => (
-                <strong key={"impact-finding-" + finding.code}>
-                  {finding.severity}: {finding.title}
-                </strong>
-              ))}
-            </div>
-          ) : null}
-
-          <nav
-            className="identifier-actions"
-            aria-label="Technical transaction evidence"
-          >
-            <a className="text-link" href="#technical-details">
-              Technical evidence is available below
-            </a>
-          </nav>
-        </section>
-
-        <section className="detail-panel">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">Important checks</p>
-              <h2>
-                {criticalFindingCount > 0 || warningFindingCount > 0
-                  ? "Review these warnings"
-                  : "What we checked"}
-              </h2>
-            </div>
-            <span>
-              {criticalFindingCount + warningFindingCount} requiring attention
-            </span>
-          </div>
           {profileId ? (
             <TransactionSummaryDialog
               endpoint={`/api/v1/safes/${safe.data.chainId}/${safe.data.address}/tx/${hash.data}/summary`}
               initialSummary={initialSummary}
             />
           ) : null}
-          <EvidenceFindings findings={userFacingFindings} />
-        </section>
+          <details className="brief-full-details">
+            <summary>
+              <span>
+                <strong>Full safety checklist and detailed summary</strong>
+                <small>
+                  The complete treasury checklist, contract route checks, and
+                  every warning with its guidance.
+                </small>
+              </span>
+              <span aria-hidden="true">+</span>
+            </summary>
+            <TransactionSafetyOverview
+              addressBook={addressBook}
+              chainId={safe.data.chainId}
+              presentation={reviewPresentation}
+              protocolLabel={protocolLabel}
+              protocolLogoKey={targetRegistryEntry?.logoKey ?? null}
+              routeAttestation={routeAttestation}
+              targetAddress={persisted.to}
+              targetLabel={
+                insight.metadata.label ?? targetRegistryEntry?.label ?? null
+              }
+              targetTokenSymbol={targetTokenEntry?.symbol ?? null}
+              treasuryChecks={treasuryChecks}
+              treasuryFocus={treasuryReviewFocus(activity.type)}
+            />
+
+            <section
+              className="detail-panel transaction-impact-summary"
+              aria-labelledby="transaction-impact-title"
+            >
+              <div className="panel-heading">
+                <div>
+                  <p className="eyebrow">What will happen</p>
+                  <h2 id="transaction-impact-title">Transaction summary</h2>
+                </div>
+                <span>
+                  {criticalFindingCount > 0
+                    ? criticalFindingCount + " critical"
+                    : warningFindingCount > 0
+                      ? warningFindingCount + " warnings"
+                      : "No material warning"}
+                </span>
+              </div>
+              <div className="panel-empty">
+                Start here. These are the changes Safe Inspector could identify
+                from the transaction and the available blockchain evidence.
+              </div>
+              <div className="detail-grid">
+                <div>
+                  <span>Main action</span>
+                  <strong>{primaryAction}</strong>
+                </div>
+                <div>
+                  <span>Tokens moved</span>
+                  <strong>
+                    {execution.tokenMovements.length === 0
+                      ? "No token transfers found"
+                      : `${execution.tokenMovements.length} token ${execution.tokenMovements.length === 1 ? "transfer" : "transfers"}`}
+                  </strong>
+                </div>
+                <div>
+                  <span>Spending permissions</span>
+                  <strong>
+                    {infiniteAuthorization
+                      ? "Unlimited spending permission requested"
+                      : approvalRisk.requests.length === 0 &&
+                          approvalRisk.executedChanges.length === 0
+                        ? "No spending permission change found"
+                        : `${approvalRisk.requests.length + approvalRisk.executedChanges.length} spending permission ${approvalRisk.requests.length + approvalRisk.executedChanges.length === 1 ? "change" : "changes"}`}
+                  </strong>
+                </div>
+                <div>
+                  <span>Owners and security settings</span>
+                  <strong>
+                    {execution.safeConfigurationChanges.length === 0
+                      ? "No changes found"
+                      : `${execution.safeConfigurationChanges.length} Safe setting ${execution.safeConfigurationChanges.length === 1 ? "change" : "changes"}`}
+                  </strong>
+                </div>
+              </div>
+
+              {impactMovements.length > 0 ? (
+                <>
+                  <div className="calldata">
+                    <span>Who moved assets</span>
+                    <strong>
+                      {execution.tokenMovements.length} token movement
+                      {execution.tokenMovements.length === 1 ? "" : "s"}{" "}
+                      confirmed on-chain
+                    </strong>
+                  </div>
+                  {impactMovements.map((movement) => {
+                    const metadata = tokenMetadataByAddress.get(
+                      movement.token.toLowerCase(),
+                    );
+                    const formatted = formatTokenAmount(
+                      movement.amount,
+                      metadata?.decimals ?? null,
+                    );
+
+                    return (
+                      <div
+                        className="calldata"
+                        key={["impact", movement.logIndex, movement.token].join(
+                          ":",
+                        )}
+                      >
+                        <span>
+                          {movementDirectionLabel(movement.direction)}
+                        </span>
+                        <TokenIdentity
+                          amount={formatted}
+                          chainId={safe.data.chainId}
+                          symbol={metadata?.symbol}
+                          token={movement.token}
+                          verifiedLabel={
+                            routeAttestation.addresses.find(
+                              (item) =>
+                                item.address.toLowerCase() ===
+                                movement.token.toLowerCase(),
+                            )?.label ?? null
+                          }
+                        />
+                        {formatted === null ? (
+                          <code>Raw: {movement.amount} base units</code>
+                        ) : null}
+                        <div className="approval-party">
+                          <span>From</span>
+                          <AddressIdentity
+                            address={movement.from}
+                            addressBook={addressBook}
+                            chainId={safe.data.chainId}
+                            compact
+                          />
+                        </div>
+                        <div className="approval-party">
+                          <span>To</span>
+                          <AddressIdentity
+                            address={movement.to}
+                            addressBook={addressBook}
+                            chainId={safe.data.chainId}
+                            compact
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {execution.tokenMovements.length > impactMovements.length ? (
+                    <div className="panel-empty">
+                      {execution.tokenMovements.length - impactMovements.length}{" "}
+                      additional movements are listed in the receipt evidence.
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
+
+              {impactApprovals.length > 0 ? (
+                <>
+                  <div className="calldata">
+                    <span>Who receives permissions</span>
+                    <strong>
+                      {infiniteAuthorization
+                        ? "At least one unlimited authorization"
+                        : approvalRisk.requests.length +
+                          " decoded authorization " +
+                          (approvalRisk.requests.length === 1
+                            ? "request"
+                            : "requests")}
+                    </strong>
+                  </div>
+                  {impactApprovals.map((approval, index) => {
+                    const metadata = approval.token
+                      ? tokenMetadataByAddress.get(approval.token.toLowerCase())
+                      : null;
+                    const formatted =
+                      approval.amount === null
+                        ? null
+                        : formatTokenAmount(
+                            approval.amount,
+                            metadata?.decimals ?? null,
+                          );
+
+                    return (
+                      <div
+                        className="calldata"
+                        key={["impact-approval", index, approval.target].join(
+                          ":",
+                        )}
+                      >
+                        <span>
+                          {approval.standard} · {approval.method}
+                        </span>
+                        <strong>
+                          {approval.infinite
+                            ? "Unlimited authorization requested"
+                            : formatted
+                              ? formatted +
+                                (metadata?.symbol
+                                  ? " " + metadata.symbol
+                                  : "") +
+                                " requested"
+                              : "Authorization change requested"}
+                        </strong>
+                        {approval.spender ? (
+                          <div className="approval-party">
+                            <span>Spender or operator</span>
+                            <AddressIdentity
+                              address={approval.spender}
+                              addressBook={addressBook}
+                              chainId={safe.data.chainId}
+                              compact
+                            />
+                          </div>
+                        ) : (
+                          <code>
+                            Spender cannot be established from this call.
+                          </code>
+                        )}
+                      </div>
+                    );
+                  })}
+                </>
+              ) : null}
+
+              {impactConfigurationChanges.length > 0 ? (
+                <div className="calldata">
+                  <span>Safe control changes</span>
+                  {impactConfigurationChanges.map((change) => (
+                    <strong
+                      key={[
+                        "impact-safe-change",
+                        change.logIndex,
+                        change.field,
+                      ].join(":")}
+                    >
+                      {change.field}: {change.before ?? "unknown"} →{" "}
+                      {change.after ?? "not configured"}
+                    </strong>
+                  ))}
+                </div>
+              ) : null}
+
+              {criticalFindingCount > 0 || warningFindingCount > 0 ? (
+                <div className="calldata">
+                  <span>Why this needs review</span>
+                  {userFacingFindings.slice(0, 3).map((finding) => (
+                    <strong key={"impact-finding-" + finding.code}>
+                      {finding.severity}: {finding.title}
+                    </strong>
+                  ))}
+                </div>
+              ) : null}
+
+              <nav
+                className="identifier-actions"
+                aria-label="Technical transaction evidence"
+              >
+                <a className="text-link" href="#technical-details">
+                  Technical evidence is available below
+                </a>
+              </nav>
+            </section>
+
+            <section className="detail-panel">
+              <div className="panel-heading">
+                <div>
+                  <p className="eyebrow">Important checks</p>
+                  <h2>
+                    {criticalFindingCount > 0 || warningFindingCount > 0
+                      ? "Review these warnings"
+                      : "What we checked"}
+                  </h2>
+                </div>
+                <span>
+                  {criticalFindingCount + warningFindingCount} requiring
+                  attention
+                </span>
+              </div>
+              <EvidenceFindings
+                executed={persisted.status === "executed"}
+                findings={userFacingFindings}
+              />
+            </section>
+          </details>
+        </TransactionBriefPanel>
+
+        {alertTimeline.length > 0 ? (
+          <details className="brief-alerts">
+            <summary>
+              <span>
+                <strong>
+                  Alerts you received (
+                  {alertTimeline.filter((entry) => entry.alert).length})
+                </strong>
+                <small>
+                  What you were told, and at which stage of signing.
+                </small>
+              </span>
+              <span aria-hidden="true">+</span>
+            </summary>
+            <AlertStageTimeline
+              entries={alertTimeline}
+              findingTitle={plainAlertFindingCode}
+            />
+          </details>
+        ) : null}
 
         <details
           className="transaction-disclosure reviewer-tools-disclosure"
@@ -780,7 +935,8 @@ export default async function TransactionDetailPage({
         <TransactionReviewWorkflow
           chainId={safe.data.chainId}
           evidenceVersion={`${TRANSACTION_ANALYSIS_ENGINE_VERSION}+${EXECUTION_EVIDENCE_ENGINE_VERSION}@${execution.blockNumber ?? "latest"}`}
-          findings={verdict.findings}
+          executed={persisted.status === "executed"}
+          findings={userFacingFindings}
           hasAddressBook={Boolean(profileId)}
           safeAddress={safe.data.address}
           safeTxHash={hash.data}

@@ -1787,6 +1787,48 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
     };
   }
 
+  async listTelegramAlertReceipts(
+    profileId: string,
+    safeRef: SafeRef,
+    safeTxHash: Hex,
+  ): Promise<readonly TelegramAlertReceipt[]> {
+    const safe = await this.findSafeRow(safeRef);
+    if (!safe) return [];
+    const rows = await this.db
+      .select({
+        payload: telegramDeliveries.receiptPayload,
+        payloadDigest: telegramDeliveries.payloadDigest,
+        signature: telegramDeliveries.receiptSignature,
+        signingKeyId: telegramDeliveries.signingKeyId,
+      })
+      .from(telegramDeliveries)
+      .innerJoin(
+        telegramSubscriptions,
+        eq(telegramDeliveries.subscriptionId, telegramSubscriptions.id),
+      )
+      .where(
+        and(
+          eq(telegramSubscriptions.profileId, profileId),
+          eq(telegramSubscriptions.safeId, safe.id),
+          eq(telegramDeliveries.safeTxHash, safeTxHash),
+          eq(telegramDeliveries.status, "sent"),
+        ),
+      )
+      .orderBy(asc(telegramDeliveries.sentAt));
+    return rows.flatMap((row) =>
+      row.payload && row.payloadDigest && row.signature && row.signingKeyId
+        ? [
+            {
+              payload: row.payload as TelegramAlertReceiptPayload,
+              payloadDigest: row.payloadDigest,
+              signature: row.signature,
+              signingKeyId: row.signingKeyId,
+            },
+          ]
+        : [],
+    );
+  }
+
   async releaseTelegramDelivery(deliveryId: string): Promise<void> {
     await this.db
       .delete(telegramDeliveries)
