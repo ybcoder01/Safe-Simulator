@@ -65,9 +65,9 @@ const GUIDANCE_BY_CODE = new Map<string, FindingGuidance>([
   [
     "protocol-route-attestation-incomplete",
     {
-      label: "Review the unmatched Silo contract",
+      label: "Check the remaining Silo contracts",
       action:
-        "Do not give final approval until every traced contract appears in the official deployment registry or the market configuration proven through the Silo Factory.",
+        "The Silo router and market are confirmed. The listed helper contracts are not yet matched to Silo's official records. Confirm them against Silo's deployment list before relying on this result.",
     },
   ],
   [
@@ -97,9 +97,9 @@ const GUIDANCE_BY_CODE = new Map<string, FindingGuidance>([
   [
     "internal-delegatecall",
     {
-      label: "Trace the delegated code",
+      label: "Check the helper contracts",
       action:
-        "Identify the delegated implementation and confirm why it must execute in its caller's storage context. Do not sign if the boundary is unexpected.",
+        "Lending and trading apps often borrow code from helper contracts. That is normal when the helpers belong to the project. Match each helper address to the project's official deployment list, and ask the project team if one is not listed.",
     },
   ],
   [
@@ -169,9 +169,9 @@ const GUIDANCE_BY_CODE = new Map<string, FindingGuidance>([
   [
     "signature-only-decode",
     {
-      label: "Confirm the method signature",
+      label: "Confirm what the action does",
       action:
-        "Compare the selector and parameters with a verified ABI or official protocol interface; signature databases can return ambiguous matches.",
+        "The action name comes from a public lookup of the function, not from the contract's published code, so it could be wrong. Compare the amounts and recipients with what was requested.",
     },
   ],
   [
@@ -201,9 +201,9 @@ const GUIDANCE_BY_CODE = new Map<string, FindingGuidance>([
   [
     "internal-call-trust-unresolved",
     {
-      label: "Review traced targets",
+      label: "Check the other contracts involved",
       action:
-        "Inspect every unknown internal target and confirm it belongs to the intended protocol path before signing.",
+        "The transaction touched contracts we could not match to official records. Confirm each belongs to the project you intended to use.",
     },
   ],
   [
@@ -217,9 +217,49 @@ const GUIDANCE_BY_CODE = new Map<string, FindingGuidance>([
   [
     "partial-analysis-coverage",
     {
-      label: "Re-run the complete review",
+      label: "Know what was not checked",
       action:
-        "Use a trace-capable provider when available and re-run the full review after the Safe proposal exists so signatures, nonce, guards, and execution wrapping can be checked.",
+        "Part of the transaction's step-by-step activity was too large to review in full, so this result covers only what was visible. Re-run the review later if you need a complete picture.",
+    },
+  ],
+  [
+    "expected-safe-proxy-delegation",
+    {
+      label: "Normal Safe wallet behavior",
+      action:
+        "Safe wallets always run their logic through an official shared contract. This one matched Safe's official list. Nothing to do.",
+    },
+  ],
+  [
+    "expected-target-proxy-delegation",
+    {
+      label: "Normal upgradeable-contract behavior",
+      action:
+        "The main contract forwards to its official implementation, which we matched. Nothing to do.",
+    },
+  ],
+  [
+    "expected-internal-proxy-delegation",
+    {
+      label: "Normal upgradeable-contract behavior",
+      action:
+        "A contract inside the project forwards to its own implementation, which we matched. Nothing to do.",
+    },
+  ],
+  [
+    "expected-protocol-library-delegation",
+    {
+      label: "Normal project helper code",
+      action:
+        "The project's contract used a helper listed in the project's official records. Nothing to do.",
+    },
+  ],
+  [
+    "expected-safe-batch-delegation",
+    {
+      label: "Normal Safe batch behavior",
+      action:
+        "The transaction uses Safe's official batching contract. Each step inside it is checked separately.",
     },
   ],
   [
@@ -244,9 +284,9 @@ const DEFAULT_ACTION_BY_SEVERITY: Record<FindingSeverity, FindingGuidance> = {
       "Confirm the involved addresses and decoded parameters from an independent official source before approving this transaction.",
   },
   info: {
-    label: "Understand the coverage",
+    label: "For your information",
     action:
-      "No action is required by this note alone, but keep the stated evidence boundary in mind when making the final decision.",
+      "No action is needed for this note by itself. It explains what the review could and could not see.",
   },
 };
 
@@ -257,7 +297,11 @@ export function findingGuidance(finding: Finding): FindingGuidance {
   );
 }
 
-export function findingReviewSummary(findings: readonly Finding[]) {
+export function findingReviewSummary(
+  findings: readonly Finding[],
+  options: { readonly executed?: boolean } = {},
+) {
+  const executed = options.executed === true;
   const critical = findings.filter(
     (finding) => finding.severity === "critical",
   ).length;
@@ -268,15 +312,21 @@ export function findingReviewSummary(findings: readonly Finding[]) {
   if (critical > 0) {
     return {
       tone: "critical" as const,
-      title: "Do not sign until the critical findings are resolved",
-      detail: `${critical} critical finding${critical === 1 ? "" : "s"} require independent verification. Start with the actions below.`,
+      title: executed
+        ? "Investigate the critical findings"
+        : "Do not sign until the critical findings are resolved",
+      detail: `${critical} critical finding${critical === 1 ? "" : "s"} ${critical === 1 ? "needs" : "need"} independent verification. Start with the actions below.`,
     };
   }
   if (warnings > 0) {
     return {
       tone: "warning" as const,
-      title: "Pause and verify the warnings before signing",
-      detail: `${warnings} warning${warnings === 1 ? "" : "s"} identify missing trust or evidence. Complete the checks below before approving.`,
+      title: executed
+        ? "Check the warnings against what your team intended"
+        : "Pause and verify the warnings before signing",
+      detail: executed
+        ? `${warnings} warning${warnings === 1 ? "" : "s"} could not be matched to official records. This transaction already ran, so confirm the result was intended.`
+        : `${warnings} warning${warnings === 1 ? "" : "s"} identify missing trust or evidence. Complete the checks below before approving.`,
     };
   }
   return {

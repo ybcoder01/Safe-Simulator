@@ -47,6 +47,7 @@ import { resolveProtocolRouteAttestation } from "@/lib/api/protocol-route-attest
 import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
 import { resolveStorageChangeAnalysis } from "@/lib/api/storage-changes";
 import { resolveTokenBalanceChanges } from "@/lib/api/token-balance-changes";
+import { movementDirectionLabel } from "@/lib/api/token-presentation";
 import { resolveTargetRuntimeCodeEvidence } from "@/lib/api/transaction-analysis";
 import { resolveExecutionTokenMetadata } from "@/lib/api/token-metadata";
 import { explorerTransactionUrl } from "@/lib/explorer-links";
@@ -575,8 +576,9 @@ export default async function TransactionDetailPage({
               <div className="calldata">
                 <span>Who moved assets</span>
                 <strong>
-                  {execution.tokenMovements.length} receipt-proven movement
-                  {execution.tokenMovements.length === 1 ? "" : "s"}
+                  {execution.tokenMovements.length} token movement
+                  {execution.tokenMovements.length === 1 ? "" : "s"} confirmed
+                  on-chain
                 </strong>
               </div>
               {impactMovements.map((movement) => {
@@ -595,14 +597,19 @@ export default async function TransactionDetailPage({
                       ":",
                     )}
                   >
-                    <span>
-                      {movement.direction} · receipt log {movement.logIndex}
-                    </span>
+                    <span>{movementDirectionLabel(movement.direction)}</span>
                     <TokenIdentity
                       amount={formatted}
                       chainId={safe.data.chainId}
                       symbol={metadata?.symbol}
                       token={movement.token}
+                      verifiedLabel={
+                        routeAttestation.addresses.find(
+                          (item) =>
+                            item.address.toLowerCase() ===
+                            movement.token.toLowerCase(),
+                        )?.label ?? null
+                      }
                     />
                     {formatted === null ? (
                       <code>Raw: {movement.amount} base units</code>
@@ -758,7 +765,10 @@ export default async function TransactionDetailPage({
               initialSummary={initialSummary}
             />
           ) : null}
-          <EvidenceFindings findings={userFacingFindings} />
+          <EvidenceFindings
+            executed={persisted.status === "executed"}
+            findings={userFacingFindings}
+          />
         </section>
 
         <details
@@ -780,7 +790,8 @@ export default async function TransactionDetailPage({
         <TransactionReviewWorkflow
           chainId={safe.data.chainId}
           evidenceVersion={`${TRANSACTION_ANALYSIS_ENGINE_VERSION}+${EXECUTION_EVIDENCE_ENGINE_VERSION}@${execution.blockNumber ?? "latest"}`}
-          findings={verdict.findings}
+          executed={persisted.status === "executed"}
+          findings={userFacingFindings}
           hasAddressBook={Boolean(profileId)}
           safeAddress={safe.data.address}
           safeTxHash={hash.data}

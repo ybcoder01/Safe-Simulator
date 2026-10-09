@@ -22,6 +22,7 @@ import {
 interface TransactionReviewWorkflowProps {
   readonly chainId: number;
   readonly evidenceVersion: string;
+  readonly executed?: boolean;
   readonly findings: readonly Finding[];
   readonly hasAddressBook: boolean;
   readonly safeAddress: string;
@@ -56,6 +57,7 @@ const DECISIONS: readonly {
 export function TransactionReviewWorkflow({
   chainId,
   evidenceVersion,
+  executed = false,
   findings,
   hasAddressBook,
   safeAddress,
@@ -63,7 +65,7 @@ export function TransactionReviewWorkflow({
   sourceEvidenceHref,
 }: TransactionReviewWorkflowProps) {
   const storageKey = reviewRecordKey(chainId, safeAddress, safeTxHash);
-  const summary = findingReviewSummary(findings);
+  const summary = findingReviewSummary(findings, { executed });
   const [completedChecks, setCompletedChecks] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
