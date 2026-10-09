@@ -306,6 +306,11 @@ export interface PersistencePort {
   findTelegramAlertReceipt(
     verificationId: string,
   ): Promise<TelegramAlertReceipt | null>;
+  listTelegramAlertReceipts(
+    profileId: string,
+    safe: SafeRef,
+    safeTxHash: Hex,
+  ): Promise<readonly TelegramAlertReceipt[]>;
   releaseTelegramDelivery(deliveryId: string): Promise<void>;
 }
 

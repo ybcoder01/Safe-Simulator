@@ -20,6 +20,7 @@ import {
 } from "@/components/safes/transaction-summary-dialog";
 import { AddressIdentity } from "@/components/shared/address-identity";
 import { CopyIdentifierButton } from "@/components/shared/copy-identifier-button";
+import { AlertStageTimeline } from "@/components/shared/alert-stage-timeline";
 import { EvidenceFindings } from "@/components/shared/evidence-findings";
 import { EvidenceRefreshButton } from "@/components/shared/evidence-refresh-button";
 import { TokenIdentity } from "@/components/shared/token-identity";
@@ -47,7 +48,10 @@ import { resolveProtocolRouteAttestation } from "@/lib/api/protocol-route-attest
 import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
 import { resolveStorageChangeAnalysis } from "@/lib/api/storage-changes";
 import { resolveTokenBalanceChanges } from "@/lib/api/token-balance-changes";
+import { plainAlertFindingCode } from "@/lib/api/telegram-alerts";
+import { verifyTelegramAlertReceipt } from "@/lib/api/telegram-alert-receipts";
 import { movementDirectionLabel } from "@/lib/api/token-presentation";
+import { buildStageTimeline } from "@/lib/alert-stage";
 import { resolveTargetRuntimeCodeEvidence } from "@/lib/api/transaction-analysis";
 import { resolveExecutionTokenMetadata } from "@/lib/api/token-metadata";
 import { explorerTransactionUrl } from "@/lib/explorer-links";
@@ -159,6 +163,32 @@ export default async function TransactionDetailPage({
     persistence.listTransactions(safe.data, null, 250).catch(() => null),
     persistence.listTransfers(safe.data, null, 250).catch(() => null),
   ]);
+  const alertReceipts = profileId
+    ? await persistence
+        .listTelegramAlertReceipts(profileId, safe.data, hash.data)
+        .catch(() => [])
+    : [];
+  const authenticAlertReceipts = alertReceipts.filter((receipt) =>
+    verifyTelegramAlertReceipt(receipt),
+  );
+  const alertTimeline =
+    authenticAlertReceipts.length > 0
+      ? buildStageTimeline({
+          transaction: persisted,
+          threshold:
+            authenticAlertReceipts[0]?.payload.threshold ??
+            currentSafe.threshold,
+          receipts: authenticAlertReceipts.map(({ payload }) => ({
+            verificationId: payload.verificationId,
+            issuedAt: payload.issuedAt,
+            status: payload.status,
+            signatureCount: payload.signerAddresses.length,
+            threshold: payload.threshold,
+            verdict: payload.verdict,
+            findingCodes: payload.findingCodes,
+          })),
+        })
+      : [];
   const lifecycleStatus = transactionLifecycleStatus(
     transaction,
     currentSafe.nonce.toString(),
@@ -515,6 +545,13 @@ export default async function TransactionDetailPage({
           treasuryChecks={treasuryChecks}
           treasuryFocus={treasuryReviewFocus(activity.type)}
         />
+
+        {alertTimeline.length > 0 ? (
+          <AlertStageTimeline
+            entries={alertTimeline}
+            findingTitle={plainAlertFindingCode}
+          />
+        ) : null}
 
         <section
           className="detail-panel transaction-impact-summary"
