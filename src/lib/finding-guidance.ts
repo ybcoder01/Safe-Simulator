@@ -336,3 +336,76 @@ export function findingReviewSummary(
       "Still confirm the target, amounts, recipients, and coverage boundary against your intended transaction.",
   };
 }
+
+const QUICK_ACTION_BY_CODE = new Map<string, string>([
+  [
+    "flagged-address-involved",
+    "Stop and confirm the address with the other signers before anything else.",
+  ],
+  [
+    "safe-control-change",
+    "Check the exact before-and-after owners or threshold with every signer.",
+  ],
+  [
+    "unlimited-spending-access",
+    "Ask for a fixed amount instead, unless unlimited access is truly intended.",
+  ],
+  [
+    "recipient-address-unconfirmed",
+    "Compare the full recipient address with the original request.",
+  ],
+  [
+    "spender-address-check",
+    "Check the spender address and the amount against the project's own documentation.",
+  ],
+  [
+    "target-address-unconfirmed",
+    "Match the contract address to the project's official documentation.",
+  ],
+  [
+    "protocol-path-unconfirmed",
+    "Ask the proposer or the project to confirm the helper contracts listed here.",
+  ],
+  [
+    "protocol-route-attestation-incomplete",
+    "Match the listed contracts against the project's official deployment list.",
+  ],
+  [
+    "silo-permissionless-market",
+    "Confirm that your team chose this specific market, because anyone can create one.",
+  ],
+  [
+    "additional-evidence-check",
+    "Open the technical details and resolve the remaining item.",
+  ],
+]);
+
+const QUICK_ACTION_BY_SEVERITY: Record<FindingSeverity, string> = {
+  critical:
+    "Do not sign until this is explained by someone you can verify independently.",
+  warning:
+    "Confirm the addresses involved with an independent, official source.",
+  info: "Nothing to do.",
+};
+
+/** One short sentence telling a signer what to do about a finding. */
+export function findingQuickAction(finding: Finding): string {
+  return (
+    QUICK_ACTION_BY_CODE.get(finding.code) ??
+    QUICK_ACTION_BY_SEVERITY[finding.severity]
+  );
+}
+
+/**
+ * Plain-language wording for a harmless note. Codes without bespoke guidance
+ * keep the engine's own title and detail instead of a generic placeholder.
+ */
+export function findingNote(finding: Finding): {
+  readonly title: string;
+  readonly text: string;
+} {
+  const guidance = GUIDANCE_BY_CODE.get(finding.code);
+  return guidance
+    ? { title: guidance.label, text: guidance.action }
+    : { title: finding.title, text: finding.detail };
+}
