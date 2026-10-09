@@ -4953,22 +4953,22 @@ select {
   text-align: center;
 }
 
-.brief-expected .brief-verdict {
+.brief-v-expected .brief-verdict {
   color: var(--green);
   background: rgba(93, 237, 173, 0.08);
 }
 
-.brief-check .brief-verdict {
+.brief-v-check .brief-verdict {
   color: #ffbe5c;
   background: rgba(255, 190, 92, 0.08);
 }
 
-.brief-stop .brief-verdict {
+.brief-v-stop .brief-verdict {
   color: #ff7668;
   background: rgba(255, 118, 104, 0.09);
 }
 
-.brief-unverified .brief-verdict {
+.brief-v-unverified .brief-verdict {
   color: #b5c0ba;
   background: rgba(181, 192, 186, 0.07);
 }
@@ -5319,19 +5319,19 @@ select {
   line-height: 1.5;
 }
 
-.brief-expected .brief-todo {
+.brief-v-expected .brief-todo {
   color: var(--green);
 }
 
-.brief-check .brief-todo {
+.brief-v-check .brief-todo {
   color: #ffbe5c;
 }
 
-.brief-stop .brief-todo {
+.brief-v-stop .brief-todo {
   color: #ff7668;
 }
 
-.brief-unverified .brief-todo {
+.brief-v-unverified .brief-todo {
   color: #b5c0ba;
 }
 

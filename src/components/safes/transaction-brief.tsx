@@ -101,7 +101,7 @@ export function TransactionBriefPanel({
   return (
     <section
       aria-labelledby="brief-sentence"
-      className={`brief brief-${verdict.id}`}
+      className={`brief brief-v-${verdict.id}`}
     >
       <div className="brief-verdict" role="status">
         <span className="brief-verdict-icon" aria-hidden="true">
