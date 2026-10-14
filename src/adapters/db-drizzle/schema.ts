@@ -414,7 +414,11 @@ export const profileAddressBook = pgTable(
       .references(() => safes.id, { onDelete: "cascade" }),
     address: address("address").notNull(),
     label: text("label").notNull(),
+    purpose: text("purpose"),
     trustLevel: trustLevelEnum("trust_level").notNull(),
+    trustedAt: timestamp("trusted_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
     createdAt,
   },
   (table) => [

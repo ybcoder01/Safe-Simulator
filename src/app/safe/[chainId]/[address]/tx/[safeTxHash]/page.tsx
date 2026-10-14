@@ -98,6 +98,10 @@ interface PageProps {
   readonly searchParams: Promise<{ readonly review?: string | string[] }>;
 }
 
+function unixNow() {
+  return Math.floor(Date.now() / 1_000);
+}
+
 function shorten(value: string) {
   return `${value.slice(0, 10)}…${value.slice(-8)}`;
 }
@@ -420,6 +424,7 @@ export default async function TransactionDetailPage({
     execution,
     findings: userFacingFindings,
     historyLoaded: transactionHistoryPage !== null,
+    now: unixNow(),
     previousTransactions: transactionHistoryPage?.items ?? [],
     previousTransfers: transferHistoryPage?.items ?? [],
     protocolLabel,

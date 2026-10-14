@@ -24,7 +24,16 @@ interface ErrorBody {
 interface SaveInput {
   readonly address: string;
   readonly label: string;
+  readonly purpose?: string;
   readonly trust: "trusted" | "flagged";
+}
+
+function formatSince(timestamp: number): string {
+  return new Intl.DateTimeFormat("en", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "UTC",
+  }).format(new Date(timestamp * 1_000));
 }
 
 export function AddressBookEditor({
@@ -37,6 +46,7 @@ export function AddressBookEditor({
   const [entries, setEntries] = useState(initialEntries);
   const [address, setAddress] = useState("");
   const [label, setLabel] = useState("");
+  const [purpose, setPurpose] = useState("");
   const [trust, setTrust] = useState<"trusted" | "flagged">("trusted");
   const [submitting, setSubmitting] = useState(false);
   const [quickSaving, setQuickSaving] = useState<string | null>(null);
@@ -76,9 +86,10 @@ export function AddressBookEditor({
     setError(null);
 
     try {
-      await persistEntry({ address, label, trust });
+      await persistEntry({ address, label, purpose, trust });
       setAddress("");
       setLabel("");
+      setPurpose("");
       router.refresh();
     } catch (cause) {
       setError(
@@ -158,6 +169,11 @@ export function AddressBookEditor({
         These labels affect only this browser profile. Verified source alone
         never creates a trusted verdict, and critical evidence remains critical.
       </p>
+      <p className="trust-copy">
+        A newly trusted address is shown as &ldquo;only just trusted&rdquo; for
+        24 hours, unless this Safe has paid it before. That gives your team time
+        to confirm the address with the person who asked for the payment.
+      </p>
       {availableSuggestions.length > 0 ? (
         <div className="trust-suggestions">
           <p>Classify addresses found in this transaction</p>
@@ -219,6 +235,15 @@ export function AddressBookEditor({
           />
         </label>
         <label>
+          What is it for? (optional)
+          <input
+            maxLength={120}
+            onChange={(event) => setPurpose(event.target.value)}
+            placeholder="Payroll, exchange deposit, vendor invoices"
+            value={purpose}
+          />
+        </label>
+        <label>
           Classification
           <select
             onChange={(event) =>
@@ -250,7 +275,14 @@ export function AddressBookEditor({
               <div>
                 <span>{entry.trust}</span>
                 <strong>{entry.label}</strong>
+                {entry.purpose ? <em>{entry.purpose}</em> : null}
                 <code>{entry.address}</code>
+                {entry.trustedAt === undefined ? null : (
+                  <small>
+                    {entry.trust === "trusted" ? "Trusted" : "Flagged"} since{" "}
+                    {formatSince(entry.trustedAt)}
+                  </small>
+                )}
               </div>
               <button
                 disabled={busy}

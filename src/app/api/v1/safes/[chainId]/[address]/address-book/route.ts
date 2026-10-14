@@ -72,14 +72,26 @@ export async function PUT(request: NextRequest, route: RouteContext) {
 
   try {
     const input = addressBookInputSchema.parse(await request.json());
-    await getPersistencePort().setAddressBookEntry(
+    const persistence = getPersistencePort();
+    await persistence.setAddressBookEntry(
       resolved.profileId,
       resolved.safe,
       input.address,
       input.label,
       input.trust,
+      input.purpose,
     );
-    return NextResponse.json({ data: toAddressBookView(input) });
+    const saved = (
+      await persistence.listAddressBookEntries(
+        resolved.profileId,
+        resolved.safe,
+      )
+    ).find(
+      (entry) => entry.address.toLowerCase() === input.address.toLowerCase(),
+    );
+    return NextResponse.json({
+      data: toAddressBookView(saved ?? input),
+    });
   } catch (cause) {
     if (cause instanceof ZodError) {
       return error(

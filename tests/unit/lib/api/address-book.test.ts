@@ -21,8 +21,24 @@ describe("address book schemas", () => {
     ).toEqual({
       address,
       label: "Treasury router",
+      purpose: null,
       trust: "trusted",
     });
+  });
+
+  it("keeps a trimmed purpose and drops a blank one", () => {
+    const base = { address, label: "Payroll", trust: "trusted" as const };
+    expect(
+      addressBookInputSchema.parse({ ...base, purpose: "  Monthly payroll " })
+        .purpose,
+    ).toBe("Monthly payroll");
+    expect(
+      addressBookInputSchema.parse({ ...base, purpose: "  " }).purpose,
+    ).toBe(null);
+    expect(
+      addressBookInputSchema.safeParse({ ...base, purpose: "x".repeat(121) })
+        .success,
+    ).toBe(false);
   });
 
   it("rejects malformed addresses, empty labels, and unknown classifications", () => {

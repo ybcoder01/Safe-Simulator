@@ -232,6 +232,9 @@ export interface AddressBookEntry {
   readonly address: Address;
   readonly label: string;
   readonly trust: "trusted" | "flagged";
+  readonly purpose?: string | null;
+  /** When the current trust classification was set; resets if it changes. */
+  readonly trustedAt?: UnixTime;
 }
 export type FindingSeverity = "info" | "warning" | "critical";
 

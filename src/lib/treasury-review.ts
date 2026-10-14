@@ -32,11 +32,12 @@ interface TreasuryReviewInput {
   readonly activity: TransactionActivity;
   readonly addressBook: readonly Pick<
     AddressBookEntry,
-    "address" | "label" | "trust"
+    "address" | "label" | "trust" | "purpose" | "trustedAt"
   >[];
   readonly execution: Pick<ExecutionInsight, "success" | "tokenMovements">;
   readonly findings: readonly Finding[];
   readonly historyLoaded: boolean;
+  readonly now: number;
   readonly previousTransactions: readonly SafeTransaction[];
   readonly previousTransfers: readonly TransferRecord[];
   readonly protocolLabel: string | null;
@@ -81,6 +82,38 @@ function trustedAddress(
       (entry) => addressKey(entry.address) === addressKey(address),
     ) ?? null
   );
+}
+
+/** A trusted record younger than this has not yet earned reliance. */
+export const RECENT_TRUST_SECONDS = 24 * 60 * 60;
+
+function recentlyTrusted(
+  entry: TreasuryReviewInput["addressBook"][number] | null,
+  now: number,
+): boolean {
+  return (
+    entry?.trust === "trusted" &&
+    entry.trustedAt !== undefined &&
+    now - entry.trustedAt < RECENT_TRUST_SECONDS
+  );
+}
+
+function ageText(seconds: number): string {
+  const minutes = Math.max(1, Math.floor(seconds / 60));
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+  const hours = Math.floor(minutes / 60);
+  return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+}
+
+function trustedDescription(
+  entry: NonNullable<ReturnType<typeof trustedAddress>>,
+): string {
+  const purpose = entry.purpose ? `, ${entry.purpose}` : "";
+  const since =
+    entry.trustedAt === undefined
+      ? ""
+      : `, trusted since ${formatHistoryDate(entry.trustedAt)}`;
+  return `${entry.label}${purpose}${since}`;
 }
 
 function destinationHistory(input: TreasuryReviewInput) {
@@ -131,12 +164,24 @@ function identityCheck(input: TreasuryReviewInput): TreasuryReviewCheck {
   }
   if (input.targetAccountType === "wallet") {
     if (saved?.trust === "trusted") {
+      if (
+        recentlyTrusted(saved, input.now) &&
+        destinationHistory(input).count === 0
+      ) {
+        return {
+          key: "identity",
+          label: "Destination identity",
+          status: "review",
+          title: `${saved.label} was only just trusted`,
+          detail: `Added to the trusted list ${ageText(input.now - (saved.trustedAt ?? input.now))}. Confirm the full address with the person who asked for this payment before relying on it.`,
+        };
+      }
       return {
         key: "identity",
         label: "Destination identity",
         status: "pass",
         title: saved.label,
-        detail: "This exact wallet is approved in this Safe's address book.",
+        detail: `This exact wallet is on your trusted list: ${trustedDescription(saved)}.`,
       };
     }
     return {
@@ -334,6 +379,38 @@ function recipientCheck(input: TreasuryReviewInput): TreasuryReviewCheck {
           : "New recipient wallet",
         detail:
           "This exact recipient is not approved in the address book and does not appear in the loaded transfer history.",
+      };
+    }
+    const recent = recipients
+      .map((address) => trustedAddress(input.addressBook, address))
+      .find(
+        (entry, index) =>
+          recentlyTrusted(entry, input.now) &&
+          !previous.has(addressKey(recipients[index] as string)),
+      );
+    if (recent) {
+      return {
+        key: "recipient",
+        label: "Asset recipient",
+        status: "review",
+        title: `${recent.label} was only just trusted`,
+        detail: `Added to the trusted list ${ageText(input.now - (recent.trustedAt ?? input.now))}. A newly trusted address deserves a second look: confirm the full address with the person who asked for this payment.`,
+      };
+    }
+    const entries = recipients.map((address) =>
+      trustedAddress(input.addressBook, address),
+    );
+    if (entries.every((entry) => entry?.trust === "trusted")) {
+      const trusted = entries as NonNullable<(typeof entries)[number]>[];
+      return {
+        key: "recipient",
+        label: "Asset recipient",
+        status: "pass",
+        title:
+          trusted.length === 1
+            ? `${trusted[0]!.label} is on your trusted list`
+            : `All ${trusted.length} recipients are on your trusted list`,
+        detail: `Matches your trusted list exactly: ${trusted.map(trustedDescription).join("; ")}.`,
       };
     }
     return {

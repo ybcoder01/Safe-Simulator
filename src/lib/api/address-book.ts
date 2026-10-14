@@ -12,6 +12,12 @@ const addressSchema = z
 export const addressBookInputSchema = z.object({
   address: addressSchema,
   label: z.string().trim().min(1).max(80),
+  purpose: z
+    .string()
+    .trim()
+    .max(120)
+    .nullish()
+    .transform((value) => value || null),
   trust: z.enum(["trusted", "flagged"]),
 });
 
@@ -23,10 +29,18 @@ export interface AddressBookView {
   readonly address: string;
   readonly label: string;
   readonly trust: "trusted" | "flagged";
+  readonly purpose?: string | null;
+  readonly trustedAt?: number;
 }
 
 export function toAddressBookView(entry: AddressBookEntry): AddressBookView {
-  return entry;
+  return {
+    address: entry.address,
+    label: entry.label,
+    trust: entry.trust,
+    purpose: entry.purpose ?? null,
+    ...(entry.trustedAt === undefined ? {} : { trustedAt: entry.trustedAt }),
+  };
 }
 
 export interface AddressBookSuggestion {

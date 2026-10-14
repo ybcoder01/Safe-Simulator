@@ -9,6 +9,7 @@ import {
   isNull,
   lt,
   or,
+  sql,
 } from "drizzle-orm";
 
 import type {
@@ -1348,6 +1349,8 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
       address: row.address as Address,
       label: row.label,
       trust: row.trustLevel,
+      purpose: row.purpose,
+      trustedAt: Math.floor(row.trustedAt.getTime() / 1_000),
     }));
   }
 
@@ -1357,6 +1360,7 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
     entryAddress: Address,
     label: string,
     trust: "trusted" | "flagged",
+    purpose: string | null = null,
   ): Promise<void> {
     const safe = await this.requireSafeRow(safeRef);
     await this.requireProfileBookmark(profileId, safe.id);
@@ -1367,6 +1371,7 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
         safeId: safe.id,
         address: lowerAddress(entryAddress),
         label,
+        purpose,
         trustLevel: trust,
       })
       .onConflictDoUpdate({
@@ -1375,7 +1380,12 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
           profileAddressBook.safeId,
           profileAddressBook.address,
         ],
-        set: { label, trustLevel: trust },
+        set: {
+          label,
+          purpose,
+          trustLevel: trust,
+          trustedAt: sql`case when ${profileAddressBook.trustLevel} = ${trust} then ${profileAddressBook.trustedAt} else now() end`,
+        },
       });
   }
 
