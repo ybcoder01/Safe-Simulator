@@ -581,6 +581,12 @@ export default async function TransactionDetailPage({
             <span className={`tx-status tx-${lifecycleStatus}`}>
               {lifecycleStatus}
             </span>
+            {profileId ? (
+              <TransactionSummaryDialog
+                endpoint={`/api/v1/safes/${safe.data.chainId}/${safe.data.address}/tx/${hash.data}/summary`}
+                initialSummary={initialSummary}
+              />
+            ) : null}
           </div>
         </header>
 
@@ -607,12 +613,6 @@ export default async function TransactionDetailPage({
           stage={currentStage}
           totalMovements={briefMovements.length}
         >
-          {profileId ? (
-            <TransactionSummaryDialog
-              endpoint={`/api/v1/safes/${safe.data.chainId}/${safe.data.address}/tx/${hash.data}/summary`}
-              initialSummary={initialSummary}
-            />
-          ) : null}
           <details className="brief-full-details">
             <summary>
               <span>
