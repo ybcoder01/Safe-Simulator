@@ -47,12 +47,8 @@
           "name": "address_book_safe_id_safes_id_fk",
           "tableFrom": "address_book",
           "tableTo": "safes",
-          "columnsFrom": [
-            "safe_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["safe_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -60,10 +56,7 @@
       "compositePrimaryKeys": {
         "address_book_safe_id_address_pk": {
           "name": "address_book_safe_id_address_pk",
-          "columns": [
-            "safe_id",
-            "address"
-          ]
+          "columns": ["safe_id", "address"]
         }
       },
       "uniqueConstraints": {},
@@ -161,12 +154,8 @@
           "name": "analysis_results_transaction_id_transactions_id_fk",
           "tableFrom": "analysis_results",
           "tableTo": "transactions",
-          "columnsFrom": [
-            "transaction_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["transaction_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -231,12 +220,8 @@
           "name": "approvals_transaction_id_transactions_id_fk",
           "tableFrom": "approvals",
           "tableTo": "transactions",
-          "columnsFrom": [
-            "transaction_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["transaction_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -282,12 +267,8 @@
           "name": "confirmations_transaction_id_transactions_id_fk",
           "tableFrom": "confirmations",
           "tableTo": "transactions",
-          "columnsFrom": [
-            "transaction_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["transaction_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -295,10 +276,7 @@
       "compositePrimaryKeys": {
         "confirmations_transaction_id_owner_pk": {
           "name": "confirmations_transaction_id_owner_pk",
-          "columns": [
-            "transaction_id",
-            "owner"
-          ]
+          "columns": ["transaction_id", "owner"]
         }
       },
       "uniqueConstraints": {},
@@ -481,12 +459,8 @@
           "name": "execution_evidence_transaction_id_transactions_id_fk",
           "tableFrom": "execution_evidence",
           "tableTo": "transactions",
-          "columnsFrom": [
-            "transaction_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["transaction_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -568,12 +542,8 @@
           "name": "messages_safe_id_safes_id_fk",
           "tableFrom": "messages",
           "tableTo": "safes",
-          "columnsFrom": [
-            "safe_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["safe_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -662,12 +632,8 @@
           "name": "module_analysis_results_transaction_hash_module_transactions_transaction_hash_fk",
           "tableFrom": "module_analysis_results",
           "tableTo": "module_transactions",
-          "columnsFrom": [
-            "transaction_hash"
-          ],
-          "columnsTo": [
-            "transaction_hash"
-          ],
+          "columnsFrom": ["transaction_hash"],
+          "columnsTo": ["transaction_hash"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -744,12 +710,8 @@
           "name": "module_transactions_safe_id_safes_id_fk",
           "tableFrom": "module_transactions",
           "tableTo": "safes",
-          "columnsFrom": [
-            "safe_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["safe_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -822,12 +784,8 @@
           "name": "profile_address_book_profile_id_profiles_id_fk",
           "tableFrom": "profile_address_book",
           "tableTo": "profiles",
-          "columnsFrom": [
-            "profile_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["profile_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -835,12 +793,8 @@
           "name": "profile_address_book_safe_id_safes_id_fk",
           "tableFrom": "profile_address_book",
           "tableTo": "safes",
-          "columnsFrom": [
-            "safe_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["safe_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -848,11 +802,7 @@
       "compositePrimaryKeys": {
         "profile_address_book_profile_id_safe_id_address_pk": {
           "name": "profile_address_book_profile_id_safe_id_address_pk",
-          "columns": [
-            "profile_id",
-            "safe_id",
-            "address"
-          ]
+          "columns": ["profile_id", "safe_id", "address"]
         }
       },
       "uniqueConstraints": {},
@@ -890,12 +840,8 @@
           "name": "profile_safes_profile_id_profiles_id_fk",
           "tableFrom": "profile_safes",
           "tableTo": "profiles",
-          "columnsFrom": [
-            "profile_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["profile_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -903,12 +849,8 @@
           "name": "profile_safes_safe_id_safes_id_fk",
           "tableFrom": "profile_safes",
           "tableTo": "safes",
-          "columnsFrom": [
-            "safe_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["safe_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -916,10 +858,7 @@
       "compositePrimaryKeys": {
         "profile_safes_profile_id_safe_id_pk": {
           "name": "profile_safes_profile_id_safe_id_pk",
-          "columns": [
-            "profile_id",
-            "safe_id"
-          ]
+          "columns": ["profile_id", "safe_id"]
         }
       },
       "uniqueConstraints": {},
@@ -1065,12 +1004,8 @@
           "name": "raw_transfers_safe_id_safes_id_fk",
           "tableFrom": "raw_transfers",
           "tableTo": "safes",
-          "columnsFrom": [
-            "safe_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["safe_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1104,12 +1039,8 @@
           "name": "safe_modules_safe_id_safes_id_fk",
           "tableFrom": "safe_modules",
           "tableTo": "safes",
-          "columnsFrom": [
-            "safe_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["safe_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1117,10 +1048,7 @@
       "compositePrimaryKeys": {
         "safe_modules_safe_id_module_address_pk": {
           "name": "safe_modules_safe_id_module_address_pk",
-          "columns": [
-            "safe_id",
-            "module_address"
-          ]
+          "columns": ["safe_id", "module_address"]
         }
       },
       "uniqueConstraints": {},
@@ -1157,12 +1085,8 @@
           "name": "safe_owners_safe_id_safes_id_fk",
           "tableFrom": "safe_owners",
           "tableTo": "safes",
-          "columnsFrom": [
-            "safe_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["safe_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1170,10 +1094,7 @@
       "compositePrimaryKeys": {
         "safe_owners_safe_id_owner_address_pk": {
           "name": "safe_owners_safe_id_owner_address_pk",
-          "columns": [
-            "safe_id",
-            "owner_address"
-          ]
+          "columns": ["safe_id", "owner_address"]
         }
       },
       "uniqueConstraints": {},
@@ -1327,12 +1248,8 @@
           "name": "sync_cursors_safe_id_safes_id_fk",
           "tableFrom": "sync_cursors",
           "tableTo": "safes",
-          "columnsFrom": [
-            "safe_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["safe_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1340,10 +1257,7 @@
       "compositePrimaryKeys": {
         "sync_cursors_safe_id_stream_pk": {
           "name": "sync_cursors_safe_id_stream_pk",
-          "columns": [
-            "safe_id",
-            "stream"
-          ]
+          "columns": ["safe_id", "stream"]
         }
       },
       "uniqueConstraints": {},
@@ -1475,12 +1389,8 @@
           "name": "telegram_deliveries_subscription_id_telegram_subscriptions_id_fk",
           "tableFrom": "telegram_deliveries",
           "tableTo": "telegram_subscriptions",
-          "columnsFrom": [
-            "subscription_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["subscription_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1555,12 +1465,8 @@
           "name": "telegram_link_tokens_profile_id_profiles_id_fk",
           "tableFrom": "telegram_link_tokens",
           "tableTo": "profiles",
-          "columnsFrom": [
-            "profile_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["profile_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1568,12 +1474,8 @@
           "name": "telegram_link_tokens_safe_id_safes_id_fk",
           "tableFrom": "telegram_link_tokens",
           "tableTo": "safes",
-          "columnsFrom": [
-            "safe_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["safe_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1719,12 +1621,8 @@
           "name": "telegram_subscriptions_profile_id_profiles_id_fk",
           "tableFrom": "telegram_subscriptions",
           "tableTo": "profiles",
-          "columnsFrom": [
-            "profile_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["profile_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1732,12 +1630,8 @@
           "name": "telegram_subscriptions_safe_id_safes_id_fk",
           "tableFrom": "telegram_subscriptions",
           "tableTo": "safes",
-          "columnsFrom": [
-            "safe_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["safe_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1802,12 +1696,8 @@
           "name": "token_transfers_transaction_id_transactions_id_fk",
           "tableFrom": "token_transfers",
           "tableTo": "transactions",
-          "columnsFrom": [
-            "transaction_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["transaction_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1949,12 +1839,8 @@
           "name": "transaction_summaries_transaction_id_transactions_id_fk",
           "tableFrom": "transaction_summaries",
           "tableTo": "transactions",
-          "columnsFrom": [
-            "transaction_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["transaction_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2113,12 +1999,8 @@
           "name": "transactions_safe_id_safes_id_fk",
           "tableFrom": "transactions",
           "tableTo": "safes",
-          "columnsFrom": [
-            "safe_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["safe_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2134,75 +2016,42 @@
     "public.operation": {
       "name": "operation",
       "schema": "public",
-      "values": [
-        "call",
-        "delegatecall"
-      ]
+      "values": ["call", "delegatecall"]
     },
     "public.sync_status": {
       "name": "sync_status",
       "schema": "public",
-      "values": [
-        "idle",
-        "running",
-        "complete",
-        "failed"
-      ]
+      "values": ["idle", "running", "complete", "failed"]
     },
     "public.sync_stream": {
       "name": "sync_stream",
       "schema": "public",
-      "values": [
-        "multisig",
-        "module",
-        "transfer",
-        "message"
-      ]
+      "values": ["multisig", "module", "transfer", "message"]
     },
     "public.telegram_delivery_status": {
       "name": "telegram_delivery_status",
       "schema": "public",
-      "values": [
-        "pending",
-        "sent"
-      ]
+      "values": ["pending", "sent"]
     },
     "public.transaction_status": {
       "name": "transaction_status",
       "schema": "public",
-      "values": [
-        "pending",
-        "executed",
-        "failed",
-        "replaced"
-      ]
+      "values": ["pending", "executed", "failed", "replaced"]
     },
     "public.transaction_summary_status": {
       "name": "transaction_summary_status",
       "schema": "public",
-      "values": [
-        "pending",
-        "complete",
-        "failed"
-      ]
+      "values": ["pending", "complete", "failed"]
     },
     "public.trust_level": {
       "name": "trust_level",
       "schema": "public",
-      "values": [
-        "trusted",
-        "flagged"
-      ]
+      "values": ["trusted", "flagged"]
     },
     "public.verdict": {
       "name": "verdict",
       "schema": "public",
-      "values": [
-        "trusted",
-        "known",
-        "unverified",
-        "flagged"
-      ]
+      "values": ["trusted", "known", "unverified", "flagged"]
     }
   },
   "schemas": {},
