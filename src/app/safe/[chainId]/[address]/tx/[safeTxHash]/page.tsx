@@ -571,16 +571,18 @@ export default async function TransactionDetailPage({
             </p>
             <h1>{primaryAction}</h1>
           </div>
-          <div className="transaction-title-labels">
-            <span
-              className={`tx-activity tx-activity-${transaction.activity.type}`}
-              title={`Classified from ${transaction.activity.basis.replaceAll("-", " ")} evidence.`}
-            >
-              {transaction.activity.label}
-            </span>
-            <span className={`tx-status tx-${lifecycleStatus}`}>
-              {lifecycleStatus}
-            </span>
+          <div className="transaction-title-actions">
+            <div className="transaction-title-labels">
+              <span
+                className={`tx-activity tx-activity-${transaction.activity.type}`}
+                title={`Classified from ${transaction.activity.basis.replaceAll("-", " ")} evidence.`}
+              >
+                {transaction.activity.label}
+              </span>
+              <span className={`tx-status tx-${lifecycleStatus}`}>
+                {lifecycleStatus}
+              </span>
+            </div>
             <TransactionSummaryDialog
               canGenerate={Boolean(profileId)}
               endpoint={`/api/v1/safes/${safe.data.chainId}/${safe.data.address}/tx/${hash.data}/summary`}
