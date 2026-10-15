@@ -102,6 +102,19 @@ describe("transaction review presentation", () => {
     expect(warning.targetType).toBe("Unverified smart contract");
   });
 
+  it("uses past-tense guidance for warnings on an executed transaction", () => {
+    const result = resolveTransactionReviewPresentation({
+      ...input,
+      evidence: withFinding("warning"),
+      transaction: { ...input.transaction, status: "executed" },
+    });
+
+    expectSignal(result, "review");
+    expect(result.title).toBe("Review this executed transaction");
+    expect(result.detail).toContain("already went through");
+    expect(result.nextStep).not.toMatch(/before the final approval/i);
+  });
+
   it("uses gray when execution evidence or target classification is missing", () => {
     expectSignal(
       resolveTransactionReviewPresentation({

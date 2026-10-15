@@ -54,4 +54,23 @@ describe("finding guidance", () => {
       detail: expect.stringContaining("coverage boundary"),
     });
   });
+
+  it("does not tell signers to avoid signing an already executed transaction", () => {
+    const summary = findingReviewSummary(
+      [finding("critical", "critical"), finding("warning", "warning")],
+      { executed: true },
+    );
+    expect(summary.title).not.toMatch(/do not sign/i);
+    expect(summary.title).toMatch(/investigate/i);
+    expect(
+      findingReviewSummary([finding("warning", "warning")], { executed: true })
+        .detail,
+    ).toContain("already ran");
+  });
+
+  it("explains expected delegation notes as needing no action", () => {
+    expect(
+      findingGuidance(finding("expected-safe-proxy-delegation", "info")),
+    ).toMatchObject({ label: "Normal Safe wallet behavior" });
+  });
 });

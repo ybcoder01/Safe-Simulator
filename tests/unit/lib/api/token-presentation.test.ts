@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   isLikelyLiquidityPosition,
+  movementDirectionLabel,
   resolveTokenPresentation,
 } from "../../../../src/lib/api/token-presentation";
 
@@ -77,5 +78,13 @@ describe("token presentation", () => {
       logoKey: "fallback-token",
       known: false,
     });
+  });
+
+  it("describes movement direction in plain language", () => {
+    expect(movementDirectionLabel("outbound")).toBe("Left this Safe");
+    expect(movementDirectionLabel("inbound")).toBe("Received by this Safe");
+    expect(movementDirectionLabel("external")).toBe(
+      "Moved between other contracts",
+    );
   });
 });

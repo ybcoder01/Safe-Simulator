@@ -5,6 +5,7 @@ import { resolveTokenPresentation } from "@/lib/api/token-presentation";
 
 interface Props {
   readonly amount?: string | null;
+  readonly verifiedLabel?: string | null;
   readonly chainId: number;
   readonly symbol?: string | null | undefined;
   readonly token: string | null;
@@ -34,6 +35,7 @@ const logoText = {
 
 export function TokenIdentity({
   amount = null,
+  verifiedLabel = null,
   chainId,
   symbol = null,
   token,
@@ -45,9 +47,11 @@ export function TokenIdentity({
       : explorerAddressUrl(chainId, identity.token);
   const classification = identity.known
     ? "Reviewed token"
-    : identity.kind === "liquidity-position"
-      ? "LP fallback"
-      : "Unknown token fallback";
+    : verifiedLabel
+      ? "Confirmed from the project's live configuration"
+      : identity.kind === "liquidity-position"
+        ? "Liquidity position token"
+        : "Not in our token list";
   const imagePath = logoPath[identity.logoKey];
 
   return (
@@ -76,7 +80,8 @@ export function TokenIdentity({
           {identity.symbol}
         </strong>
         <span>
-          {identity.name} · {classification}
+          {identity.known || !verifiedLabel ? identity.name : verifiedLabel} ·{" "}
+          {classification}
         </span>
         {explorerUrl ? (
           <a

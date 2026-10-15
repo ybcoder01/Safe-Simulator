@@ -232,6 +232,7 @@ export interface PersistencePort {
     address: Address,
     label: string,
     trust: "trusted" | "flagged",
+    purpose?: string | null,
   ): Promise<void>;
   removeAddressBookEntry(
     profileId: string,
@@ -306,6 +307,11 @@ export interface PersistencePort {
   findTelegramAlertReceipt(
     verificationId: string,
   ): Promise<TelegramAlertReceipt | null>;
+  listTelegramAlertReceipts(
+    profileId: string,
+    safe: SafeRef,
+    safeTxHash: Hex,
+  ): Promise<readonly TelegramAlertReceipt[]>;
   releaseTelegramDelivery(deliveryId: string): Promise<void>;
 }
 

@@ -64,6 +64,13 @@
       "when": 1791364320139,
       "tag": "0008_telegram_control_center",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791980321427,
+      "tag": "0009_aspiring_preak",
+      "breakpoints": true
     }
   ]
 }

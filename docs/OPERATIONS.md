@@ -227,6 +227,16 @@ test alert, then apply it to Production before merging or promoting the code.
 Disconnect is a soft state change so historical signed alert receipts remain
 verifiable.
 
+## Trusted recipient list migration
+
+Migration `0009_aspiring_preak` adds `purpose` and `trusted_at` to
+`profile_address_book` and backfills `trusted_at` from `created_at`. Every
+transaction page and API route reads the address book, so the code fails with
+HTTP 500 on a database that lacks these columns. Apply the migration to Preview
+before the Preview smoke check runs, verify a transaction page, then apply it to
+Production before merging or promoting the code. A code rollback can retain the
+additive columns.
+
 ## Execution-evidence version changes
 
 The current execution namespace is defined by `EXECUTION_EVIDENCE_ENGINE_VERSION`. Evidence also includes its canonical block hash.

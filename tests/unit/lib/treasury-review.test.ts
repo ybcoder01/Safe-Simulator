@@ -55,6 +55,7 @@ function input(
     execution: { success: true, tokenMovements: [] },
     findings: [],
     historyLoaded: true,
+    now: 1_700_000_000,
     previousTransactions: [],
     previousTransfers: [],
     protocolLabel: "XSwap",
@@ -270,5 +271,133 @@ describe("treasury review checks", () => {
     expect(treasuryReviewFocus("swap")).toContain("minimum return");
     expect(treasuryReviewFocus("liquidity")).toContain("pool");
     expect(treasuryReviewFocus("batch")).toContain("every operation");
+  });
+});
+
+describe("trusted recipient list", () => {
+  const NOW = 1_780_100_000;
+  const transferActivity: TransactionActivity = {
+    type: "transfer",
+    label: "Token transfer",
+    basis: "selector",
+  };
+  const current = transaction({ to: token, data: "0xa9059cbb" as Hex });
+  const movement = {
+    token,
+    from: safe,
+    to: recipient,
+    amount: "100",
+    direction: "outbound" as const,
+    logIndex: 1,
+  };
+
+  function transferInput(
+    entry: { trustedAt?: number; purpose?: string | null } | null,
+  ) {
+    return input({
+      activity: transferActivity,
+      now: NOW,
+      transaction: current,
+      execution: { success: true, tokenMovements: [movement] },
+      addressBook: entry
+        ? [
+            {
+              address: recipient,
+              label: "Payroll - Acme Ltd",
+              trust: "trusted" as const,
+              ...entry,
+            },
+          ]
+        : [],
+    });
+  }
+
+  it("names an established trusted recipient and its purpose", () => {
+    const result = check(
+      resolveTreasuryReviewChecks(
+        transferInput({
+          trustedAt: NOW - 30 * 86_400,
+          purpose: "Monthly payroll",
+        }),
+      ),
+      "recipient",
+    );
+
+    expect(result.status).toBe("pass");
+    expect(result.title).toBe("Payroll - Acme Ltd is on your trusted list");
+    expect(result.detail).toContain("Monthly payroll");
+    expect(result.detail).toContain("trusted since");
+  });
+
+  it("asks for a second look when the recipient was trusted within 24 hours", () => {
+    const result = check(
+      resolveTreasuryReviewChecks(
+        transferInput({ trustedAt: NOW - 2 * 3_600 }),
+      ),
+      "recipient",
+    );
+
+    expect(result.status).toBe("review");
+    expect(result.title).toBe("Payroll - Acme Ltd was only just trusted");
+    expect(result.detail).toContain("2 hours ago");
+  });
+
+  it("does not penalise a new entry for an address this Safe has paid before", () => {
+    const oldTransfer: TransferRecord = {
+      safe: current.safe,
+      transactionHash:
+        "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc" as Hex,
+      token,
+      from: safe,
+      to: recipient,
+      amount: 50n,
+      blockNumber: 1n,
+      timestamp: 1_770_000_000,
+    };
+    const result = check(
+      resolveTreasuryReviewChecks({
+        ...transferInput({ trustedAt: NOW - 600 }),
+        previousTransfers: [oldTransfer],
+      }),
+      "recipient",
+    );
+
+    expect(result.status).toBe("pass");
+  });
+
+  it("treats records without a trust time as established", () => {
+    const result = check(
+      resolveTreasuryReviewChecks(transferInput({})),
+      "recipient",
+    );
+
+    expect(result.status).toBe("pass");
+  });
+
+  it("flags a recently trusted plain wallet transfer in the identity check", () => {
+    const plain = transaction({ to: recipient, data: "0x" as Hex, value: 1n });
+    const checks = resolveTreasuryReviewChecks({
+      ...input({
+        activity: transferActivity,
+        now: NOW,
+        transaction: plain,
+        targetAccountType: "wallet",
+        targetKnown: false,
+        targetVerified: false,
+        addressBook: [
+          {
+            address: recipient,
+            label: "Vendor",
+            trust: "trusted",
+            trustedAt: NOW - 600,
+          },
+        ],
+      }),
+    });
+
+    expect(check(checks, "identity")).toMatchObject({
+      status: "review",
+      title: "Vendor was only just trusted",
+    });
   });
 });

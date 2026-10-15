@@ -248,6 +248,143 @@ describe("resolveProtocolRouteAttestation", () => {
     );
   });
 
+  describe("linked library proof", () => {
+    const marketImplementation =
+      "0xaAaAaAaaAaAaAaaAaAAAAAAAAaaaAaAaAaaAaaAa" as Address;
+    const library = "0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB" as Address;
+    const otherLibrary =
+      "0xCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC" as Address;
+
+    function delegateCall(
+      to: Address,
+    ): ExecutionInsight["internalCalls"][number] {
+      return {
+        depth: 3,
+        from: market0,
+        to,
+        input: "0x" as Hex,
+        value: "0",
+        operation: "delegatecall",
+        reverted: false,
+        error: null,
+      };
+    }
+
+    function chainWithImplementationCode(code: Hex) {
+      const base = chainPort() as unknown as { call: ChainPort["call"] };
+      const getCode = vi.fn<ChainPort["getCode"]>(async () => code);
+      return { chain: { ...base, getCode } as unknown as ChainPort, getCode };
+    }
+
+    const linkedCode =
+      `0x6080604052${"73"}${library.slice(2).toLowerCase()}5af4` as Hex;
+
+    it("attests a delegatecall target hard-linked into the market implementation", async () => {
+      const { chain, getCode } = chainWithImplementationCode(linkedCode);
+      const result = await resolveProtocolRouteAttestation(
+        chain,
+        transaction(),
+        {
+          internalCalls: [
+            ...calls(),
+            { ...calls()[1]!, to: marketImplementation },
+            delegateCall(library),
+          ],
+        },
+        [{ proxy: market0, implementation: marketImplementation }],
+      );
+
+      expect(result.findings).not.toContainEqual(
+        expect.objectContaining({
+          code: "protocol-route-attestation-incomplete",
+        }),
+      );
+      expect(result.proxyBoundaries).toContainEqual({
+        proxy: market0,
+        implementation: library,
+      });
+      expect(result.addresses).toContainEqual(
+        expect.objectContaining({ address: library }),
+      );
+      expect(getCode).toHaveBeenCalledWith(50, marketImplementation, 123n);
+    });
+
+    it("does not attest a delegatecall target the implementation does not link", async () => {
+      const { chain } = chainWithImplementationCode(linkedCode);
+      const result = await resolveProtocolRouteAttestation(
+        chain,
+        transaction(),
+        {
+          internalCalls: [
+            ...calls(),
+            { ...calls()[1]!, to: marketImplementation },
+            delegateCall(otherLibrary),
+          ],
+        },
+        [{ proxy: market0, implementation: marketImplementation }],
+      );
+
+      expect(result.findings).toContainEqual(
+        expect.objectContaining({
+          code: "protocol-route-attestation-incomplete",
+          addresses: [otherLibrary],
+        }),
+      );
+      expect(result.proxyBoundaries).not.toContainEqual({
+        proxy: market0,
+        implementation: otherLibrary,
+      });
+    });
+
+    it("ignores an address that only matches at an odd nibble offset", async () => {
+      const misaligned =
+        `0x6080604052a${"73"}${library.slice(2).toLowerCase()}5af4` as Hex;
+      const { chain } = chainWithImplementationCode(misaligned);
+      const result = await resolveProtocolRouteAttestation(
+        chain,
+        transaction(),
+        {
+          internalCalls: [
+            ...calls(),
+            { ...calls()[1]!, to: marketImplementation },
+            delegateCall(library),
+          ],
+        },
+        [{ proxy: market0, implementation: marketImplementation }],
+      );
+
+      expect(result.addresses).not.toContainEqual(
+        expect.objectContaining({ address: library }),
+      );
+    });
+
+    it("fails closed when the implementation code cannot be read", async () => {
+      const base = chainPort() as unknown as { call: ChainPort["call"] };
+      const chain = {
+        ...base,
+        getCode: vi.fn().mockRejectedValue(new Error("rpc down")),
+      } as unknown as ChainPort;
+      const result = await resolveProtocolRouteAttestation(
+        chain,
+        transaction(),
+        {
+          internalCalls: [
+            ...calls(),
+            { ...calls()[1]!, to: marketImplementation },
+            delegateCall(library),
+          ],
+        },
+        [{ proxy: market0, implementation: marketImplementation }],
+      );
+
+      expect(result.findings).toContainEqual(
+        expect.objectContaining({
+          code: "protocol-route-attestation-incomplete",
+        }),
+      );
+    });
+  });
+
   it("does not treat Safe infrastructure as an unresolved Silo dependency", async () => {
     const result = await resolveProtocolRouteAttestation(
       chainPort(),

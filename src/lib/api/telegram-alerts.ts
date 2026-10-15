@@ -279,6 +279,13 @@ const plainFindingTitles: Readonly<Record<string, string>> = {
     "The historical Safe batch code could not be independently verified",
 };
 
+export function plainAlertFindingCode(code: string): string {
+  return (
+    plainFindingTitles[code] ??
+    `${code.charAt(0).toUpperCase()}${code.slice(1).replaceAll("-", " ")}`
+  );
+}
+
 function plainFindingTitle(
   transaction: SafeTransaction,
   finding: AnalysisResult["findings"][number],

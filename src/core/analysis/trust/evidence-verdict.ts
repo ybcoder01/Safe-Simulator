@@ -250,6 +250,25 @@ function isDirectWalletTargetCall(
   );
 }
 
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+
+/**
+ * A protocol-proven share token sent to the zero address is the receipt for a
+ * withdrawal being destroyed, not a payment to an unknown recipient. Burns of
+ * any other token still need a recipient review.
+ */
+function isProtocolShareBurn(
+  input: EvidenceVerdictInput,
+  movement: EvidenceVerdictInput["movements"][number],
+): boolean {
+  if (addressKey(movement.to) !== ZERO_ADDRESS) return false;
+  return (input.attestedAddresses ?? []).some(
+    (item) =>
+      addressKey(item.address) === addressKey(movement.token) &&
+      /share token$/i.test(item.label),
+  );
+}
+
 function assessAddresses(
   input: EvidenceVerdictInput,
 ): readonly AddressTrustAssessment[] {
@@ -271,7 +290,9 @@ function assessAddresses(
   for (const movement of input.movements) {
     add(movement.token, "token");
     add(movement.from, "movement-sender");
-    add(movement.to, "movement-recipient");
+    if (!isProtocolShareBurn(input, movement)) {
+      add(movement.to, "movement-recipient");
+    }
   }
   for (const allowance of input.allowances) {
     add(allowance.token, "token");
@@ -675,7 +696,7 @@ export function evaluateEvidenceVerdict(
   const movementUnresolved = movementAddresses.flatMap((address) => {
     if (
       addressKey(address) === addressKey(input.safeAddress) ||
-      addressKey(address) === "0x0000000000000000000000000000000000000000"
+      addressKey(address) === ZERO_ADDRESS
     ) {
       return [];
     }

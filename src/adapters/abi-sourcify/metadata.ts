@@ -165,6 +165,20 @@ function unknownMetadata(
   };
 }
 
+const EIP_1167_PREFIX = "363d3d373d3d3d363d73";
+const EIP_1167_SUFFIX = "5af43d82803e903d91602b57fd5bf3";
+
+export function minimalProxyTarget(code: Hex): Address | null {
+  const body = code.toLowerCase().replace(/^0x/, "");
+  if (body.length !== EIP_1167_PREFIX.length + 40 + EIP_1167_SUFFIX.length) {
+    return null;
+  }
+  if (!body.startsWith(EIP_1167_PREFIX) || !body.endsWith(EIP_1167_SUFFIX)) {
+    return null;
+  }
+  return `0x${body.slice(EIP_1167_PREFIX.length, EIP_1167_PREFIX.length + 40)}` as Address;
+}
+
 export class PublicAbiAdapter implements AbiPort {
   constructor(
     private readonly chain: ChainPort,
@@ -325,7 +339,8 @@ export class PublicAbiAdapter implements AbiPort {
         .getStorageAt(chainId, address, EIP_1967_BEACON_SLOT, blockNumber)
         .catch(() => "0x" as Hex),
     );
-    if (!beacon) return null;
+    if (!beacon)
+      return this.resolveMinimalProxyTarget(chainId, address, blockNumber);
 
     const beaconCode = await this.chain
       .getCode(chainId, beacon, blockNumber)
@@ -341,5 +356,16 @@ export class PublicAbiAdapter implements AbiPort {
         )
         .catch(() => "0x" as Hex),
     );
+  }
+
+  private async resolveMinimalProxyTarget(
+    chainId: ChainId,
+    address: Address,
+    blockNumber?: bigint,
+  ): Promise<Address | null> {
+    const code = await this.chain
+      .getCode(chainId, address, blockNumber)
+      .catch(() => "0x" as Hex);
+    return minimalProxyTarget(code);
   }
 }

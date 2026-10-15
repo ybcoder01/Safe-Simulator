@@ -5,14 +5,16 @@ interface EvidenceFindingsProps {
   readonly findings: readonly Finding[];
   readonly showRecommendation?: boolean;
   readonly showAddresses?: boolean;
+  readonly executed?: boolean;
 }
 
 export function EvidenceFindings({
   findings,
   showRecommendation = true,
   showAddresses = false,
+  executed = false,
 }: EvidenceFindingsProps) {
-  const summary = findingReviewSummary(findings);
+  const summary = findingReviewSummary(findings, { executed });
 
   return (
     <div className="evidence-guidance">

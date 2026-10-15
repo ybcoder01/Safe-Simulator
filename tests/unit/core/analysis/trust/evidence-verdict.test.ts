@@ -1136,6 +1136,42 @@ describe("evaluateEvidenceVerdict", () => {
     );
   });
 
+  it("does not ask for a recipient check when a protocol share token is burned", () => {
+    const zero = "0x0000000000000000000000000000000000000000" as Address;
+    const result = evaluateEvidenceVerdict(
+      input({
+        movements: [{ token, from: safe, to: zero }],
+        attestedAddresses: [
+          { address: token, label: "Silo protected share token" },
+        ],
+      }),
+    );
+
+    expect(
+      result.addresses.some((assessment) =>
+        assessment.roles.includes("movement-recipient"),
+      ),
+    ).toBe(false);
+  });
+
+  it("still treats a burn of an unrelated token as a recipient to confirm", () => {
+    const zero = "0x0000000000000000000000000000000000000000" as Address;
+    const result = evaluateEvidenceVerdict(
+      input({
+        movements: [{ token, from: safe, to: zero }],
+        attestedAddresses: [{ address: token, label: "Silo configured asset" }],
+      }),
+    );
+
+    expect(result.addresses).toContainEqual(
+      expect.objectContaining({
+        address: zero,
+        roles: expect.arrayContaining(["movement-recipient"]),
+        status: "unverified",
+      }),
+    );
+  });
+
   it("preserves route-attestation findings in the final verdict", () => {
     const result = evaluateEvidenceVerdict(
       input({

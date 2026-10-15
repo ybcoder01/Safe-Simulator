@@ -1,7 +1,13 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 
+import { AlertStageComparisonBanner } from "@/components/shared/alert-stage-timeline";
 import { getPersistencePort } from "@/container";
+import { plainAlertFindingCode } from "@/lib/api/telegram-alerts";
+import {
+  alertVerdictLabel,
+  compareAlertStageWithCurrent,
+} from "@/lib/alert-stage";
 import {
   isTelegramVerificationId,
   verifyTelegramAlertReceipt,
@@ -19,24 +25,9 @@ export const metadata: Metadata = {
 function formatTimestamp(timestamp: number): string {
   return new Intl.DateTimeFormat("en", {
     dateStyle: "medium",
-    timeStyle: "long",
+    timeStyle: "medium",
     timeZone: "UTC",
   }).format(new Date(timestamp * 1_000));
-}
-
-function verdictLabel(verdict: string): string {
-  switch (verdict) {
-    case "flagged":
-      return "Danger signal found — do not sign yet";
-    case "unverified":
-      return "Could not verify enough — review manually";
-    case "known":
-      return "Known target — still check every detail";
-    case "trusted":
-      return "No known warning found in available evidence";
-    default:
-      return verdict;
-  }
 }
 
 export default async function AlertVerificationPage({ params }: PageProps) {
@@ -46,6 +37,18 @@ export default async function AlertVerificationPage({ params }: PageProps) {
     : null;
   const authentic = receipt ? verifyTelegramAlertReceipt(receipt) : false;
   const payload = receipt?.payload;
+  const currentTransaction = payload
+    ? await getPersistencePort()
+        .findTransaction(
+          { chainId: payload.chainId, address: payload.safeAddress },
+          payload.safeTxHash,
+        )
+        .catch(() => null)
+    : null;
+  const comparison = payload
+    ? compareAlertStageWithCurrent(payload, currentTransaction)
+    : null;
+  const concluded = comparison?.now ? !comparison.now.open : false;
   const reportUrl = payload
     ? `/safe/${payload.chainId}/${payload.safeAddress}/tx/${payload.safeTxHash}`
     : null;
@@ -86,18 +89,37 @@ export default async function AlertVerificationPage({ params }: PageProps) {
 
         {authentic && payload ? (
           <>
+            {comparison ? (
+              <AlertStageComparisonBanner comparison={comparison} />
+            ) : null}
+
             <div className="alert-safety-boundary">
               <strong>This does not mean the transaction is safe.</strong>
               <span>
-                It only proves the alert is authentic. Compare these exact
-                details with your signing wallet before you approve anything.
+                {concluded
+                  ? "It only proves the alert is authentic. The transaction has already concluded, so there is nothing left to approve. Use these details to compare what the alert said with what happened."
+                  : "It only proves the alert is authentic. Compare these exact details with your signing wallet before you approve anything."}
               </span>
             </div>
 
             <dl className="alert-receipt-details">
-              <div>
+              <div className="alert-receipt-wide">
                 <dt>Safety result at alert time</dt>
-                <dd>{verdictLabel(payload.verdict)}</dd>
+                <dd>{alertVerdictLabel(payload.verdict, payload.status)}</dd>
+              </div>
+              <div className="alert-receipt-wide">
+                <dt>Warnings shown at alert time</dt>
+                <dd>
+                  {payload.findingCodes.length > 0 ? (
+                    <ul className="alert-warning-list">
+                      {payload.findingCodes.slice(0, 3).map((code) => (
+                        <li key={code}>{plainAlertFindingCode(code)}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    "No warnings were recorded"
+                  )}
+                </dd>
               </div>
               <div>
                 <dt>Safe account</dt>
@@ -112,8 +134,8 @@ export default async function AlertVerificationPage({ params }: PageProps) {
                 <dd>{payload.nonce}</dd>
               </div>
               <div>
-                <dt>Transaction status at alert time</dt>
-                <dd>{payload.status}</dd>
+                <dt>Stage at alert time</dt>
+                <dd>{comparison?.then.label ?? payload.status}</dd>
               </div>
               <div>
                 <dt>Signatures at alert time</dt>

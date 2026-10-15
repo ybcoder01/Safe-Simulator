@@ -236,16 +236,21 @@ export function resolveTransactionReviewPresentation(
   }
 
   if (hasWarning || input.target.anchor === "latest-fallback") {
+    const executed = input.transaction.status === "executed";
     return {
       ...target,
       ...addressCheck,
       signal: "review",
       icon: "!",
-      title: "Review before proceeding",
-      detail:
-        "The transaction was analyzed, but one or more warnings still need your attention.",
-      nextStep:
-        "Review each warning and confirm the destination, amounts, and permissions match what you intended.",
+      title: executed
+        ? "Review this executed transaction"
+        : "Review before proceeding",
+      detail: executed
+        ? "This transaction already went through. Some details could not be matched to official records, so check that the result is what your team intended."
+        : "The transaction was analyzed, but one or more warnings still need your attention.",
+      nextStep: executed
+        ? "Compare the amounts and recipients below with what your team approved. These warnings are checks we could not complete, not proof that funds went somewhere unexpected."
+        : "Review each warning and confirm the destination, amounts, and permissions match what you intended.",
       actionSummary: actionSummary(input),
     };
   }

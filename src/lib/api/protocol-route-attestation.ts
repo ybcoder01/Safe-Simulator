@@ -266,6 +266,131 @@ function expandAttestedProxyGraph(
   return uniqueAddresses(expanded);
 }
 
+const MAX_LIBRARY_PROOF_IMPLEMENTATIONS = 8;
+
+function embedsAddress(code: string, address: Address): boolean {
+  const body = code.toLowerCase().replace(/^0x/, "");
+  const needle = `73${addressKey(address).slice(2)}`;
+  let index = body.indexOf(needle);
+  while (index !== -1) {
+    if (index % 2 === 0) return true;
+    index = body.indexOf(needle, index + 1);
+  }
+  return false;
+}
+
+/**
+ * A delegatecall from an attested market to a contract outside the proven graph
+ * is explained only when that contract's address is hard-linked into the
+ * runtime bytecode of the market's own resolved implementation (a PUSH20
+ * immediate, which is how Solidity links external libraries). The caller must
+ * already be attested and the implementation must be an observed boundary.
+ */
+async function proveLinkedLibraries(
+  chain: ChainPort,
+  transaction: SafeTransaction,
+  execution: Pick<ExecutionInsight, "internalCalls">,
+  attested: readonly AttestedProtocolAddress[],
+  boundaries: readonly InternalProxyBoundary[],
+): Promise<{
+  readonly addresses: readonly AttestedProtocolAddress[];
+  readonly boundaries: readonly InternalProxyBoundary[];
+}> {
+  const attestedKeys = new Set(
+    attested.map((item) => addressKey(item.address)),
+  );
+  const implementationsByProxy = new Map<string, Address[]>();
+  for (const boundary of boundaries) {
+    const key = addressKey(boundary.proxy);
+    if (
+      !attestedKeys.has(key) ||
+      !attestedKeys.has(addressKey(boundary.implementation))
+    ) {
+      continue;
+    }
+    implementationsByProxy.set(key, [
+      ...(implementationsByProxy.get(key) ?? []),
+      boundary.implementation,
+    ]);
+  }
+
+  const candidates = [
+    ...new Map(
+      execution.internalCalls
+        .filter(
+          (call) =>
+            call.operation === "delegatecall" &&
+            isAddress(call.from) &&
+            isAddress(call.to) &&
+            attestedKeys.has(addressKey(call.from)) &&
+            !attestedKeys.has(addressKey(call.to)) &&
+            !isPrecompile(call.to as Address) &&
+            implementationsByProxy.has(addressKey(call.from)),
+        )
+        .map((call) => [
+          `${addressKey(call.from)}:${addressKey(call.to)}`,
+          {
+            proxy: getAddress(call.from) as Address,
+            library: getAddress(call.to) as Address,
+          },
+        ]),
+    ).values(),
+  ];
+  if (candidates.length === 0) return { addresses: [], boundaries: [] };
+
+  const codeByImplementation = new Map<string, Promise<string>>();
+  const codeOf = (implementation: Address) => {
+    const key = addressKey(implementation);
+    if (!codeByImplementation.has(key)) {
+      if (codeByImplementation.size >= MAX_LIBRARY_PROOF_IMPLEMENTATIONS) {
+        return Promise.resolve("0x");
+      }
+      codeByImplementation.set(
+        key,
+        Promise.resolve()
+          .then(() =>
+            chain.getCode(
+              transaction.safe.chainId,
+              implementation,
+              transaction.blockNumber ?? undefined,
+            ),
+          )
+          .catch(() => "0x"),
+      );
+    }
+    return codeByImplementation.get(key) as Promise<string>;
+  };
+
+  const proofs = await Promise.all(
+    candidates.map(async ({ proxy, library }) => {
+      for (const implementation of implementationsByProxy.get(
+        addressKey(proxy),
+      ) ?? []) {
+        if (embedsAddress(await codeOf(implementation), library)) {
+          return { proxy, library };
+        }
+      }
+      return null;
+    }),
+  );
+  const proven = proofs.filter(
+    (item): item is { proxy: Address; library: Address } => item !== null,
+  );
+
+  return {
+    addresses: uniqueAddresses(
+      proven.map(({ library }) => ({
+        address: library,
+        label: "Library linked into the Silo market implementation",
+      })),
+    ),
+    boundaries: proven.map(({ proxy, library }) => ({
+      proxy,
+      implementation: library,
+    })),
+  };
+}
+
 /**
  * Proves protocol relationships from pinned publisher roots and live on-chain
  * getters. A relationship proof establishes route membership, never economic
@@ -363,10 +488,47 @@ export async function resolveProtocolRouteAttestation(
     ...staticSiloAddresses,
     ...marketEvidence.flatMap((items) => items ?? []),
   ]);
-  const attested = expandAttestedProxyGraph(
+  const proxyAttested = expandAttestedProxyGraph(
     baseAttested,
     resolvedProxyBoundaries,
   );
+  const staticDelegateTargets = new Set(
+    contractRegistryEntriesForChain(50)
+      .filter(
+        (entry) =>
+          entry.protocol === "silo" &&
+          entry.lifecycle === "internal" &&
+          entry.trustPolicy === "identity-only",
+      )
+      .map((entry) => addressKey(entry.address)),
+  );
+  const proxyAttestedKeys = new Set(
+    proxyAttested.map((item) => addressKey(item.address)),
+  );
+  const staticBoundaries = execution.internalCalls
+    .filter(
+      (call) =>
+        call.operation === "delegatecall" &&
+        isAddress(call.from) &&
+        isAddress(call.to) &&
+        proxyAttestedKeys.has(addressKey(call.from)) &&
+        staticDelegateTargets.has(addressKey(call.to)),
+    )
+    .map((call) => ({
+      proxy: getAddress(call.from) as Address,
+      implementation: getAddress(call.to) as Address,
+    }));
+  const linkedLibraries = await proveLinkedLibraries(
+    chain,
+    transaction,
+    execution,
+    proxyAttested,
+    [...resolvedProxyBoundaries, ...staticBoundaries],
+  );
+  const attested = uniqueAddresses([
+    ...proxyAttested,
+    ...linkedLibraries.addresses,
+  ]);
   const attestedKeys = new Set(
     attested.map((item) => addressKey(item.address)),
   );
@@ -387,35 +549,16 @@ export async function resolveProtocolRouteAttestation(
         .map((address) => [addressKey(address), address]),
     ).values(),
   ];
-  const staticDelegateTargets = new Set(
-    contractRegistryEntriesForChain(50)
-      .filter(
-        (entry) =>
-          entry.protocol === "silo" &&
-          entry.lifecycle === "internal" &&
-          entry.trustPolicy === "identity-only",
-      )
-      .map((entry) => addressKey(entry.address)),
-  );
   const proxyBoundaries = uniqueBoundaries([
+    ...linkedLibraries.boundaries,
     ...resolvedProxyBoundaries.filter(
       (boundary) =>
         attestedKeys.has(addressKey(boundary.proxy)) &&
         attestedKeys.has(addressKey(boundary.implementation)),
     ),
-    ...execution.internalCalls
-      .filter(
-        (call) =>
-          call.operation === "delegatecall" &&
-          isAddress(call.from) &&
-          isAddress(call.to) &&
-          attestedKeys.has(addressKey(call.from)) &&
-          staticDelegateTargets.has(addressKey(call.to)),
-      )
-      .map((call) => ({
-        proxy: getAddress(call.from) as Address,
-        implementation: getAddress(call.to) as Address,
-      })),
+    ...staticBoundaries.filter((boundary) =>
+      attestedKeys.has(addressKey(boundary.proxy)),
+    ),
   ]);
 
   if (incompleteMarkets.length > 0 || unknownTargets.length > 0) {

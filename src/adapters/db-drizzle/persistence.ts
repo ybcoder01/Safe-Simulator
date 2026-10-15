@@ -9,6 +9,7 @@ import {
   isNull,
   lt,
   or,
+  sql,
 } from "drizzle-orm";
 
 import type {
@@ -1348,6 +1349,8 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
       address: row.address as Address,
       label: row.label,
       trust: row.trustLevel,
+      purpose: row.purpose,
+      trustedAt: Math.floor(row.trustedAt.getTime() / 1_000),
     }));
   }
 
@@ -1357,6 +1360,7 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
     entryAddress: Address,
     label: string,
     trust: "trusted" | "flagged",
+    purpose: string | null = null,
   ): Promise<void> {
     const safe = await this.requireSafeRow(safeRef);
     await this.requireProfileBookmark(profileId, safe.id);
@@ -1367,6 +1371,7 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
         safeId: safe.id,
         address: lowerAddress(entryAddress),
         label,
+        purpose,
         trustLevel: trust,
       })
       .onConflictDoUpdate({
@@ -1375,7 +1380,12 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
           profileAddressBook.safeId,
           profileAddressBook.address,
         ],
-        set: { label, trustLevel: trust },
+        set: {
+          label,
+          purpose,
+          trustLevel: trust,
+          trustedAt: sql`case when ${profileAddressBook.trustLevel} = ${trust} then ${profileAddressBook.trustedAt} else now() end`,
+        },
       });
   }
 
@@ -1785,6 +1795,48 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
       signature: row.signature,
       signingKeyId: row.signingKeyId,
     };
+  }
+
+  async listTelegramAlertReceipts(
+    profileId: string,
+    safeRef: SafeRef,
+    safeTxHash: Hex,
+  ): Promise<readonly TelegramAlertReceipt[]> {
+    const safe = await this.findSafeRow(safeRef);
+    if (!safe) return [];
+    const rows = await this.db
+      .select({
+        payload: telegramDeliveries.receiptPayload,
+        payloadDigest: telegramDeliveries.payloadDigest,
+        signature: telegramDeliveries.receiptSignature,
+        signingKeyId: telegramDeliveries.signingKeyId,
+      })
+      .from(telegramDeliveries)
+      .innerJoin(
+        telegramSubscriptions,
+        eq(telegramDeliveries.subscriptionId, telegramSubscriptions.id),
+      )
+      .where(
+        and(
+          eq(telegramSubscriptions.profileId, profileId),
+          eq(telegramSubscriptions.safeId, safe.id),
+          eq(telegramDeliveries.safeTxHash, safeTxHash),
+          eq(telegramDeliveries.status, "sent"),
+        ),
+      )
+      .orderBy(asc(telegramDeliveries.sentAt));
+    return rows.flatMap((row) =>
+      row.payload && row.payloadDigest && row.signature && row.signingKeyId
+        ? [
+            {
+              payload: row.payload as TelegramAlertReceiptPayload,
+              payloadDigest: row.payloadDigest,
+              signature: row.signature,
+              signingKeyId: row.signingKeyId,
+            },
+          ]
+        : [],
+    );
   }
 
   async releaseTelegramDelivery(deliveryId: string): Promise<void> {

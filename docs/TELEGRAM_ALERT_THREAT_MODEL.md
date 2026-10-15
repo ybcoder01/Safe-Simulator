@@ -12,6 +12,14 @@ not trust the transaction description shown by a signing website.
 - The signature threshold is reached and the transaction can be executed.
 - A proposal executes, fails, or is replaced.
 
+Each alert describes the stage it was sent at and is never rewritten. When a
+transaction later moves on (for example from "waiting for the last signature" to
+"executed"), the signed receipt page and the transaction page show the alerted
+stage beside the current state, and wording such as "do not sign yet" stays
+attached only to the stage it applied to. The transaction page lists the signed
+alerts the viewing profile received, in stage order, ending at the present
+state.
+
 Alerts are idempotent per subscriber and exact signer/status state. A delayed or
 retried queue message cannot produce the same alert twice.
 
