@@ -1830,12 +1830,19 @@ select {
   line-height: 1.5;
 }
 
-.dashboard-hero h1,
-.transaction-title h1 {
+.dashboard-hero h1 {
   margin: 0;
   font-size: clamp(36px, 5vw, 60px);
   font-weight: 520;
   letter-spacing: -0.055em;
+}
+.transaction-title h1 {
+  margin: 0;
+  max-width: 22ch;
+  font-size: clamp(32px, 3vw, 48px);
+  font-weight: 520;
+  line-height: 1.06;
+  letter-spacing: -0.045em;
 }
 .full-address,
 .transaction-title > div > code {
@@ -2644,6 +2651,10 @@ select {
 }
 .transaction-title {
   align-items: end;
+}
+.transaction-title > div:first-child {
+  flex: 1;
+  min-width: 0;
 }
 .detail-grid {
   margin-bottom: 30px;
@@ -3671,18 +3682,29 @@ select {
 }
 
 .transaction-title-labels {
-  display: grid;
+  display: flex;
+  flex: 0 0 auto;
   gap: 8px;
-  justify-items: end;
+  align-items: center;
+  justify-content: flex-end;
 }
 
 .transaction-title-labels .summary-open-button {
-  margin: 4px 0 0;
+  margin: 0;
+  padding: 0.55rem 0.85rem;
+  border-radius: 999px;
+  white-space: nowrap;
 }
 
-@media (max-width: 560px) {
+@media (max-width: 900px) {
+  .transaction-title {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
   .transaction-title-labels {
-    justify-items: start;
+    flex-wrap: wrap;
+    justify-content: flex-start;
   }
 }
 
