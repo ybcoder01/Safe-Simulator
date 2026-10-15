@@ -3676,6 +3676,10 @@ select {
   justify-items: end;
 }
 
+.transaction-title-labels .summary-open-button {
+  margin: 4px 0 0;
+}
+
 @media (max-width: 560px) {
   .transaction-title-labels {
     justify-items: start;
