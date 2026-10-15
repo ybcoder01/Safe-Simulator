@@ -28,6 +28,7 @@ export interface SummaryView {
 interface Props {
   readonly endpoint: string;
   readonly initialSummary: SummaryView | null;
+  readonly canGenerate?: boolean;
 }
 
 interface ResponseBody {
@@ -41,7 +42,11 @@ const stanceLabel: Record<SummaryContent["stance"], string> = {
   "appears-consistent": "Appears consistent with current evidence",
 };
 
-export function TransactionSummaryDialog({ endpoint, initialSummary }: Props) {
+export function TransactionSummaryDialog({
+  endpoint,
+  initialSummary,
+  canGenerate = true,
+}: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [summary, setSummary] = useState<SummaryView | null>(initialSummary);
   const [loading, setLoading] = useState(false);
@@ -188,7 +193,7 @@ export function TransactionSummaryDialog({ endpoint, initialSummary }: Props) {
                 This interface cannot sign or submit transactions.
               </p>
             </div>
-          ) : (
+          ) : canGenerate ? (
             <div className="summary-consent">
               <h3>No saved AI summary yet</h3>
               <p>
@@ -214,6 +219,15 @@ export function TransactionSummaryDialog({ endpoint, initialSummary }: Props) {
               >
                 {loading ? "Generating…" : "Generate summary"}
               </button>
+            </div>
+          ) : (
+            <div className="summary-consent">
+              <h3>Import this Safe to generate a summary</h3>
+              <p>
+                AI summaries are available after this Safe is added to the
+                current browser&apos;s watchlist. Return to the Safe overview,
+                import it, then reopen this transaction.
+              </p>
             </div>
           )}
 
