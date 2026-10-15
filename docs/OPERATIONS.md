@@ -234,8 +234,10 @@ Migration `0009_aspiring_preak` adds `purpose` and `trusted_at` to
 transaction page and API route reads the address book, so the code fails with
 HTTP 500 on a database that lacks these columns. Apply the migration to Preview
 before the Preview smoke check runs, verify a transaction page, then apply it to
-Production before merging or promoting the code. A code rollback can retain the
-additive columns.
+Production before merging or promoting the code, following [Applying migrations
+to Production](#applying-migrations-to-production). It was applied to Production
+on 2026-10-15 and verified against the actual schema. A code rollback can retain
+the additive columns.
 
 ## Execution-evidence version changes
 
@@ -273,10 +275,35 @@ Neon Postgres, selected through the required server-only `NEON_DATABASE_URL`, is
 - Preserve block hashes and engine versions; they are audit boundaries.
 - Take a provider backup or restore point before a material migration.
 - Apply migrations before code that requires the new schema becomes production.
+- Never run `pnpm db:migrate` or `drizzle-kit push` against Production. See [Applying migrations to Production](#applying-migrations-to-production).
 - Verify preview behavior before applying an equivalent production change.
 - Treat profile identifiers as sensitive application data even though tracked chain data is public.
 - Keep each serverless runtime limited to one short-lived PostgreSQL connection. Prepared statements remain disabled for pooled runtime compatibility.
 - Treat PostgreSQL error `53300` as connection saturation: inspect deployment and queue concurrency, wait for idle connections to drain, and verify recovery through `/api/health`. Do not raise the client pool limit as a first response.
+
+### Applying migrations to Production
+
+The Production database has no Drizzle migration ledger (`drizzle.__drizzle_migrations`). Earlier migrations were applied directly, so Drizzle has no record of them. Drizzle's migrator creates the ledger when it is missing and then treats every migration as pending, so `pnpm db:migrate` against Production would try to replay migrations `0000` onward on tables that already exist. `drizzle-kit push` would try to reconcile the whole schema and is equally unsafe.
+
+Production rule: apply one reviewed migration file directly, then verify the resulting schema.
+
+1. Confirm the migration is additive and that the previous code still runs against the new schema, or that the new code is not yet deployed.
+2. Take a Neon restore point.
+3. Apply only the reviewed `drizzle/NNNN_*.sql` file, split on `--> statement-breakpoint`, in a single transaction.
+4. Verify the exact columns, tables, enums, constraints, and any backfill against Production, not against a migration ledger.
+5. Only then merge or promote the code that depends on the change.
+
+Do not assume Preview has a ledger either. Check before running `pnpm db:migrate` against it.
+
+#### Before introducing a ledger
+
+Creating the ledger is a separate, reviewed database-baselining change, not a routine fix. With the installed Drizzle ORM 0.45.2, the migrator reads only the newest `created_at` from `drizzle.__drizzle_migrations` and runs every migration whose journal timestamp is greater. A wrong entry can therefore silently skip a required migration. The baselining procedure must:
+
+- verify that the complete Production schema matches migrations `0000` to the latest;
+- create `drizzle.__drizzle_migrations` with Drizzle's exact structure (`id serial primary key`, `hash text not null`, `created_at bigint`);
+- record each migration with the SHA-256 of its file contents as `hash` and the matching `when` value from `drizzle/meta/_journal.json` as `created_at`;
+- be rehearsed on a Production clone, where `pnpm db:migrate` must then be a no-op;
+- start from a Neon restore point.
 
 ### Neon production cutover
 
