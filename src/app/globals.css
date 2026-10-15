@@ -1607,7 +1607,7 @@ select {
   margin-bottom: 1.25rem;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 520px) {
   .treasury-check-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -2650,11 +2650,7 @@ select {
   line-height: 1.6;
 }
 .transaction-title {
-  align-items: end;
-}
-.transaction-title > div:first-child {
-  flex: 1;
-  min-width: 0;
+  display: block;
 }
 .detail-grid {
   margin-bottom: 30px;
@@ -3683,28 +3679,31 @@ select {
 
 .transaction-title-labels {
   display: flex;
-  flex: 0 0 auto;
+  flex-wrap: wrap;
   gap: 8px;
   align-items: center;
-  justify-content: flex-end;
 }
 
-.transaction-title-labels .summary-open-button {
+.transaction-title-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-top: 24px;
+}
+
+.transaction-title-actions .summary-open-button {
   margin: 0;
-  padding: 0.55rem 0.85rem;
+  padding: 0.7rem 1.1rem;
   border-radius: 999px;
+  font-size: 15px;
   white-space: nowrap;
 }
 
 @media (max-width: 900px) {
-  .transaction-title {
-    flex-direction: column;
+  .transaction-title-actions {
     align-items: flex-start;
-  }
-
-  .transaction-title-labels {
-    flex-wrap: wrap;
-    justify-content: flex-start;
+    flex-direction: column;
   }
 }
 
