@@ -50,4 +50,18 @@ describe("TransactionSummaryDialog", () => {
     expect(html).toContain("No saved AI summary yet");
     expect(html).toContain("Generate summary");
   });
+
+  it("keeps the trigger visible when the Safe is not imported", () => {
+    const html = renderToStaticMarkup(
+      <TransactionSummaryDialog
+        canGenerate={false}
+        endpoint="/api/summary"
+        initialSummary={null}
+      />,
+    );
+
+    expect(html).toContain("AI summary");
+    expect(html).toContain("Import this Safe to generate a summary");
+    expect(html).not.toContain("Generate summary</button>");
+  });
 });
