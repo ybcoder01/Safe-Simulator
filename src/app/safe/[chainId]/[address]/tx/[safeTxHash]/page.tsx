@@ -581,12 +581,11 @@ export default async function TransactionDetailPage({
             <span className={`tx-status tx-${lifecycleStatus}`}>
               {lifecycleStatus}
             </span>
-            {profileId ? (
-              <TransactionSummaryDialog
-                endpoint={`/api/v1/safes/${safe.data.chainId}/${safe.data.address}/tx/${hash.data}/summary`}
-                initialSummary={initialSummary}
-              />
-            ) : null}
+            <TransactionSummaryDialog
+              canGenerate={Boolean(profileId)}
+              endpoint={`/api/v1/safes/${safe.data.chainId}/${safe.data.address}/tx/${hash.data}/summary`}
+              initialSummary={initialSummary}
+            />
           </div>
         </header>
 
