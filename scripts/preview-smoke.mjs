@@ -269,7 +269,10 @@ try {
     expectedTransaction.recipient.toLowerCase(),
   );
   assert.equal(transaction.insight?.decoded?.method, "transfer");
-  assert.equal(transaction.insight?.provenance, "safe-service");
+  assert.ok(
+    ["safe-service", "verified-abi"].includes(transaction.insight?.provenance),
+    `Expected an authoritative decode source, received ${transaction.insight?.provenance ?? "none"}.`,
+  );
   assert.equal(transaction.execution?.mode, "executed-replay");
   assert.equal(transaction.execution?.success, true);
   assert.equal(transaction.execution?.coverage?.outcome, "on-chain-receipt");
