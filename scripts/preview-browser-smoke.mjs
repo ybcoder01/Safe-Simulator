@@ -10,6 +10,7 @@ const environment = process.env.SMOKE_ENVIRONMENT;
 const oidcToken = process.env.VERCEL_TRUSTED_OIDC_TOKEN;
 const navigationTimeoutMs = 30_000;
 const defaultRenderTimeoutMs = 30_000;
+const coldAnalysisTimeoutMs = 90_000;
 
 assert.equal(
   environment,
@@ -179,7 +180,7 @@ async function waitForText(during, timeoutMs, failureMessage) {
   );
 }
 
-async function requestJson(pathname) {
+async function requestJson(pathname, timeoutMs = navigationTimeoutMs) {
   const url = new URL(pathname, base);
   assert.equal(url.origin, base.origin);
 
@@ -189,7 +190,7 @@ async function requestJson(pathname) {
       "x-vercel-trusted-oidc-idp-token": oidcToken,
     },
     redirect: "error",
-    signal: AbortSignal.timeout(navigationTimeoutMs),
+    signal: AbortSignal.timeout(timeoutMs),
   });
   assert.equal(
     response.status,
@@ -206,6 +207,7 @@ async function requestJson(pathname) {
 
 const approvalResponse = await requestJson(
   `/api/v1/safes/50/${approvalSafe}/tx/${approvalHash}`,
+  coldAnalysisTimeoutMs,
 );
 const approval = approvalResponse.data;
 assert.equal(approval.status, "executed");
