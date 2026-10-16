@@ -48,6 +48,7 @@ import {
   resolveExecutionInsight,
 } from "@/lib/api/execution-insight";
 import { resolveInternalProxyBoundaries } from "@/lib/api/internal-proxy-boundaries";
+import { resolveOptionalLivePayload } from "@/lib/api/optional-live-payload";
 import { resolveProtocolRouteAttestation } from "@/lib/api/protocol-route-attestation";
 import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
 import { resolveStorageChangeAnalysis } from "@/lib/api/storage-changes";
@@ -172,7 +173,7 @@ export default async function TransactionDetailPage({
     profileId
       ? persistence.listAddressBookEntries(profileId, safe.data)
       : Promise.resolve([]),
-    safeData.getMultisigTransaction(safe.data, hash.data).catch(() => null),
+    resolveOptionalLivePayload(safeData, safe.data, hash.data),
     resolveTargetRuntimeCodeEvidence(persisted, chain),
     reviewQueuePromise,
     persistence.listTransactions(safe.data, null, 250).catch(() => null),
