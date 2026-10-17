@@ -14,9 +14,15 @@ import {
 } from "@/core/analysis/tokens/metadata";
 import type { Address, ChainId, Hex } from "@/core/domain";
 import type { ChainPort } from "@/core/ports";
+import { groupDigits } from "@/lib/api/token-presentation";
 import type { AttestedProtocolAddress } from "@/lib/api/protocol-route-attestation";
 
-export const SILO_MARKET_LABEL = "Silo market vault";
+// A Silo market is also its own collateral share token. The attestation keeps
+// one label per address, so a market can carry either of these labels.
+const SILO_MARKET_LABELS: ReadonlySet<string> = new Set([
+  "Silo market vault",
+  "Silo collateral share token",
+]);
 
 const MAX_SHARE_MOVEMENTS = 4;
 const PROTECTED_COLLATERAL = 0;
@@ -47,7 +53,7 @@ export function attestedSiloMarkets(
   addresses: readonly AttestedProtocolAddress[],
 ): readonly Address[] {
   return addresses
-    .filter((item) => item.label === SILO_MARKET_LABEL)
+    .filter((item) => SILO_MARKET_LABELS.has(item.label))
     .map((item) => item.address);
 }
 
@@ -127,7 +133,7 @@ async function valueOne(
     functionName: "convertToAssets",
     data: assets,
   });
-  const amount = formatTokenAmount(raw.toString(), decimals);
+  const amount = groupDigits(formatTokenAmount(raw.toString(), decimals));
   return symbol && amount ? { amount, symbol } : null;
 }
 

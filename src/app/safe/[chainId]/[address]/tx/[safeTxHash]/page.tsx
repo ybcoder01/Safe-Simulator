@@ -60,6 +60,7 @@ import { resolveTokenBalanceChanges } from "@/lib/api/token-balance-changes";
 import { plainAlertFindingCode } from "@/lib/api/telegram-alerts";
 import { verifyTelegramAlertReceipt } from "@/lib/api/telegram-alert-receipts";
 import {
+  groupDigits,
   movementDirectionLabel,
   nativeAssetSymbol,
   resolveTokenPresentation,
@@ -349,16 +350,18 @@ export default async function TransactionDetailPage({
       "WXDC",
   );
   const wrappedNativeAmount = wrappedNativeMovement
-    ? formatTokenAmount(
-        wrappedNativeMovement.amount,
-        tokenMetadataByAddress.get(wrappedNativeMovement.token.toLowerCase())
-          ?.decimals ?? null,
+    ? groupDigits(
+        formatTokenAmount(
+          wrappedNativeMovement.amount,
+          tokenMetadataByAddress.get(wrappedNativeMovement.token.toLowerCase())
+            ?.decimals ?? null,
+        ),
       )
     : null;
   const nativeSentAmount =
     persisted.value > 0n &&
     (persisted.status === "pending" || persisted.status === "executed")
-      ? formatTokenAmount(persisted.value.toString(), 18)
+      ? groupDigits(formatTokenAmount(persisted.value.toString(), 18))
       : null;
   const nativeSymbol = nativeAssetSymbol(safe.data.chainId);
   const activity = classifyTransactionActivity(persisted);
@@ -487,7 +490,9 @@ export default async function TransactionDetailPage({
         direction: movement.direction,
         from: movement.from,
         to: movement.to,
-        amount: formatTokenAmount(movement.amount, metadata?.decimals ?? null),
+        amount: groupDigits(
+          formatTokenAmount(movement.amount, metadata?.decimals ?? null),
+        ),
         worth: siloShareValues.get(movement.logIndex) ?? null,
         symbol: resolveTokenPresentation(
           safe.data.chainId,
