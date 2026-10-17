@@ -29,6 +29,10 @@ const configAbi = parseAbi([
   "function getConfig(address silo) view returns ((uint256 daoFee,uint256 deployerFee,address silo,address token,address protectedShareToken,address collateralShareToken,address debtShareToken,address solvencyOracle,address maxLtvOracle,address interestRateModel,uint256 maxLtv,uint256 lt,uint256 liquidationTargetLtv,uint256 liquidationFee,uint256 flashloanFee,address hookReceiver,bool callBeforeQuote) config)",
 ]);
 
+const hookAbi = parseAbi([
+  "function configuredGauges(address shareToken) view returns (address gauge)",
+]);
+
 type ConfigData = {
   readonly silo: Address;
   readonly token: Address;
@@ -160,6 +164,58 @@ function configAddresses(
   ].filter((item) => addressKey(item.address) !== ZERO_ADDRESS);
 }
 
+/**
+ * The market's hook receiver is part of the configuration proven through the
+ * factory, so an incentives controller it names for one of the market's share
+ * tokens is part of the same proven configuration. Lookups are best effort;
+ * a gauge that cannot be read simply stays unattested.
+ */
+async function configuredGauges(
+  chain: ChainPort,
+  transaction: SafeTransaction,
+  config: ConfigData,
+): Promise<readonly AttestedProtocolAddress[]> {
+  if (addressKey(config.hookReceiver) === ZERO_ADDRESS) return [];
+
+  const shareTokens = [
+    config.protectedShareToken,
+    config.collateralShareToken,
+    config.debtShareToken,
+  ].filter((token) => addressKey(token) !== ZERO_ADDRESS);
+  const results = await Promise.allSettled(
+    shareTokens.map(async (token) => {
+      const result = await callContract(
+        chain,
+        transaction,
+        config.hookReceiver,
+        encodeFunctionData({
+          abi: hookAbi,
+          functionName: "configuredGauges",
+          args: [token],
+        }),
+      );
+      return getAddress(
+        decodeFunctionResult({
+          abi: hookAbi,
+          functionName: "configuredGauges",
+          data: result,
+        }),
+      ) as Address;
+    }),
+  );
+
+  return results.flatMap((result) =>
+    result.status === "fulfilled" && addressKey(result.value) !== ZERO_ADDRESS
+      ? [
+          {
+            address: result.value,
+            label: "Silo incentives controller set by the hook receiver",
+          },
+        ]
+      : [],
+  );
+}
+
 async function attestSiloMarket(
   chain: ChainPort,
   transaction: SafeTransaction,
@@ -215,10 +271,17 @@ async function attestSiloMarket(
       }),
     );
 
+    const gauges = await Promise.all(
+      (configs as readonly ConfigData[]).map((item) =>
+        configuredGauges(chain, transaction, item),
+      ),
+    );
+
     return uniqueAddresses([
       { address: SILO_FACTORY, label: "Official Silo Factory" },
       { address: configAddress, label: "Silo market configuration" },
       ...configs.flatMap((item) => configAddresses(item as ConfigData)),
+      ...gauges.flat(),
     ]);
   } catch {
     return null;
