@@ -249,43 +249,44 @@ export default async function TransactionDetailPage({
       persisted.blockNumber ?? undefined,
     ),
   ]);
-  const routeAttestation = await resolveProtocolRouteAttestation(
-    chain,
-    persisted,
-    execution,
-    internalProxyBoundaries,
-  );
-  const contractVerification = await resolveXdcContractVerification(
-    cache,
-    safe.data.chainId,
-    collectXdcContractReferences({
-      transactionTarget: persisted.to,
-      decodedAddresses,
-      nestedTargets: nestedCalls.map((call) => call.to),
-      traceTargets: [
-        execution.rootCall?.to,
-        ...execution.internalCalls.flatMap((call) => [call.from, call.to]),
-      ],
-      logEmitters: execution.logs.map((log) => log.address),
-      storageContracts: execution.storageChanges.map(
-        (change) => change.address,
-      ),
-      tokenContracts: execution.tokenMovements.map(
-        (movement) => movement.token,
-      ),
-      approvalContracts: [
-        ...approvalRisk.requests.flatMap((approval) => [
-          approval.target,
-          approval.token,
-          approval.spender,
-        ]),
-        ...execution.allowanceChanges.flatMap((approval) => [
-          approval.token,
-          approval.spender,
-        ]),
-      ],
-    }),
-  );
+  const contractReferences = collectXdcContractReferences({
+    transactionTarget: persisted.to,
+    decodedAddresses,
+    nestedTargets: nestedCalls.map((call) => call.to),
+    traceTargets: [
+      execution.rootCall?.to,
+      ...execution.internalCalls.flatMap((call) => [call.from, call.to]),
+    ],
+    logEmitters: execution.logs.map((log) => log.address),
+    storageContracts: execution.storageChanges.map((change) => change.address),
+    tokenContracts: execution.tokenMovements.map((movement) => movement.token),
+    approvalContracts: [
+      ...approvalRisk.requests.flatMap((approval) => [
+        approval.target,
+        approval.token,
+        approval.spender,
+      ]),
+      ...execution.allowanceChanges.flatMap((approval) => [
+        approval.token,
+        approval.spender,
+      ]),
+    ],
+  });
+  const [routeAttestation, contractVerification] = await Promise.all([
+    resolveProtocolRouteAttestation(
+      chain,
+      persisted,
+      execution,
+      internalProxyBoundaries,
+    ),
+    resolveXdcContractVerification(
+      cache,
+      safe.data.chainId,
+      contractReferences,
+      fetch,
+      { totalTimeoutMs: 1_500 },
+    ),
+  ]);
   const verdict = resolveEvidenceVerdict(
     persisted,
     insight,

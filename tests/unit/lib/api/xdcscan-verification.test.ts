@@ -166,4 +166,38 @@ describe("XDCScan source verification", () => {
     expect(fetcher).not.toHaveBeenCalled();
     expect(cachePort.set).not.toHaveBeenCalled();
   });
+
+  it("bounds all explorer lookups with one page-loading budget", async () => {
+    vi.useFakeTimers();
+    const addresses = Array.from(
+      { length: 8 },
+      (_, index) =>
+        `0x${(index + 1).toString(16).padStart(40, "0")}` as Address,
+    );
+    const fetcher = vi.fn(
+      (_input: string | URL | Request, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () =>
+            reject(new Error("aborted")),
+          );
+        }),
+    );
+
+    const resultPromise = resolveXdcContractVerification(
+      cache(),
+      50,
+      addresses,
+      fetcher,
+      { totalTimeoutMs: 1_500 },
+    );
+    await vi.advanceTimersByTimeAsync(1_500);
+    const result = await resultPromise;
+    vi.useRealTimers();
+
+    expect(result.items).toHaveLength(8);
+    expect(result.items.every((item) => item.status === "unavailable")).toBe(
+      true,
+    );
+    expect(fetcher).toHaveBeenCalledTimes(4);
+  });
 });
