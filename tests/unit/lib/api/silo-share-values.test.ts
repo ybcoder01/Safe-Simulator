@@ -125,7 +125,7 @@ describe("resolveSiloShareValues", () => {
       blockNumber: 1n,
     });
 
-    expect(values.get(3)).toEqual({ amount: "2000000", symbol: "WXDC" });
+    expect(values.get(3)).toEqual({ amount: "2,000,000", symbol: "WXDC" });
     expect(typesSeen).toEqual([0]);
   });
 
@@ -182,6 +182,15 @@ describe("attestedSiloMarkets", () => {
       attestedSiloMarkets([
         { address: market, label: "Silo market vault" },
         { address: asset, label: "Silo configured asset" },
+      ]),
+    ).toEqual([market]);
+  });
+
+  it("accepts a market that the attestation labelled as its collateral share token", () => {
+    expect(
+      attestedSiloMarkets([
+        { address: market, label: "Silo collateral share token" },
+        { address: protectedShare, label: "Silo protected share token" },
       ]),
     ).toEqual([market]);
   });

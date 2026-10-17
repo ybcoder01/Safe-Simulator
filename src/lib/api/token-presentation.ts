@@ -24,6 +24,14 @@ export function isLikelyLiquidityPosition(
   );
 }
 
+/** Adds thousands separators to the whole part of a plain decimal string. */
+export function groupDigits(amount: string | null): string | null {
+  if (amount === null) return null;
+  const match = /^(\d+)(\.\d+)?$/.exec(amount);
+  if (!match) return amount;
+  return `${match[1]!.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}${match[2] ?? ""}`;
+}
+
 export function nativeAssetSymbol(chainId: number): string {
   if (chainId === 1) return "ETH";
   if (chainId === 50) return "XDC";

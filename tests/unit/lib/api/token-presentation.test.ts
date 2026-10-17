@@ -1,10 +1,25 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  groupDigits,
   isLikelyLiquidityPosition,
   movementDirectionLabel,
   resolveTokenPresentation,
 } from "../../../../src/lib/api/token-presentation";
+
+describe("groupDigits", () => {
+  it("adds thousands separators to the whole part only", () => {
+    expect(groupDigits("2000000000")).toBe("2,000,000,000");
+    expect(groupDigits("1234.56789")).toBe("1,234.56789");
+    expect(groupDigits("999")).toBe("999");
+    expect(groupDigits("0.0001")).toBe("0.0001");
+  });
+
+  it("leaves missing or non-numeric values alone", () => {
+    expect(groupDigits(null)).toBeNull();
+    expect(groupDigits("n/a")).toBe("n/a");
+  });
+});
 
 describe("token presentation", () => {
   it("uses the bundled XDC mark for the native asset", () => {
