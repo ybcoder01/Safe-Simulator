@@ -17,6 +17,8 @@ export interface BriefMovement {
   readonly to: string;
   readonly amount: string | null;
   readonly symbol: string | null;
+  /** What a share-type token can be redeemed for, when it could be looked up. */
+  readonly worth?: BriefNativeAmount | null;
 }
 
 export interface BriefCheckItem {
@@ -122,7 +124,10 @@ function plural(count: number, one: string, many: string): string {
 
 function amountText(movement: BriefMovement): string {
   const symbol = movement.symbol ?? "tokens";
-  return movement.amount ? `${movement.amount} ${symbol}` : symbol;
+  const text = movement.amount ? `${movement.amount} ${symbol}` : symbol;
+  return movement.worth
+    ? `${text} (redeemable for ${movement.worth.amount} ${movement.worth.symbol})`
+    : text;
 }
 
 function joinList(items: readonly string[]): string {

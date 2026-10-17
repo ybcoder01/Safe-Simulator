@@ -28,8 +28,15 @@ describe("RPC URL configuration", () => {
     }
   });
 
-  it("uses the chain defaults when no endpoints are configured", () => {
-    expect(getRpcUrls(xdc)).toEqual(xdc.rpcUrls.default.http);
+  it("uses the public XDC endpoint before the chain default when nothing is configured", () => {
+    expect(getRpcUrls(xdc)).toEqual([
+      "https://rpc.xdcrpc.com",
+      ...xdc.rpcUrls.default.http,
+    ]);
+  });
+
+  it("uses the chain defaults for other chains when nothing is configured", () => {
+    expect(getRpcUrls(mainnet)).toEqual(mainnet.rpcUrls.default.http);
   });
 
   it("uses only unique configured endpoints when an override is present", () => {
@@ -50,6 +57,7 @@ describe("RPC URL configuration", () => {
     expect(getArchiveRpcUrls(xdc)).toEqual([
       "https://archive-one.example",
       "https://rpc.ankr.com/xdc",
+      "https://rpc.xdcrpc.com",
       "https://current.example",
     ]);
   });

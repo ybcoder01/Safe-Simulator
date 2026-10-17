@@ -51,6 +51,10 @@ import { resolveInternalProxyBoundaries } from "@/lib/api/internal-proxy-boundar
 import { resolveOptionalLivePayload } from "@/lib/api/optional-live-payload";
 import { resolveProtocolRouteAttestation } from "@/lib/api/protocol-route-attestation";
 import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
+import {
+  attestedSiloMarkets,
+  resolveSiloShareValues,
+} from "@/lib/api/silo-share-values";
 import { resolveStorageChangeAnalysis } from "@/lib/api/storage-changes";
 import { resolveTokenBalanceChanges } from "@/lib/api/token-balance-changes";
 import { plainAlertFindingCode } from "@/lib/api/telegram-alerts";
@@ -457,6 +461,19 @@ export default async function TransactionDetailPage({
     transferHistoryLoaded: transferHistoryPage !== null,
     transaction: persisted,
   });
+  const siloShareValues = await resolveSiloShareValues(chain, {
+    chainId: safe.data.chainId,
+    markets: attestedSiloMarkets(routeAttestation.addresses),
+    movements: execution.tokenMovements
+      .filter((movement) => movement.direction === "inbound")
+      .map((movement) => ({
+        logIndex: movement.logIndex,
+        token: movement.token,
+        amount: movement.amount,
+      })),
+    blockNumber:
+      execution.blockNumber === null ? null : BigInt(execution.blockNumber),
+  });
   const briefMovements = [...execution.tokenMovements]
     .sort(
       (a, b) =>
@@ -471,6 +488,7 @@ export default async function TransactionDetailPage({
         from: movement.from,
         to: movement.to,
         amount: formatTokenAmount(movement.amount, metadata?.decimals ?? null),
+        worth: siloShareValues.get(movement.logIndex) ?? null,
         symbol: resolveTokenPresentation(
           safe.data.chainId,
           movement.token,

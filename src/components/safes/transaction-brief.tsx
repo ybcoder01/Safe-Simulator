@@ -10,6 +10,7 @@ export interface BriefFlowRow {
   readonly direction: "inbound" | "outbound" | "self" | "external";
   readonly amount: string | null;
   readonly symbol: string | null;
+  readonly worth?: { readonly amount: string; readonly symbol: string } | null;
   readonly from: string;
   readonly to: string;
 }
@@ -178,6 +179,11 @@ export function TransactionBriefPanel({
                       {row.amount ? `${row.amount} ` : ""}
                       {row.symbol ?? "tokens"}
                     </strong>
+                    {row.worth ? (
+                      <small>
+                        Redeemable for {row.worth.amount} {row.worth.symbol}
+                      </small>
+                    ) : null}
                     <span aria-hidden="true">→</span>
                   </div>
                   <FlowNode

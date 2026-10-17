@@ -105,6 +105,29 @@ describe("buildTransactionBrief", () => {
     );
   });
 
+  it("says what a share token can be redeemed for when that was looked up", () => {
+    const brief = buildTransactionBrief(
+      input({
+        movements: [
+          {
+            direction: "inbound" as const,
+            from: zero,
+            to: safe,
+            amount: "2,000,000,000",
+            symbol: "nbWXDC-3002",
+            worth: { amount: "2,000,000", symbol: "WXDC" },
+          },
+        ],
+        nativeSent: { amount: "2,000,000", symbol: "XDC" },
+        status: "executed",
+      }),
+    );
+
+    expect(brief.sentence).toBe(
+      "Your Safe received 2,000,000,000 nbWXDC-3002 (redeemable for 2,000,000 WXDC) and sent 2,000,000 XDC.",
+    );
+  });
+
   it("lists the native coin alongside token outflows, and alone when nothing else moves", () => {
     const withToken = buildTransactionBrief(
       input({

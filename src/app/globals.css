@@ -5101,6 +5101,11 @@ select {
   font-size: 1.05rem;
 }
 
+.brief-flow-arrow small {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
 .brief-flow-arrow span {
   color: var(--muted);
   font-size: 1.5rem;
