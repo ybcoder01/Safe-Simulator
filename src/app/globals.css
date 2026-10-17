@@ -1844,6 +1844,12 @@ select {
   line-height: 1.06;
   letter-spacing: -0.045em;
 }
+.transaction-title h1.transaction-title-long {
+  max-width: 32ch;
+  font-size: clamp(26px, 2.3vw, 38px);
+  line-height: 1.12;
+  letter-spacing: -0.035em;
+}
 .full-address,
 .transaction-title > div > code {
   display: block;
