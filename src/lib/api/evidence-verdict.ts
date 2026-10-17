@@ -86,6 +86,7 @@ export function resolveEvidenceVerdict(
   const executedAllowances = approvalRisk
     ? approvalRisk.executedChanges.map((allowance) => ({
         token: allowance.token,
+        owner: allowance.owner,
         spender: allowance.spender,
         amount: allowance.amount,
         infinite: allowance.infinite,
@@ -93,6 +94,7 @@ export function resolveEvidenceVerdict(
       }))
     : execution.allowanceChanges.map((allowance) => ({
         token: allowance.token as Address,
+        owner: allowance.owner as Address,
         spender: allowance.spender as Address,
         amount: allowance.amount,
         infinite: allowance.infinite,

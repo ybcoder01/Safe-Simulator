@@ -351,6 +351,12 @@ export default async function TransactionDetailPage({
           ?.decimals ?? null,
       )
     : null;
+  const nativeSentAmount =
+    persisted.value > 0n &&
+    (persisted.status === "pending" || persisted.status === "executed")
+      ? formatTokenAmount(persisted.value.toString(), 18)
+      : null;
+  const nativeSymbol = nativeAssetSymbol(safe.data.chainId);
   const activity = classifyTransactionActivity(persisted);
   const networkAction =
     safe.data.chainId === 50 && decodedAction
@@ -360,6 +366,10 @@ export default async function TransactionDetailPage({
           .replace(
             /^(Withdraw|Borrow) WXDC/,
             wrappedNativeAmount ? `$1 ${wrappedNativeAmount} WXDC` : "$1 WXDC",
+          )
+          .replace(
+            /^Wrap XDC/,
+            nativeSentAmount ? `Wrap ${nativeSentAmount} XDC` : "Wrap XDC",
           )
       : decodedAction;
   const storedAction =
@@ -468,12 +478,6 @@ export default async function TransactionDetailPage({
         ).symbol,
       };
     });
-  const nativeSentAmount =
-    persisted.value > 0n &&
-    (persisted.status === "pending" || persisted.status === "executed")
-      ? formatTokenAmount(persisted.value.toString(), 18)
-      : null;
-  const nativeSymbol = nativeAssetSymbol(safe.data.chainId);
   const briefFlow: readonly BriefFlowRow[] = nativeSentAmount
     ? [
         {
@@ -507,7 +511,11 @@ export default async function TransactionDetailPage({
       : null,
     infiniteApproval: infiniteAuthorization,
     approvalChangeCount:
-      approvalRisk.requests.length + approvalRisk.executedChanges.length,
+      approvalRisk.requests.length +
+      approvalRisk.executedChanges.filter(
+        (change) =>
+          change.owner.toLowerCase() === persisted.safe.address.toLowerCase(),
+      ).length,
     configChangeCount: execution.safeConfigurationChanges.length,
     findings: userFacingFindings,
     evidenceFindings: verdict.findings,

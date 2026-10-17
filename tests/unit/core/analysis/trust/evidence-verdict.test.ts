@@ -681,6 +681,52 @@ describe("evaluateEvidenceVerdict", () => {
     );
   });
 
+  it("does not raise spender warnings for allowances owned by another contract", () => {
+    const router = "0x5555555555555555555555555555555555555555" as Address;
+    const result = evaluateEvidenceVerdict(
+      input({
+        allowances: [
+          {
+            token,
+            owner: router,
+            spender,
+            amount: "1000000",
+            infinite: false,
+            newSpenderAtAnchor: true,
+          },
+        ],
+      }),
+    );
+
+    expect(result.findings.map((finding) => finding.code)).not.toContain(
+      "new-approval-spender",
+    );
+    expect(result.findings.map((finding) => finding.code)).not.toContain(
+      "spender-trust-unresolved",
+    );
+  });
+
+  it("still warns when the Safe itself enables new spending access", () => {
+    const result = evaluateEvidenceVerdict(
+      input({
+        allowances: [
+          {
+            token,
+            owner: safe,
+            spender,
+            amount: "1000000",
+            infinite: false,
+            newSpenderAtAnchor: true,
+          },
+        ],
+      }),
+    );
+
+    expect(result.findings.map((finding) => finding.code)).toContain(
+      "new-approval-spender",
+    );
+  });
+
   it("uses registry evidence as known without promoting it to trusted", () => {
     const result = evaluateEvidenceVerdict(
       input({

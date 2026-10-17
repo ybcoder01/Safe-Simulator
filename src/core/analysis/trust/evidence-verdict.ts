@@ -50,6 +50,7 @@ export interface EvidenceVerdictInput {
   }[];
   readonly allowances: readonly {
     readonly token: Address;
+    readonly owner?: Address | null;
     readonly spender: Address;
     readonly amount: string;
     readonly infinite: boolean;
@@ -609,8 +610,12 @@ export function evaluateEvidenceVerdict(
     });
   }
 
+  const safeAllowances = input.allowances.filter(
+    (item) =>
+      !item.owner || addressKey(item.owner) === addressKey(input.safeAddress),
+  );
   const newSpenders = [
-    ...input.allowances
+    ...safeAllowances
       .filter((item) => item.newSpenderAtAnchor === true)
       .flatMap((item) => [item.token, item.spender]),
     ...approvalRequests
@@ -721,7 +726,7 @@ export function evaluateEvidenceVerdict(
     });
   }
 
-  const boundedAllowances = input.allowances.filter((item) => !item.infinite);
+  const boundedAllowances = safeAllowances.filter((item) => !item.infinite);
   const boundedRequests = approvalRequests.filter(
     (item) =>
       item.standard !== "permit2-signature-transfer" && item.infinite !== true,

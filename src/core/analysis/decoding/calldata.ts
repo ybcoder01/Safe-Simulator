@@ -152,6 +152,13 @@ function encodedBatchSummary(call: DecodedCall): string | null {
   if (
     includes("0xbf376c7a") &&
     includes("0xe1f21c67") &&
+    includes("0xf19ed6be")
+  ) {
+    return "Wrap native assets and deposit them into a lending market";
+  }
+  if (
+    includes("0xbf376c7a") &&
+    includes("0xe1f21c67") &&
     includes("0x22867d78")
   ) {
     return "Wrap native assets and repay a lending position";
