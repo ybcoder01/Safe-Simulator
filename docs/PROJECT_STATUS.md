@@ -46,7 +46,7 @@ replacement for a signing wallet or hardware-wallet verification.
 | Silo route attestation          | In review | Router, factory lineage, live configuration, proxy boundaries, and connected contracts are shown as plain-language checks. |
 | Telegram alerts                 | Live      | `@safealerts_bot` is connected to Production and has delivered an end-to-end signer alert for an XDC Safe.                 |
 | Signed alert verification       | Live      | Unique verification IDs, Ed25519-signed receipts, key rotation, and the no-signing verification page are deployed.         |
-| Production database             | Live      | Neon Postgres; Telegram migrations `0006`, `0007`, and `0008` were applied and verified.                                   |
+| Production database             | Live      | Neon Postgres; migrations `0006` to `0009` were applied and verified. There is no Drizzle migration ledger.                |
 | Queue and scheduling            | Degraded  | QStash reached its 1,000-message daily limit; a shared-sweep and direct-refresh fix is implemented for deployment.         |
 | CI and previews                 | Live      | Formatting, linting, TypeScript, tests, build, and Vercel Preview checks.                                                  |
 
@@ -381,6 +381,8 @@ Applied migration series:
 6. `0005_transaction_summaries.sql`
 7. `0006_melodic_living_mummy.sql`
 8. `0007_mean_wither.sql`
+9. `0008_telegram_control_center.sql`
+10. `0009_aspiring_preak.sql`
 
 Migration `0006` adds:
 
@@ -393,6 +395,20 @@ Migration `0006` adds:
 The three Telegram tables were confirmed present in Production after the
 migration. Database changes are forward-only unless a separately reviewed
 recovery plan says otherwise.
+
+Migration `0008` adds the chat label, disconnect time, and poll and delivery
+health columns to `telegram_subscriptions` for the Telegram control center.
+
+Migration `0009` adds `purpose` and `trusted_at` to `profile_address_book` and
+backfills `trusted_at` from `created_at`. It must be applied before deploying
+the trusted-recipient code, because every transaction page reads the address
+book.
+
+Production has no Drizzle migration ledger. Each migration is applied as a
+single reviewed file and verified against the actual schema. Never run
+`pnpm db:migrate` or `drizzle-kit push` against Production until the database
+has been formally baselined. See
+[`OPERATIONS.md`](OPERATIONS.md#applying-migrations-to-production).
 
 Migration `0007` adds the verification ID, signed receipt payload, digest,
 signature, and signing-key identifier to Telegram delivery records. It must be
@@ -658,6 +674,8 @@ After an alert-format or delivery change:
 | 2026-10-07 | A shared two-minute Telegram sweep and queue-independent bounded dashboard refresh fallback were implemented to remove per-Safe polling amplification and keep manual recovery usable at quota.                                                      |
 | 2026-10-08 | Transaction reports were redesigned to lead with action, project identity, address/permission substitution checks, and a concrete final-approval checklist; unknown evidence is described as uncertainty rather than proof of an attack.             |
 | 2026-10-08 | Treasury review gained exact destination and recipient history, first-interaction indicators, lookalike-address blocking, permission checks, and transaction-type-specific signer prompts without claiming unavailable historical bytecode evidence. |
+| 2026-10-15 | Trusted recipient entries gained a purpose and trusted-since time, and a recipient trusted less than 24 hours ago needs a second look; migration `0009` was applied directly to Production and verified against the actual schema.                   |
+| 2026-10-15 | Production was confirmed to have no Drizzle migration ledger; migrations stay one reviewed file at a time, and baselining a ledger is deferred to a separate, rehearsed change.                                                                      |
 
 ## 17. Related documents
 
