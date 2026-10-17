@@ -64,6 +64,7 @@ import {
   currentStageFromTransaction,
 } from "@/lib/alert-stage";
 import { buildTransactionBrief } from "@/lib/transaction-brief";
+import { resolveTransactionActionLabel } from "@/lib/transaction-action-label";
 import { resolveTargetRuntimeCodeEvidence } from "@/lib/api/transaction-analysis";
 import { resolveExecutionTokenMetadata } from "@/lib/api/token-metadata";
 import { explorerTransactionUrl } from "@/lib/explorer-links";
@@ -331,7 +332,12 @@ export default async function TransactionDetailPage({
     ? (PROTOCOL_LABELS[targetRegistryEntry.protocol] ??
       targetRegistryEntry.protocol)
     : null;
-  const decodedAction = decoded ? decodedCallSummary(decoded) : null;
+  const decodedAction = resolveTransactionActionLabel({
+    chainId: safe.data.chainId,
+    decoded,
+    execution,
+    tokenMetadata,
+  });
   const wrappedNativeMovement = execution.tokenMovements.find(
     (movement) =>
       tokenMetadataByAddress.get(movement.token.toLowerCase())?.symbol ===
@@ -355,13 +361,17 @@ export default async function TransactionDetailPage({
             wrappedNativeAmount ? `$1 ${wrappedNativeAmount} WXDC` : "$1 WXDC",
           )
       : decodedAction;
+  const storedAction =
+    activity.type === "liquidity"
+      ? "Add liquidity to a pool"
+      : transaction.summary;
   const primaryAction =
     decoded?.method.split("(").at(0)?.toLowerCase() === "multicall" &&
     networkAction &&
     protocolLabel
       ? `${networkAction} through ${protocolLabel}`
       : (networkAction ??
-        transaction.summary ??
+        storedAction ??
         `${transaction.operation === "delegatecall" ? "Delegate call" : "Contract call"} to ${shorten(transaction.to)}`);
   const infiniteAuthorization = [
     ...approvalRisk.requests,
@@ -571,7 +581,13 @@ export default async function TransactionDetailPage({
             <p className="eyebrow">
               Safe transaction · Nonce {transaction.nonce}
             </p>
-            <h1>{primaryAction}</h1>
+            <h1
+              className={
+                primaryAction.length > 72 ? "transaction-title-long" : undefined
+              }
+            >
+              {primaryAction}
+            </h1>
           </div>
           <div className="transaction-title-actions">
             <div className="transaction-title-labels">
