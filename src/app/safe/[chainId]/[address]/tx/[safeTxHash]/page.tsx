@@ -57,6 +57,7 @@ import { plainAlertFindingCode } from "@/lib/api/telegram-alerts";
 import { verifyTelegramAlertReceipt } from "@/lib/api/telegram-alert-receipts";
 import {
   movementDirectionLabel,
+  nativeAssetSymbol,
   resolveTokenPresentation,
 } from "@/lib/api/token-presentation";
 import {
@@ -467,7 +468,25 @@ export default async function TransactionDetailPage({
         ).symbol,
       };
     });
-  const briefFlow: readonly BriefFlowRow[] = briefMovements;
+  const nativeSentAmount =
+    persisted.value > 0n &&
+    (persisted.status === "pending" || persisted.status === "executed")
+      ? formatTokenAmount(persisted.value.toString(), 18)
+      : null;
+  const nativeSymbol = nativeAssetSymbol(safe.data.chainId);
+  const briefFlow: readonly BriefFlowRow[] = nativeSentAmount
+    ? [
+        {
+          key: "brief:native-value",
+          direction: "outbound",
+          from: persisted.safe.address,
+          to: persisted.to,
+          amount: nativeSentAmount,
+          symbol: nativeSymbol,
+        },
+        ...briefMovements,
+      ]
+    : briefMovements;
   const briefLabels: Record<string, string> = {};
   for (const assessment of verdict.addresses) {
     if (assessment.label) {
@@ -483,6 +502,9 @@ export default async function TransactionDetailPage({
     status: persisted.status,
     safeAddress: persisted.safe.address,
     movements: briefMovements,
+    nativeSent: nativeSentAmount
+      ? { amount: nativeSentAmount, symbol: nativeSymbol }
+      : null,
     infiniteApproval: infiniteAuthorization,
     approvalChangeCount:
       approvalRisk.requests.length + approvalRisk.executedChanges.length,
@@ -630,7 +652,7 @@ export default async function TransactionDetailPage({
           knownLabels={briefLabels}
           safeAddress={persisted.safe.address}
           stage={currentStage}
-          totalMovements={briefMovements.length}
+          totalMovements={briefFlow.length}
         >
           <details className="brief-full-details">
             <summary>

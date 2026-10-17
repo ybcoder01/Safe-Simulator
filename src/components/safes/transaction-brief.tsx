@@ -42,8 +42,10 @@ function FlowNode({
   addressBook,
   chainId,
   knownLabels,
+  role,
   safeAddress,
 }: {
+  readonly role: "from" | "to";
   readonly address: string;
   readonly addressBook: readonly AddressBookView[];
   readonly chainId: number;
@@ -60,7 +62,12 @@ function FlowNode({
     );
   }
   if (key === ZERO_ADDRESS) {
-    return (
+    return role === "from" ? (
+      <div className="brief-node brief-node-mint">
+        <strong>Newly created</strong>
+        <span>Issued by the token itself</span>
+      </div>
+    ) : (
       <div className="brief-node brief-node-burn">
         <strong>Removed</strong>
         <span>Taken out of circulation</span>
@@ -159,6 +166,7 @@ export function TransactionBriefPanel({
                   key={row.key}
                 >
                   <FlowNode
+                    role="from"
                     address={row.from}
                     addressBook={addressBook}
                     chainId={chainId}
@@ -173,6 +181,7 @@ export function TransactionBriefPanel({
                     <span aria-hidden="true">→</span>
                   </div>
                   <FlowNode
+                    role="to"
                     address={row.to}
                     addressBook={addressBook}
                     chainId={chainId}

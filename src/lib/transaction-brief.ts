@@ -57,12 +57,19 @@ export interface BriefRouteCheck {
   readonly detail: string;
 }
 
+export interface BriefNativeAmount {
+  readonly amount: string;
+  readonly symbol: string;
+}
+
 export interface TransactionBriefInput {
   readonly signal: ReviewSignal;
   readonly signalDetail: string;
   readonly status: TransactionStatus;
   readonly safeAddress: string;
   readonly movements: readonly BriefMovement[];
+  /** The native coin the Safe sends with the call; token events never include it. */
+  readonly nativeSent?: BriefNativeAmount | null;
   readonly infiniteApproval: boolean;
   readonly approvalChangeCount: number;
   readonly configChangeCount: number;
@@ -238,8 +245,16 @@ function describeEffects(input: TransactionBriefInput): {
       `${executed ? "received" : "receives"} ${listAmounts(incoming)}`,
     );
   }
-  if (sent.length > 0) {
-    money.push(`${executed ? "sent" : "sends"} ${listAmounts(sent)}`);
+  const nativeSent = input.nativeSent
+    ? `${input.nativeSent.amount} ${input.nativeSent.symbol}`
+    : null;
+  if (sent.length > 0 || nativeSent) {
+    money.push(
+      `${executed ? "sent" : "sends"} ${joinList([
+        ...(nativeSent ? [nativeSent] : []),
+        ...(sent.length > 0 ? [listAmounts(sent)] : []),
+      ])}`,
+    );
   }
   if (burned.length > 0) {
     money.push(`${executed ? "turned in" : "turns in"} ${listAmounts(burned)}`);

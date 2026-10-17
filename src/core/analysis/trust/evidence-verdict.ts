@@ -290,7 +290,12 @@ function assessAddresses(
   for (const movement of input.movements) {
     add(movement.token, "token");
     add(movement.from, "movement-sender");
-    if (!isProtocolShareBurn(input, movement)) {
+    // Assets arriving in the Safe itself (for example deposit share tokens)
+    // have no outside recipient to confirm.
+    if (
+      !isProtocolShareBurn(input, movement) &&
+      addressKey(movement.to) !== addressKey(input.safeAddress)
+    ) {
       add(movement.to, "movement-recipient");
     }
   }

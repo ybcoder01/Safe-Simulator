@@ -24,6 +24,12 @@ export function isLikelyLiquidityPosition(
   );
 }
 
+export function nativeAssetSymbol(chainId: number): string {
+  if (chainId === 1) return "ETH";
+  if (chainId === 50) return "XDC";
+  return "native coin";
+}
+
 export function resolveTokenPresentation(
   chainId: number,
   token: string | null,
