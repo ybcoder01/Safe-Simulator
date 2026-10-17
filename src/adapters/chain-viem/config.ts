@@ -27,10 +27,9 @@ export function getSupportedChain(chainId: ChainId): Chain {
 export function getRpcUrls(chain: Chain): readonly string[] {
   const urls = configuredUrls(`RPC_URL_${chain.id}`);
   if (urls.length > 0) return [...new Set(urls)];
-  // The chain's default XDC endpoint returns 502 intermittently, so a public
-  // endpoint that works from server runtimes goes first until one is configured.
+  // viem's built-in XDC endpoint is deliberately not used: it returns 502s.
   return chain.id === xdc.id
-    ? [XDC_PUBLIC_RPC_URL, ...chain.rpcUrls.default.http]
+    ? [XDC_PUBLIC_RPC_URL]
     : chain.rpcUrls.default.http;
 }
 

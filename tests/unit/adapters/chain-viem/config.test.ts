@@ -28,11 +28,9 @@ describe("RPC URL configuration", () => {
     }
   });
 
-  it("uses the public XDC endpoint before the chain default when nothing is configured", () => {
-    expect(getRpcUrls(xdc)).toEqual([
-      "https://rpc.xdcrpc.com",
-      ...xdc.rpcUrls.default.http,
-    ]);
+  it("uses only the public XDC endpoint, never viem's built-in one, when nothing is configured", () => {
+    expect(getRpcUrls(xdc)).toEqual(["https://rpc.xdcrpc.com"]);
+    expect(getArchiveRpcUrls(xdc).join(" ")).not.toContain("rpc.xdc.org");
   });
 
   it("uses the chain defaults for other chains when nothing is configured", () => {
