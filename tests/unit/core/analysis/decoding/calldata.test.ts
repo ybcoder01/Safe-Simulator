@@ -132,4 +132,30 @@ describe("calldata summaries", () => {
       "Withdraw wrapped native assets, unwrap them, and send native assets to the recipient",
     );
   });
+
+  it("explains the Silo wrap, approve and deposit batch in plain language", () => {
+    const batch: DecodedCall = {
+      method: "multicall",
+      parameters: [
+        {
+          name: "",
+          type: "bytes[]",
+          value: JSON.stringify([
+            "0xbf376c7a" + "00".repeat(64),
+            "0xe1f21c67" + "00".repeat(96),
+            "0xf19ed6be" + "00".repeat(128),
+          ]),
+          nestedCalls: [],
+        },
+      ],
+      to: null,
+      value: null,
+      data: null,
+      operation: null,
+    };
+
+    expect(decodedCallSummary(batch)).toBe(
+      "Wrap native assets and deposit them into a lending market",
+    );
+  });
 });

@@ -681,6 +681,52 @@ describe("evaluateEvidenceVerdict", () => {
     );
   });
 
+  it("does not raise spender warnings for allowances owned by another contract", () => {
+    const router = "0x5555555555555555555555555555555555555555" as Address;
+    const result = evaluateEvidenceVerdict(
+      input({
+        allowances: [
+          {
+            token,
+            owner: router,
+            spender,
+            amount: "1000000",
+            infinite: false,
+            newSpenderAtAnchor: true,
+          },
+        ],
+      }),
+    );
+
+    expect(result.findings.map((finding) => finding.code)).not.toContain(
+      "new-approval-spender",
+    );
+    expect(result.findings.map((finding) => finding.code)).not.toContain(
+      "spender-trust-unresolved",
+    );
+  });
+
+  it("still warns when the Safe itself enables new spending access", () => {
+    const result = evaluateEvidenceVerdict(
+      input({
+        allowances: [
+          {
+            token,
+            owner: safe,
+            spender,
+            amount: "1000000",
+            infinite: false,
+            newSpenderAtAnchor: true,
+          },
+        ],
+      }),
+    );
+
+    expect(result.findings.map((finding) => finding.code)).toContain(
+      "new-approval-spender",
+    );
+  });
+
   it("uses registry evidence as known without promoting it to trusted", () => {
     const result = evaluateEvidenceVerdict(
       input({
@@ -1152,6 +1198,41 @@ describe("evaluateEvidenceVerdict", () => {
         assessment.roles.includes("movement-recipient"),
       ),
     ).toBe(false);
+  });
+
+  it("does not ask for a recipient check when a deposit mints share tokens to the Safe itself", () => {
+    const zero = "0x0000000000000000000000000000000000000000" as Address;
+    const result = evaluateEvidenceVerdict(
+      input({
+        movements: [{ token, from: zero, to: safe }],
+        attestedAddresses: [
+          { address: token, label: "Silo protected share token" },
+        ],
+      }),
+    );
+
+    expect(
+      result.addresses.some(
+        (assessment) =>
+          assessment.address.toLowerCase() === safe.toLowerCase() &&
+          assessment.roles.includes("movement-recipient"),
+      ),
+    ).toBe(false);
+  });
+
+  it("still asks for a recipient check when assets go to an unlabelled outside address", () => {
+    const outsider = "0x7777777777777777777777777777777777777777" as Address;
+    const result = evaluateEvidenceVerdict(
+      input({ movements: [{ token, from: safe, to: outsider }] }),
+    );
+
+    expect(result.addresses).toContainEqual(
+      expect.objectContaining({
+        address: outsider,
+        roles: expect.arrayContaining(["movement-recipient"]),
+        status: "unverified",
+      }),
+    );
   });
 
   it("still treats a burn of an unrelated token as a recipient to confirm", () => {

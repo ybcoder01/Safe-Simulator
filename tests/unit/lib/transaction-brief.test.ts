@@ -82,6 +82,78 @@ describe("buildTransactionBrief", () => {
     expect(brief.verdict.label).toBe("Went through. Looks normal");
   });
 
+  it("includes the native coin the Safe sends, which token events never show", () => {
+    const deposit = [
+      {
+        direction: "inbound" as const,
+        from: zero,
+        to: safe,
+        amount: "2,000,000,000",
+        symbol: "nbWXDC-3002",
+      },
+    ];
+    const brief = buildTransactionBrief(
+      input({
+        movements: deposit,
+        nativeSent: { amount: "2,000,000", symbol: "XDC" },
+        status: "executed",
+      }),
+    );
+
+    expect(brief.sentence).toBe(
+      "Your Safe received 2,000,000,000 nbWXDC-3002 and sent 2,000,000 XDC.",
+    );
+  });
+
+  it("says what a share token can be redeemed for when that was looked up", () => {
+    const brief = buildTransactionBrief(
+      input({
+        movements: [
+          {
+            direction: "inbound" as const,
+            from: zero,
+            to: safe,
+            amount: "2,000,000,000",
+            symbol: "nbWXDC-3002",
+            worth: { amount: "2,000,000", symbol: "WXDC" },
+          },
+        ],
+        nativeSent: { amount: "2,000,000", symbol: "XDC" },
+        status: "executed",
+      }),
+    );
+
+    expect(brief.sentence).toBe(
+      "Your Safe received 2,000,000,000 nbWXDC-3002 (redeemable for 2,000,000 WXDC) and sent 2,000,000 XDC.",
+    );
+  });
+
+  it("lists the native coin alongside token outflows, and alone when nothing else moves", () => {
+    const withToken = buildTransactionBrief(
+      input({
+        movements: [
+          {
+            direction: "outbound",
+            from: safe,
+            to: market,
+            amount: "5",
+            symbol: "USDC",
+          },
+        ],
+        nativeSent: { amount: "10", symbol: "XDC" },
+      }),
+    );
+    expect(withToken.sentence).toBe("Your Safe sends 10 XDC and 5 USDC.");
+
+    const alone = buildTransactionBrief(
+      input({ nativeSent: { amount: "10", symbol: "XDC" } }),
+    );
+    expect(alone.sentence).toBe("Your Safe sends 10 XDC.");
+    expect(alone.effects).not.toContain(
+      "No tokens move in or out of your Safe.",
+    );
+  });
+
   it("says plainly when nothing moves", () => {
     expect(buildTransactionBrief(input()).sentence).toBe(
       "No tokens move in or out of your Safe.",

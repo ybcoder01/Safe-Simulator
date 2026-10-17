@@ -28,8 +28,13 @@ describe("RPC URL configuration", () => {
     }
   });
 
-  it("uses the chain defaults when no endpoints are configured", () => {
-    expect(getRpcUrls(xdc)).toEqual(xdc.rpcUrls.default.http);
+  it("uses only the public XDC endpoint, never viem's built-in one, when nothing is configured", () => {
+    expect(getRpcUrls(xdc)).toEqual(["https://rpc.xdcrpc.com"]);
+    expect(getArchiveRpcUrls(xdc).join(" ")).not.toContain("rpc.xdc.org");
+  });
+
+  it("uses the chain defaults for other chains when nothing is configured", () => {
+    expect(getRpcUrls(mainnet)).toEqual(mainnet.rpcUrls.default.http);
   });
 
   it("uses only unique configured endpoints when an override is present", () => {
@@ -50,6 +55,7 @@ describe("RPC URL configuration", () => {
     expect(getArchiveRpcUrls(xdc)).toEqual([
       "https://archive-one.example",
       "https://rpc.ankr.com/xdc",
+      "https://rpc.xdcrpc.com",
       "https://current.example",
     ]);
   });

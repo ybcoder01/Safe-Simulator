@@ -51,12 +51,17 @@ import { resolveInternalProxyBoundaries } from "@/lib/api/internal-proxy-boundar
 import { resolveOptionalLivePayload } from "@/lib/api/optional-live-payload";
 import { resolveProtocolRouteAttestation } from "@/lib/api/protocol-route-attestation";
 import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
+import {
+  attestedSiloMarkets,
+  resolveSiloShareValues,
+} from "@/lib/api/silo-share-values";
 import { resolveStorageChangeAnalysis } from "@/lib/api/storage-changes";
 import { resolveTokenBalanceChanges } from "@/lib/api/token-balance-changes";
 import { plainAlertFindingCode } from "@/lib/api/telegram-alerts";
 import { verifyTelegramAlertReceipt } from "@/lib/api/telegram-alert-receipts";
 import {
   movementDirectionLabel,
+  nativeAssetSymbol,
   resolveTokenPresentation,
 } from "@/lib/api/token-presentation";
 import {
@@ -350,6 +355,12 @@ export default async function TransactionDetailPage({
           ?.decimals ?? null,
       )
     : null;
+  const nativeSentAmount =
+    persisted.value > 0n &&
+    (persisted.status === "pending" || persisted.status === "executed")
+      ? formatTokenAmount(persisted.value.toString(), 18)
+      : null;
+  const nativeSymbol = nativeAssetSymbol(safe.data.chainId);
   const activity = classifyTransactionActivity(persisted);
   const networkAction =
     safe.data.chainId === 50 && decodedAction
@@ -359,6 +370,10 @@ export default async function TransactionDetailPage({
           .replace(
             /^(Withdraw|Borrow) WXDC/,
             wrappedNativeAmount ? `$1 ${wrappedNativeAmount} WXDC` : "$1 WXDC",
+          )
+          .replace(
+            /^Wrap XDC/,
+            nativeSentAmount ? `Wrap ${nativeSentAmount} XDC` : "Wrap XDC",
           )
       : decodedAction;
   const storedAction =
@@ -446,6 +461,19 @@ export default async function TransactionDetailPage({
     transferHistoryLoaded: transferHistoryPage !== null,
     transaction: persisted,
   });
+  const siloShareValues = await resolveSiloShareValues(chain, {
+    chainId: safe.data.chainId,
+    markets: attestedSiloMarkets(routeAttestation.addresses),
+    movements: execution.tokenMovements
+      .filter((movement) => movement.direction === "inbound")
+      .map((movement) => ({
+        logIndex: movement.logIndex,
+        token: movement.token,
+        amount: movement.amount,
+      })),
+    blockNumber:
+      execution.blockNumber === null ? null : BigInt(execution.blockNumber),
+  });
   const briefMovements = [...execution.tokenMovements]
     .sort(
       (a, b) =>
@@ -460,6 +488,7 @@ export default async function TransactionDetailPage({
         from: movement.from,
         to: movement.to,
         amount: formatTokenAmount(movement.amount, metadata?.decimals ?? null),
+        worth: siloShareValues.get(movement.logIndex) ?? null,
         symbol: resolveTokenPresentation(
           safe.data.chainId,
           movement.token,
@@ -467,7 +496,19 @@ export default async function TransactionDetailPage({
         ).symbol,
       };
     });
-  const briefFlow: readonly BriefFlowRow[] = briefMovements;
+  const briefFlow: readonly BriefFlowRow[] = nativeSentAmount
+    ? [
+        {
+          key: "brief:native-value",
+          direction: "outbound",
+          from: persisted.safe.address,
+          to: persisted.to,
+          amount: nativeSentAmount,
+          symbol: nativeSymbol,
+        },
+        ...briefMovements,
+      ]
+    : briefMovements;
   const briefLabels: Record<string, string> = {};
   for (const assessment of verdict.addresses) {
     if (assessment.label) {
@@ -483,9 +524,16 @@ export default async function TransactionDetailPage({
     status: persisted.status,
     safeAddress: persisted.safe.address,
     movements: briefMovements,
+    nativeSent: nativeSentAmount
+      ? { amount: nativeSentAmount, symbol: nativeSymbol }
+      : null,
     infiniteApproval: infiniteAuthorization,
     approvalChangeCount:
-      approvalRisk.requests.length + approvalRisk.executedChanges.length,
+      approvalRisk.requests.length +
+      approvalRisk.executedChanges.filter(
+        (change) =>
+          change.owner.toLowerCase() === persisted.safe.address.toLowerCase(),
+      ).length,
     configChangeCount: execution.safeConfigurationChanges.length,
     findings: userFacingFindings,
     evidenceFindings: verdict.findings,
@@ -630,7 +678,7 @@ export default async function TransactionDetailPage({
           knownLabels={briefLabels}
           safeAddress={persisted.safe.address}
           stage={currentStage}
-          totalMovements={briefMovements.length}
+          totalMovements={briefFlow.length}
         >
           <details className="brief-full-details">
             <summary>

@@ -5085,7 +5085,8 @@ select {
   background: rgba(93, 237, 173, 0.07);
 }
 
-.brief-node-burn {
+.brief-node-burn,
+.brief-node-mint {
   border-style: dashed;
 }
 
@@ -5098,6 +5099,11 @@ select {
 
 .brief-flow-arrow strong {
   font-size: 1.05rem;
+}
+
+.brief-flow-arrow small {
+  color: var(--muted);
+  font-size: 0.8rem;
 }
 
 .brief-flow-arrow span {

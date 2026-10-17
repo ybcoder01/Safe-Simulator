@@ -17,6 +17,8 @@ export interface BriefMovement {
   readonly to: string;
   readonly amount: string | null;
   readonly symbol: string | null;
+  /** What a share-type token can be redeemed for, when it could be looked up. */
+  readonly worth?: BriefNativeAmount | null;
 }
 
 export interface BriefCheckItem {
@@ -57,12 +59,19 @@ export interface BriefRouteCheck {
   readonly detail: string;
 }
 
+export interface BriefNativeAmount {
+  readonly amount: string;
+  readonly symbol: string;
+}
+
 export interface TransactionBriefInput {
   readonly signal: ReviewSignal;
   readonly signalDetail: string;
   readonly status: TransactionStatus;
   readonly safeAddress: string;
   readonly movements: readonly BriefMovement[];
+  /** The native coin the Safe sends with the call; token events never include it. */
+  readonly nativeSent?: BriefNativeAmount | null;
   readonly infiniteApproval: boolean;
   readonly approvalChangeCount: number;
   readonly configChangeCount: number;
@@ -115,7 +124,10 @@ function plural(count: number, one: string, many: string): string {
 
 function amountText(movement: BriefMovement): string {
   const symbol = movement.symbol ?? "tokens";
-  return movement.amount ? `${movement.amount} ${symbol}` : symbol;
+  const text = movement.amount ? `${movement.amount} ${symbol}` : symbol;
+  return movement.worth
+    ? `${text} (redeemable for ${movement.worth.amount} ${movement.worth.symbol})`
+    : text;
 }
 
 function joinList(items: readonly string[]): string {
@@ -238,8 +250,16 @@ function describeEffects(input: TransactionBriefInput): {
       `${executed ? "received" : "receives"} ${listAmounts(incoming)}`,
     );
   }
-  if (sent.length > 0) {
-    money.push(`${executed ? "sent" : "sends"} ${listAmounts(sent)}`);
+  const nativeSent = input.nativeSent
+    ? `${input.nativeSent.amount} ${input.nativeSent.symbol}`
+    : null;
+  if (sent.length > 0 || nativeSent) {
+    money.push(
+      `${executed ? "sent" : "sends"} ${joinList([
+        ...(nativeSent ? [nativeSent] : []),
+        ...(sent.length > 0 ? [listAmounts(sent)] : []),
+      ])}`,
+    );
   }
   if (burned.length > 0) {
     money.push(`${executed ? "turned in" : "turns in"} ${listAmounts(burned)}`);

@@ -126,6 +126,39 @@ describe("TransactionBriefPanel", () => {
     expect(html.indexOf("Silo market vault")).toBeGreaterThan(more);
   });
 
+  it("labels tokens issued from the zero address as newly created, not removed", () => {
+    const zero = "0x0000000000000000000000000000000000000000";
+    const mint = render({
+      flow: [
+        {
+          key: "m",
+          direction: "inbound",
+          amount: "10",
+          symbol: "SHARE",
+          from: zero,
+          to: safe,
+        },
+      ],
+    });
+    expect(mint).toContain("Newly created");
+    expect(mint).not.toContain("Taken out of circulation");
+
+    const burn = render({
+      flow: [
+        {
+          key: "b",
+          direction: "outbound",
+          amount: "10",
+          symbol: "SHARE",
+          from: safe,
+          to: zero,
+        },
+      ],
+    });
+    expect(burn).toContain("Taken out of circulation");
+    expect(burn).not.toContain("Newly created");
+  });
+
   it("switches wording for an executed transaction", () => {
     const html = render({ executed: true });
 

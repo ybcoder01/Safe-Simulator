@@ -5,7 +5,11 @@ import type { ChainId } from "@/core/domain";
 
 export const supportedChains = [mainnet, xdc] as const;
 
-const XDC_PUBLIC_ARCHIVE_RPC_URLS = ["https://rpc.ankr.com/xdc"] as const;
+const XDC_PUBLIC_RPC_URL = "https://rpc.xdcrpc.com";
+const XDC_PUBLIC_ARCHIVE_RPC_URLS = [
+  "https://rpc.ankr.com/xdc",
+  XDC_PUBLIC_RPC_URL,
+] as const;
 
 function configuredUrls(key: string): readonly string[] {
   return (process.env[key] ?? "")
@@ -22,7 +26,11 @@ export function getSupportedChain(chainId: ChainId): Chain {
 
 export function getRpcUrls(chain: Chain): readonly string[] {
   const urls = configuredUrls(`RPC_URL_${chain.id}`);
-  return urls.length > 0 ? [...new Set(urls)] : chain.rpcUrls.default.http;
+  if (urls.length > 0) return [...new Set(urls)];
+  // viem's built-in XDC endpoint is deliberately not used: it returns 502s.
+  return chain.id === xdc.id
+    ? [XDC_PUBLIC_RPC_URL]
+    : chain.rpcUrls.default.http;
 }
 
 export function getArchiveRpcUrls(chain: Chain): readonly string[] {
