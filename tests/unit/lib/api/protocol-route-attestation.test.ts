@@ -96,7 +96,12 @@ function calls(includeUnknown = false): ExecutionInsight["internalCalls"] {
   ];
 }
 
-function marketConfig(silo: Address, token: Address, share: Address) {
+function marketConfig(
+  silo: Address,
+  token: Address,
+  share: Address,
+  hookReceiver: Address = zero,
+) {
   return {
     daoFee: 0n,
     deployerFee: 0n,
@@ -113,13 +118,31 @@ function marketConfig(silo: Address, token: Address, share: Address) {
     liquidationTargetLtv: 0n,
     liquidationFee: 0n,
     flashloanFee: 0n,
-    hookReceiver: zero,
+    hookReceiver,
     callBeforeQuote: false,
   };
 }
 
-function chainPort() {
+const hook = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd" as Address;
+const gauge = "0x1234567890123456789012345678901234567890" as Address;
+const hookAbi = parseAbi([
+  "function configuredGauges(address shareToken) view returns (address gauge)",
+]);
+
+function chainPort(options: { readonly hookGauge?: Address | "fail" } = {}) {
   const call = vi.fn<ChainPort["call"]>(async (_chainId, request) => {
+    if (request.to.toLowerCase() === hook.toLowerCase()) {
+      if (options.hookGauge === "fail") throw new Error("rate limited");
+      const decoded = decodeFunctionData({ abi: hookAbi, data: request.data });
+      return encodeFunctionResult({
+        abi: hookAbi,
+        functionName: "configuredGauges",
+        result:
+          decoded.args[0].toLowerCase() === share0.toLowerCase()
+            ? (options.hookGauge ?? zero)
+            : zero,
+      });
+    }
     if (request.to.toLowerCase() === factory.toLowerCase()) {
       const decoded = decodeFunctionData({
         abi: factoryAbi,
@@ -164,6 +187,7 @@ function chainPort() {
           silo,
           silo.toLowerCase() === market0.toLowerCase() ? asset0 : asset1,
           silo.toLowerCase() === market0.toLowerCase() ? share0 : share1,
+          options.hookGauge === undefined ? zero : hook,
         ),
       });
     }
@@ -246,6 +270,69 @@ describe("resolveProtocolRouteAttestation", () => {
     expect(result.checks).toContainEqual(
       expect.objectContaining({ key: "route", status: "pass" }),
     );
+  });
+
+  describe("incentives controller named by the hook receiver", () => {
+    const gaugeCalls = (): ExecutionInsight["internalCalls"] => [
+      ...calls(),
+      {
+        depth: 3,
+        from: hook,
+        to: gauge,
+        input: "0x" as Hex,
+        value: "0",
+        operation: "call",
+        reverted: false,
+        error: null,
+      },
+    ];
+
+    it("accepts a gauge that the attested hook receiver configured for a share token", async () => {
+      const result = await resolveProtocolRouteAttestation(
+        chainPort({ hookGauge: gauge }),
+        transaction(),
+        { internalCalls: gaugeCalls() },
+      );
+
+      expect(result.addresses).toContainEqual(
+        expect.objectContaining({ address: gauge }),
+      );
+      expect(result.findings).not.toContainEqual(
+        expect.objectContaining({
+          code: "protocol-route-attestation-incomplete",
+        }),
+      );
+    });
+
+    it("keeps a traced contract unattested when the hook receiver does not name it", async () => {
+      const result = await resolveProtocolRouteAttestation(
+        chainPort({ hookGauge: unknown }),
+        transaction(),
+        { internalCalls: gaugeCalls() },
+      );
+
+      expect(result.findings).toContainEqual(
+        expect.objectContaining({
+          code: "protocol-route-attestation-incomplete",
+          addresses: [gauge],
+        }),
+      );
+    });
+
+    it("keeps the contract unattested when the gauge lookup fails", async () => {
+      const result = await resolveProtocolRouteAttestation(
+        chainPort({ hookGauge: "fail" }),
+        transaction(),
+        { internalCalls: gaugeCalls() },
+      );
+
+      expect(result.findings).toContainEqual(
+        expect.objectContaining({
+          code: "protocol-route-attestation-incomplete",
+          addresses: [gauge],
+        }),
+      );
+    });
   });
 
   describe("linked library proof", () => {
