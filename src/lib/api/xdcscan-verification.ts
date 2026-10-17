@@ -48,6 +48,10 @@ type FetchLike = (
   init?: RequestInit,
 ) => Promise<Response>;
 
+interface VerificationOptions {
+  readonly totalTimeoutMs?: number;
+}
+
 function normalizedAddress(value: string | null | undefined): Address | null {
   return value && ADDRESS_PATTERN.test(value)
     ? (value.toLowerCase() as Address)
@@ -167,6 +171,7 @@ async function fetchVerification(
   cache: Pick<CachePort, "get" | "set">,
   address: Address,
   fetcher: FetchLike,
+  timeoutMs = 6_000,
 ): Promise<XdcContractVerificationView> {
   try {
     const cached = await cache.get<XdcContractVerificationView>(
@@ -196,7 +201,7 @@ async function fetchVerification(
       headers: { Accept: "application/json" },
       cache: "no-store",
       redirect: "error",
-      signal: AbortSignal.timeout(6_000),
+      signal: AbortSignal.timeout(timeoutMs),
     });
     if (!response.ok) {
       return unavailable(
@@ -249,6 +254,7 @@ export async function resolveXdcContractVerification(
   chainId: number,
   references: readonly string[],
   fetcher: FetchLike = fetch,
+  options: VerificationOptions = {},
 ): Promise<XdcContractVerificationResult> {
   const candidates = uniqueAddresses(references);
   if (chainId !== XDC_CHAIN_ID) {
@@ -264,10 +270,32 @@ export async function resolveXdcContractVerification(
   }
 
   const selected = candidates.slice(0, MAX_REFERENCES);
+  const deadline = options.totalTimeoutMs
+    ? Date.now() + options.totalTimeoutMs
+    : null;
+  const verifyWithinBudget = (address: Address) => {
+    const remaining = deadline === null ? 6_000 : deadline - Date.now();
+    if (remaining <= 0) {
+      return Promise.resolve(
+        unavailable(
+          address,
+          "XDCScan source lookup exceeded the page loading budget.",
+        ),
+      );
+    }
+    return fetchVerification(
+      cache,
+      address,
+      fetcher,
+      Math.min(6_000, remaining),
+    );
+  };
   let limited = candidates.length > selected.length;
   const items = [
-    ...(await mapWithConcurrency(selected, LOOKUP_CONCURRENCY, (address) =>
-      fetchVerification(cache, address, fetcher),
+    ...(await mapWithConcurrency(
+      selected,
+      LOOKUP_CONCURRENCY,
+      verifyWithinBudget,
     )),
   ];
 
@@ -283,7 +311,7 @@ export async function resolveXdcContractVerification(
     ...(await mapWithConcurrency(
       selectedImplementations,
       LOOKUP_CONCURRENCY,
-      (address) => fetchVerification(cache, address, fetcher),
+      verifyWithinBudget,
     )),
   );
 
