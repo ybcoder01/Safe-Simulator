@@ -84,7 +84,7 @@ describe("transaction summary privacy and provider boundary", () => {
         expect(body.response_format.json_schema.strict).toBe(true);
         expect(body).not.toHaveProperty("temperature");
         expect(body).not.toHaveProperty("max_tokens");
-        expect(body.max_completion_tokens).toBe(900);
+        expect(body.max_completion_tokens).toBe(1_800);
         expect(body.messages[0]?.content).toContain(
           "Address replacement requires a comparison with an independent expected address",
         );
@@ -161,11 +161,73 @@ describe("transaction summary privacy and provider boundary", () => {
       ),
     ).rejects.toMatchObject({
       code: "invalid_response",
+      stage: "schema",
     } satisfies Partial<TransactionSummaryProviderError>);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries malformed output once and accepts the corrected summary", async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            choices: [{ finish_reason: "length", message: { content: "" } }],
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(providerResponse(validSummary));
+
+    await expect(
+      requestTransactionSummary(
+        {},
+        { apiKey: "test-key", model: "openai/gpt-5.4-mini", fetcher },
+      ),
+    ).resolves.toMatchObject({ summary: validSummary });
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    const retryBody = JSON.parse(String(fetcher.mock.calls[1]?.[1]?.body)) as {
+      messages: Array<{ content: string }>;
+    };
+    expect(retryBody.messages[1]?.content).toContain(
+      "previous response could not be validated",
+    );
+  });
+
+  it("accepts text-block content and fenced JSON defensively", async () => {
+    const fetcher = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                finish_reason: "stop",
+                message: {
+                  content: [
+                    {
+                      type: "text",
+                      text: `\`\`\`json\n${JSON.stringify(validSummary)}\n\`\`\``,
+                    },
+                  ],
+                },
+              },
+            ],
+          }),
+          { status: 200 },
+        ),
+    );
+
+    await expect(
+      requestTransactionSummary(
+        {},
+        { apiKey: "test-key", model: "openai/gpt-5.4-mini", fetcher },
+      ),
+    ).resolves.toMatchObject({ summary: validSummary });
+    expect(fetcher).toHaveBeenCalledTimes(1);
   });
 
   it("uses a new prompt version for the consolidated signer verdict", () => {
-    expect(TRANSACTION_SUMMARY_PROMPT_VERSION).toBe("transaction-summary-v5");
+    expect(TRANSACTION_SUMMARY_PROMPT_VERSION).toBe("transaction-summary-v6");
   });
 
   it("rejects raw base units mislabeled as whole-token units", async () => {
