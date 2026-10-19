@@ -50,6 +50,14 @@ type FetchLike = (
 
 interface VerificationOptions {
   readonly totalTimeoutMs?: number;
+  /**
+   * Addresses whose status decides how the whole page reads, such as the
+   * transaction target. They keep their own timeout instead of the shared
+   * budget, because a slow explorer response that is aborted is never cached
+   * and would otherwise fail on every visit.
+   */
+  readonly priorityAddresses?: readonly string[];
+  readonly priorityTimeoutMs?: number;
 }
 
 function normalizedAddress(value: string | null | undefined): Address | null {
@@ -273,7 +281,12 @@ export async function resolveXdcContractVerification(
   const deadline = options.totalTimeoutMs
     ? Date.now() + options.totalTimeoutMs
     : null;
+  const priority = new Set(uniqueAddresses(options.priorityAddresses ?? []));
+  const priorityTimeoutMs = options.priorityTimeoutMs ?? 6_000;
   const verifyWithinBudget = (address: Address) => {
+    if (priority.has(address)) {
+      return fetchVerification(cache, address, fetcher, priorityTimeoutMs);
+    }
     const remaining = deadline === null ? 6_000 : deadline - Date.now();
     if (remaining <= 0) {
       return Promise.resolve(
