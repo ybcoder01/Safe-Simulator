@@ -110,6 +110,19 @@ function unixNow() {
   return Math.floor(Date.now() / 1_000);
 }
 
+function humanTokenAmount(
+  amount: string | null,
+  decimals: number | null | undefined,
+  symbol: string | null | undefined = null,
+) {
+  if (amount === null) return "Unavailable";
+  const negative = amount.startsWith("-");
+  const magnitude = negative ? amount.slice(1) : amount;
+  const formatted = groupDigits(formatTokenAmount(magnitude, decimals ?? null));
+  if (formatted === null) return "Amount unavailable";
+  return `${negative ? "−" : ""}${formatted}${symbol ? ` ${symbol}` : ""}`;
+}
+
 function shorten(value: string) {
   return `${value.slice(0, 10)}…${value.slice(-8)}`;
 }
@@ -810,7 +823,10 @@ export default async function TransactionDetailPage({
                           }
                         />
                         {formatted === null ? (
-                          <code>Raw: {movement.amount} base units</code>
+                          <code>
+                            Amount unavailable because token decimals could not
+                            be verified.
+                          </code>
                         ) : null}
                         <div className="approval-party">
                           <span>From</span>
@@ -1460,7 +1476,12 @@ export default async function TransactionDetailPage({
                     symbol={metadata?.symbol}
                     token={movement.token}
                   />
-                  <code>Raw: {movement.amount} base units</code>
+                  {formatted === null ? (
+                    <code>
+                      Amount unavailable because token decimals could not be
+                      verified.
+                    </code>
+                  ) : null}
                   <code>
                     {movement.from} → {movement.to}
                   </code>
@@ -1515,21 +1536,21 @@ export default async function TransactionDetailPage({
               const metadata = tokenMetadataByAddress.get(
                 change.token.toLowerCase(),
               );
-              const before =
-                change.before === null
-                  ? "Unavailable"
-                  : formatTokenAmount(
-                      change.before,
-                      metadata?.decimals ?? null,
-                    );
-              const after =
-                change.after === null
-                  ? "Unavailable"
-                  : formatTokenAmount(change.after, metadata?.decimals ?? null);
-              const delta =
-                change.delta === null
-                  ? "Unavailable"
-                  : formatTokenAmount(change.delta, metadata?.decimals ?? null);
+              const before = humanTokenAmount(
+                change.before,
+                metadata?.decimals,
+                metadata?.symbol,
+              );
+              const after = humanTokenAmount(
+                change.after,
+                metadata?.decimals,
+                metadata?.symbol,
+              );
+              const delta = humanTokenAmount(
+                change.delta,
+                metadata?.decimals,
+                metadata?.symbol,
+              );
 
               return (
                 <div
@@ -1571,11 +1592,6 @@ export default async function TransactionDetailPage({
                       <dd>{delta}</dd>
                     </div>
                   </dl>
-                  <code>
-                    Raw: {change.before ?? "unavailable"} →{" "}
-                    {change.after ?? "unavailable"} · event delta{" "}
-                    {change.eventDelta}
-                  </code>
                   {change.warning ? <code>{change.warning}</code> : null}
                 </div>
               );
@@ -1614,6 +1630,14 @@ export default async function TransactionDetailPage({
             </div>
           ) : (
             approvalRisk.requests.map((approval, index) => {
+              const metadata = approval.token
+                ? tokenMetadataByAddress.get(approval.token.toLowerCase())
+                : null;
+              const amount = humanTokenAmount(
+                approval.amount,
+                metadata?.decimals,
+                metadata?.symbol,
+              );
               const severity =
                 approval.infinite === true || approval.spender === null
                   ? "critical"
@@ -1629,12 +1653,12 @@ export default async function TransactionDetailPage({
                     ? "Infinite resulting allowance requested"
                     : approval.amount !== null &&
                         approval.amountMode === "increase"
-                      ? `Increase allowance by ${approval.amount} base units`
+                      ? `Increase allowance by ${amount}`
                       : approval.amount !== null &&
                           approval.amountMode === "decrease"
-                        ? `Decrease allowance by ${approval.amount} base units`
+                        ? `Decrease allowance by ${amount}`
                         : approval.amount !== null
-                          ? `${approval.amount} base units requested`
+                          ? `${amount} requested`
                           : "Authorization request detected";
 
               return (
@@ -1655,6 +1679,7 @@ export default async function TransactionDetailPage({
                   {approval.token ? (
                     <TokenIdentity
                       chainId={safe.data.chainId}
+                      symbol={metadata?.symbol}
                       token={approval.token}
                     />
                   ) : (
@@ -1677,7 +1702,12 @@ export default async function TransactionDetailPage({
                     {approval.target}
                   </code>
                   <code>
-                    Prior authorization: {approval.priorAmount ?? "Unavailable"}{" "}
+                    Prior authorization:{" "}
+                    {humanTokenAmount(
+                      approval.priorAmount,
+                      metadata?.decimals,
+                      metadata?.symbol,
+                    )}{" "}
                     · new spender at comparison anchor:{" "}
                     {approval.newSpenderAtAnchor === null
                       ? "unknown"
@@ -1688,7 +1718,11 @@ export default async function TransactionDetailPage({
                   {approval.amountMode !== "absolute" ? (
                     <code>
                       Projected resulting allowance:{" "}
-                      {approval.resultingAmount ?? "Unavailable"}
+                      {humanTokenAmount(
+                        approval.resultingAmount,
+                        metadata?.decimals,
+                        metadata?.symbol,
+                      )}
                     </code>
                   ) : null}
                   {approval.expiration !== null ? (
@@ -1749,10 +1783,14 @@ export default async function TransactionDetailPage({
                     symbol={metadata?.symbol}
                     token={allowance.token}
                   />
-                  <code>Raw: {allowance.amount} base units</code>
                   <code>
-                    Prior allowance: {allowance.priorAmount ?? "Unavailable"} ·
-                    new at comparison anchor:{" "}
+                    Prior allowance:{" "}
+                    {humanTokenAmount(
+                      allowance.priorAmount,
+                      metadata?.decimals,
+                      metadata?.symbol,
+                    )}{" "}
+                    · new at comparison anchor:{" "}
                     {allowance.newSpenderAtAnchor === null
                       ? "unknown"
                       : allowance.newSpenderAtAnchor

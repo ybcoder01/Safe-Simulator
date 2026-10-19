@@ -15,9 +15,9 @@ export const transferPageQuerySchema = z.object({
 });
 
 export interface TransferAmountPresentation {
-  readonly displayAmount: string;
+  readonly displayAmount: string | null;
   readonly symbol: string | null;
-  readonly amountSource: "native" | "reviewed" | "on-chain" | "raw";
+  readonly amountSource: "native" | "reviewed" | "on-chain" | "unavailable";
   readonly metadataStatus: TokenMetadataView["status"] | null;
   readonly metadataWarning: string | null;
 }
@@ -73,9 +73,9 @@ export function resolveTransferAmount(
   }
 
   return {
-    displayAmount: rawAmount,
+    displayAmount: null,
     symbol: matchingMetadata?.symbol ?? null,
-    amountSource: "raw",
+    amountSource: "unavailable",
     metadataStatus: matchingMetadata?.status ?? null,
     metadataWarning: matchingMetadata?.warning ?? null,
   };

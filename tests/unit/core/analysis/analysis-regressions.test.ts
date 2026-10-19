@@ -66,7 +66,7 @@ describe("analysis regression fixtures", () => {
     const { request, evidence } = allowanceEvidence(amount);
 
     expect(knownCallSummary(approvalCalldata(amount), "call")).toBe(
-      "Approve 0x941acf…8bc9d7 for 1000000 base units",
+      "Approve 0x941acf…8bc9d7 for an amount that could not be displayed",
     );
     expect(request).toMatchObject({
       method: "approve",

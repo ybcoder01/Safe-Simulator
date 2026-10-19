@@ -27,7 +27,7 @@ const approvalAmountEvidence = {
       decimals: 6,
       symbol: "USDC",
       displayAmount: "1",
-      displayLabel: "1 USDC (1000000 base units)",
+      displayLabel: "1 USDC",
     },
   ],
 } as const;
@@ -227,7 +227,7 @@ describe("transaction summary privacy and provider boundary", () => {
   });
 
   it("uses a new prompt version for the consolidated signer verdict", () => {
-    expect(TRANSACTION_SUMMARY_PROMPT_VERSION).toBe("transaction-summary-v6");
+    expect(TRANSACTION_SUMMARY_PROMPT_VERSION).toBe("transaction-summary-v7");
   });
 
   it("rejects raw base units mislabeled as whole-token units", async () => {
@@ -268,10 +268,10 @@ describe("transaction summary privacy and provider boundary", () => {
     } satisfies Partial<TransactionSummaryProviderError>);
   });
 
-  it("accepts the exact normalized token label with raw-unit evidence", async () => {
+  it("accepts the exact normalized token label without raw-unit output", async () => {
     const summary = {
       ...validSummary,
-      plainLanguage: "Approves 1 USDC (1000000 base units) for the spender.",
+      plainLanguage: "Approves 1 USDC for the spender.",
     };
     const fetcher = vi.fn(async () => providerResponse(summary));
 

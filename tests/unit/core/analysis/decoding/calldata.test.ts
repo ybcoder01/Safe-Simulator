@@ -12,7 +12,7 @@ describe("calldata summaries", () => {
       "0x095ea7b3000000000000000000000000941acf4e2df51bf43c3c4167631dbefa268bc9d700000000000000000000000000000000000000000000000000000000000f4240" as Hex;
 
     expect(knownCallSummary(data, "call")).toBe(
-      "Approve 0x941acf…8bc9d7 for 1000000 base units",
+      "Approve 0x941acf…8bc9d7 for an amount that could not be displayed",
     );
   });
 
@@ -30,7 +30,7 @@ describe("calldata summaries", () => {
       `0x095ea7b3${"0".repeat(24)}3f5a410000000000000000000000000000d1dc5e${BigInt("1000000").toString(16).padStart(64, "0")}` as Hex;
 
     expect(knownCallSummary(data, "call", "unavailable")).toBe(
-      "Approve 0x3f5a41…d1dc5e for an amount that could not be converted",
+      "Approve 0x3f5a41…d1dc5e for an amount that could not be displayed",
     );
   });
 
@@ -48,7 +48,7 @@ describe("calldata summaries", () => {
       "0x0b4c7e4d00000000000000000000000000000000000000000000000000000000000003e800000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000384" as Hex;
 
     expect(knownCallSummary(data, "call")).toBe(
-      "Add liquidity to a two-asset pool (1000 and 1 base units; minimum 900 LP base units)",
+      "Add liquidity to a two-asset pool",
     );
   });
 
@@ -92,7 +92,7 @@ describe("calldata summaries", () => {
     };
 
     expect(decodedCallSummary(approval)).toBe(
-      "Approve 0x941acf…8bc9d7 for 1000000 base units",
+      "Approve 0x941acf…8bc9d7 to spend tokens",
     );
     expect(decodedCallSummary(batch)).toBe("Batch of 2 decoded calls");
   });
@@ -120,9 +120,7 @@ describe("calldata summaries", () => {
       operation: null,
     };
 
-    expect(decodedCallSummary(deposit)).toBe(
-      "Add liquidity to a pool (1000 and 1 base units; minimum 900 LP base units)",
-    );
+    expect(decodedCallSummary(deposit)).toBe("Add liquidity to a pool");
   });
 
   it("explains the Silo wrapped-native withdrawal batch in plain language", () => {
