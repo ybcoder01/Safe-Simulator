@@ -4,6 +4,7 @@ import {
   type EvidenceVerdict,
   type EvidenceVerdictInput,
 } from "@/core/analysis/trust/evidence-verdict";
+import { successfulNativeTransfers } from "@/core/analysis/tokens/native-transfers";
 import { contractRegistryEntriesForChain } from "@/core/analysis/trust/contract-registry";
 import type {
   Address,
@@ -141,6 +142,13 @@ export function resolveEvidenceVerdict(
       to: call.to as Address,
       operation: call.operation,
     })),
+    nativeTransfers: successfulNativeTransfers(execution.internalCalls).map(
+      (transfer) => ({
+        from: transfer.from as Address,
+        to: transfer.to as Address,
+        amount: transfer.amount.toString(),
+      }),
+    ),
     storageChanges:
       storageAnalysis?.items.map((change) => ({
         address: change.address,

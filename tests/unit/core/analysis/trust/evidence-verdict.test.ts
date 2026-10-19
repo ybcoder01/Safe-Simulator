@@ -1253,6 +1253,47 @@ describe("evaluateEvidenceVerdict", () => {
     );
   });
 
+  it("checks who receives native coin sent during execution", () => {
+    const outsider = "0x7777777777777777777777777777777777777777" as Address;
+    const result = evaluateEvidenceVerdict(
+      input({
+        nativeTransfers: [{ from: target, to: outsider, amount: "5" }],
+      }),
+    );
+
+    expect(result.addresses).toContainEqual(
+      expect.objectContaining({
+        address: outsider,
+        roles: expect.arrayContaining(["movement-recipient"]),
+        status: "unverified",
+      }),
+    );
+  });
+
+  it("does not question native coin paid back to the Safe, nor list the Safe as an unresolved call target", () => {
+    const result = evaluateEvidenceVerdict(
+      input({
+        internalCalls: [
+          { depth: 2, from: target, to: safe, operation: "call" },
+        ],
+        nativeTransfers: [{ from: target, to: safe, amount: "5" }],
+      }),
+    );
+
+    expect(
+      result.addresses.some(
+        (assessment) =>
+          assessment.address.toLowerCase() === safe.toLowerCase() &&
+          assessment.roles.includes("movement-recipient"),
+      ),
+    ).toBe(false);
+    expect(
+      result.findings.some(
+        (finding) => finding.code === "internal-call-trust-unresolved",
+      ),
+    ).toBe(false);
+  });
+
   it("preserves route-attestation findings in the final verdict", () => {
     const result = evaluateEvidenceVerdict(
       input({
