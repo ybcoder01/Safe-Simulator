@@ -118,7 +118,7 @@ async function readMetadata(
       decimals:
         decimals !== null && decimals <= MAX_DISPLAY_DECIMALS ? decimals : null,
       warning:
-        "The token returned malformed or unsupported metadata; raw base units remain authoritative.",
+        "The token returned malformed or unsupported metadata, so its amount cannot be displayed reliably.",
     };
   }
 
@@ -139,7 +139,7 @@ async function readMetadata(
       symbol,
       decimals,
       warning:
-        "Only part of the token metadata could be read; raw base units remain authoritative.",
+        "Only part of the token metadata could be read, so its amount may be unavailable.",
     };
   }
 
@@ -149,7 +149,7 @@ async function readMetadata(
     symbol: null,
     decimals: null,
     warning:
-      "Token metadata could not be read; raw base units remain authoritative.",
+      "Token metadata could not be read, so its amount cannot be displayed reliably.",
   };
 }
 

@@ -156,18 +156,14 @@ export function TransferActivity({
                 </span>
                 <div>
                   <TokenIdentity
-                    amount={
-                      transfer.amountSource === "raw"
-                        ? null
-                        : transfer.displayAmount
-                    }
+                    amount={transfer.displayAmount}
                     chainId={chainId}
                     symbol={transfer.symbol}
                     token={transfer.token}
                   />
                   <span>
-                    {transfer.amountSource === "raw"
-                      ? transfer.amount + " raw units · "
+                    {transfer.amountSource === "unavailable"
+                      ? "Amount unavailable · "
                       : ""}
                     {transfer.amountSource === "on-chain" ||
                     transfer.metadataStatus === "partial"

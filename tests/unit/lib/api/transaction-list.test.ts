@@ -161,7 +161,7 @@ describe("transaction list analysis metadata", () => {
       },
     );
 
-    expect(result[0]?.summary).toContain("amount that could not be converted");
+    expect(result[0]?.summary).toContain("amount that could not be displayed");
     expect(result[0]?.summary).not.toContain("base units");
   });
 });

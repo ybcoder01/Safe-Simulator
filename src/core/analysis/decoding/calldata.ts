@@ -46,12 +46,13 @@ function grouped(value: string) {
 }
 
 function displayTokenAmount(baseUnits: string, token: TokenAmountContext) {
-  if (token === "unavailable") return "an amount that could not be converted";
-  if (!token) return `${baseUnits} base units`;
+  if (!token || token === "unavailable") {
+    return "an amount that could not be displayed";
+  }
   const amount = formatTokenAmount(baseUnits, token.decimals);
   return amount
     ? `${grouped(amount)} ${token.symbol}`
-    : `${baseUnits} base units`;
+    : "an amount that could not be displayed";
 }
 
 /**
@@ -102,10 +103,7 @@ export function knownCallSummary(
     secondWordAmount &&
     thirdWordAmount
   ) {
-    return withOperation(
-      `Add liquidity to a two-asset pool (${firstWordAmount} and ${secondWordAmount} base units; minimum ${thirdWordAmount} LP base units)`,
-      operation,
-    );
+    return withOperation("Add liquidity to a two-asset pool", operation);
   }
 
   if (selector === "0x3593564c") {
@@ -205,13 +203,13 @@ export function decodedCallSummary(call: DecodedCall) {
   );
 
   if (method === "approve" && target && amount) {
-    return `Approve ${shortenAddress(target)} for ${amount} base units`;
+    return `Approve ${shortenAddress(target)} to spend tokens`;
   }
   if (method === "transfer" && target && amount) {
-    return `Transfer ${amount} base units to ${shortenAddress(target)}`;
+    return `Transfer tokens to ${shortenAddress(target)}`;
   }
   if (method === "transferfrom" && source && target && amount) {
-    return `Transfer ${amount} base units from ${shortenAddress(source)} to ${shortenAddress(target)}`;
+    return `Transfer tokens from ${shortenAddress(source)} to ${shortenAddress(target)}`;
   }
   if (method === "multisend" && nestedCount > 0) {
     return `Batch of ${nestedCount} decoded calls`;
@@ -220,20 +218,6 @@ export function decodedCallSummary(call: DecodedCall) {
     return encodedBatchSummary(call) ?? "Call a batch of contract actions";
   }
   if (method === "add_liquidity") {
-    const amounts = parameterValue(call, ["amounts"], 0);
-    const minimumMint = parameterValue(
-      call,
-      ["min_mint_amount", "minimum_mint_amount"],
-      1,
-    );
-    if (amounts && minimumMint) {
-      const readableAmounts = amounts
-        .replace(/^\[/, "")
-        .replace(/\]$/, "")
-        .replaceAll('"', "")
-        .replaceAll(",", " and ");
-      return `Add liquidity to a pool (${readableAmounts} base units; minimum ${minimumMint} LP base units)`;
-    }
     return "Add liquidity to a pool";
   }
   if (method === "execute") {

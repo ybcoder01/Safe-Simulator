@@ -122,7 +122,7 @@ describe("resolveTokenMetadata", () => {
     expect(chainPort.call).not.toHaveBeenCalled();
   });
 
-  it("marks malformed metadata and keeps raw units authoritative", async () => {
+  it("marks malformed metadata and withholds an unreliable amount", async () => {
     const chainPort = {
       call: vi.fn(async (_chainId: number, request: { data: Hex }) =>
         request.data === ERC20_DECIMALS_SELECTOR ? word(255n) : symbol("TOKEN"),
@@ -142,7 +142,7 @@ describe("resolveTokenMetadata", () => {
       symbol: "TOKEN",
       decimals: null,
     });
-    expect(result.items[0]?.warning).toContain("raw base units");
+    expect(result.items[0]?.warning).toContain("cannot be displayed reliably");
     expect(cachePort.set).not.toHaveBeenCalled();
   });
 

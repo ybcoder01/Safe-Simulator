@@ -117,7 +117,7 @@ describe("transfer activity API views", () => {
     });
   });
 
-  it("keeps unknown token amounts explicitly in raw units", () => {
+  it("withholds unknown token amounts when decimals are unavailable", () => {
     expect(
       resolveTransferAmount(
         transfer(other, safeAddress, {
@@ -126,9 +126,9 @@ describe("transfer activity API views", () => {
         }),
       ),
     ).toEqual({
-      displayAmount: "1500000",
+      displayAmount: null,
       symbol: null,
-      amountSource: "raw",
+      amountSource: "unavailable",
       metadataStatus: null,
       metadataWarning: null,
     });
