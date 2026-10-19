@@ -149,10 +149,16 @@ function configAddresses(
       address: config.protectedShareToken,
       label: "Silo protected share token",
     },
-    {
-      address: config.collateralShareToken,
-      label: "Silo collateral share token",
-    },
+    // In Silo V2 the market is its own collateral share token. Keeping the
+    // market label for that address avoids showing a vault as a share token.
+    ...(addressKey(config.collateralShareToken) === addressKey(config.silo)
+      ? []
+      : [
+          {
+            address: config.collateralShareToken,
+            label: "Silo collateral share token",
+          },
+        ]),
     { address: config.debtShareToken, label: "Silo debt share token" },
     { address: config.solvencyOracle, label: "Silo solvency oracle" },
     { address: config.maxLtvOracle, label: "Silo maximum-LTV oracle" },

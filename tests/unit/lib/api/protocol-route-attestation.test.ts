@@ -101,6 +101,7 @@ function marketConfig(
   token: Address,
   share: Address,
   hookReceiver: Address = zero,
+  collateralShareToken: Address = zero,
 ) {
   return {
     daoFee: 0n,
@@ -108,7 +109,7 @@ function marketConfig(
     silo,
     token,
     protectedShareToken: share,
-    collateralShareToken: zero,
+    collateralShareToken,
     debtShareToken: zero,
     solvencyOracle: zero,
     maxLtvOracle: zero,
@@ -129,7 +130,12 @@ const hookAbi = parseAbi([
   "function configuredGauges(address shareToken) view returns (address gauge)",
 ]);
 
-function chainPort(options: { readonly hookGauge?: Address | "fail" } = {}) {
+function chainPort(
+  options: {
+    readonly hookGauge?: Address | "fail";
+    readonly marketIsCollateralShare?: boolean;
+  } = {},
+) {
   const call = vi.fn<ChainPort["call"]>(async (_chainId, request) => {
     if (request.to.toLowerCase() === hook.toLowerCase()) {
       if (options.hookGauge === "fail") throw new Error("rate limited");
@@ -188,6 +194,7 @@ function chainPort(options: { readonly hookGauge?: Address | "fail" } = {}) {
           silo.toLowerCase() === market0.toLowerCase() ? asset0 : asset1,
           silo.toLowerCase() === market0.toLowerCase() ? share0 : share1,
           options.hookGauge === undefined ? zero : hook,
+          options.marketIsCollateralShare ? silo : zero,
         ),
       });
     }
@@ -233,6 +240,24 @@ describe("resolveProtocolRouteAttestation", () => {
       proxy: market0,
       implementation,
     });
+  });
+
+  it("labels a market that is its own collateral share token as the market", async () => {
+    const result = await resolveProtocolRouteAttestation(
+      chainPort({ marketIsCollateralShare: true }),
+      transaction(),
+      { internalCalls: calls() },
+    );
+
+    expect(result.addresses).toContainEqual({
+      address: market0,
+      label: "Silo market vault",
+    });
+    expect(
+      result.addresses.filter(
+        (item) => item.label === "Silo collateral share token",
+      ),
+    ).toEqual([]);
   });
 
   it("keeps an injected internal target outside the attested graph visible", async () => {
