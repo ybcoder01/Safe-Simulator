@@ -13,6 +13,7 @@ import type {
   TokenBalance,
 } from "@/core/domain";
 import { knownCallSummary } from "@/core/analysis/decoding/calldata";
+import type { TokenAmountContext } from "@/core/analysis/decoding/calldata";
 import type { PersistencePort, SafeDataPort } from "@/core/ports";
 import { toSafeView, type SafeView } from "@/lib/api/safes";
 
@@ -241,12 +242,13 @@ export interface BalanceView {
 export function toTransactionView(
   transaction: SafeTransaction,
   analysis: TransactionAnalysisView | null = null,
+  token: TokenAmountContext = null,
 ): TransactionView {
   return {
     ...transaction,
     activity: classifyTransactionActivity(transaction),
     nonce: transaction.nonce.toString(),
-    summary: knownCallSummary(transaction.data, transaction.operation),
+    summary: knownCallSummary(transaction.data, transaction.operation, token),
     value: transaction.value.toString(),
     blockNumber: transaction.blockNumber?.toString() ?? null,
     analysis,

@@ -132,7 +132,10 @@ export default async function SafeDashboardPage({
       : Promise.resolve(null),
   ]);
   const [transactions, moduleAnalyses, transferViews] = await Promise.all([
-    resolveTransactionViews(persistence, safe, page.items),
+    resolveTransactionViews(persistence, safe, page.items, {
+      chain: getChainPort(),
+      cache: getCachePort(),
+    }),
     persistence.findModuleAnalyses(
       safe,
       modulePage.items.map((transaction) => transaction.transactionHash),

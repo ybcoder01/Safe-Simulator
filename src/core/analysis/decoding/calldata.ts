@@ -1,4 +1,5 @@
 import type { DecodedCall, Hex, Operation } from "../../domain";
+import { formatTokenAmount } from "../tokens/metadata";
 
 const SELECTOR_LENGTH = 10;
 const WORD_LENGTH = 64;
@@ -31,11 +32,37 @@ function withOperation(summary: string, operation: Operation) {
   return operation === "delegatecall" ? `Delegate: ${summary}` : summary;
 }
 
+export interface TokenAmountDisplay {
+  readonly decimals: number;
+  readonly symbol: string;
+}
+
+export type TokenAmountContext = TokenAmountDisplay | "unavailable" | null;
+
+function grouped(value: string) {
+  const [whole = "0", fraction] = value.split(".");
+  const groupedWhole = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return fraction ? `${groupedWhole}.${fraction}` : groupedWhole;
+}
+
+function displayTokenAmount(baseUnits: string, token: TokenAmountContext) {
+  if (token === "unavailable") return "an amount that could not be converted";
+  if (!token) return `${baseUnits} base units`;
+  const amount = formatTokenAmount(baseUnits, token.decimals);
+  return amount
+    ? `${grouped(amount)} ${token.symbol}`
+    : `${baseUnits} base units`;
+}
+
 /**
  * Produces deterministic summaries for common calls without network access.
  * Unknown selectors stay explicit instead of being guessed.
  */
-export function knownCallSummary(data: Hex, operation: Operation) {
+export function knownCallSummary(
+  data: Hex,
+  operation: Operation,
+  token: TokenAmountContext = null,
+) {
   const selector = data.slice(0, SELECTOR_LENGTH).toLowerCase();
   const firstAddress = addressFromWord(calldataWord(data, 0));
   const secondAddress = addressFromWord(calldataWord(data, 1));
@@ -45,14 +72,14 @@ export function knownCallSummary(data: Hex, operation: Operation) {
 
   if (selector === "0x095ea7b3" && firstAddress && secondWordAmount) {
     return withOperation(
-      `Approve ${shortenAddress(firstAddress)} for ${secondWordAmount} base units`,
+      `Approve ${shortenAddress(firstAddress)} for ${displayTokenAmount(secondWordAmount, token)}`,
       operation,
     );
   }
 
   if (selector === "0xa9059cbb" && firstAddress && secondWordAmount) {
     return withOperation(
-      `Transfer ${secondWordAmount} base units to ${shortenAddress(firstAddress)}`,
+      `Transfer ${displayTokenAmount(secondWordAmount, token)} to ${shortenAddress(firstAddress)}`,
       operation,
     );
   }
@@ -64,7 +91,7 @@ export function knownCallSummary(data: Hex, operation: Operation) {
     thirdWordAmount
   ) {
     return withOperation(
-      `Transfer ${thirdWordAmount} base units from ${shortenAddress(firstAddress)} to ${shortenAddress(secondAddress)}`,
+      `Transfer ${displayTokenAmount(thirdWordAmount, token)} from ${shortenAddress(firstAddress)} to ${shortenAddress(secondAddress)}`,
       operation,
     );
   }

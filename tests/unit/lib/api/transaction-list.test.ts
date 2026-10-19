@@ -92,4 +92,76 @@ describe("transaction list analysis metadata", () => {
     ).resolves.toEqual([]);
     expect(findAnalyses).not.toHaveBeenCalled();
   });
+
+  it("uses reviewed token metadata for approval amounts", async () => {
+    const amount = 19_999_990n * 10n ** 18n;
+    const approval = {
+      ...transaction(3),
+      to: "0x951857744785E80e2De051c32EE7b25f9c458C42" as Address,
+      data: `0x095ea7b3${"0".repeat(24)}${"3".repeat(40)}${amount.toString(16).padStart(64, "0")}` as Hex,
+    };
+
+    const result = await resolveTransactionViews(
+      { findAnalyses: vi.fn().mockResolvedValue([]) },
+      safe,
+      [approval],
+    );
+
+    expect(result[0]?.summary).toBe(
+      "Approve 0x333333…333333 for 19,999,990 WXDC",
+    );
+  });
+
+  it("reads standard metadata for unreviewed token contracts", async () => {
+    const approval = {
+      ...transaction(4),
+      data: `0x095ea7b3${"0".repeat(24)}${"3".repeat(40)}${1_500_000n.toString(16).padStart(64, "0")}` as Hex,
+    };
+    const call = vi
+      .fn()
+      .mockResolvedValueOnce(`0x${6n.toString(16).padStart(64, "0")}`)
+      .mockResolvedValueOnce(
+        `0x${32n.toString(16).padStart(64, "0")}${4n.toString(16).padStart(64, "0")}${Buffer.from("TEST").toString("hex").padEnd(64, "0")}`,
+      );
+
+    const result = await resolveTransactionViews(
+      { findAnalyses: vi.fn().mockResolvedValue([]) },
+      safe,
+      [approval],
+      {
+        chain: { call },
+        cache: {
+          get: vi.fn().mockResolvedValue(null),
+          set: vi.fn().mockResolvedValue(undefined),
+        },
+      },
+    );
+
+    expect(result[0]?.summary).toBe("Approve 0x333333…333333 for 1.5 TEST");
+  });
+
+  it("does not expose raw base units when token metadata is unavailable", async () => {
+    const approval = {
+      ...transaction(5),
+      data: `0x095ea7b3${"0".repeat(24)}${"3".repeat(40)}${1_500_000n.toString(16).padStart(64, "0")}` as Hex,
+    };
+
+    const result = await resolveTransactionViews(
+      { findAnalyses: vi.fn().mockResolvedValue([]) },
+      safe,
+      [approval],
+      {
+        chain: {
+          call: vi.fn().mockRejectedValue(new Error("RPC unavailable")),
+        },
+        cache: {
+          get: vi.fn().mockResolvedValue(null),
+          set: vi.fn().mockResolvedValue(undefined),
+        },
+      },
+    );
+
+    expect(result[0]?.summary).toContain("amount that could not be converted");
+    expect(result[0]?.summary).not.toContain("base units");
+  });
 });

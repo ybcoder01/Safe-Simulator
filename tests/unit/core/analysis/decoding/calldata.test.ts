@@ -16,6 +16,24 @@ describe("calldata summaries", () => {
     );
   });
 
+  it("formats token approvals with trusted decimals and symbols", () => {
+    const data =
+      `0x095ea7b3${"0".repeat(24)}3f5a410000000000000000000000000000d1dc5e${BigInt("19999999999999999999999999").toString(16).padStart(64, "0")}` as Hex;
+
+    expect(
+      knownCallSummary(data, "call", { decimals: 18, symbol: "WXDC" }),
+    ).toBe("Approve 0x3f5a41…d1dc5e for 19,999,999.999999999999999999 WXDC");
+  });
+
+  it("keeps unconverted raw values out of the main activity summary", () => {
+    const data =
+      `0x095ea7b3${"0".repeat(24)}3f5a410000000000000000000000000000d1dc5e${BigInt("1000000").toString(16).padStart(64, "0")}` as Hex;
+
+    expect(knownCallSummary(data, "call", "unavailable")).toBe(
+      "Approve 0x3f5a41…d1dc5e for an amount that could not be converted",
+    );
+  });
+
   it("identifies routed command execution without guessing parameters", () => {
     expect(
       knownCallSummary(
