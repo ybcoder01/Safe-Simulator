@@ -90,20 +90,24 @@ describe("Telegram transaction alerts", () => {
       findings: [],
     });
 
-    expect(text).toContain("🟢 NO WARNING IN PRE-SIGN CHECKS");
+    expect(text).toContain("🟢 LOOKS NORMAL");
+    expect(text).toContain("We found nothing unusual");
     expect(text).not.toContain("NO KNOWN WARNING FOUND");
   });
 
   it("shows a novice-first pending alert without raw technical identifiers", () => {
     const text = formatTelegramAlert(transaction(), 2, analysis);
 
-    expect(text).toContain("🔴 DO NOT SIGN");
-    expect(text).toContain("Waiting for 1 more owner approval");
+    expect(text).toContain("🟠 CHECK BEFORE YOU SIGN");
+    expect(text).toContain("Waiting for the last signature (1 of 2 signed)");
     expect(text).toContain("Action: Token approval");
     expect(text).toContain("With: Unrecognized address (0x444444…444444)");
     expect(text).toContain("Approved by: 1 of 2 owners");
     expect(text).toContain(
-      "This approval gives a new address permission to spend this Safe's tokens",
+      "What it can access: Confirm the spender and amount",
+    );
+    expect(text).toContain(
+      "Confirm the complete spender address and the exact amount your team intended",
     );
     expect(text).toContain("XDC Network");
     expect(text).not.toContain(owner);
@@ -137,11 +141,9 @@ describe("Telegram transaction alerts", () => {
     );
 
     expect(text).toContain(
-      "This approval enables token spending access for Fathom Pool",
+      "Confirm the complete spender address and the exact amount your team intended",
     );
-    expect(text).toContain(
-      "confirm the spender, approval amount, and every unrecognized address",
-    );
+    expect(text).toContain("With: Fathom USDC Underlying");
     expect(text).not.toContain("A new address can spend");
   });
 
@@ -160,12 +162,12 @@ describe("Telegram transaction alerts", () => {
       analysis,
     );
 
-    expect(text).toContain("🔴 HIGH-RISK TRANSACTION EXECUTED");
-    expect(text).toContain("already gone through");
+    expect(text).toContain("🟠 WENT THROUGH — WORTH A LOOK");
+    expect(text).toContain("Executed");
     expect(text).toContain("Action: Supply to lending market");
     expect(text).toContain("With: Fathom Pool (0x70d800…93449F)");
-    expect(text).toContain("contact the other owners");
-    expect(text).not.toContain("DO NOT SIGN");
+    expect(text).toContain("What to do now");
+    expect(text).not.toContain("DON'T SIGN YET");
   });
 
   it("renders a completed native transfer as a simple receipt", () => {
@@ -190,12 +192,13 @@ describe("Telegram transaction alerts", () => {
       { ...analysis, verdict: "known", findings: [] },
     );
 
-    expect(text).toContain("🟢 TRANSFER COMPLETED — NO WARNING FOUND");
+    expect(text).toContain("🟢 TRANSFER WENT THROUGH — LOOKS NORMAL");
     expect(text).toContain("Sent: 1 XDC");
     expect(text).toContain("To: 0x555555…555555");
     expect(text).toContain("Approved by: 2 of 2 owners");
+    expect(text).toContain("What to do now");
     expect(text).toContain(
-      "No action is needed if the amount and recipient are correct",
+      "Compare the action, amount, and destination with what your team intended",
     );
     expect(text).not.toContain("Native asset transfer");
     expect(text).not.toContain("inspect token approvals");
@@ -210,14 +213,26 @@ describe("Telegram transaction alerts", () => {
         data: "0x",
       }),
       2,
-      { ...analysis, verdict: "unverified" },
+      {
+        ...analysis,
+        verdict: "unverified",
+        findings: [
+          {
+            code: "movement-trust-unresolved",
+            severity: "warning",
+            title: "Recipient needs review",
+            detail: "Review it.",
+            addresses: [secondOwner],
+          },
+        ],
+      },
     );
 
     expect(text).toContain("Sent: 0.5 XDC");
     expect(text).toContain(
-      "Open the report before signing and confirm the amount and recipient",
+      "Compare the complete recipient address with the original request",
     );
-    expect(text).not.toContain("approval amount");
+    expect(text).not.toContain("spender and amount");
   });
 
   it("warns when a risky pending transaction can already be executed", () => {
@@ -234,9 +249,9 @@ describe("Telegram transaction alerts", () => {
       analysis,
     );
 
-    expect(text).toContain("🔴 STOP — READY TO EXECUTE");
-    expect(text).toContain("can now be executed");
-    expect(text).toContain("Do not add another approval");
+    expect(text).toContain("🟠 CHECK BEFORE YOU SIGN");
+    expect(text).toContain("Ready to execute (2 of 2 signed)");
+    expect(text).toContain("What to do now");
   });
 
   it("changes its delivery key when a signer or status changes", () => {
