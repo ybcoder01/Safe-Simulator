@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getPersistencePort } from "@/container";
+import { getCachePort, getChainPort, getPersistencePort } from "@/container";
 import {
   safeRouteParamsSchema,
   transactionPageQuerySchema,
@@ -48,6 +48,7 @@ export async function GET(request: Request, context: RouteContext) {
     persistence,
     safe.data,
     page.items,
+    { chain: getChainPort(), cache: getCachePort() },
   );
   return NextResponse.json({
     data,
