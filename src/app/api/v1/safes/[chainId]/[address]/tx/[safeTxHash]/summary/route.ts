@@ -318,6 +318,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         console.warn("Transaction summary provider failure", {
           code: cause.code,
           providerStatus: cause.providerStatus,
+          stage: cause.stage,
           model,
           promptVersion: TRANSACTION_SUMMARY_PROMPT_VERSION,
         });
