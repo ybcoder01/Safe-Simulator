@@ -110,6 +110,32 @@ describe("Safe dashboard API view models", () => {
     });
   });
 
+  it("uses reviewed token decimals in transaction-list summaries", () => {
+    const spender = "3f5a410000000000000000000000000000d1dc5e";
+    const amount = "19999999999999999999999999";
+    const approval = {
+      safe: safeRef,
+      safeTxHash: `0x${"1".repeat(64)}`,
+      nonce: 54n,
+      to: "0x951857744785E80e2De051c32EE7b25f9c458C42",
+      value: 0n,
+      data: `0x095ea7b3${"0".repeat(24)}${spender}${BigInt(amount).toString(16).padStart(64, "0")}`,
+      operation: "call",
+      status: "executed",
+      confirmations: [],
+      proposedAt: 1_700_000_000,
+      executedAt: 1_700_000_100,
+      executedTxHash: `0x${"2".repeat(64)}`,
+      blockNumber: 12n,
+      blockHash: `0x${"3".repeat(64)}`,
+    } as SafeTransaction;
+
+    expect(
+      toTransactionView(approval, null, { decimals: 18, symbol: "WXDC" })
+        .summary,
+    ).toBe("Approve 0x3f5a41…d1dc5e for 19,999,999.999999999999999999 WXDC");
+  });
+
   it("separates pending actions from historical activity without reordering", () => {
     const makeTransaction = (
       status: SafeTransaction["status"],
