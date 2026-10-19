@@ -291,7 +291,7 @@ export default async function TransactionDetailPage({
       safe.data.chainId,
       contractReferences,
       fetch,
-      { totalTimeoutMs: 1_500 },
+      { totalTimeoutMs: 1_500, priorityAddresses: [persisted.to] },
     ),
   ]);
   const verdict = resolveEvidenceVerdict(

@@ -200,4 +200,55 @@ describe("XDCScan source verification", () => {
     );
     expect(fetcher).toHaveBeenCalledTimes(4);
   });
+
+  it("gives a priority address its own timeout instead of the page budget", async () => {
+    vi.useFakeTimers();
+    const fetcher = vi.fn(
+      (input: string | URL | Request, init?: RequestInit) =>
+        new Promise<Response>((resolve, reject) => {
+          init?.signal?.addEventListener("abort", () =>
+            reject(new Error("aborted")),
+          );
+          if (String(input).includes(contract)) {
+            setTimeout(
+              () =>
+                resolve(
+                  response({
+                    message: "OK",
+                    result: [
+                      {
+                        SourceCode: "contract A {}",
+                        ContractName: "Router",
+                        CompilerVersion: "v0.8.28",
+                        IsProxy: "false",
+                      },
+                    ],
+                  }),
+                ),
+              2_400,
+            );
+          }
+        }),
+    );
+    const cachePort = cache();
+
+    const resultPromise = resolveXdcContractVerification(
+      cachePort,
+      50,
+      [contract, implementation],
+      fetcher,
+      { totalTimeoutMs: 1_500, priorityAddresses: [contract] },
+    );
+    await vi.advanceTimersByTimeAsync(2_500);
+    const result = await resultPromise;
+    vi.useRealTimers();
+
+    expect(result.items.find((item) => item.address === contract)).toEqual(
+      expect.objectContaining({ status: "verified", contractName: "Router" }),
+    );
+    expect(
+      result.items.find((item) => item.address === implementation),
+    ).toEqual(expect.objectContaining({ status: "unavailable" }));
+    expect(cachePort.set).toHaveBeenCalledTimes(1);
+  });
 });
