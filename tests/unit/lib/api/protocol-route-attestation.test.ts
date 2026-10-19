@@ -1,4 +1,9 @@
-import { decodeFunctionData, encodeFunctionResult, parseAbi } from "viem";
+import {
+  decodeFunctionData,
+  encodeFunctionResult,
+  getAddress,
+  parseAbi,
+} from "viem";
 import { describe, expect, it, vi } from "vitest";
 
 import type {
@@ -102,6 +107,7 @@ function marketConfig(
   share: Address,
   hookReceiver: Address = zero,
   collateralShareToken: Address = zero,
+  maxLtvOracle: Address = zero,
 ) {
   return {
     daoFee: 0n,
@@ -112,7 +118,7 @@ function marketConfig(
     collateralShareToken,
     debtShareToken: zero,
     solvencyOracle: zero,
-    maxLtvOracle: zero,
+    maxLtvOracle,
     interestRateModel: zero,
     maxLtv: 0n,
     lt: 0n,
@@ -130,13 +136,64 @@ const hookAbi = parseAbi([
   "function configuredGauges(address shareToken) view returns (address gauge)",
 ]);
 
+const oracleWrapper = getAddress("0xaaaa00000000000000000000000000000000aaaa");
+const innerOracle = getAddress("0xbbbb00000000000000000000000000000000bbbb");
+const oracleConfig = getAddress("0xcccc00000000000000000000000000000000cccc");
+const priceFeed = getAddress("0xdddd00000000000000000000000000000000dddd");
+const quoteAsset = getAddress("0xeeee00000000000000000000000000000000eeee");
+const oracleAbi = parseAbi([
+  "function oracle() view returns (address)",
+  "function oracleConfig() view returns (address)",
+  "function baseToken() view returns (address)",
+  "function quoteToken() view returns (address)",
+]);
+
+function word(address: Address): string {
+  return address.slice(2).toLowerCase().padStart(64, "0");
+}
+
+function oracleResponse(request: {
+  readonly to: Address;
+  readonly data: Hex;
+}): Hex | null {
+  const to = request.to.toLowerCase();
+  if (to === oracleConfig.toLowerCase()) {
+    return `0x${word(asset0)}${word(quoteAsset)}${word(priceFeed)}${"0".repeat(63)}9` as Hex;
+  }
+  if (to !== oracleWrapper.toLowerCase() && to !== innerOracle.toLowerCase()) {
+    return null;
+  }
+  const decoded = decodeFunctionData({ abi: oracleAbi, data: request.data });
+  const isWrapper = to === oracleWrapper.toLowerCase();
+  const result: Address =
+    decoded.functionName === "oracle"
+      ? isWrapper
+        ? innerOracle
+        : zero
+      : decoded.functionName === "oracleConfig"
+        ? isWrapper
+          ? zero
+          : oracleConfig
+        : decoded.functionName === "baseToken"
+          ? asset0
+          : quoteAsset;
+  return encodeFunctionResult({
+    abi: oracleAbi,
+    functionName: decoded.functionName,
+    result,
+  } as Parameters<typeof encodeFunctionResult>[0]);
+}
+
 function chainPort(
   options: {
     readonly hookGauge?: Address | "fail";
     readonly marketIsCollateralShare?: boolean;
+    readonly oracle?: boolean;
   } = {},
 ) {
   const call = vi.fn<ChainPort["call"]>(async (_chainId, request) => {
+    const oracle = options.oracle ? oracleResponse(request) : null;
+    if (oracle) return oracle;
     if (request.to.toLowerCase() === hook.toLowerCase()) {
       if (options.hookGauge === "fail") throw new Error("rate limited");
       const decoded = decodeFunctionData({ abi: hookAbi, data: request.data });
@@ -195,6 +252,9 @@ function chainPort(
           silo.toLowerCase() === market0.toLowerCase() ? share0 : share1,
           options.hookGauge === undefined ? zero : hook,
           options.marketIsCollateralShare ? silo : zero,
+          options.oracle && silo.toLowerCase() === market0.toLowerCase()
+            ? oracleWrapper
+            : zero,
         ),
       });
     }
@@ -295,6 +355,76 @@ describe("resolveProtocolRouteAttestation", () => {
     expect(result.checks).toContainEqual(
       expect.objectContaining({ key: "route", status: "pass" }),
     );
+  });
+
+  describe("oracle chain named by the market's oracles", () => {
+    const oracleCalls = (
+      target: Address,
+    ): ExecutionInsight["internalCalls"] => [
+      ...calls(),
+      ...[oracleWrapper, innerOracle, oracleConfig, target].map((to) => ({
+        depth: 3,
+        from: market0,
+        to,
+        input: "0x" as Hex,
+        value: "0",
+        operation: "call" as const,
+        reverted: false,
+        error: null,
+      })),
+    ];
+
+    it("accepts the wrapped oracle, its configuration and the price source it names", async () => {
+      const result = await resolveProtocolRouteAttestation(
+        chainPort({ oracle: true }),
+        transaction(),
+        { internalCalls: oracleCalls(priceFeed) },
+      );
+
+      expect(result.addresses).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ address: innerOracle }),
+          expect.objectContaining({ address: oracleConfig }),
+          expect.objectContaining({ address: priceFeed }),
+        ]),
+      );
+      expect(result.findings).not.toContainEqual(
+        expect.objectContaining({
+          code: "protocol-route-attestation-incomplete",
+        }),
+      );
+    });
+
+    it("never treats the oracle's tokens as price sources", async () => {
+      const result = await resolveProtocolRouteAttestation(
+        chainPort({ oracle: true }),
+        transaction(),
+        { internalCalls: oracleCalls(quoteAsset) },
+      );
+
+      expect(result.addresses).not.toContainEqual(
+        expect.objectContaining({ address: quoteAsset }),
+      );
+      expect(result.addresses).toContainEqual({
+        address: asset0,
+        label: "Silo configured asset",
+      });
+    });
+
+    it("keeps a traced contract that the oracle configuration does not name unresolved", async () => {
+      const result = await resolveProtocolRouteAttestation(
+        chainPort({ oracle: true }),
+        transaction(),
+        { internalCalls: oracleCalls(unknown) },
+      );
+
+      expect(result.findings).toContainEqual(
+        expect.objectContaining({
+          code: "protocol-route-attestation-incomplete",
+          addresses: [unknown],
+        }),
+      );
+    });
   });
 
   describe("incentives controller named by the hook receiver", () => {

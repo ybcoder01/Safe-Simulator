@@ -33,6 +33,13 @@ const hookAbi = parseAbi([
   "function configuredGauges(address shareToken) view returns (address gauge)",
 ]);
 
+const oracleAbi = parseAbi([
+  "function oracle() view returns (address wrapped)",
+  "function oracleConfig() view returns (address config)",
+  "function baseToken() view returns (address)",
+  "function quoteToken() view returns (address)",
+]);
+
 type ConfigData = {
   readonly silo: Address;
   readonly token: Address;
@@ -222,10 +229,141 @@ async function configuredGauges(
   );
 }
 
+async function readAddress(
+  chain: ChainPort,
+  transaction: SafeTransaction,
+  address: Address,
+  functionName: "oracle" | "oracleConfig" | "baseToken" | "quoteToken",
+): Promise<Address | null> {
+  try {
+    const result = await callContract(
+      chain,
+      transaction,
+      address,
+      encodeFunctionData({ abi: oracleAbi, functionName }),
+    );
+    const value = getAddress(
+      decodeFunctionResult({ abi: oracleAbi, functionName, data: result }),
+    ) as Address;
+    return addressKey(value) === ZERO_ADDRESS ? null : value;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Words of an oracle configuration that are contract addresses. The layout
+ * differs per oracle type, so every address-shaped word is a candidate and the
+ * caller keeps only those the execution actually called.
+ */
+async function configurationAddressWords(
+  chain: ChainPort,
+  transaction: SafeTransaction,
+  configuration: Address,
+): Promise<readonly Address[]> {
+  try {
+    const result = await callContract(
+      chain,
+      transaction,
+      configuration,
+      "0xc3f909d4",
+    );
+    const body = result.slice(2);
+    const words = body.match(/.{64}/g) ?? [];
+    return words
+      .filter((word) => /^0{24}[0-9a-f]{40}$/i.test(word))
+      .map((word) => getAddress(`0x${word.slice(24)}`) as Address)
+      .filter(
+        (address) =>
+          addressKey(address) !== ZERO_ADDRESS && !isPrecompile(address),
+      );
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * The market's oracles are part of the configuration proven through the
+ * factory. Oracles they wrap, the configuration contracts those oracles read,
+ * and the price sources named in that configuration are the same proven
+ * configuration one step further out. Only contracts the execution actually
+ * called are attested, tokens are never mistaken for price sources, and any
+ * lookup that fails leaves the address unattested.
+ */
+async function oracleDependencies(
+  chain: ChainPort,
+  transaction: SafeTransaction,
+  config: ConfigData,
+  traced: ReadonlySet<string>,
+): Promise<readonly AttestedProtocolAddress[]> {
+  const oracles = [
+    ...new Map(
+      [config.solvencyOracle, config.maxLtvOracle]
+        .filter((oracle) => addressKey(oracle) !== ZERO_ADDRESS)
+        .map((oracle) => [addressKey(oracle), oracle]),
+    ).values(),
+  ];
+
+  const perOracle = await Promise.all(
+    oracles.map(async (oracle) => {
+      const found: AttestedProtocolAddress[] = [];
+      const wrapped = await readAddress(chain, transaction, oracle, "oracle");
+      const layers = wrapped ? [oracle, wrapped] : [oracle];
+      if (wrapped) {
+        found.push({
+          address: wrapped,
+          label: "Silo oracle wrapped by the market's oracle",
+        });
+      }
+
+      const tokens = new Set<string>([addressKey(config.token)]);
+      for (const layer of layers) {
+        for (const getter of ["baseToken", "quoteToken"] as const) {
+          const token = await readAddress(chain, transaction, layer, getter);
+          if (token) tokens.add(addressKey(token));
+        }
+      }
+
+      for (const layer of layers) {
+        const configuration = await readAddress(
+          chain,
+          transaction,
+          layer,
+          "oracleConfig",
+        );
+        if (!configuration) continue;
+        found.push({
+          address: configuration,
+          label: "Silo oracle configuration",
+        });
+        for (const word of await configurationAddressWords(
+          chain,
+          transaction,
+          configuration,
+        )) {
+          if (
+            traced.has(addressKey(word)) &&
+            !tokens.has(addressKey(word)) &&
+            addressKey(word) !== addressKey(configuration)
+          ) {
+            found.push({
+              address: word,
+              label: "Price source named by the Silo oracle configuration",
+            });
+          }
+        }
+      }
+      return found;
+    }),
+  );
+  return perOracle.flat();
+}
+
 async function attestSiloMarket(
   chain: ChainPort,
   transaction: SafeTransaction,
   silo: Address,
+  traced: ReadonlySet<string>,
 ): Promise<readonly AttestedProtocolAddress[] | null> {
   try {
     const configResult = await callContract(
@@ -283,11 +421,18 @@ async function attestSiloMarket(
       ),
     );
 
+    const dependencies = await Promise.all(
+      (configs as readonly ConfigData[]).map((item) =>
+        oracleDependencies(chain, transaction, item, traced),
+      ),
+    );
+
     return uniqueAddresses([
+      ...dependencies.flat(),
+      ...gauges.flat(),
       { address: SILO_FACTORY, label: "Official Silo Factory" },
       { address: configAddress, label: "Silo market configuration" },
       ...configs.flatMap((item) => configAddresses(item as ConfigData)),
-      ...gauges.flat(),
     ]);
   } catch {
     return null;
@@ -547,8 +692,16 @@ export async function resolveProtocolRouteAttestation(
     };
   }
 
+  const tracedAddresses = new Set(
+    execution.internalCalls.flatMap((call) => [
+      addressKey(call.from),
+      addressKey(call.to),
+    ]),
+  );
   const marketEvidence = await Promise.all(
-    markets.map((market) => attestSiloMarket(chain, transaction, market)),
+    markets.map((market) =>
+      attestSiloMarket(chain, transaction, market, tracedAddresses),
+    ),
   );
   const incompleteMarkets = markets.filter(
     (_, index) => marketEvidence[index] === null,
