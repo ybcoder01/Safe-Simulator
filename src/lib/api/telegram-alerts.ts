@@ -3,13 +3,14 @@ import { createHash } from "node:crypto";
 import { formatEther } from "viem";
 
 import { classifyTransactionActivity } from "@/core/analysis/decoding/activity";
+import { knownCallSummary } from "@/core/analysis/decoding/calldata";
 import { findContractRegistryEntry } from "@/core/analysis/trust/contract-registry";
+import { findTokenRegistryEntry } from "@/core/analysis/trust/token-registry";
 import type {
   AnalysisResult,
   Confirmation,
   QueueJob,
   SafeTransaction,
-  Verdict,
 } from "@/core/domain";
 import type {
   ChainPort,
@@ -21,6 +22,7 @@ import type {
 import { refreshSafeSnapshot } from "@/core/ingestion/safe-snapshot";
 import { TRANSACTION_ANALYSIS_ENGINE_VERSION } from "@/lib/api/analysis-version";
 import { createTelegramAlertReceipt } from "@/lib/api/telegram-alert-receipts";
+import { currentStageFromTransaction } from "@/lib/alert-stage";
 
 const WATCH_PAGE_SIZE = 50;
 const ANALYSIS_WAIT_SECONDS = 12;
@@ -200,45 +202,57 @@ function shortAddress(value: string): string {
   return `${value.slice(0, 8)}…${value.slice(-6)}`;
 }
 
+type TelegramBriefSignal = "expected" | "check" | "stop" | "unknown";
+
+interface TelegramBriefCheck {
+  readonly key: string;
+  readonly severity: "check" | "stop";
+  readonly title: string;
+  readonly action: string;
+}
+
+interface TelegramBrief {
+  readonly signal: TelegramBriefSignal;
+  readonly heading: string;
+  readonly checks: readonly TelegramBriefCheck[];
+}
+
 function alertHeading(
   transaction: SafeTransaction,
-  threshold: number,
-  verdict: Verdict,
+  signal: TelegramBriefSignal,
 ): string {
   const isTransfer =
     classifyTransactionActivity(transaction).type === "transfer";
   if (transaction.status === "executed") {
-    if (verdict === "flagged") {
+    if (signal === "stop") {
       return isTransfer
-        ? "🔴 HIGH-RISK TRANSFER COMPLETED"
-        : "🔴 HIGH-RISK TRANSACTION EXECUTED";
+        ? "🔴 TRANSFER WENT THROUGH — ACT NOW"
+        : "🔴 WENT THROUGH — LOOK INTO THIS NOW";
     }
-    if (verdict === "unverified") {
+    if (signal === "check") {
       return isTransfer
-        ? "🟠 TRANSFER COMPLETED — CHECK DETAILS"
-        : "🟠 EXECUTED — REVIEW REQUIRED";
+        ? "🟠 TRANSFER WENT THROUGH — WORTH A LOOK"
+        : "🟠 WENT THROUGH — WORTH A LOOK";
     }
+    if (signal === "unknown") return "⚪ WENT THROUGH — COULD NOT CHECK";
     return isTransfer
-      ? "🟢 TRANSFER COMPLETED — NO WARNING FOUND"
-      : "🟢 TRANSACTION EXECUTED";
+      ? "🟢 TRANSFER WENT THROUGH — LOOKS NORMAL"
+      : "🟢 WENT THROUGH — LOOKS NORMAL";
   }
   if (transaction.status === "failed") {
-    return verdict === "flagged"
+    return signal === "stop"
       ? "🔴 FAILED ATTEMPT NEEDS REVIEW"
       : "⚪ TRANSACTION FAILED";
   }
   if (transaction.status === "replaced") {
-    return verdict === "flagged"
+    return signal === "stop"
       ? "🔴 REPLACED TRANSACTION NEEDS REVIEW"
       : "⚪ TRANSACTION REPLACED";
   }
-  if (verdict === "flagged") {
-    return transaction.confirmations.length >= threshold
-      ? "🔴 STOP — READY TO EXECUTE"
-      : "🔴 DO NOT SIGN";
-  }
-  if (verdict === "unverified") return "🟠 VERIFY BEFORE SIGNING";
-  return "🟢 NO WARNING IN PRE-SIGN CHECKS";
+  if (signal === "stop") return "🔴 STOP. DON'T SIGN YET";
+  if (signal === "check") return "🟠 CHECK BEFORE YOU SIGN";
+  if (signal === "unknown") return "⚪ WE COULDN'T CHECK THIS YET";
+  return "🟢 LOOKS NORMAL";
 }
 
 const plainFindingTitles: Readonly<Record<string, string>> = {
@@ -286,53 +300,176 @@ export function plainAlertFindingCode(code: string): string {
   );
 }
 
-function plainFindingTitle(
-  transaction: SafeTransaction,
-  finding: AnalysisResult["findings"][number],
-): string {
-  if (finding.code === "new-approval-spender") {
-    const recognizedSpender = finding.addresses
-      .filter(
-        (address) => address.toLowerCase() !== transaction.to.toLowerCase(),
-      )
-      .map((address) =>
-        findContractRegistryEntry(transaction.safe.chainId, address),
-      )
-      .find((entry) => entry !== null);
+const CONTROL_CHANGE_CODES = new Set([
+  "safe-owner-change",
+  "safe-threshold-change",
+  "safe-module-change",
+  "safe-guard-change",
+  "safe-fallback-handler-change",
+  "safe-implementation-change",
+]);
+const PERMISSION_CODES = new Set([
+  "infinite-allowance",
+  "requested-infinite-allowance",
+  "requested-operator-all",
+  "maximum-permit2-signature-transfer",
+  "permit2-signature-transfer",
+  "new-approval-spender",
+  "spender-trust-unresolved",
+]);
+const RECIPIENT_CODES = new Set([
+  "movement-trust-unresolved",
+  "recipient-address-unconfirmed",
+]);
+const ROUTE_CODES = new Set([
+  "internal-delegatecall",
+  "internal-call-trust-unresolved",
+  "unverified-target",
+  "target-account-type-unavailable",
+  "signature-only-decode",
+  "raw-calldata",
+  "protocol-path-unconfirmed",
+  "protocol-route-attestation-incomplete",
+  "silo-permissionless-market",
+]);
 
-    return recognizedSpender
-      ? `This approval enables token spending access for ${recognizedSpender.label}`
-      : "This approval gives a new address permission to spend this Safe's tokens";
-  }
-
-  return plainFindingTitles[finding.code] ?? finding.title;
+function hasCode(
+  findings: readonly AnalysisResult["findings"][number][],
+  codes: ReadonlySet<string>,
+) {
+  return findings.some((finding) => codes.has(finding.code));
 }
 
-function statusExplanation(
+function telegramBrief(
   transaction: SafeTransaction,
-  threshold: number,
-  verdict: Verdict,
-): string {
-  if (transaction.status === "executed") {
-    if (
-      verdict === "known" &&
-      classifyTransactionActivity(transaction).type === "transfer"
-    ) {
-      return "The transfer completed. No warning was found in the available evidence.";
-    }
-    return "This transaction has already gone through. It cannot be stopped now.";
+  analysis: AnalysisResult | null,
+): TelegramBrief {
+  if (!analysis) {
+    return {
+      signal: "unknown",
+      heading: "We don't have enough information to check it.",
+      checks: [],
+    };
   }
-  if (transaction.status === "failed") {
-    return "The execution failed. It did not complete, but any related approvals should still be reviewed.";
+
+  const findings = analysis.findings.filter(
+    (finding) => finding.severity !== "info",
+  );
+  const checks: TelegramBriefCheck[] = [];
+  const push = (check: TelegramBriefCheck) => {
+    if (!checks.some((item) => item.key === check.key)) checks.push(check);
+  };
+
+  if (
+    findings.some((finding) => finding.code === "explicitly-flagged-address")
+  ) {
+    push({
+      key: "flagged-address",
+      severity: "stop",
+      title: "A flagged address is involved",
+      action:
+        "Do not approve. Compare every full address with an independent source and contact the other owners.",
+    });
   }
-  if (transaction.status === "replaced") {
-    return "Another proposal used this nonce. This proposal can no longer execute.";
+  if (hasCode(findings, CONTROL_CHANGE_CODES)) {
+    push({
+      key: "safe-control",
+      severity: "stop",
+      title: "This changes who can control the Safe",
+      action:
+        "Confirm the exact owner, threshold, module, guard, or implementation change with every owner.",
+    });
   }
-  if (transaction.confirmations.length >= threshold) {
-    return "Enough owner approvals have been collected. This can now be executed.";
+  if (hasCode(findings, PERMISSION_CODES)) {
+    const unlimited = findings.some((finding) =>
+      [
+        "infinite-allowance",
+        "requested-infinite-allowance",
+        "requested-operator-all",
+        "maximum-permit2-signature-transfer",
+      ].includes(finding.code),
+    );
+    push({
+      key: "permissions",
+      severity: unlimited ? "stop" : "check",
+      title: unlimited
+        ? "Unlimited token access is requested"
+        : "A contract is receiving token spending access",
+      action:
+        "Confirm the complete spender address and the exact amount your team intended.",
+    });
   }
-  const remaining = Math.max(threshold - transaction.confirmations.length, 0);
-  return `Waiting for ${remaining} more owner ${remaining === 1 ? "approval" : "approvals"}.`;
+  if (hasCode(findings, RECIPIENT_CODES)) {
+    push({
+      key: "recipient",
+      severity: "check",
+      title: "The recipient could not be independently confirmed",
+      action:
+        "Compare the complete recipient address with the original request before the final approval.",
+    });
+  }
+  if (hasCode(findings, ROUTE_CODES)) {
+    const siloMarket = findings.some(
+      (finding) => finding.code === "silo-permissionless-market",
+    );
+    push({
+      key: "route",
+      severity: "check",
+      title: siloMarket
+        ? "The Silo route is genuine; this market still needs approval"
+        : "Part of the project route still needs verification",
+      action: siloMarket
+        ? "Confirm that your team chose this exact Silo market, including its assets, hooks, and oracles."
+        : "Match the destination and any unconfirmed helper contracts with the project's official records.",
+    });
+  }
+  if (analysis.simulation?.success === false) {
+    push({
+      key: "simulation",
+      severity: "stop",
+      title: "The test run failed",
+      action:
+        "Do not approve until the failed execution is explained and the transaction has been checked again.",
+    });
+  }
+
+  const representedCodes = new Set([
+    "explicitly-flagged-address",
+    ...CONTROL_CHANGE_CODES,
+    ...PERMISSION_CODES,
+    ...RECIPIENT_CODES,
+    ...ROUTE_CODES,
+  ]);
+  const remaining = findings.filter(
+    (finding) => !representedCodes.has(finding.code),
+  );
+  if (remaining.length > 0) {
+    push({
+      key: "additional",
+      severity: remaining.some((finding) => finding.severity === "critical")
+        ? "stop"
+        : "check",
+      title: "One additional check needs attention",
+      action:
+        "Open the verified report and resolve the remaining check before approving.",
+    });
+  }
+
+  const signal: TelegramBriefSignal = checks.some(
+    (check) => check.severity === "stop",
+  )
+    ? "stop"
+    : checks.length > 0
+      ? "check"
+      : "expected";
+  return {
+    signal,
+    heading:
+      signal === "expected"
+        ? "We found nothing unusual."
+        : `We couldn't confirm ${checks.length} ${checks.length === 1 ? "thing" : "things"}.`,
+    checks: checks.slice(0, 3),
+  };
 }
 
 function networkName(chainId: number): string {
@@ -363,8 +500,20 @@ function transactionDetails(transaction: SafeTransaction): readonly string[] {
     ];
   }
 
+  const reviewedToken = findTokenRegistryEntry(
+    transaction.safe.chainId,
+    transaction.to,
+  );
+  const decoded = knownCallSummary(
+    transaction.data,
+    transaction.operation,
+    reviewedToken
+      ? { decimals: reviewedToken.decimals, symbol: reviewedToken.symbol }
+      : "unavailable",
+  );
+
   return [
-    `• Action: ${actionSummary(transaction)}`,
+    `• Action: ${decoded ?? actionSummary(transaction)}`,
     `• With: ${targetSummary(transaction)}`,
   ];
 }
@@ -381,48 +530,6 @@ function targetSummary(transaction: SafeTransaction): string {
   const description =
     activity.type === "transfer" ? "Recipient" : "Unrecognized address";
   return `${description} (${shortAddress(transaction.to)})`;
-}
-
-function nextStep(
-  transaction: SafeTransaction,
-  verdict: Verdict,
-  analysis: AnalysisResult | null,
-): string {
-  const isTransfer =
-    classifyTransactionActivity(transaction).type === "transfer";
-  if (transaction.status === "executed") {
-    if (isTransfer) {
-      return verdict === "known"
-        ? "No action is needed if the amount and recipient are correct."
-        : "Confirm the amount and recipient. If either is unexpected, contact the other owners immediately.";
-    }
-    return verdict === "flagged" || verdict === "unverified"
-      ? "If you do not recognize this, contact the other owners and inspect token approvals immediately."
-      : "Confirm that the action and destination match what the owners intended.";
-  }
-  if (transaction.status === "failed" || transaction.status === "replaced") {
-    return "Do not retry automatically. Open the report and verify the action and every involved address first.";
-  }
-  if (verdict === "flagged") {
-    if (isTransfer) {
-      return "Do not add another approval. Confirm the amount and recipient in your signing wallet.";
-    }
-    return "Do not add another approval. Open the report and compare the action and addresses with your signing wallet.";
-  }
-  if (verdict === "unverified") {
-    if (isTransfer) {
-      return "Open the report before signing and confirm the amount and recipient.";
-    }
-    if (
-      analysis?.findings.some(
-        (finding) => finding.code === "new-approval-spender",
-      )
-    ) {
-      return "Open the report before signing and confirm the spender, approval amount, and every unrecognized address.";
-    }
-    return "Open the report before signing and verify every unrecognized address.";
-  }
-  return "Open the report and confirm the action and destination before signing.";
 }
 
 function latestEventTime(transaction: SafeTransaction): number {
@@ -456,43 +563,47 @@ export function formatTelegramAlert(
   threshold: number,
   analysis: AnalysisResult | null,
 ): string {
-  const verdict = analysis?.verdict ?? "unverified";
-  const importantFindings = Array.from(
-    new Set(
-      (analysis?.findings ?? [])
-        .filter((finding) => finding.severity !== "info")
-        .map((finding) => plainFindingTitle(transaction, finding)),
-    ),
-  ).slice(0, 3);
+  const brief = telegramBrief(transaction, analysis);
+  const stage = currentStageFromTransaction(transaction, threshold);
+  const target = targetSummary(transaction);
+  const recipientNeedsCheck = brief.checks.some(
+    (check) => check.key === "recipient",
+  );
+  const permissionNeedsCheck = brief.checks.some(
+    (check) => check.key === "permissions",
+  );
+  const simulationText = analysis?.simulation
+    ? analysis.simulation.success
+      ? "✓ Test run: Completed successfully"
+      : "× Test run: Failed"
+    : "? Test run: Not available";
+  const actionHeading =
+    stage.id === "collecting-signatures"
+      ? "Before another owner signs"
+      : "What to do now";
 
   return [
-    alertHeading(transaction, threshold, verdict),
+    alertHeading(transaction, brief.signal),
     "",
-    statusExplanation(transaction, threshold, verdict),
+    brief.heading,
+    stage.label,
     "",
-    "What happened",
+    "What this transaction does",
     ...transactionDetails(transaction),
     `• Approved by: ${transaction.confirmations.length} of ${threshold} owners`,
-    ...(importantFindings.length > 0
-      ? [
-          "",
-          "Why this needs attention",
-          ...importantFindings.map((finding) => `• ${finding}`),
-        ]
-      : analysis
-        ? [
-            "",
-            "What we found",
-            "• No critical or warning signal was found in the available evidence.",
-          ]
-        : [
-            "",
-            "Why this needs attention",
-            "• Independent analysis is not available yet.",
-          ]),
     "",
-    "What you should do",
-    `• ${nextStep(transaction, verdict, analysis)}`,
+    "Quick checks",
+    `• ${findContractRegistryEntry(transaction.safe.chainId, transaction.to) ? "✓" : "?"} Who you're dealing with: ${target}`,
+    `• ${recipientNeedsCheck ? "!" : "✓"} Who gets the money: ${recipientNeedsCheck ? "Confirm the full recipient address" : "No unexpected recipient found"}`,
+    `• ${permissionNeedsCheck ? "!" : "✓"} What it can access: ${permissionNeedsCheck ? "Confirm the spender and amount" : "No unexpected permission found"}`,
+    `• ${simulationText}`,
+    ...(brief.checks.length > 0
+      ? ["", actionHeading, ...brief.checks.map((check) => `• ${check.action}`)]
+      : [
+          "",
+          actionHeading,
+          "• Compare the action, amount, and destination with what your team intended.",
+        ]),
     "",
     `Safe: ${shortAddress(transaction.safe.address)} · ${networkName(transaction.safe.chainId)}`,
     "Never sign from a Telegram alert alone. Verify in Safe Inspector.",
