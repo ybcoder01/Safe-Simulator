@@ -232,6 +232,22 @@ async function fetchVerification(
   return view;
 }
 
+/**
+ * One transient explorer failure for the transaction target would make the
+ * whole page read as unverified until the next successful visit, so a failed
+ * lookup is retried once. A definite "unverified" answer is never retried.
+ */
+async function fetchPriorityVerification(
+  cache: Pick<CachePort, "get" | "set">,
+  address: Address,
+  fetcher: FetchLike,
+  timeoutMs: number,
+): Promise<XdcContractVerificationView> {
+  const first = await fetchVerification(cache, address, fetcher, timeoutMs);
+  if (first.status !== "unavailable") return first;
+  return fetchVerification(cache, address, fetcher, timeoutMs);
+}
+
 async function mapWithConcurrency<T, R>(
   values: readonly T[],
   concurrency: number,
@@ -285,7 +301,12 @@ export async function resolveXdcContractVerification(
   const priorityTimeoutMs = options.priorityTimeoutMs ?? 6_000;
   const verifyWithinBudget = (address: Address) => {
     if (priority.has(address)) {
-      return fetchVerification(cache, address, fetcher, priorityTimeoutMs);
+      return fetchPriorityVerification(
+        cache,
+        address,
+        fetcher,
+        priorityTimeoutMs,
+      );
     }
     const remaining = deadline === null ? 6_000 : deadline - Date.now();
     if (remaining <= 0) {
