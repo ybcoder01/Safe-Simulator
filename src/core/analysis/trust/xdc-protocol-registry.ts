@@ -1324,12 +1324,20 @@ const groups: readonly ProtocolDeploymentGroup[] = [
   },
 ];
 
+/**
+ * Publisher whitelists prefix each contract with the protocol name, which
+ * doubles up for contracts already named after it ("Silo Silo Router V2").
+ */
+export function readableRegistryLabel(label: string): string {
+  return label.replace(/^(\S+) \1(?= |$)/, "$1");
+}
+
 export const xdcProtocolRegistryEntries: readonly ContractRegistryEntry[] = [
   ...groups.flatMap((group) =>
     group.deployments.map(([address, label, role, trustPolicy, lifecycle]) => ({
       chainId: 50,
       address: address as Address,
-      label,
+      label: readableRegistryLabel(label),
       protocol: group.protocol,
       category: "protocol" as const,
       role,

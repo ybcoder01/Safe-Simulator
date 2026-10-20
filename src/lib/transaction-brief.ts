@@ -127,9 +127,9 @@ function plural(count: number, one: string, many: string): string {
 function amountText(movement: BriefMovement): string {
   const symbol = movement.symbol ?? "tokens";
   const text = movement.amount ? `${movement.amount} ${symbol}` : symbol;
-  return movement.worth
-    ? `${text} (redeemable for ${movement.worth.amount} ${movement.worth.symbol})`
-    : text;
+  if (!movement.worth) return text;
+  const lead = movement.direction === "outbound" ? "worth" : "redeemable for";
+  return `${text} (${lead} ${movement.worth.amount} ${movement.worth.symbol})`;
 }
 
 function joinList(items: readonly string[]): string {

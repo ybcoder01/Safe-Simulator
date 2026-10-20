@@ -12,6 +12,7 @@ import type { Address } from "@/core/domain";
 import {
   attestedSiloMarkets,
   resolveSiloShareValues,
+  siloShareMovements,
 } from "@/lib/api/silo-share-values";
 
 const market = "0x9EbC79a0d5c6A2CB8C294da02F6675cD3F42d677" as Address;
@@ -193,5 +194,21 @@ describe("attestedSiloMarkets", () => {
         { address: protectedShare, label: "Silo protected share token" },
       ]),
     ).toEqual([market]);
+  });
+});
+
+describe("siloShareMovements", () => {
+  it("includes shares that arrive and shares that are handed in, but not unrelated movements", () => {
+    const movements = [
+      { direction: "inbound", logIndex: 1, token: "0xa", amount: "5" },
+      { direction: "outbound", logIndex: 2, token: "0xb", amount: "7" },
+      { direction: "external", logIndex: 3, token: "0xc", amount: "9" },
+      { direction: "self", logIndex: 4, token: "0xd", amount: "1" },
+    ];
+
+    expect(siloShareMovements(movements)).toEqual([
+      { logIndex: 1, token: "0xa", amount: "5" },
+      { logIndex: 2, token: "0xb", amount: "7" },
+    ]);
   });
 });

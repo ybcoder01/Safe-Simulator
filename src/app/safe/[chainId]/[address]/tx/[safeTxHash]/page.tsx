@@ -62,6 +62,7 @@ import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
 import {
   attestedSiloMarkets,
   resolveSiloShareValues,
+  siloShareMovements,
 } from "@/lib/api/silo-share-values";
 import { resolveStorageChangeAnalysis } from "@/lib/api/storage-changes";
 import { resolveTokenBalanceChanges } from "@/lib/api/token-balance-changes";
@@ -558,13 +559,7 @@ export default async function TransactionDetailPage({
   const siloShareValues = await resolveSiloShareValues(chain, {
     chainId: safe.data.chainId,
     markets: attestedSiloMarkets(routeAttestation.addresses),
-    movements: execution.tokenMovements
-      .filter((movement) => movement.direction === "inbound")
-      .map((movement) => ({
-        logIndex: movement.logIndex,
-        token: movement.token,
-        amount: movement.amount,
-      })),
+    movements: siloShareMovements(execution.tokenMovements),
     blockNumber:
       execution.blockNumber === null ? null : BigInt(execution.blockNumber),
   });
