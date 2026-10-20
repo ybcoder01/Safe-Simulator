@@ -108,6 +108,7 @@ function marketConfig(
   hookReceiver: Address = zero,
   collateralShareToken: Address = zero,
   maxLtvOracle: Address = zero,
+  interestRateModel: Address = zero,
 ) {
   return {
     daoFee: 0n,
@@ -119,7 +120,7 @@ function marketConfig(
     debtShareToken: zero,
     solvencyOracle: zero,
     maxLtvOracle,
-    interestRateModel: zero,
+    interestRateModel,
     maxLtv: 0n,
     lt: 0n,
     liquidationTargetLtv: 0n,
@@ -147,6 +148,12 @@ const oracleAbi = parseAbi([
   "function baseToken() view returns (address)",
   "function quoteToken() view returns (address)",
 ]);
+
+const rateModel = getAddress("0xf1f100000000000000000000000000000000f1f1");
+const rateModelConfig = getAddress(
+  "0xf2f200000000000000000000000000000000f2f2",
+);
+const rateModelAbi = parseAbi(["function irmConfig() view returns (address)"]);
 
 function word(address: Address): string {
   return address.slice(2).toLowerCase().padStart(64, "0");
@@ -189,11 +196,20 @@ function chainPort(
     readonly hookGauge?: Address | "fail";
     readonly marketIsCollateralShare?: boolean;
     readonly oracle?: boolean;
+    readonly rateModel?: boolean | "fail";
   } = {},
 ) {
   const call = vi.fn<ChainPort["call"]>(async (_chainId, request) => {
     const oracle = options.oracle ? oracleResponse(request) : null;
     if (oracle) return oracle;
+    if (options.rateModel && request.to === rateModel) {
+      if (options.rateModel === "fail") throw new Error("execution reverted");
+      return encodeFunctionResult({
+        abi: rateModelAbi,
+        functionName: "irmConfig",
+        result: rateModelConfig,
+      });
+    }
     if (request.to.toLowerCase() === hook.toLowerCase()) {
       if (options.hookGauge === "fail") throw new Error("rate limited");
       const decoded = decodeFunctionData({ abi: hookAbi, data: request.data });
@@ -254,6 +270,9 @@ function chainPort(
           options.marketIsCollateralShare ? silo : zero,
           options.oracle && silo.toLowerCase() === market0.toLowerCase()
             ? oracleWrapper
+            : zero,
+          options.rateModel && silo.toLowerCase() === market0.toLowerCase()
+            ? rateModel
             : zero,
         ),
       });
@@ -422,6 +441,55 @@ describe("resolveProtocolRouteAttestation", () => {
         expect.objectContaining({
           code: "protocol-route-attestation-incomplete",
           addresses: [unknown],
+        }),
+      );
+    });
+  });
+
+  describe("interest-rate model configuration", () => {
+    const rateCalls = (): ExecutionInsight["internalCalls"] => [
+      ...calls(),
+      ...[rateModel, rateModelConfig].map((to) => ({
+        depth: 3,
+        from: market0,
+        to,
+        input: "0x" as Hex,
+        value: "0",
+        operation: "call" as const,
+        reverted: false,
+        error: null,
+      })),
+    ];
+
+    it("accepts the configuration contract that the attested rate model names", async () => {
+      const result = await resolveProtocolRouteAttestation(
+        chainPort({ rateModel: true }),
+        transaction(),
+        { internalCalls: rateCalls() },
+      );
+
+      expect(result.addresses).toContainEqual({
+        address: rateModelConfig,
+        label: "Silo interest-rate model configuration",
+      });
+      expect(result.findings).not.toContainEqual(
+        expect.objectContaining({
+          code: "protocol-route-attestation-incomplete",
+        }),
+      );
+    });
+
+    it("leaves the configuration unattested when it cannot be read", async () => {
+      const result = await resolveProtocolRouteAttestation(
+        chainPort({ rateModel: "fail" }),
+        transaction(),
+        { internalCalls: rateCalls() },
+      );
+
+      expect(result.findings).toContainEqual(
+        expect.objectContaining({
+          code: "protocol-route-attestation-incomplete",
+          addresses: [rateModelConfig],
         }),
       );
     });

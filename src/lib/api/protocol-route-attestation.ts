@@ -33,6 +33,10 @@ const hookAbi = parseAbi([
   "function configuredGauges(address shareToken) view returns (address gauge)",
 ]);
 
+const rateModelAbi = parseAbi([
+  "function irmConfig() view returns (address config)",
+]);
+
 const oracleAbi = parseAbi([
   "function oracle() view returns (address wrapped)",
   "function oracleConfig() view returns (address config)",
@@ -252,6 +256,44 @@ async function readAddress(
 }
 
 /**
+ * A market's interest-rate model reads its parameters from a configuration
+ * contract it names itself, so that contract is part of the same proven
+ * configuration. A failed lookup leaves it unattested.
+ */
+async function rateModelConfiguration(
+  chain: ChainPort,
+  transaction: SafeTransaction,
+  config: ConfigData,
+): Promise<readonly AttestedProtocolAddress[]> {
+  if (addressKey(config.interestRateModel) === ZERO_ADDRESS) return [];
+  try {
+    const result = await callContract(
+      chain,
+      transaction,
+      config.interestRateModel,
+      encodeFunctionData({ abi: rateModelAbi, functionName: "irmConfig" }),
+    );
+    const value = getAddress(
+      decodeFunctionResult({
+        abi: rateModelAbi,
+        functionName: "irmConfig",
+        data: result,
+      }),
+    ) as Address;
+    return addressKey(value) === ZERO_ADDRESS
+      ? []
+      : [
+          {
+            address: value,
+            label: "Silo interest-rate model configuration",
+          },
+        ];
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Words of an oracle configuration that are contract addresses. The layout
  * differs per oracle type, so every address-shaped word is a candidate and the
  * caller keeps only those the execution actually called.
@@ -427,8 +469,15 @@ async function attestSiloMarket(
       ),
     );
 
+    const rateModels = await Promise.all(
+      (configs as readonly ConfigData[]).map((item) =>
+        rateModelConfiguration(chain, transaction, item),
+      ),
+    );
+
     return uniqueAddresses([
       ...dependencies.flat(),
+      ...rateModels.flat(),
       ...gauges.flat(),
       { address: SILO_FACTORY, label: "Official Silo Factory" },
       { address: configAddress, label: "Silo market configuration" },
