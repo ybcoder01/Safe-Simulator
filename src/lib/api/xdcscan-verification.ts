@@ -177,30 +177,6 @@ function cacheKey(address: Address) {
   return `xdcscan-source-verification:v1:${address}`;
 }
 
-/**
- * Reads only an already cached explorer answer, with no network call, so the
- * transaction report can use earlier evidence without waiting on XDCScan.
- */
-export async function readCachedXdcVerification(
-  cache: Pick<CachePort, "get">,
-  chainId: number,
-  address: string,
-): Promise<XdcContractVerificationView | null> {
-  const normalized = normalizedAddress(address);
-  if (chainId !== XDC_CHAIN_ID || !normalized) return null;
-  try {
-    const cached = await cache.get<XdcContractVerificationView>(
-      cacheKey(normalized),
-    );
-    return cached?.address === normalized &&
-      (cached.status === "verified" || cached.status === "unverified")
-      ? cached
-      : null;
-  } catch {
-    return null;
-  }
-}
-
 async function fetchVerification(
   cache: Pick<CachePort, "get" | "set">,
   address: Address,
@@ -405,4 +381,28 @@ export async function resolveXdcContractVerification(
     limited,
     warnings,
   };
+}
+
+const OFFLINE_FETCHER: FetchLike = () =>
+  Promise.reject(new Error("Explorer lookups are disabled."));
+
+/**
+ * The verification result for these references when every answer is already
+ * cached, built without any network call. Returns null when any answer is
+ * missing, so callers never mistake a partial cache for the full result.
+ */
+export async function resolveCachedXdcContractVerification(
+  cache: Pick<CachePort, "get" | "set">,
+  chainId: number,
+  references: readonly string[],
+): Promise<XdcContractVerificationResult | null> {
+  const result = await resolveXdcContractVerification(
+    cache,
+    chainId,
+    references,
+    OFFLINE_FETCHER,
+  );
+  return result.items.some((item) => item.status === "unavailable")
+    ? null
+    : result;
 }

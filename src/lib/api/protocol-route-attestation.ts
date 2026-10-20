@@ -488,6 +488,25 @@ async function attestSiloMarket(
   }
 }
 
+/**
+ * Whether the destination's identity is settled without any explorer data: it
+ * is a pinned Silo deployment and the whole traced route was tied to the
+ * factory-proven market graph. The permissionless-market finding is only
+ * produced once no traced contract is left unaccounted for.
+ */
+export function isSiloRouteProven(
+  targetProtocol: string | undefined,
+  attestation: Pick<ProtocolRouteAttestation, "protocol" | "findings">,
+): boolean {
+  return (
+    targetProtocol === "silo" &&
+    attestation.protocol === "silo" &&
+    attestation.findings.some(
+      (finding) => finding.code === "silo-permissionless-market",
+    )
+  );
+}
+
 function notApplicable(): ProtocolRouteAttestation {
   return {
     protocol: null,

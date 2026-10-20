@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { Address } from "../../../../src/core/domain";
 import {
   collectXdcContractReferences,
-  readCachedXdcVerification,
+  resolveCachedXdcContractVerification,
   resolveXdcContractVerification,
 } from "../../../../src/lib/api/xdcscan-verification";
 
@@ -369,7 +369,7 @@ describe("XDCScan source verification", () => {
     expect(unverified.set.mock.calls[0]?.[2]).toBe(21_600);
   });
 
-  it("reads a cached answer without calling the explorer and ignores unusable entries", async () => {
+  it("builds a result from the cache alone, and refuses a partial cache", async () => {
     const cached = {
       address: contract,
       status: "verified",
@@ -380,34 +380,28 @@ describe("XDCScan source verification", () => {
       warning: null,
     };
 
+    const full = await resolveCachedXdcContractVerification(
+      { get: vi.fn().mockResolvedValue(cached), set: vi.fn() },
+      50,
+      [contract],
+    );
+    expect(full?.items).toEqual([cached]);
+
     await expect(
-      readCachedXdcVerification(
-        { get: vi.fn().mockResolvedValue(cached) },
+      resolveCachedXdcContractVerification(
+        { get: vi.fn().mockResolvedValue(null), set: vi.fn() },
         50,
-        contract.toUpperCase().replace("0X", "0x"),
+        [contract],
       ),
-    ).resolves.toEqual(cached);
+    ).resolves.toBeNull();
     await expect(
-      readCachedXdcVerification(
+      resolveCachedXdcContractVerification(
         {
-          get: vi.fn().mockResolvedValue({ ...cached, status: "unavailable" }),
+          get: vi.fn().mockRejectedValue(new Error("redis down")),
+          set: vi.fn(),
         },
         50,
-        contract,
-      ),
-    ).resolves.toBeNull();
-    await expect(
-      readCachedXdcVerification(
-        { get: vi.fn().mockRejectedValue(new Error("redis down")) },
-        50,
-        contract,
-      ),
-    ).resolves.toBeNull();
-    await expect(
-      readCachedXdcVerification(
-        { get: vi.fn().mockResolvedValue(cached) },
-        1,
-        contract,
+        [contract],
       ),
     ).resolves.toBeNull();
   });

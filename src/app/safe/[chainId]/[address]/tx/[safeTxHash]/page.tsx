@@ -31,7 +31,7 @@ import { AddressIdentity } from "@/components/shared/address-identity";
 import { CopyIdentifierButton } from "@/components/shared/copy-identifier-button";
 import { AlertStageTimeline } from "@/components/shared/alert-stage-timeline";
 import { EvidenceFindings } from "@/components/shared/evidence-findings";
-import { EvidenceRefreshButton } from "@/components/shared/evidence-refresh-button";
+import { XdcSourceEvidence } from "@/components/shared/xdc-source-evidence";
 import { TokenIdentity } from "@/components/shared/token-identity";
 import { decodedCallSummary } from "@/core/analysis/decoding/calldata";
 import { classifyTransactionActivity } from "@/core/analysis/decoding/activity";
@@ -39,7 +39,6 @@ import { findContractRegistryEntry } from "@/core/analysis/trust/contract-regist
 import { findTokenRegistryEntry } from "@/core/analysis/trust/token-registry";
 import { formatTokenAmount } from "@/core/analysis/tokens/metadata";
 import type { Address, Hex, SafeRef } from "@/core/domain";
-import type { AddressBookView } from "@/lib/api/address-book";
 import { resolveApprovalRisk } from "@/lib/api/approval-risk";
 import { TRANSACTION_ANALYSIS_ENGINE_VERSION } from "@/lib/api/analysis-version";
 import { resolveContractInsight } from "@/lib/api/contract-insight";
@@ -47,9 +46,7 @@ import { decodedAddressFields } from "@/lib/api/decoded-addresses";
 import { resolveEvidenceVerdict } from "@/lib/api/evidence-verdict";
 import {
   collectXdcContractReferences,
-  readCachedXdcVerification,
-  resolveXdcContractVerification,
-  type XdcContractVerificationResult,
+  resolveCachedXdcContractVerification,
 } from "@/lib/api/xdcscan-verification";
 import {
   EXECUTION_EVIDENCE_ENGINE_VERSION,
@@ -57,7 +54,10 @@ import {
 } from "@/lib/api/execution-insight";
 import { resolveInternalProxyBoundaries } from "@/lib/api/internal-proxy-boundaries";
 import { resolveOptionalLivePayload } from "@/lib/api/optional-live-payload";
-import { resolveProtocolRouteAttestation } from "@/lib/api/protocol-route-attestation";
+import {
+  isSiloRouteProven,
+  resolveProtocolRouteAttestation,
+} from "@/lib/api/protocol-route-attestation";
 import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
 import {
   attestedSiloMarkets,
@@ -152,25 +152,36 @@ type SummaryEvidenceWithoutExplorer = Omit<
 
 interface DeferredTransactionSummaryProps {
   readonly canGenerate: boolean;
-  readonly contractVerification: Promise<XdcContractVerificationResult>;
+  readonly chainId: number;
   readonly endpoint: string;
   readonly evidence: SummaryEvidenceWithoutExplorer;
+  readonly references: readonly string[];
   readonly safe: SafeRef;
   readonly safeTxHash: Hex;
 }
 
 async function DeferredTransactionSummary({
   canGenerate,
-  contractVerification,
+  chainId,
   endpoint,
   evidence,
+  references,
   safe,
   safeTxHash,
 }: DeferredTransactionSummaryProps) {
-  const verification = await contractVerification;
   let initialSummary: SummaryView | null = null;
 
-  if (canGenerate) {
+  // A saved summary is only reusable when its fingerprint can be rebuilt from
+  // explorer answers that are already cached; no explorer call is made here.
+  const verification = canGenerate
+    ? await resolveCachedXdcContractVerification(
+        getCachePort(),
+        chainId,
+        references,
+      )
+    : null;
+
+  if (verification) {
     const summaryEvidence = buildTransactionSummaryEvidence({
       ...evidence,
       contractVerification: verification,
@@ -200,122 +211,6 @@ async function DeferredTransactionSummary({
       endpoint={endpoint}
       initialSummary={initialSummary}
     />
-  );
-}
-
-interface DeferredSourceEvidenceProps {
-  readonly addressBook: readonly AddressBookView[];
-  readonly chainId: number;
-  readonly contractVerification: Promise<XdcContractVerificationResult>;
-}
-
-async function DeferredSourceEvidence({
-  addressBook,
-  chainId,
-  contractVerification,
-}: DeferredSourceEvidenceProps) {
-  const verification = await contractVerification;
-
-  return (
-    <section className="detail-panel" id="source-evidence">
-      <div className="panel-heading">
-        <div>
-          <p className="eyebrow">XDCScan source evidence</p>
-          <h2>Referenced contract verification</h2>
-        </div>
-        <span>
-          {
-            verification.items.filter((item) => item.status === "verified")
-              .length
-          }{" "}
-          verified · {verification.items.length} checked
-        </span>
-      </div>
-      {verification.items.length === 0 ? (
-        <div className="panel-empty">
-          No valid contract references were available for an XDCScan source
-          lookup.
-        </div>
-      ) : (
-        <div className="verification-list">
-          {verification.items.map((item) => (
-            <div
-              className={
-                "calldata verification-card verification-" + item.status
-              }
-              key={"xdcscan-verification-" + item.address}
-            >
-              <span>
-                {item.status === "verified"
-                  ? "Verified source"
-                  : item.status === "unverified"
-                    ? "No verified source"
-                    : "Lookup unavailable"}
-                {item.isProxy === true
-                  ? " · proxy"
-                  : item.isProxy === false
-                    ? " · contract"
-                    : ""}
-              </span>
-              <AddressIdentity
-                address={item.address}
-                addressBook={addressBook}
-                chainId={chainId}
-              />
-              {item.contractName || item.compilerVersion ? (
-                <code>
-                  {item.contractName ?? "Unnamed contract"}
-                  {item.compilerVersion ? " · " + item.compilerVersion : ""}
-                </code>
-              ) : null}
-              {item.implementation ? (
-                <div className="approval-party">
-                  <span>Proxy implementation reference</span>
-                  <AddressIdentity
-                    address={item.implementation}
-                    addressBook={addressBook}
-                    chainId={chainId}
-                  />
-                </div>
-              ) : null}
-              {item.warning ? <code>{item.warning}</code> : null}
-            </div>
-          ))}
-        </div>
-      )}
-      {verification.warnings.map((warning) => (
-        <div className="panel-empty" key={warning}>
-          {warning}
-        </div>
-      ))}
-      {verification.items.some((item) => item.status === "unavailable") ? (
-        <div className="source-evidence-retry">
-          <p>
-            Registry and Sourcify evidence remain visible while the explorer is
-            unavailable. No trust status is inferred from a failed lookup.
-          </p>
-          <EvidenceRefreshButton />
-        </div>
-      ) : null}
-    </section>
-  );
-}
-
-function SourceEvidenceFallback() {
-  return (
-    <section className="detail-panel" id="source-evidence" aria-busy="true">
-      <div className="panel-heading">
-        <div>
-          <p className="eyebrow">Optional XDCScan source evidence</p>
-          <h2>Checking referenced contract source</h2>
-        </div>
-        <span>Loading separately</span>
-      </div>
-      <div className="panel-empty">
-        The safety report above is ready. This supplementary explorer check is
-        loading without delaying it.
-      </div>
-    </section>
   );
 }
 
@@ -475,16 +370,6 @@ export default async function TransactionDetailPage({
       ]),
     ],
   });
-  const contractVerification = resolveXdcContractVerification(
-    cache,
-    safe.data.chainId,
-    contractReferences,
-    fetch,
-    {
-      totalTimeoutMs: 1_500,
-      priorityAddresses: [persisted.to],
-    },
-  );
   const routeAttestation = await resolveProtocolRouteAttestation(
     chain,
     persisted,
@@ -610,16 +495,13 @@ export default async function TransactionDetailPage({
     safe.data.chainId,
     persisted.to,
   );
-  // Explorer lookups never delay the report, but an answer that an earlier
-  // lookup already cached is evidence the report can use immediately.
-  const cachedTargetVerification = await readCachedXdcVerification(
-    cache,
-    safe.data.chainId,
-    persisted.to,
+  // Identity is decided from the pinned registry and the on-chain route proof.
+  // XDCScan source metadata is supplementary and never changes this result.
+  const siloRouteProven = isSiloRouteProven(
+    targetRegistryEntry?.protocol,
+    routeAttestation,
   );
-  const targetVerified =
-    insight.metadata.verified ||
-    cachedTargetVerification?.status === "verified";
+  const targetVerified = insight.metadata.verified || siloRouteProven;
   const userFacingFindings = resolveUserFacingFindings({
     evidence: verdict,
     identifiedAddresses: [
@@ -871,9 +753,10 @@ export default async function TransactionDetailPage({
             >
               <DeferredTransactionSummary
                 canGenerate={Boolean(profileId)}
-                contractVerification={contractVerification}
+                chainId={safe.data.chainId}
                 endpoint={summaryEndpoint}
                 evidence={summaryEvidence}
+                references={contractReferences}
                 safe={safe.data}
                 safeTxHash={hash.data}
               />
@@ -1321,13 +1204,11 @@ export default async function TransactionDetailPage({
         </section>
 
         {safe.data.chainId === 50 ? (
-          <Suspense fallback={<SourceEvidenceFallback />}>
-            <DeferredSourceEvidence
-              addressBook={addressBook}
-              chainId={safe.data.chainId}
-              contractVerification={contractVerification}
-            />
-          </Suspense>
+          <XdcSourceEvidence
+            addressBook={addressBook}
+            chainId={safe.data.chainId}
+            references={contractReferences}
+          />
         ) : null}
 
         <section className="detail-grid">

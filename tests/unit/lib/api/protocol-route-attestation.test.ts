@@ -13,7 +13,10 @@ import type {
 } from "../../../../src/core/domain";
 import type { ChainPort } from "../../../../src/core/ports";
 import type { ExecutionInsight } from "../../../../src/lib/api/execution-insight";
-import { resolveProtocolRouteAttestation } from "../../../../src/lib/api/protocol-route-attestation";
+import {
+  isSiloRouteProven,
+  resolveProtocolRouteAttestation,
+} from "../../../../src/lib/api/protocol-route-attestation";
 
 const router = "0x4fFf70C17fb974121a1Ad64C97b04a2e38DbfE7C" as Address;
 const factory = "0xf81d90DF1B63d48536E78564d24d5DD8F2BE58aD" as Address;
@@ -740,6 +743,42 @@ describe("resolveProtocolRouteAttestation", () => {
         code: "protocol-route-attestation-incomplete",
         addresses: [unknown],
       }),
+    );
+  });
+});
+
+describe("isSiloRouteProven", () => {
+  const complete = {
+    protocol: "silo" as const,
+    findings: [
+      {
+        code: "silo-permissionless-market",
+        severity: "warning" as const,
+        title: "",
+        detail: "",
+        addresses: [],
+      },
+    ],
+  };
+
+  it("settles identity for a pinned Silo destination with a complete route", () => {
+    expect(isSiloRouteProven("silo", complete)).toBe(true);
+  });
+
+  it("does not settle identity for an incomplete route", async () => {
+    const incomplete = await resolveProtocolRouteAttestation(
+      chainPort(),
+      transaction(),
+      { internalCalls: calls(true) },
+    );
+    expect(isSiloRouteProven("silo", incomplete)).toBe(false);
+  });
+
+  it("requires both a Silo registry entry and a Silo attestation", () => {
+    expect(isSiloRouteProven(undefined, complete)).toBe(false);
+    expect(isSiloRouteProven("fathom", complete)).toBe(false);
+    expect(isSiloRouteProven("silo", { ...complete, protocol: null })).toBe(
+      false,
     );
   });
 });
