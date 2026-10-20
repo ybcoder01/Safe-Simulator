@@ -285,14 +285,12 @@ describe("XDCScan source verification", () => {
   });
 
   it("does not retry a definite unverified answer", async () => {
-    const fetcher = vi
-      .fn()
-      .mockResolvedValue(
-        response({
-          message: "NOTOK",
-          result: "Contract source code not verified",
-        }),
-      );
+    const fetcher = vi.fn().mockResolvedValue(
+      response({
+        message: "NOTOK",
+        result: "Contract source code not verified",
+      }),
+    );
 
     const result = await resolveXdcContractVerification(
       cache(),
