@@ -49,6 +49,30 @@ export interface SiloShareMovement {
   readonly amount: string;
 }
 
+/**
+ * Share tokens are valued both when they arrive (a deposit) and when they are
+ * handed in (a withdrawal), so every movement into or out of the Safe counts.
+ */
+export function siloShareMovements(
+  movements: readonly {
+    readonly direction: string;
+    readonly logIndex: number;
+    readonly token: string;
+    readonly amount: string;
+  }[],
+): readonly SiloShareMovement[] {
+  return movements
+    .filter(
+      (movement) =>
+        movement.direction === "inbound" || movement.direction === "outbound",
+    )
+    .map((movement) => ({
+      logIndex: movement.logIndex,
+      token: movement.token,
+      amount: movement.amount,
+    }));
+}
+
 export function attestedSiloMarkets(
   addresses: readonly AttestedProtocolAddress[],
 ): readonly Address[] {

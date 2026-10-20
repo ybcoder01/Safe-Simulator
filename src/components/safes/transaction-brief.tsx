@@ -181,7 +181,10 @@ export function TransactionBriefPanel({
                     </strong>
                     {row.worth ? (
                       <small>
-                        Redeemable for {row.worth.amount} {row.worth.symbol}
+                        {row.direction === "outbound"
+                          ? "Worth"
+                          : "Redeemable for"}{" "}
+                        {row.worth.amount} {row.worth.symbol}
                       </small>
                     ) : null}
                     <span aria-hidden="true">→</span>
