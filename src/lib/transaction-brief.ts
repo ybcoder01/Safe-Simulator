@@ -72,6 +72,8 @@ export interface TransactionBriefInput {
   readonly movements: readonly BriefMovement[];
   /** The native coin the Safe sends with the call; token events never include it. */
   readonly nativeSent?: BriefNativeAmount | null;
+  /** Native coin that arrives in the Safe through internal calls, seen only in the trace. */
+  readonly nativeReceived?: BriefNativeAmount | null;
   readonly infiniteApproval: boolean;
   readonly approvalChangeCount: number;
   readonly configChangeCount: number;
@@ -245,9 +247,15 @@ function describeEffects(input: TransactionBriefInput): {
   );
 
   const money: string[] = [];
-  if (incoming.length > 0) {
+  const nativeReceived = input.nativeReceived
+    ? `${input.nativeReceived.amount} ${input.nativeReceived.symbol}`
+    : null;
+  if (incoming.length > 0 || nativeReceived) {
     money.push(
-      `${executed ? "received" : "receives"} ${listAmounts(incoming)}`,
+      `${executed ? "received" : "receives"} ${joinList([
+        ...(nativeReceived ? [nativeReceived] : []),
+        ...(incoming.length > 0 ? [listAmounts(incoming)] : []),
+      ])}`,
     );
   }
   const nativeSent = input.nativeSent

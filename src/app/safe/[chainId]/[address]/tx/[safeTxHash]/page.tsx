@@ -1,3 +1,7 @@
+import {
+  nativeReceivedBy,
+  successfulNativeTransfers,
+} from "@/core/analysis/tokens/native-transfers";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -377,6 +381,14 @@ export default async function TransactionDetailPage({
       ? groupDigits(formatTokenAmount(persisted.value.toString(), 18))
       : null;
   const nativeSymbol = nativeAssetSymbol(safe.data.chainId);
+  const nativeReceivedRaw = nativeReceivedBy(
+    persisted.safe.address,
+    successfulNativeTransfers(execution.internalCalls),
+  );
+  const nativeReceivedAmount =
+    nativeReceivedRaw > 0n
+      ? groupDigits(formatTokenAmount(nativeReceivedRaw.toString(), 18))
+      : null;
   const activity = classifyTransactionActivity(persisted);
   const networkAction =
     safe.data.chainId === 50 && decodedAction
@@ -514,19 +526,33 @@ export default async function TransactionDetailPage({
         ).symbol,
       };
     });
-  const briefFlow: readonly BriefFlowRow[] = nativeSentAmount
-    ? [
-        {
-          key: "brief:native-value",
-          direction: "outbound",
-          from: persisted.safe.address,
-          to: persisted.to,
-          amount: nativeSentAmount,
-          symbol: nativeSymbol,
-        },
-        ...briefMovements,
-      ]
-    : briefMovements;
+  const briefFlow: readonly BriefFlowRow[] = [
+    ...(nativeSentAmount
+      ? [
+          {
+            key: "brief:native-value",
+            direction: "outbound" as const,
+            from: persisted.safe.address,
+            to: persisted.to,
+            amount: nativeSentAmount,
+            symbol: nativeSymbol,
+          },
+        ]
+      : []),
+    ...(nativeReceivedAmount
+      ? [
+          {
+            key: "brief:native-received",
+            direction: "inbound" as const,
+            from: persisted.to,
+            to: persisted.safe.address,
+            amount: nativeReceivedAmount,
+            symbol: nativeSymbol,
+          },
+        ]
+      : []),
+    ...briefMovements,
+  ];
   const briefLabels: Record<string, string> = {};
   for (const assessment of verdict.addresses) {
     if (assessment.label) {
@@ -544,6 +570,9 @@ export default async function TransactionDetailPage({
     movements: briefMovements,
     nativeSent: nativeSentAmount
       ? { amount: nativeSentAmount, symbol: nativeSymbol }
+      : null,
+    nativeReceived: nativeReceivedAmount
+      ? { amount: nativeReceivedAmount, symbol: nativeSymbol }
       : null,
     infiniteApproval: infiniteAuthorization,
     approvalChangeCount:

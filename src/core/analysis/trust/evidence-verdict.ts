@@ -74,6 +74,12 @@ export interface EvidenceVerdictInput {
     readonly to: Address;
     readonly operation: Operation;
   }[];
+  /** Native coin sent by successful calls in the trace; token events omit it. */
+  readonly nativeTransfers?: readonly {
+    readonly from: Address;
+    readonly to: Address;
+    readonly amount: string;
+  }[];
   readonly storageChanges?: readonly {
     readonly address: Address;
     readonly recognized: boolean;
@@ -251,6 +257,22 @@ function isDirectWalletTargetCall(
   );
 }
 
+function isNativePaymentToSafe(
+  input: EvidenceVerdictInput,
+  call: EvidenceVerdictInput["internalCalls"][number],
+): boolean {
+  return (
+    call.operation === "call" &&
+    addressKey(call.to) === addressKey(input.safeAddress) &&
+    addressKey(call.from) !== addressKey(input.safeAddress) &&
+    (input.nativeTransfers ?? []).some(
+      (transfer) =>
+        addressKey(transfer.from) === addressKey(call.from) &&
+        addressKey(transfer.to) === addressKey(call.to),
+    )
+  );
+}
+
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 /**
@@ -299,6 +321,15 @@ function assessAddresses(
     ) {
       add(movement.to, "movement-recipient");
     }
+  }
+  for (const transfer of input.nativeTransfers ?? []) {
+    if (
+      addressKey(transfer.to) === addressKey(input.safeAddress) ||
+      addressKey(transfer.to) === ZERO_ADDRESS
+    ) {
+      continue;
+    }
+    add(transfer.to, "movement-recipient");
   }
   for (const allowance of input.allowances) {
     add(allowance.token, "token");
@@ -768,7 +799,8 @@ export function evaluateEvidenceVerdict(
           !isExpectedTargetProxyDelegation(input, call) &&
           !isExpectedInternalProxyDelegation(input, call) &&
           !isExpectedProtocolLibraryDelegation(input, call) &&
-          !isDirectWalletTargetCall(input, call),
+          !isDirectWalletTargetCall(input, call) &&
+          !isNativePaymentToSafe(input, call),
       )
       .map((call) => call.to),
   );
