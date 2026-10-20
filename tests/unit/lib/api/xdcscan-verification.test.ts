@@ -284,6 +284,38 @@ describe("XDCScan source verification", () => {
     );
   });
 
+  it("keeps a priority retry inside one total timeout", async () => {
+    vi.useFakeTimers();
+    const fetcher = vi.fn(
+      (_input: string | URL | Request, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          const delay = fetcher.mock.calls.length === 1 ? 1_000 : 10_000;
+          const timer = setTimeout(() => reject(new Error("network")), delay);
+          init?.signal?.addEventListener("abort", () => {
+            clearTimeout(timer);
+            reject(new Error("aborted"));
+          });
+        }),
+    );
+
+    const resultPromise = resolveXdcContractVerification(
+      cache(),
+      50,
+      [contract],
+      fetcher,
+      { priorityAddresses: [contract], priorityTimeoutMs: 1_500 },
+    );
+    await vi.advanceTimersByTimeAsync(1_499);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(1);
+    const result = await resultPromise;
+    vi.useRealTimers();
+
+    expect(result.items[0]).toEqual(
+      expect.objectContaining({ status: "unavailable" }),
+    );
+  });
+
   it("does not retry a definite unverified answer", async () => {
     const fetcher = vi.fn().mockResolvedValue(
       response({

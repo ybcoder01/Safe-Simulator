@@ -5,6 +5,7 @@ import {
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 
 import {
   getAbiPort,
@@ -37,7 +38,8 @@ import { classifyTransactionActivity } from "@/core/analysis/decoding/activity";
 import { findContractRegistryEntry } from "@/core/analysis/trust/contract-registry";
 import { findTokenRegistryEntry } from "@/core/analysis/trust/token-registry";
 import { formatTokenAmount } from "@/core/analysis/tokens/metadata";
-import type { Address } from "@/core/domain";
+import type { Address, Hex, SafeRef } from "@/core/domain";
+import type { AddressBookView } from "@/lib/api/address-book";
 import { resolveApprovalRisk } from "@/lib/api/approval-risk";
 import { TRANSACTION_ANALYSIS_ENGINE_VERSION } from "@/lib/api/analysis-version";
 import { resolveContractInsight } from "@/lib/api/contract-insight";
@@ -46,6 +48,7 @@ import { resolveEvidenceVerdict } from "@/lib/api/evidence-verdict";
 import {
   collectXdcContractReferences,
   resolveXdcContractVerification,
+  type XdcContractVerificationResult,
 } from "@/lib/api/xdcscan-verification";
 import {
   EXECUTION_EVIDENCE_ENGINE_VERSION,
@@ -90,6 +93,7 @@ import {
   configuredOpenRouterModel,
   TRANSACTION_SUMMARY_PROMPT_VERSION,
   transactionSummaryFingerprint,
+  type TransactionSummaryEvidenceInput,
 } from "@/lib/api/transaction-summary";
 import {
   orderTransactionReviewQueue,
@@ -138,6 +142,180 @@ function formatDate(timestamp: number | null) {
     timeStyle: "long",
     timeZone: "UTC",
   }).format(new Date(timestamp * 1_000));
+}
+
+type SummaryEvidenceWithoutExplorer = Omit<
+  TransactionSummaryEvidenceInput,
+  "contractVerification"
+>;
+
+interface DeferredTransactionSummaryProps {
+  readonly canGenerate: boolean;
+  readonly contractVerification: Promise<XdcContractVerificationResult>;
+  readonly endpoint: string;
+  readonly evidence: SummaryEvidenceWithoutExplorer;
+  readonly safe: SafeRef;
+  readonly safeTxHash: Hex;
+}
+
+async function DeferredTransactionSummary({
+  canGenerate,
+  contractVerification,
+  endpoint,
+  evidence,
+  safe,
+  safeTxHash,
+}: DeferredTransactionSummaryProps) {
+  const verification = await contractVerification;
+  let initialSummary: SummaryView | null = null;
+
+  if (canGenerate) {
+    const summaryEvidence = buildTransactionSummaryEvidence({
+      ...evidence,
+      contractVerification: verification,
+    });
+    const savedSummary = await getPersistencePort().findTransactionSummary(
+      safe,
+      safeTxHash,
+      transactionSummaryFingerprint(summaryEvidence),
+      TRANSACTION_SUMMARY_PROMPT_VERSION,
+      configuredOpenRouterModel(),
+    );
+    if (savedSummary?.summary) {
+      initialSummary = {
+        id: savedSummary.id,
+        model: savedSummary.model,
+        summary: savedSummary.summary,
+        usage: savedSummary.usage,
+        completedAt: savedSummary.completedAt,
+        cached: true,
+      };
+    }
+  }
+
+  return (
+    <TransactionSummaryDialog
+      canGenerate={canGenerate}
+      endpoint={endpoint}
+      initialSummary={initialSummary}
+    />
+  );
+}
+
+interface DeferredSourceEvidenceProps {
+  readonly addressBook: readonly AddressBookView[];
+  readonly chainId: number;
+  readonly contractVerification: Promise<XdcContractVerificationResult>;
+}
+
+async function DeferredSourceEvidence({
+  addressBook,
+  chainId,
+  contractVerification,
+}: DeferredSourceEvidenceProps) {
+  const verification = await contractVerification;
+
+  return (
+    <section className="detail-panel" id="source-evidence">
+      <div className="panel-heading">
+        <div>
+          <p className="eyebrow">XDCScan source evidence</p>
+          <h2>Referenced contract verification</h2>
+        </div>
+        <span>
+          {
+            verification.items.filter((item) => item.status === "verified")
+              .length
+          }{" "}
+          verified · {verification.items.length} checked
+        </span>
+      </div>
+      {verification.items.length === 0 ? (
+        <div className="panel-empty">
+          No valid contract references were available for an XDCScan source
+          lookup.
+        </div>
+      ) : (
+        <div className="verification-list">
+          {verification.items.map((item) => (
+            <div
+              className={
+                "calldata verification-card verification-" + item.status
+              }
+              key={"xdcscan-verification-" + item.address}
+            >
+              <span>
+                {item.status === "verified"
+                  ? "Verified source"
+                  : item.status === "unverified"
+                    ? "No verified source"
+                    : "Lookup unavailable"}
+                {item.isProxy === true
+                  ? " · proxy"
+                  : item.isProxy === false
+                    ? " · contract"
+                    : ""}
+              </span>
+              <AddressIdentity
+                address={item.address}
+                addressBook={addressBook}
+                chainId={chainId}
+              />
+              {item.contractName || item.compilerVersion ? (
+                <code>
+                  {item.contractName ?? "Unnamed contract"}
+                  {item.compilerVersion ? " · " + item.compilerVersion : ""}
+                </code>
+              ) : null}
+              {item.implementation ? (
+                <div className="approval-party">
+                  <span>Proxy implementation reference</span>
+                  <AddressIdentity
+                    address={item.implementation}
+                    addressBook={addressBook}
+                    chainId={chainId}
+                  />
+                </div>
+              ) : null}
+              {item.warning ? <code>{item.warning}</code> : null}
+            </div>
+          ))}
+        </div>
+      )}
+      {verification.warnings.map((warning) => (
+        <div className="panel-empty" key={warning}>
+          {warning}
+        </div>
+      ))}
+      {verification.items.some((item) => item.status === "unavailable") ? (
+        <div className="source-evidence-retry">
+          <p>
+            Registry and Sourcify evidence remain visible while the explorer is
+            unavailable. No trust status is inferred from a failed lookup.
+          </p>
+          <EvidenceRefreshButton />
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function SourceEvidenceFallback() {
+  return (
+    <section className="detail-panel" id="source-evidence" aria-busy="true">
+      <div className="panel-heading">
+        <div>
+          <p className="eyebrow">Optional XDCScan source evidence</p>
+          <h2>Checking referenced contract source</h2>
+        </div>
+        <span>Loading separately</span>
+      </div>
+      <div className="panel-empty">
+        The safety report above is ready. This supplementary explorer check is
+        loading without delaying it.
+      </div>
+    </section>
+  );
 }
 
 export default async function TransactionDetailPage({
@@ -296,21 +474,23 @@ export default async function TransactionDetailPage({
       ]),
     ],
   });
-  const [routeAttestation, contractVerification] = await Promise.all([
-    resolveProtocolRouteAttestation(
-      chain,
-      persisted,
-      execution,
-      internalProxyBoundaries,
-    ),
-    resolveXdcContractVerification(
-      cache,
-      safe.data.chainId,
-      contractReferences,
-      fetch,
-      { totalTimeoutMs: 1_500, priorityAddresses: [persisted.to] },
-    ),
-  ]);
+  const contractVerification = resolveXdcContractVerification(
+    cache,
+    safe.data.chainId,
+    contractReferences,
+    fetch,
+    {
+      totalTimeoutMs: 1_500,
+      priorityAddresses: [persisted.to],
+      priorityTimeoutMs: 1_500,
+    },
+  );
+  const routeAttestation = await resolveProtocolRouteAttestation(
+    chain,
+    persisted,
+    execution,
+    internalProxyBoundaries,
+  );
   const verdict = resolveEvidenceVerdict(
     persisted,
     insight,
@@ -430,12 +610,9 @@ export default async function TransactionDetailPage({
     safe.data.chainId,
     persisted.to,
   );
-  const targetSourceVerified = contractVerification.items.some(
-    (item) =>
-      item.address.toLowerCase() === persisted.to.toLowerCase() &&
-      item.status === "verified",
-  );
-  const targetVerified = insight.metadata.verified || targetSourceVerified;
+  // Explorer source metadata is supplementary evidence. It must not change or
+  // delay the deterministic report rendered from persisted and on-chain data.
+  const targetVerified = insight.metadata.verified;
   const userFacingFindings = resolveUserFacingFindings({
     evidence: verdict,
     identifiedAddresses: [
@@ -591,39 +768,19 @@ export default async function TransactionDetailPage({
     persisted,
     currentSafe.threshold,
   );
-  let initialSummary: SummaryView | null = null;
-  if (profileId) {
-    const summaryEvidence = buildTransactionSummaryEvidence({
-      transaction: persisted,
-      activity,
-      contract: insight,
-      execution,
-      approvalRisk,
-      storageAnalysis,
-      baselineVerdict,
-      signerVerdict: effectiveEvidence,
-      tokenMetadata,
-      balanceChanges,
-      contractVerification,
-    });
-    const savedSummary = await persistence.findTransactionSummary(
-      safe.data,
-      hash.data,
-      transactionSummaryFingerprint(summaryEvidence),
-      TRANSACTION_SUMMARY_PROMPT_VERSION,
-      configuredOpenRouterModel(),
-    );
-    if (savedSummary?.summary) {
-      initialSummary = {
-        id: savedSummary.id,
-        model: savedSummary.model,
-        summary: savedSummary.summary,
-        usage: savedSummary.usage,
-        completedAt: savedSummary.completedAt,
-        cached: true,
-      };
-    }
-  }
+  const summaryEndpoint = `/api/v1/safes/${safe.data.chainId}/${safe.data.address}/tx/${hash.data}/summary`;
+  const summaryEvidence: SummaryEvidenceWithoutExplorer = {
+    transaction: persisted,
+    activity,
+    contract: insight,
+    execution,
+    approvalRisk,
+    storageAnalysis,
+    baselineVerdict,
+    signerVerdict: effectiveEvidence,
+    tokenMetadata,
+    balanceChanges,
+  };
 
   return (
     <main className="workspace shell">
@@ -696,11 +853,24 @@ export default async function TransactionDetailPage({
                 {lifecycleStatus}
               </span>
             </div>
-            <TransactionSummaryDialog
-              canGenerate={Boolean(profileId)}
-              endpoint={`/api/v1/safes/${safe.data.chainId}/${safe.data.address}/tx/${hash.data}/summary`}
-              initialSummary={initialSummary}
-            />
+            <Suspense
+              fallback={
+                <TransactionSummaryDialog
+                  canGenerate={Boolean(profileId)}
+                  endpoint={summaryEndpoint}
+                  initialSummary={null}
+                />
+              }
+            >
+              <DeferredTransactionSummary
+                canGenerate={Boolean(profileId)}
+                contractVerification={contractVerification}
+                endpoint={summaryEndpoint}
+                evidence={summaryEvidence}
+                safe={safe.data}
+                safeTxHash={hash.data}
+              />
+            </Suspense>
           </div>
         </header>
 
@@ -1144,93 +1314,13 @@ export default async function TransactionDetailPage({
         </section>
 
         {safe.data.chainId === 50 ? (
-          <section className="detail-panel" id="source-evidence">
-            <div className="panel-heading">
-              <div>
-                <p className="eyebrow">XDCScan source evidence</p>
-                <h2>Referenced contract verification</h2>
-              </div>
-              <span>
-                {
-                  contractVerification.items.filter(
-                    (item) => item.status === "verified",
-                  ).length
-                }{" "}
-                verified · {contractVerification.items.length} checked
-              </span>
-            </div>
-            {contractVerification.items.length === 0 ? (
-              <div className="panel-empty">
-                No valid contract references were available for an XDCScan
-                source lookup.
-              </div>
-            ) : (
-              <div className="verification-list">
-                {contractVerification.items.map((item) => (
-                  <div
-                    className={
-                      "calldata verification-card verification-" + item.status
-                    }
-                    key={"xdcscan-verification-" + item.address}
-                  >
-                    <span>
-                      {item.status === "verified"
-                        ? "Verified source"
-                        : item.status === "unverified"
-                          ? "No verified source"
-                          : "Lookup unavailable"}
-                      {item.isProxy === true
-                        ? " · proxy"
-                        : item.isProxy === false
-                          ? " · contract"
-                          : ""}
-                    </span>
-                    <AddressIdentity
-                      address={item.address}
-                      addressBook={addressBook}
-                      chainId={safe.data.chainId}
-                    />
-                    {item.contractName || item.compilerVersion ? (
-                      <code>
-                        {item.contractName ?? "Unnamed contract"}
-                        {item.compilerVersion
-                          ? " · " + item.compilerVersion
-                          : ""}
-                      </code>
-                    ) : null}
-                    {item.implementation ? (
-                      <div className="approval-party">
-                        <span>Proxy implementation reference</span>
-                        <AddressIdentity
-                          address={item.implementation}
-                          addressBook={addressBook}
-                          chainId={safe.data.chainId}
-                        />
-                      </div>
-                    ) : null}
-                    {item.warning ? <code>{item.warning}</code> : null}
-                  </div>
-                ))}
-              </div>
-            )}
-            {contractVerification.warnings.map((warning) => (
-              <div className="panel-empty" key={warning}>
-                {warning}
-              </div>
-            ))}
-            {contractVerification.items.some(
-              (item) => item.status === "unavailable",
-            ) ? (
-              <div className="source-evidence-retry">
-                <p>
-                  Registry and Sourcify evidence remain visible while the
-                  explorer is unavailable. No trust status is inferred from a
-                  failed lookup.
-                </p>
-                <EvidenceRefreshButton />
-              </div>
-            ) : null}
-          </section>
+          <Suspense fallback={<SourceEvidenceFallback />}>
+            <DeferredSourceEvidence
+              addressBook={addressBook}
+              chainId={safe.data.chainId}
+              contractVerification={contractVerification}
+            />
+          </Suspense>
         ) : null}
 
         <section className="detail-grid">

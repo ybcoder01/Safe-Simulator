@@ -243,9 +243,12 @@ async function fetchPriorityVerification(
   fetcher: FetchLike,
   timeoutMs: number,
 ): Promise<XdcContractVerificationView> {
+  const deadline = Date.now() + timeoutMs;
   const first = await fetchVerification(cache, address, fetcher, timeoutMs);
   if (first.status !== "unavailable") return first;
-  return fetchVerification(cache, address, fetcher, timeoutMs);
+  const remaining = deadline - Date.now();
+  if (remaining <= 0) return first;
+  return fetchVerification(cache, address, fetcher, remaining);
 }
 
 async function mapWithConcurrency<T, R>(
