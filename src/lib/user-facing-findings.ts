@@ -226,8 +226,17 @@ export function resolveUserFacingFindings(
   const routeAttestation = findings.find(
     (item) => item.code === "protocol-route-attestation-incomplete",
   );
+  // These findings are only produced once every traced contract has been tied
+  // to the market's proven graph, so a generic "route needs verification" card
+  // would contradict them.
+  const routeAccountedFor = findings.some(
+    (item) =>
+      item.code === "silo-permissionless-market" ||
+      item.code === "silo-approved-market",
+  );
   if (
     !routeAttestation &&
+    !routeAccountedFor &&
     effectivePathFindings.length > 0 &&
     (unconfirmedPathAddresses.length > 0 ||
       !input.targetKnown ||

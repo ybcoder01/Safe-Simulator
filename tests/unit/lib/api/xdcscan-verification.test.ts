@@ -251,4 +251,58 @@ describe("XDCScan source verification", () => {
     ).toEqual(expect.objectContaining({ status: "unavailable" }));
     expect(cachePort.set).toHaveBeenCalledTimes(1);
   });
+
+  it("retries a failed lookup of a priority address once", async () => {
+    const fetcher = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("network"))
+      .mockResolvedValueOnce(
+        response({
+          message: "OK",
+          result: [
+            {
+              SourceCode: "contract A {}",
+              ContractName: "Router",
+              CompilerVersion: "v0.8.28",
+              IsProxy: "false",
+            },
+          ],
+        }),
+      );
+
+    const result = await resolveXdcContractVerification(
+      cache(),
+      50,
+      [contract],
+      fetcher,
+      { priorityAddresses: [contract] },
+    );
+
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(result.items[0]).toEqual(
+      expect.objectContaining({ status: "verified" }),
+    );
+  });
+
+  it("does not retry a definite unverified answer", async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      response({
+        message: "NOTOK",
+        result: "Contract source code not verified",
+      }),
+    );
+
+    const result = await resolveXdcContractVerification(
+      cache(),
+      50,
+      [contract],
+      fetcher,
+      { priorityAddresses: [contract] },
+    );
+
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(result.items[0]).toEqual(
+      expect.objectContaining({ status: "unverified" }),
+    );
+  });
 });

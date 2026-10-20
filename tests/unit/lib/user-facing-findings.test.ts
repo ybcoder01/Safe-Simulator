@@ -209,6 +209,26 @@ describe("resolveUserFacingFindings", () => {
     ]);
   });
 
+  it("does not add a generic route warning when the Silo route was fully accounted for", () => {
+    const result = resolveUserFacingFindings({
+      evidence: evidence([
+        finding("signature-only-decode", "warning", [target]),
+        finding("silo-permissionless-market", "warning", [target]),
+      ]),
+      identifiedAddresses: [target],
+      protocolLabel: "Silo",
+      targetKnown: true,
+      targetVerified: false,
+    });
+
+    expect(result.map((item) => item.code)).not.toContain(
+      "protocol-path-unconfirmed",
+    );
+    expect(result).toContainEqual(
+      expect.objectContaining({ code: "silo-permissionless-market" }),
+    );
+  });
+
   it("does not duplicate a Silo attestation failure as a generic route warning", () => {
     const result = resolveUserFacingFindings({
       evidence: evidence([
