@@ -47,6 +47,7 @@ import { decodedAddressFields } from "@/lib/api/decoded-addresses";
 import { resolveEvidenceVerdict } from "@/lib/api/evidence-verdict";
 import {
   collectXdcContractReferences,
+  readCachedXdcVerification,
   resolveXdcContractVerification,
   type XdcContractVerificationResult,
 } from "@/lib/api/xdcscan-verification";
@@ -482,7 +483,6 @@ export default async function TransactionDetailPage({
     {
       totalTimeoutMs: 1_500,
       priorityAddresses: [persisted.to],
-      priorityTimeoutMs: 1_500,
     },
   );
   const routeAttestation = await resolveProtocolRouteAttestation(
@@ -610,9 +610,16 @@ export default async function TransactionDetailPage({
     safe.data.chainId,
     persisted.to,
   );
-  // Explorer source metadata is supplementary evidence. It must not change or
-  // delay the deterministic report rendered from persisted and on-chain data.
-  const targetVerified = insight.metadata.verified;
+  // Explorer lookups never delay the report, but an answer that an earlier
+  // lookup already cached is evidence the report can use immediately.
+  const cachedTargetVerification = await readCachedXdcVerification(
+    cache,
+    safe.data.chainId,
+    persisted.to,
+  );
+  const targetVerified =
+    insight.metadata.verified ||
+    cachedTargetVerification?.status === "verified";
   const userFacingFindings = resolveUserFacingFindings({
     evidence: verdict,
     identifiedAddresses: [

@@ -6,6 +6,8 @@ const XDC_SCAN_API_URL = "https://api.xdcscan.io/api";
 const MAX_REFERENCES = 16;
 const LOOKUP_CONCURRENCY = 4;
 const CACHE_TTL_SECONDS = 21_600;
+// Published source does not disappear, so a verified answer can be kept longer.
+const VERIFIED_CACHE_TTL_SECONDS = 604_800;
 const ADDRESS_PATTERN = /^0x[0-9a-fA-F]{40}$/;
 
 type VerificationStatus =
@@ -175,6 +177,30 @@ function cacheKey(address: Address) {
   return `xdcscan-source-verification:v1:${address}`;
 }
 
+/**
+ * Reads only an already cached explorer answer, with no network call, so the
+ * transaction report can use earlier evidence without waiting on XDCScan.
+ */
+export async function readCachedXdcVerification(
+  cache: Pick<CachePort, "get">,
+  chainId: number,
+  address: string,
+): Promise<XdcContractVerificationView | null> {
+  const normalized = normalizedAddress(address);
+  if (chainId !== XDC_CHAIN_ID || !normalized) return null;
+  try {
+    const cached = await cache.get<XdcContractVerificationView>(
+      cacheKey(normalized),
+    );
+    return cached?.address === normalized &&
+      (cached.status === "verified" || cached.status === "unverified")
+      ? cached
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 async function fetchVerification(
   cache: Pick<CachePort, "get" | "set">,
   address: Address,
@@ -224,7 +250,13 @@ async function fetchVerification(
 
   if (view.status === "verified" || view.status === "unverified") {
     try {
-      await cache.set(cacheKey(address), view, CACHE_TTL_SECONDS);
+      await cache.set(
+        cacheKey(address),
+        view,
+        view.status === "verified"
+          ? VERIFIED_CACHE_TTL_SECONDS
+          : CACHE_TTL_SECONDS,
+      );
     } catch {
       // A cache write failure cannot change the explorer result.
     }

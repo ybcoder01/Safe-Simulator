@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { Address } from "../../../../src/core/domain";
 import {
   collectXdcContractReferences,
+  readCachedXdcVerification,
   resolveXdcContractVerification,
 } from "../../../../src/lib/api/xdcscan-verification";
 
@@ -336,5 +337,78 @@ describe("XDCScan source verification", () => {
     expect(result.items[0]).toEqual(
       expect.objectContaining({ status: "unverified" }),
     );
+  });
+
+  it("keeps a verified answer longer than an unverified one", async () => {
+    const verified = cache();
+    await resolveXdcContractVerification(
+      verified,
+      50,
+      [contract],
+      vi.fn().mockResolvedValue(
+        response({
+          message: "OK",
+          result: [{ SourceCode: "contract A {}", ContractName: "A" }],
+        }),
+      ),
+    );
+    const unverified = cache();
+    await resolveXdcContractVerification(
+      unverified,
+      50,
+      [contract],
+      vi.fn().mockResolvedValue(
+        response({
+          message: "NOTOK",
+          result: "Contract source code not verified",
+        }),
+      ),
+    );
+
+    expect(verified.set.mock.calls[0]?.[2]).toBe(604_800);
+    expect(unverified.set.mock.calls[0]?.[2]).toBe(21_600);
+  });
+
+  it("reads a cached answer without calling the explorer and ignores unusable entries", async () => {
+    const cached = {
+      address: contract,
+      status: "verified",
+      contractName: "Router",
+      compilerVersion: "v0.8.28",
+      isProxy: false,
+      implementation: null,
+      warning: null,
+    };
+
+    await expect(
+      readCachedXdcVerification(
+        { get: vi.fn().mockResolvedValue(cached) },
+        50,
+        contract.toUpperCase().replace("0X", "0x"),
+      ),
+    ).resolves.toEqual(cached);
+    await expect(
+      readCachedXdcVerification(
+        {
+          get: vi.fn().mockResolvedValue({ ...cached, status: "unavailable" }),
+        },
+        50,
+        contract,
+      ),
+    ).resolves.toBeNull();
+    await expect(
+      readCachedXdcVerification(
+        { get: vi.fn().mockRejectedValue(new Error("redis down")) },
+        50,
+        contract,
+      ),
+    ).resolves.toBeNull();
+    await expect(
+      readCachedXdcVerification(
+        { get: vi.fn().mockResolvedValue(cached) },
+        1,
+        contract,
+      ),
+    ).resolves.toBeNull();
   });
 });
