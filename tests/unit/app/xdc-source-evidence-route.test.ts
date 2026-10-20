@@ -18,6 +18,7 @@ vi.mock("@/lib/api/rate-limit", () => ({
 }));
 
 import { POST } from "@/app/api/v1/xdc-source-evidence/route";
+import { sourceEvidenceRequestBody } from "@/lib/api/xdc-source-evidence-request";
 
 const router = "0x4fFf70C17fb974121a1Ad64C97b04a2e38DbfE7C";
 
@@ -25,7 +26,7 @@ function request(body: unknown, origin = "http://localhost") {
   return new NextRequest("http://localhost/api/v1/xdc-source-evidence", {
     method: "POST",
     headers: { origin, "content-type": "application/json" },
-    body: JSON.stringify(body),
+    body: typeof body === "string" ? body : JSON.stringify(body),
   });
 }
 
@@ -75,5 +76,17 @@ describe("POST /api/v1/xdc-source-evidence", () => {
       expect.any(Function),
       { priorityAddresses: [router] },
     );
+  });
+
+  it("accepts the body the browser builds for a transaction with more than 16 references", async () => {
+    const references = Array.from(
+      { length: 20 },
+      (_, index) => `0x${(index + 1).toString(16).padStart(40, "0")}`,
+    );
+
+    const response = await POST(request(sourceEvidenceRequestBody(references)));
+
+    expect(response.status).toBe(200);
+    expect(resolve.mock.calls[0]?.[2]).toEqual(references.slice(0, 16));
   });
 });

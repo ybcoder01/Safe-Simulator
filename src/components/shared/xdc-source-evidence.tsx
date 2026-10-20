@@ -4,6 +4,10 @@ import { useEffect, useState } from "react";
 
 import { AddressIdentity } from "@/components/shared/address-identity";
 import type { AddressBookView } from "@/lib/api/address-book";
+import {
+  MAX_SOURCE_EVIDENCE_ADDRESSES,
+  sourceEvidenceRequestBody,
+} from "@/lib/api/xdc-source-evidence-request";
 import type { XdcContractVerificationResult } from "@/lib/api/xdcscan-verification";
 
 interface Props {
@@ -42,7 +46,7 @@ export function XdcSourceEvidence({ addressBook, chainId, references }: Props) {
     fetch("/api/v1/xdc-source-evidence", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ addresses: references }),
+      body: sourceEvidenceRequestBody(references),
       signal: controller.signal,
     })
       .then(async (response) => {
@@ -167,6 +171,12 @@ export function XdcSourceEvidence({ addressBook, chainId, references }: Props) {
           ))}
         </div>
       )}
+      {references.length > MAX_SOURCE_EVIDENCE_ADDRESSES ? (
+        <div className="panel-empty">
+          Source evidence covers the first {MAX_SOURCE_EVIDENCE_ADDRESSES} of{" "}
+          {references.length} referenced contracts.
+        </div>
+      ) : null}
       {verification.warnings.map((warning) => (
         <div className="panel-empty" key={warning}>
           {warning}

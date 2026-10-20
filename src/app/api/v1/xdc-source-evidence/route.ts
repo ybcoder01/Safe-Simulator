@@ -7,6 +7,7 @@ import {
   rateLimitHeaders,
   XDC_SOURCE_EVIDENCE_RATE_LIMIT,
 } from "@/lib/api/rate-limit";
+import { MAX_SOURCE_EVIDENCE_ADDRESSES } from "@/lib/api/xdc-source-evidence-request";
 import { resolveXdcContractVerification } from "@/lib/api/xdcscan-verification";
 
 const XDC_CHAIN_ID = 50;
@@ -15,7 +16,7 @@ const bodySchema = z.object({
   addresses: z
     .array(z.string().regex(/^0x[0-9a-fA-F]{40}$/))
     .min(1)
-    .max(16),
+    .max(MAX_SOURCE_EVIDENCE_ADDRESSES),
 });
 
 function error(
