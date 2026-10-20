@@ -6,6 +6,8 @@ const XDC_SCAN_API_URL = "https://api.xdcscan.io/api";
 const MAX_REFERENCES = 16;
 const LOOKUP_CONCURRENCY = 4;
 const CACHE_TTL_SECONDS = 21_600;
+// Published source does not disappear, so a verified answer can be kept longer.
+const VERIFIED_CACHE_TTL_SECONDS = 604_800;
 const ADDRESS_PATTERN = /^0x[0-9a-fA-F]{40}$/;
 
 type VerificationStatus =
@@ -224,7 +226,13 @@ async function fetchVerification(
 
   if (view.status === "verified" || view.status === "unverified") {
     try {
-      await cache.set(cacheKey(address), view, CACHE_TTL_SECONDS);
+      await cache.set(
+        cacheKey(address),
+        view,
+        view.status === "verified"
+          ? VERIFIED_CACHE_TTL_SECONDS
+          : CACHE_TTL_SECONDS,
+      );
     } catch {
       // A cache write failure cannot change the explorer result.
     }
@@ -373,4 +381,28 @@ export async function resolveXdcContractVerification(
     limited,
     warnings,
   };
+}
+
+const OFFLINE_FETCHER: FetchLike = () =>
+  Promise.reject(new Error("Explorer lookups are disabled."));
+
+/**
+ * The verification result for these references when every answer is already
+ * cached, built without any network call. Returns null when any answer is
+ * missing, so callers never mistake a partial cache for the full result.
+ */
+export async function resolveCachedXdcContractVerification(
+  cache: Pick<CachePort, "get" | "set">,
+  chainId: number,
+  references: readonly string[],
+): Promise<XdcContractVerificationResult | null> {
+  const result = await resolveXdcContractVerification(
+    cache,
+    chainId,
+    references,
+    OFFLINE_FETCHER,
+  );
+  return result.items.some((item) => item.status === "unavailable")
+    ? null
+    : result;
 }

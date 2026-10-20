@@ -42,6 +42,12 @@ export const TRANSACTION_SUMMARY_RATE_LIMIT: RateLimitPolicy = {
   windowSeconds: 60 * 60,
 };
 
+export const XDC_SOURCE_EVIDENCE_RATE_LIMIT: RateLimitPolicy = {
+  scope: "xdc-source-evidence",
+  limit: 60,
+  windowSeconds: 10 * 60,
+};
+
 export const MANUAL_SIMULATION_RATE_LIMIT: RateLimitPolicy = {
   scope: "manual-simulation",
   limit: 10,
