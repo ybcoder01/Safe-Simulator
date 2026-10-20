@@ -87,8 +87,11 @@ function traceRequest() {
 }
 
 describe("RpcSimulationAdapter", () => {
-  it("replays mined receipt evidence when no trace provider is configured", async () => {
-    const adapter = new RpcSimulationAdapter(() => client());
+  it("replays mined receipt evidence when no trace provider answers", async () => {
+    const adapter = new RpcSimulationAdapter(
+      () => client(),
+      vi.fn().mockRejectedValue(new Error("Trace provider is unavailable.")),
+    );
 
     await expect(adapter.replay(50, transactionHash)).resolves.toEqual({
       success: true,
@@ -123,6 +126,32 @@ describe("RpcSimulationAdapter", () => {
     });
   });
 
+  it("keeps a call tree that nests deeper than twelve levels complete", async () => {
+    const nested = (level: number): Record<string, unknown> => ({
+      type: "CALL",
+      from: level % 2 === 0 ? from : to,
+      to: level % 2 === 0 ? to : internalTarget,
+      input: "0x",
+      value: "0x0",
+      ...(level < 16 ? { calls: [nested(level + 1)] } : {}),
+    });
+    const request = vi
+      .fn()
+      .mockImplementation(
+        (_chainId: number, _method: string, params: readonly unknown[]) =>
+          Promise.resolve(
+            (params.at(-1) as { tracer?: string }).tracer === "callTracer"
+              ? nested(0)
+              : { pre: {}, post: {} },
+          ),
+      );
+    const adapter = new RpcSimulationAdapter(() => client(), request);
+
+    const result = await adapter.replay(50, transactionHash);
+
+    expect(result.traceCoverage?.callTrace).toBe("complete");
+  });
+
   it("normalizes internal calls and raw storage differences", async () => {
     const request = traceRequest();
     const adapter = new RpcSimulationAdapter(() => client(), request);
@@ -153,14 +182,16 @@ describe("RpcSimulationAdapter", () => {
   });
 
   it("keeps a mined revert explicit", async () => {
-    const adapter = new RpcSimulationAdapter(() =>
-      client({
-        getTransactionReceipt: vi.fn().mockResolvedValue({
-          status: "reverted",
-          gasUsed: 30_000n,
-          logs: [],
+    const adapter = new RpcSimulationAdapter(
+      () =>
+        client({
+          getTransactionReceipt: vi.fn().mockResolvedValue({
+            status: "reverted",
+            gasUsed: 30_000n,
+            logs: [],
+          }),
         }),
-      }),
+      vi.fn().mockRejectedValue(new Error("Trace provider is unavailable.")),
     );
 
     const result = await adapter.replay(50, transactionHash);
