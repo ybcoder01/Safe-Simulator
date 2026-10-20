@@ -109,7 +109,7 @@ The application accepts comma-separated ranked fallback URLs:
 - `RPC_URL_50` and `TRACE_RPC_URL_50` for XDC.
 - `ARCHIVE_RPC_URL_1` and `ARCHIVE_RPC_URL_50` optionally override historical block reads.
 
-Standard RPC URLs provide current reads and receipt evidence. Historical reads use the archive list first, then the standard list. XDC includes a public Ankr archive fallback so block-anchored proxy evidence does not depend on a pruned default endpoint. Trace RPC URLs are optional; unsupported trace methods must degrade explicitly.
+Standard RPC URLs provide current reads and receipt evidence. Historical reads use the archive list first, then the standard list. XDC includes a public Ankr archive fallback so block-anchored proxy evidence does not depend on a pruned default endpoint. Trace RPC URLs are optional; unsupported trace methods must degrade explicitly. XDC also falls back to the keyless public gateway `https://xdc-mainnet.gateway.tatum.io`, which supports `debug_traceTransaction` and `debug_traceCall` with `callTracer` and `prestateTracer`; configured `TRACE_RPC_URL_50` providers are always tried first. Call traces are read up to 24 levels deep and 200 calls; anything beyond is reported as a partial trace.
 
 To rotate or add a provider:
 

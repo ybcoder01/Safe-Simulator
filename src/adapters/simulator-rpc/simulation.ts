@@ -27,7 +27,11 @@ import type {
 } from "@/core/domain";
 import type { SimulationPort } from "@/core/ports";
 
-import { getRpcUrls, getSupportedChain } from "@/adapters/chain-viem/config";
+import {
+  getRpcUrls,
+  getSupportedChain,
+  getTraceRpcUrls,
+} from "@/adapters/chain-viem/config";
 
 type ClientFactory = (chainId: ChainId) => PublicClient;
 type TraceMethod = "debug_traceCall" | "debug_traceTransaction";
@@ -49,7 +53,7 @@ interface TraceEvidence {
 }
 
 const MAX_TRACE_BYTES = 5_000_000;
-const MAX_TRACE_DEPTH = 12;
+const MAX_TRACE_DEPTH = 24;
 const MAX_TRACE_CALLS = 200;
 const MAX_STORAGE_CHANGES = 500;
 const ZERO_WORD = ("0x" + "0".repeat(64)) as Hex;
@@ -66,19 +70,12 @@ function defaultClient(chainId: ChainId): PublicClient {
   });
 }
 
-function traceUrls(chainId: ChainId): readonly string[] {
-  return (process.env["TRACE_RPC_URL_" + chainId] ?? "")
-    .split(",")
-    .map((url) => url.trim())
-    .filter(Boolean);
-}
-
 async function defaultTraceRequest(
   chainId: ChainId,
   method: TraceMethod,
   params: readonly unknown[],
 ): Promise<unknown> {
-  const urls = traceUrls(chainId);
+  const urls = getTraceRpcUrls(chainId);
   if (urls.length === 0) throw new Error("Trace provider is not configured.");
 
   for (const value of urls) {
