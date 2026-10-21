@@ -31,6 +31,21 @@ After merging:
 
 If a deployment fails before production, fix the pull-request branch. Do not promote a failed or unverified build.
 
+### Node.js security floor
+
+Safe Inspector runs on the Node.js 22 release line. The repository pins local development and GitHub Actions to Node.js `22.23.4`, the first 22.x release containing the October 2026 security fixes. Vercel is configured through `engines.node` as `22.x`, which allows the platform to roll forward to newer patched 22.x releases.
+
+Every production build runs `pnpm security:node` before `next build`. The check prints the exact runtime version and fails the deployment when the runtime is not Node.js 22.x or is older than `22.23.4`. Do not bypass or remove this check to promote a deployment.
+
+After a Node.js security release:
+
+1. Update `.node-version`, `.nvmrc`, and the minimum in `scripts/check-node-security.mjs` to the first patched release on the active major line.
+2. Run CI and a Vercel Preview build; confirm the build log reports a runtime at or above the new floor.
+3. Merge and require the Production deployment smoke check to pass.
+4. Confirm the Production deployment is Ready and review its build/runtime logs for the reported Node.js version.
+
+There is no application Docker image to rebuild. Do not take Production offline solely because a patched release exists when Vercel has already rolled the active major to the patch and the deployment guard passes. If Production is confirmed to be running below the security floor and a patched deployment cannot replace it promptly, enable a maintenance response or roll back traffic according to the incident plan rather than leaving the known-vulnerable runtime serving requests.
+
 ## Safe refresh and backfill recovery
 
 The configured Vercel Cron schedule is `0 0 * * *`, which starts one sweep each day at 00:00 UTC. The dashboard also provides a profile-authorized refresh for an individual bookmarked Safe.
