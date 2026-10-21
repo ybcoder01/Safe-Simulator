@@ -11,7 +11,7 @@ import type {
   Hex,
   SafeTransaction,
 } from "../../../../src/core/domain";
-import type { ChainPort } from "../../../../src/core/ports";
+import type { CachePort, ChainPort } from "../../../../src/core/ports";
 import type { ExecutionInsight } from "../../../../src/lib/api/execution-insight";
 import {
   isSiloRouteProven,
@@ -282,7 +282,12 @@ function chainPort(
     }
     throw new Error(`Unexpected call to ${request.to}`);
   });
-  return { call } as unknown as ChainPort;
+  return {
+    call,
+    getStorageAt: async () =>
+      `0x${implementation.slice(2).toLowerCase().padStart(64, "0")}` as Hex,
+    getCode: async () => "0x60016000" as Hex,
+  } as unknown as ChainPort;
 }
 
 describe("resolveProtocolRouteAttestation", () => {
@@ -361,6 +366,59 @@ describe("resolveProtocolRouteAttestation", () => {
       proxy: market0,
       implementation,
     });
+    expect(result.marketReviews).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          address: market0,
+          fingerprint: expect.stringContaining(asset0.toLowerCase()),
+        }),
+      ]),
+    );
+  });
+
+  it("reuses a cached factory membership and does not call again", async () => {
+    const chain = chainPort();
+    const store = new Map<string, boolean>();
+    const cache: Pick<CachePort, "get" | "set"> = {
+      get: async <T>(key: string) => (store.get(key) as T | undefined) ?? null,
+      set: async (key, value) => {
+        store.set(key, value as boolean);
+      },
+    };
+    await resolveProtocolRouteAttestation(
+      chain,
+      transaction(unknown),
+      { internalCalls: [] },
+      [],
+      cache,
+    );
+    await resolveProtocolRouteAttestation(
+      chain,
+      transaction(unknown),
+      { internalCalls: [] },
+      [],
+      cache,
+    );
+
+    expect(chain.call).toHaveBeenCalledTimes(1);
+    expect(store.size).toBe(1);
+  });
+
+  it("does not wait out a slow factory lookup for an unrelated target", async () => {
+    const call = vi.fn(() => new Promise<Hex>(() => undefined));
+    const set = vi.fn();
+    const started = Date.now();
+    const result = await resolveProtocolRouteAttestation(
+      { call } as unknown as ChainPort,
+      transaction(unknown),
+      { internalCalls: [] },
+      [],
+      { get: async () => null, set },
+    );
+
+    expect(result.status).toBe("not-applicable");
+    expect(Date.now() - started).toBeLessThan(1_500);
+    expect(set).not.toHaveBeenCalled();
   });
 
   it("proves factory lineage and the complete live market graph", async () => {

@@ -202,6 +202,9 @@ describe("resolveEvidenceVerdict", () => {
       addresses: [{ address: target, label: "Silo market vault" }],
       proxyBoundaries: [],
       checks: [],
+      marketReviews: [
+        { address: target, fingerprint: "silo-market-v1:reviewed" },
+      ],
       findings: [
         {
           code: "silo-permissionless-market",
@@ -237,7 +240,14 @@ describe("resolveEvidenceVerdict", () => {
         signature: null,
       },
       execution(),
-      [{ address: target, label: "Approved Silo market", trust: "trusted" }],
+      [
+        {
+          address: target,
+          label: "Approved Silo market",
+          trust: "trusted",
+          reviewFingerprint: "silo-market-v1:reviewed",
+        },
+      ],
       null,
       null,
       null,
@@ -261,6 +271,58 @@ describe("resolveEvidenceVerdict", () => {
     );
     expect(approved.findings.map((finding) => finding.code)).not.toContain(
       "silo-permissionless-market",
+    );
+
+    const addressOnly = resolveEvidenceVerdict(
+      transaction,
+      {
+        ...contract({ verified: true, source: "sourcify" }),
+        provenance: "verified-abi",
+        signature: null,
+      },
+      execution(),
+      [{ address: target, label: "Approved Silo market", trust: "trusted" }],
+      null,
+      null,
+      null,
+      "unavailable",
+      [],
+      "contract",
+      routeAttestation,
+    );
+    const changed = resolveEvidenceVerdict(
+      transaction,
+      {
+        ...contract({ verified: true, source: "sourcify" }),
+        provenance: "verified-abi",
+        signature: null,
+      },
+      execution(),
+      [
+        {
+          address: target,
+          label: "Approved Silo market",
+          trust: "trusted",
+          reviewFingerprint: "silo-market-v1:old-configuration",
+        },
+      ],
+      null,
+      null,
+      null,
+      "unavailable",
+      [],
+      "contract",
+      routeAttestation,
+    );
+
+    expect(addressOnly.findings).toContainEqual(
+      expect.objectContaining({ code: "silo-market-review-stale" }),
+    );
+    expect(changed.findings).toContainEqual(
+      expect.objectContaining({ code: "silo-market-review-stale" }),
+    );
+    expect(addressOnly.findings.map((finding) => finding.code)).not.toContain(
+      "silo-approved-market",
     );
   });
 });

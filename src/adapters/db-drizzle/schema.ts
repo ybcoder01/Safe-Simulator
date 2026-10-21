@@ -415,6 +415,9 @@ export const profileAddressBook = pgTable(
     address: address("address").notNull(),
     label: text("label").notNull(),
     purpose: text("purpose"),
+    // Configuration the team reviewed when trusting an upgradeable market.
+    // Address-only trust is not enough to keep that approval.
+    reviewFingerprint: text("review_fingerprint"),
     trustLevel: trustLevelEnum("trust_level").notNull(),
     trustedAt: timestamp("trusted_at", { withTimezone: true })
       .notNull()

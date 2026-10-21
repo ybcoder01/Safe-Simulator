@@ -194,6 +194,16 @@ function identityCheck(input: TreasuryReviewInput): TreasuryReviewCheck {
     };
   }
   if (input.targetKnown && input.targetVerified) {
+    if (codes.has("silo-market-review-stale")) {
+      return {
+        key: "identity",
+        label: "Project identity",
+        status: "review",
+        title: "Silo market configuration changed since approval",
+        detail:
+          "This market address is on your trusted list, but its implementation or critical configuration no longer matches the review fingerprint that was stored. Approve the current configuration to restore that approval.",
+      };
+    }
     if (codes.has("silo-permissionless-market")) {
       return {
         key: "identity",

@@ -71,6 +71,13 @@
       "when": 1791980321427,
       "tag": "0009_aspiring_preak",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792580127654,
+      "tag": "0010_silo_market_review_fingerprint",
+      "breakpoints": true
     }
   ]
 }

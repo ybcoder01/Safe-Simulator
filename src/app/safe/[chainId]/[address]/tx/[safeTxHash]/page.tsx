@@ -376,6 +376,7 @@ export default async function TransactionDetailPage({
     persisted,
     execution,
     internalProxyBoundaries,
+    cache,
   );
   const verdict = resolveEvidenceVerdict(
     persisted,
@@ -1127,11 +1128,19 @@ export default async function TransactionDetailPage({
             chainId={safe.data.chainId}
             initialEntries={addressBook}
             safeAddress={safe.data.address}
-            suggestions={verdict.addresses.map((assessment) => ({
-              address: assessment.address,
-              label: assessment.label,
-              roles: assessment.roles,
-            }))}
+            suggestions={verdict.addresses.map((assessment) => {
+              const review = routeAttestation.marketReviews.find(
+                (item) =>
+                  item.address.toLowerCase() ===
+                  assessment.address.toLowerCase(),
+              );
+              return {
+                address: assessment.address,
+                label: assessment.label,
+                roles: assessment.roles,
+                ...(review ? { reviewFingerprint: review.fingerprint } : {}),
+              };
+            })}
           />
         ) : null}
         <details

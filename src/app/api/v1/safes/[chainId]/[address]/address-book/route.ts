@@ -80,6 +80,7 @@ export async function PUT(request: NextRequest, route: RouteContext) {
       input.label,
       input.trust,
       input.purpose,
+      input.reviewFingerprint,
     );
     const saved = (
       await persistence.listAddressBookEntries(

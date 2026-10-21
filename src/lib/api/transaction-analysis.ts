@@ -185,6 +185,7 @@ export async function resolveNeutralTransactionAnalysis(
     transaction,
     execution,
     internalProxyBoundaries,
+    ports.cache,
   );
   const baselineVerdict = resolveEvidenceVerdict(
     transaction,

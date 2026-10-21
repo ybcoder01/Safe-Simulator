@@ -48,6 +48,7 @@ const CONSUMED_CODES = new Set([
   ...BOUNDED_PERMISSION_CODES,
   ...PROTOCOL_PATH_CODES,
   "silo-permissionless-market",
+  "silo-market-review-stale",
   "silo-approved-market",
   "protocol-route-attestation-incomplete",
   "explicitly-flagged-address",
@@ -232,6 +233,7 @@ export function resolveUserFacingFindings(
   const routeAccountedFor = findings.some(
     (item) =>
       item.code === "silo-permissionless-market" ||
+      item.code === "silo-market-review-stale" ||
       item.code === "silo-approved-market",
   );
   if (
@@ -272,6 +274,21 @@ export function resolveUserFacingFindings(
         "Part of the Silo route is still unresolved",
         "The official Silo router and factory-created market were confirmed, but at least one traced contract is outside the market relationships Safe Inspector could prove on-chain.",
         routeAttestation.addresses,
+      ),
+    );
+  }
+
+  const staleMarketReview = findings.find(
+    (item) => item.code === "silo-market-review-stale",
+  );
+  if (staleMarketReview) {
+    result.push(
+      finding(
+        staleMarketReview.code,
+        staleMarketReview.severity,
+        "Silo market configuration changed since approval",
+        "This market address is trusted, but its implementation or critical configuration no longer matches the fingerprint your team approved. Trust the current configuration before treating the market as approved.",
+        staleMarketReview.addresses,
       ),
     );
   }

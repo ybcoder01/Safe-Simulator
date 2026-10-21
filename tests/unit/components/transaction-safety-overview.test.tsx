@@ -35,6 +35,7 @@ describe("TransactionSafetyOverview", () => {
           addresses: [],
           proxyBoundaries: [],
           findings: [],
+          marketReviews: [],
           checks: [
             {
               key: "destination",

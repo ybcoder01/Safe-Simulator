@@ -239,6 +239,13 @@ to Production](#applying-migrations-to-production). It was applied to Production
 on 2026-10-15 and verified against the actual schema. A code rollback can retain
 the additive columns.
 
+Migration `0010_silo_market_review_fingerprint` adds nullable
+`review_fingerprint` to `profile_address_book`. Transaction pages read that
+column, so apply it to Preview and then Production before promoting the code,
+the same way as `0009`. Existing trust rows stay valid and simply have no
+fingerprint until a Silo market is trusted again. A code rollback can retain
+the column.
+
 ## Execution-evidence version changes
 
 The current execution namespace is defined by `EXECUTION_EVIDENCE_ENGINE_VERSION`. Evidence also includes its canonical block hash.
