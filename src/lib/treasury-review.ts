@@ -193,6 +193,16 @@ function identityCheck(input: TreasuryReviewInput): TreasuryReviewCheck {
         "This destination is a wallet. Confirm its complete address with the intended recipient.",
     };
   }
+  if (codes.has("silo-factory-lookup-unavailable")) {
+    return {
+      key: "identity",
+      label: "Project identity",
+      status: "unknown",
+      title: "Silo verification temporarily unavailable",
+      detail:
+        "The Silo Factory did not answer in time, so this destination was not classified as a market or as unrelated. The lookup continues in the background. Reload the report before relying on it.",
+    };
+  }
   if (input.targetKnown && input.targetVerified) {
     if (codes.has("silo-market-review-stale")) {
       return {

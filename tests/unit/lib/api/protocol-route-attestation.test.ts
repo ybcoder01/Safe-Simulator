@@ -2,6 +2,7 @@ import {
   decodeFunctionData,
   encodeFunctionResult,
   getAddress,
+  keccak256,
   parseAbi,
 } from "viem";
 import { describe, expect, it, vi } from "vitest";
@@ -194,12 +195,31 @@ function oracleResponse(request: {
   } as Parameters<typeof encodeFunctionResult>[0]);
 }
 
+const EIP_1967_IMPLEMENTATION_SLOT =
+  "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc" as Hex;
+const cloneTarget = getAddress(
+  "0xabcabcabcabcabcabcabcabcabcabcabcabcabca",
+) as Address;
+const cloneImplementation = getAddress(
+  "0xdefdefdefdefdefdefdefdefdefdefdefdefdefd",
+) as Address;
+
+function eip1167(target: Address): Hex {
+  return `0x363d3d373d3d3d363d73${target.slice(2).toLowerCase()}5af43d82803e903d91602b57fd5bf3` as Hex;
+}
+
+function paddedAddress(address: Address): Hex {
+  return `0x${address.slice(2).toLowerCase().padStart(64, "0")}` as Hex;
+}
+
 function chainPort(
   options: {
     readonly hookGauge?: Address | "fail";
     readonly marketIsCollateralShare?: boolean;
     readonly oracle?: boolean;
     readonly rateModel?: boolean | "fail";
+    readonly failCodeFor?: readonly Address[];
+    readonly assetClone?: { readonly implementationCode: Hex };
   } = {},
 ) {
   const call = vi.fn<ChainPort["call"]>(async (_chainId, request) => {
@@ -284,9 +304,40 @@ function chainPort(
   });
   return {
     call,
-    getStorageAt: async () =>
-      `0x${implementation.slice(2).toLowerCase().padStart(64, "0")}` as Hex,
-    getCode: async () => "0x60016000" as Hex,
+    getStorageAt: async (_chainId: number, address: Address, slot?: Hex) => {
+      const key = address.toLowerCase();
+      if (
+        options.failCodeFor?.some((item) => item.toLowerCase() === key) ||
+        (options.assetClone &&
+          (key === asset0.toLowerCase() ||
+            key === cloneImplementation.toLowerCase() ||
+            (key === cloneTarget.toLowerCase() &&
+              slot !== EIP_1967_IMPLEMENTATION_SLOT)))
+      ) {
+        return `0x${"0".repeat(64)}` as Hex;
+      }
+      if (
+        options.assetClone &&
+        key === cloneTarget.toLowerCase() &&
+        slot === EIP_1967_IMPLEMENTATION_SLOT
+      ) {
+        return paddedAddress(cloneImplementation);
+      }
+      return paddedAddress(implementation);
+    },
+    getCode: async (_chainId: number, address: Address) => {
+      const key = address.toLowerCase();
+      if (options.failCodeFor?.some((item) => item.toLowerCase() === key)) {
+        throw new Error("runtime code unavailable");
+      }
+      if (options.assetClone && key === asset0.toLowerCase()) {
+        return eip1167(cloneTarget);
+      }
+      if (options.assetClone && key === cloneImplementation.toLowerCase()) {
+        return options.assetClone.implementationCode;
+      }
+      return "0x60016000" as Hex;
+    },
   } as unknown as ChainPort;
 }
 
@@ -366,13 +417,67 @@ describe("resolveProtocolRouteAttestation", () => {
       proxy: market0,
       implementation,
     });
+    const runtimeHash = keccak256("0x60016000").toLowerCase();
     expect(result.marketReviews).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           address: market0,
-          fingerprint: expect.stringContaining(asset0.toLowerCase()),
+          fingerprint: expect.stringContaining(
+            `${asset0.toLowerCase()}:${implementation.toLowerCase()}:${runtimeHash}`,
+          ),
         }),
       ]),
+    );
+    expect(
+      result.marketReviews[0]?.fingerprint.startsWith("silo-market-v2:"),
+    ).toBe(true);
+  });
+
+  it("omits the review fingerprint when a dependency runtime identity cannot be read", async () => {
+    const result = await resolveProtocolRouteAttestation(
+      chainPort({ failCodeFor: [asset0] }),
+      transaction(),
+      { internalCalls: calls() },
+    );
+
+    expect(
+      result.marketReviews.find((review) => review.address === market0),
+    ).toBeUndefined();
+    expect(result.marketReviews).toEqual(
+      expect.arrayContaining([expect.objectContaining({ address: market1 })]),
+    );
+  });
+
+  it("hashes the implementation behind a cloned upgradeable dependency", async () => {
+    const implementationCode = "0x60026002" as Hex;
+    const result = await resolveProtocolRouteAttestation(
+      chainPort({ assetClone: { implementationCode } }),
+      transaction(),
+      { internalCalls: calls() },
+    );
+
+    const runtimeHash = keccak256(implementationCode).toLowerCase();
+    const review = result.marketReviews.find(
+      (item) => item.address === market0,
+    );
+    expect(review?.fingerprint).toContain(
+      `${asset0.toLowerCase()}:${cloneImplementation.toLowerCase()}:${runtimeHash}`,
+    );
+    expect(review?.fingerprint).not.toContain(keccak256(eip1167(cloneTarget)));
+  });
+
+  it("omits the review fingerprint when a cloned dependency has no runtime code", async () => {
+    const result = await resolveProtocolRouteAttestation(
+      chainPort({ assetClone: { implementationCode: "0x" } }),
+      transaction(),
+      { internalCalls: calls() },
+    );
+
+    expect(
+      result.marketReviews.find((review) => review.address === market0),
+    ).toBeUndefined();
+    expect(result.marketReviews).toEqual(
+      expect.arrayContaining([expect.objectContaining({ address: market1 })]),
     );
   });
 
@@ -404,7 +509,7 @@ describe("resolveProtocolRouteAttestation", () => {
     expect(store.size).toBe(1);
   });
 
-  it("does not wait out a slow factory lookup for an unrelated target", async () => {
+  it("reports a slow factory lookup as temporarily unavailable", async () => {
     const call = vi.fn(() => new Promise<Hex>(() => undefined));
     const set = vi.fn();
     const started = Date.now();
@@ -414,11 +519,54 @@ describe("resolveProtocolRouteAttestation", () => {
       { internalCalls: [] },
       [],
       { get: async () => null, set },
+      () => undefined,
     );
 
-    expect(result.status).toBe("not-applicable");
+    expect(result.status).toBe("unavailable");
+    expect(result.title).toBe("Silo verification temporarily unavailable");
+    expect(result.findings).toContainEqual(
+      expect.objectContaining({ code: "silo-factory-lookup-unavailable" }),
+    );
     expect(Date.now() - started).toBeLessThan(1_500);
     expect(set).not.toHaveBeenCalled();
+  });
+
+  it("warms the factory cache after a timeout instead of recording not-a-Silo", async () => {
+    let resolveLookup: (value: Hex) => void = () => undefined;
+    const pending = new Promise<Hex>((resolve) => {
+      resolveLookup = resolve;
+    });
+    const call = vi.fn(() => pending);
+    const store = new Map<string, boolean>();
+    const scheduled: Promise<unknown>[] = [];
+    const result = await resolveProtocolRouteAttestation(
+      { call } as unknown as ChainPort,
+      transaction(unknown),
+      { internalCalls: [] },
+      [],
+      {
+        get: async () => null,
+        set: async (key, value) => {
+          store.set(key, value as boolean);
+        },
+      },
+      (task) => {
+        scheduled.push(task);
+      },
+    );
+
+    expect(result.status).toBe("unavailable");
+    expect(store.size).toBe(0);
+    resolveLookup(
+      encodeFunctionResult({
+        abi: factoryAbi,
+        functionName: "isSilo",
+        result: true,
+      }),
+    );
+    await Promise.all(scheduled);
+
+    expect([...store.values()]).toEqual([true]);
   });
 
   it("proves factory lineage and the complete live market graph", async () => {

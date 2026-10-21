@@ -86,6 +86,8 @@ const ADDRESS_CHECK_COPY: Readonly<Record<string, string>> = {
     "The Silo route is genuine, but this permissionless market still needs team approval.",
   "silo-market-review-stale":
     "This Silo market address is trusted, but its configuration no longer matches the approved review.",
+  "silo-factory-lookup-unavailable":
+    "Silo Factory verification is temporarily unavailable. Reload after the lookup finishes.",
   "silo-approved-market":
     "The Silo route is genuine and this exact market is approved by your team.",
   "target-address-unconfirmed":

@@ -71,6 +71,14 @@ const GUIDANCE_BY_CODE = new Map<string, FindingGuidance>([
     },
   ],
   [
+    "silo-factory-lookup-unavailable",
+    {
+      label: "Reload after Silo verification finishes",
+      action:
+        "The Silo Factory lookup timed out, so this destination was not classified. The lookup continues in the background. Reload the report before treating the route as unknown.",
+    },
+  ],
+  [
     "silo-market-review-stale",
     {
       label: "Re-approve the current Silo market configuration",
@@ -377,6 +385,10 @@ const QUICK_ACTION_BY_CODE = new Map<string, string>([
   [
     "protocol-route-attestation-incomplete",
     "Match the listed contracts against the project's official deployment list.",
+  ],
+  [
+    "silo-factory-lookup-unavailable",
+    "Reload the report. Silo Factory verification is still running in the background.",
   ],
   [
     "silo-market-review-stale",

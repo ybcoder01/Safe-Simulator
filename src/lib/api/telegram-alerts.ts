@@ -332,6 +332,7 @@ const ROUTE_CODES = new Set([
   "protocol-route-attestation-incomplete",
   "silo-permissionless-market",
   "silo-market-review-stale",
+  "silo-factory-lookup-unavailable",
 ]);
 
 function hasCode(
@@ -410,6 +411,9 @@ function telegramBrief(
     });
   }
   if (hasCode(findings, ROUTE_CODES)) {
+    const factoryUnavailable = findings.some(
+      (finding) => finding.code === "silo-factory-lookup-unavailable",
+    );
     const staleMarket = findings.some(
       (finding) => finding.code === "silo-market-review-stale",
     );
@@ -419,16 +423,20 @@ function telegramBrief(
     push({
       key: "route",
       severity: "check",
-      title: staleMarket
-        ? "A trusted Silo market configuration has changed"
-        : siloMarket
-          ? "The Silo route is genuine; this market still needs approval"
-          : "Part of the project route still needs verification",
-      action: staleMarket
-        ? "The saved market approval does not match the current implementation and configuration. Review it and trust the current configuration."
-        : siloMarket
-          ? "Confirm that your team chose this exact Silo market, including its assets, hooks, and oracles."
-          : "Match the destination and any unconfirmed helper contracts with the project's official records.",
+      title: factoryUnavailable
+        ? "Silo verification is temporarily unavailable"
+        : staleMarket
+          ? "A trusted Silo market configuration has changed"
+          : siloMarket
+            ? "The Silo route is genuine; this market still needs approval"
+            : "Part of the project route still needs verification",
+      action: factoryUnavailable
+        ? "The Silo Factory lookup timed out and continues in the background. Reload the report before relying on it."
+        : staleMarket
+          ? "The saved market approval does not match the current implementation and configuration. Review it and trust the current configuration."
+          : siloMarket
+            ? "Confirm that your team chose this exact Silo market, including its assets, hooks, and oracles."
+            : "Match the destination and any unconfirmed helper contracts with the project's official records.",
     });
   }
   if (analysis.simulation?.success === false) {

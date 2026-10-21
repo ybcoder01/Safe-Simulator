@@ -5,6 +5,7 @@ import {
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { after } from "next/server";
 import { Suspense } from "react";
 
 import {
@@ -377,6 +378,9 @@ export default async function TransactionDetailPage({
     execution,
     internalProxyBoundaries,
     cache,
+    (task) => {
+      after(() => task);
+    },
   );
   const verdict = resolveEvidenceVerdict(
     persisted,

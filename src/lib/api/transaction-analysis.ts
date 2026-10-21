@@ -40,6 +40,7 @@ import {
   resolveStorageChangeAnalysis,
   type StorageChangeAnalysis,
 } from "@/lib/api/storage-changes";
+import { after } from "next/server";
 import { keccak256 } from "viem";
 
 export { TRANSACTION_ANALYSIS_ENGINE_VERSION };
@@ -186,6 +187,13 @@ export async function resolveNeutralTransactionAnalysis(
     execution,
     internalProxyBoundaries,
     ports.cache,
+    (task) => {
+      try {
+        after(() => task);
+      } catch {
+        void task;
+      }
+    },
   );
   const baselineVerdict = resolveEvidenceVerdict(
     transaction,

@@ -22,6 +22,15 @@ const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 // of the approval fingerprint.
 const IMPLEMENTATION_SLOT =
   "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc" as Hex;
+const BEACON_SLOT =
+  "0xa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b35133d50" as Hex;
+// Legacy OpenZeppelin / ZeppelinOS implementation slot, still used by some proxies.
+const LEGACY_IMPLEMENTATION_SLOT =
+  "0x7050c9e0f4ca769c69bd3a8ef740bc37934f8e2c036e5a723fd8ee048ed3f8c3" as Hex;
+const EIP_1167_PREFIX = "363d3d373d3d3d363d73";
+const EIP_1167_SUFFIX = "5af43d82803e903d91602b57fd5bf3";
+// Stop following proxy chains that never resolve to runtime code.
+const MAX_RUNTIME_PROXY_DEPTH = 4;
 // Unrelated XDC pages must not wait on a slow Silo Factory read.
 const FACTORY_MEMBERSHIP_TIMEOUT_MS = 500;
 const FACTORY_MEMBERSHIP_LATEST_TTL_SECONDS = 600;
@@ -29,6 +38,9 @@ const FACTORY_MEMBERSHIP_BLOCK_TTL_SECONDS = 2_592_000;
 
 const factoryAbi = parseAbi([
   "function isSilo(address silo) view returns (bool)",
+]);
+const beaconAbi = parseAbi([
+  "function implementation() view returns (address)",
 ]);
 const siloAbi = parseAbi([
   "function config() view returns (address siloConfig)",
@@ -164,49 +176,128 @@ async function readCachedFactoryMembership(
   }
 }
 
-async function isFactorySilo(
+type FactoryMembership = "member" | "not-member" | "unknown";
+
+export type BackgroundSchedule = (task: Promise<unknown>) => void;
+
+function retainBackground(
+  task: Promise<unknown>,
+  schedule?: BackgroundSchedule | null,
+) {
+  const guarded = task.catch(() => undefined);
+  if (schedule) {
+    try {
+      schedule(guarded);
+    } catch {
+      // The lookup is already running. A scheduler failure must not hide it.
+    }
+    return;
+  }
+  // Keep the warm-up alive after the response on Vercel. Outside a request
+  // this throws, and the promise is left running on its own.
+  void import("next/server")
+    .then(({ after }) => {
+      try {
+        after(() => guarded);
+      } catch {
+        // No request scope.
+      }
+    })
+    .catch(() => undefined);
+}
+
+async function readFactoryMembership(
+  chain: ChainPort,
+  transaction: SafeTransaction,
+  address: Address,
+): Promise<boolean> {
+  const result = await callContract(
+    chain,
+    transaction,
+    SILO_FACTORY,
+    encodeFunctionData({
+      abi: factoryAbi,
+      functionName: "isSilo",
+      args: [address],
+    }),
+  );
+  return decodeFunctionResult({
+    abi: factoryAbi,
+    functionName: "isSilo",
+    data: result,
+  });
+}
+
+function membershipTtl(transaction: SafeTransaction): number {
+  return transaction.blockNumber === null
+    ? FACTORY_MEMBERSHIP_LATEST_TTL_SECONDS
+    : FACTORY_MEMBERSHIP_BLOCK_TTL_SECONDS;
+}
+
+async function factoryMembership(
   chain: ChainPort,
   transaction: SafeTransaction,
   address: Address,
   options: {
     readonly cache?: Pick<CachePort, "get" | "set"> | null | undefined;
     readonly timeoutMs?: number;
+    readonly schedule?: BackgroundSchedule | null | undefined;
   } = {},
-): Promise<boolean> {
+): Promise<FactoryMembership> {
   const key = factoryMembershipKey(transaction, address);
   const cached = await readCachedFactoryMembership(options.cache, key);
-  if (cached !== null) return cached;
+  if (cached === true) return "member";
+  if (cached === false) return "not-member";
+
+  const lookup = readFactoryMembership(chain, transaction, address);
+  const ttl = membershipTtl(transaction);
+  const store = (member: boolean) => {
+    // A definitive factory answer stands even when the cache write fails.
+    const cache = options.cache;
+    if (!cache) return Promise.resolve();
+    try {
+      return Promise.resolve(cache.set(key, member, ttl)).catch(
+        () => undefined,
+      );
+    } catch {
+      return Promise.resolve();
+    }
+  };
 
   try {
-    const lookup = callContract(
-      chain,
-      transaction,
-      SILO_FACTORY,
-      encodeFunctionData({
-        abi: factoryAbi,
-        functionName: "isSilo",
-        args: [address],
-      }),
-    );
-    const result = await (options.timeoutMs === undefined
+    const member = await (options.timeoutMs === undefined
       ? lookup
       : withTimeout(lookup, options.timeoutMs));
-    const member = decodeFunctionResult({
-      abi: factoryAbi,
-      functionName: "isSilo",
-      data: result,
-    });
-    const ttl =
-      transaction.blockNumber === null
-        ? FACTORY_MEMBERSHIP_LATEST_TTL_SECONDS
-        : FACTORY_MEMBERSHIP_BLOCK_TTL_SECONDS;
-    await options.cache?.set(key, member, ttl).catch(() => undefined);
-    return member;
-  } catch {
-    // Timeouts and RPC errors stay uncached so a slow read is not recorded
-    // as "not a Silo".
-    return false;
+    await store(member);
+    return member ? "member" : "not-member";
+  } catch (error) {
+    // A timeout or RPC error is not "not a Silo". Finish the in-flight read,
+    // or retry once, and cache only a real answer.
+    const timedOut =
+      error instanceof Error && error.message === "silo-factory-timeout";
+    if (options.timeoutMs !== undefined) {
+      const warm = (
+        timedOut ? lookup : readFactoryMembership(chain, transaction, address)
+      ).then(store);
+      retainBackground(warm, options.schedule);
+    }
+    return "unknown";
   }
+}
+
+async function isFactorySilo(
+  chain: ChainPort,
+  transaction: SafeTransaction,
+  address: Address,
+  options: {
+    readonly cache?: Pick<CachePort, "get" | "set"> | null | undefined;
+  } = {},
+): Promise<boolean> {
+  // Unbounded reads used after the destination is already a Silo route.
+  // Unknown stays unproven rather than being cached as non-member.
+  return (
+    (await factoryMembership(chain, transaction, address, options)) === "member"
+  );
 }
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
@@ -233,25 +324,33 @@ function addressFromWord(word: Hex): Address {
   return getAddress(`0x${body.slice(-40)}`) as Address;
 }
 
+export interface DependencyRuntimeIdentity {
+  readonly address: Address;
+  readonly implementation: Address;
+  readonly runtimeHash: Hex;
+}
+
 /**
- * Stable review id for one Silo market at the transaction block. A later
- * change to the proxy implementation, its runtime code, the configured
- * assets, oracles, rate model, hook, or risk parameters produces a different
- * id and drops a previous approval.
+ * Stable review id for one Silo market at the transaction block. The market
+ * and every critical dependency contribute a runtime identity, not only an
+ * address. EIP-1967, legacy, beacon, and EIP-1167 proxies are followed until
+ * the code that actually runs is hashed, so an upgrade changes the id. `null`
+ * means that role is unset. A missing identity is omitted entirely and cannot
+ * be approved.
  */
 export function siloMarketReviewFingerprint(input: {
   readonly chainId: number;
   readonly market: Address;
   readonly implementation: Address;
   readonly runtimeHash: Hex;
-  readonly token: Address;
-  readonly protectedShareToken: Address;
-  readonly collateralShareToken: Address;
-  readonly debtShareToken: Address;
-  readonly solvencyOracle: Address;
-  readonly maxLtvOracle: Address;
-  readonly interestRateModel: Address;
-  readonly hookReceiver: Address;
+  readonly token: DependencyRuntimeIdentity | null;
+  readonly protectedShareToken: DependencyRuntimeIdentity | null;
+  readonly collateralShareToken: DependencyRuntimeIdentity | null;
+  readonly debtShareToken: DependencyRuntimeIdentity | null;
+  readonly solvencyOracle: DependencyRuntimeIdentity | null;
+  readonly maxLtvOracle: DependencyRuntimeIdentity | null;
+  readonly interestRateModel: DependencyRuntimeIdentity | null;
+  readonly hookReceiver: DependencyRuntimeIdentity | null;
   readonly daoFee: bigint;
   readonly deployerFee: bigint;
   readonly maxLtv: bigint;
@@ -261,20 +360,24 @@ export function siloMarketReviewFingerprint(input: {
   readonly flashloanFee: bigint;
   readonly callBeforeQuote: boolean;
 }): string {
+  const dependency = (identity: DependencyRuntimeIdentity | null) =>
+    identity
+      ? `${identity.address}:${identity.implementation}:${identity.runtimeHash}`
+      : "absent";
   return [
-    "silo-market-v1",
+    "silo-market-v2",
     input.chainId,
     input.market,
     input.implementation,
     input.runtimeHash,
-    input.token,
-    input.protectedShareToken,
-    input.collateralShareToken,
-    input.debtShareToken,
-    input.solvencyOracle,
-    input.maxLtvOracle,
-    input.interestRateModel,
-    input.hookReceiver,
+    dependency(input.token),
+    dependency(input.protectedShareToken),
+    dependency(input.collateralShareToken),
+    dependency(input.debtShareToken),
+    dependency(input.solvencyOracle),
+    dependency(input.maxLtvOracle),
+    dependency(input.interestRateModel),
+    dependency(input.hookReceiver),
     input.daoFee,
     input.deployerFee,
     input.maxLtv,
@@ -288,31 +391,147 @@ export function siloMarketReviewFingerprint(input: {
     .toLowerCase();
 }
 
-async function marketRuntimeIdentity(
+function pointsElsewhere(candidate: Address, account: Address): boolean {
+  const key = addressKey(candidate);
+  return key !== ZERO_ADDRESS && key !== addressKey(account);
+}
+
+function minimalProxyTarget(code: Hex): Address | null {
+  const body = code.toLowerCase().replace(/^0x/, "");
+  if (body.length !== EIP_1167_PREFIX.length + 40 + EIP_1167_SUFFIX.length) {
+    return null;
+  }
+  if (!body.startsWith(EIP_1167_PREFIX) || !body.endsWith(EIP_1167_SUFFIX)) {
+    return null;
+  }
+  return getAddress(
+    `0x${body.slice(EIP_1167_PREFIX.length, EIP_1167_PREFIX.length + 40)}`,
+  ) as Address;
+}
+
+type RuntimeStep =
+  | { readonly kind: "follow"; readonly address: Address }
+  | { readonly kind: "code"; readonly code: Hex }
+  | { readonly kind: "unresolved" };
+
+/**
+ * One proxy hop. A slot that names the account itself is ignored so the
+ * account's own code can still be hashed. Empty code, a beacon with no
+ * implementation, or a failed read is unresolved and cannot be approved.
+ */
+async function nextRuntimeStep(
   chain: ChainPort,
   transaction: SafeTransaction,
-  market: Address,
-): Promise<{ implementation: Address; runtimeHash: Hex } | null> {
+  account: Address,
+): Promise<RuntimeStep> {
+  const block = transaction.blockNumber ?? undefined;
+  const readSlot = (slot: Hex) =>
+    chain.getStorageAt(transaction.safe.chainId, account, slot, block);
+
+  const implementation = addressFromWord(await readSlot(IMPLEMENTATION_SLOT));
+  if (pointsElsewhere(implementation, account)) {
+    return { kind: "follow", address: implementation };
+  }
+  const legacy = addressFromWord(await readSlot(LEGACY_IMPLEMENTATION_SLOT));
+  if (pointsElsewhere(legacy, account)) {
+    return { kind: "follow", address: legacy };
+  }
+  const beacon = addressFromWord(await readSlot(BEACON_SLOT));
+  if (pointsElsewhere(beacon, account)) {
+    const result = await callContract(
+      chain,
+      transaction,
+      beacon,
+      encodeFunctionData({ abi: beaconAbi, functionName: "implementation" }),
+    );
+    const resolved = getAddress(
+      decodeFunctionResult({
+        abi: beaconAbi,
+        functionName: "implementation",
+        data: result,
+      }),
+    ) as Address;
+    if (!pointsElsewhere(resolved, account)) return { kind: "unresolved" };
+    return { kind: "follow", address: resolved };
+  }
+
+  const code = await chain.getCode(transaction.safe.chainId, account, block);
+  if (!code || code === "0x") return { kind: "unresolved" };
+  const clone = minimalProxyTarget(code);
+  if (clone && pointsElsewhere(clone, account)) {
+    return { kind: "follow", address: clone };
+  }
+  return { kind: "code", code };
+}
+
+async function runtimeIdentity(
+  chain: ChainPort,
+  transaction: SafeTransaction,
+  account: Address,
+): Promise<DependencyRuntimeIdentity | null> {
   try {
-    const word = await chain.getStorageAt(
-      transaction.safe.chainId,
-      market,
-      IMPLEMENTATION_SLOT,
-      transaction.blockNumber ?? undefined,
-    );
-    const implementation = addressFromWord(word);
-    const runtimeAddress =
-      addressKey(implementation) === ZERO_ADDRESS ? market : implementation;
-    const code = await chain.getCode(
-      transaction.safe.chainId,
-      runtimeAddress,
-      transaction.blockNumber ?? undefined,
-    );
-    if (!code || code === "0x") return null;
-    return { implementation: runtimeAddress, runtimeHash: keccak256(code) };
+    let current = getAddress(account) as Address;
+    const seen = new Set<string>([addressKey(current)]);
+    for (let depth = 0; depth < MAX_RUNTIME_PROXY_DEPTH; depth += 1) {
+      const step = await nextRuntimeStep(chain, transaction, current);
+      if (step.kind === "unresolved") return null;
+      if (step.kind === "code") {
+        return {
+          address: getAddress(account) as Address,
+          implementation: current,
+          runtimeHash: keccak256(step.code),
+        };
+      }
+      const nextKey = addressKey(step.address);
+      if (seen.has(nextKey)) return null;
+      seen.add(nextKey);
+      current = step.address;
+    }
+    return null;
   } catch {
     return null;
   }
+}
+
+const CRITICAL_DEPENDENCY_KEYS = [
+  "token",
+  "protectedShareToken",
+  "collateralShareToken",
+  "debtShareToken",
+  "solvencyOracle",
+  "maxLtvOracle",
+  "interestRateModel",
+  "hookReceiver",
+] as const;
+
+async function criticalDependencyIdentities(
+  chain: ChainPort,
+  transaction: SafeTransaction,
+  config: ConfigData & { readonly silo: Address },
+  marketIdentity: DependencyRuntimeIdentity,
+): Promise<Record<
+  (typeof CRITICAL_DEPENDENCY_KEYS)[number],
+  DependencyRuntimeIdentity | null
+> | null> {
+  const identities = {} as Record<
+    (typeof CRITICAL_DEPENDENCY_KEYS)[number],
+    DependencyRuntimeIdentity | null
+  >;
+  for (const key of CRITICAL_DEPENDENCY_KEYS) {
+    const dependency = config[key];
+    if (addressKey(dependency) === ZERO_ADDRESS) {
+      identities[key] = null;
+      continue;
+    }
+    if (addressKey(dependency) === addressKey(marketIdentity.address)) {
+      identities[key] = marketIdentity;
+      continue;
+    }
+    const identity = await runtimeIdentity(chain, transaction, dependency);
+    if (!identity) return null;
+    identities[key] = identity;
+  }
+  return identities;
 }
 
 function configAddresses(
@@ -646,27 +865,32 @@ async function attestSiloMarket(
 
     const reviews: SiloMarketReview[] = [];
     for (const item of configs) {
-      const identity = await marketRuntimeIdentity(
+      const identity = await runtimeIdentity(chain, transaction, item.silo);
+      if (!identity) continue;
+      const dependencies = await criticalDependencyIdentities(
         chain,
         transaction,
-        item.silo,
+        item,
+        identity,
       );
-      if (!identity) continue;
+      // No fingerprint unless every configured dependency has a runtime
+      // identity. An unknown proxy cannot stay approved.
+      if (!dependencies) continue;
       reviews.push({
-        address: getAddress(item.silo) as Address,
+        address: identity.address,
         fingerprint: siloMarketReviewFingerprint({
           chainId: transaction.safe.chainId,
-          market: item.silo,
+          market: identity.address,
           implementation: identity.implementation,
           runtimeHash: identity.runtimeHash,
-          token: item.token,
-          protectedShareToken: item.protectedShareToken,
-          collateralShareToken: item.collateralShareToken,
-          debtShareToken: item.debtShareToken,
-          solvencyOracle: item.solvencyOracle,
-          maxLtvOracle: item.maxLtvOracle,
-          interestRateModel: item.interestRateModel,
-          hookReceiver: item.hookReceiver,
+          token: dependencies.token,
+          protectedShareToken: dependencies.protectedShareToken,
+          collateralShareToken: dependencies.collateralShareToken,
+          debtShareToken: dependencies.debtShareToken,
+          solvencyOracle: dependencies.solvencyOracle,
+          maxLtvOracle: dependencies.maxLtvOracle,
+          interestRateModel: dependencies.interestRateModel,
+          hookReceiver: dependencies.hookReceiver,
           daoFee: item.daoFee,
           deployerFee: item.deployerFee,
           maxLtv: item.maxLtv,
@@ -735,6 +959,40 @@ function siloDestinationCheck(
     status: "pass",
     title: "Official Silo router",
     detail: "The destination matches the reviewed Silo deployment record.",
+  };
+}
+
+function factoryLookupUnavailable(
+  destination: Address,
+): ProtocolRouteAttestation {
+  return {
+    protocol: "silo",
+    status: "unavailable",
+    title: "Silo verification temporarily unavailable",
+    detail:
+      "The Silo Factory did not answer in time, so this destination was not classified. The lookup continues in the background. Reload the report before relying on it.",
+    addresses: [],
+    proxyBoundaries: [],
+    checks: [
+      {
+        key: "factory",
+        status: "review",
+        title: "Silo Factory lookup timed out",
+        detail:
+          "A slow or failed factory read is not treated as proof that this contract is unrelated to Silo.",
+      },
+    ],
+    findings: [
+      {
+        code: "silo-factory-lookup-unavailable",
+        severity: "warning",
+        title: "Silo verification temporarily unavailable",
+        detail:
+          "The Silo Factory did not answer in time. This destination was not classified, and the lookup continues in the background. Reload before relying on the report.",
+        addresses: [destination],
+      },
+    ],
+    marketReviews: [],
   };
 }
 
@@ -916,6 +1174,7 @@ export async function resolveProtocolRouteAttestation(
   execution: Pick<ExecutionInsight, "internalCalls">,
   resolvedProxyBoundaries: readonly InternalProxyBoundary[] = [],
   cache?: Pick<CachePort, "get" | "set"> | null,
+  scheduleBackground?: BackgroundSchedule | null,
 ): Promise<ProtocolRouteAttestation> {
   if (transaction.safe.chainId !== 50) {
     return notApplicable();
@@ -929,14 +1188,21 @@ export async function resolveProtocolRouteAttestation(
   const registrySilo = target?.protocol === "silo";
   // Direct market calls (redeem/deposit on the vault) are not in the pinned
   // Silo registry; prove them through the official factory instead.
-  const destinationIsFactorySilo =
-    !registrySilo &&
-    (await isFactorySilo(chain, transaction, destination, {
-      cache,
-      timeoutMs: FACTORY_MEMBERSHIP_TIMEOUT_MS,
-    }));
-  if (!registrySilo && !destinationIsFactorySilo) {
-    return notApplicable();
+  let destinationIsFactorySilo = false;
+  if (!registrySilo) {
+    const membership = await factoryMembership(
+      chain,
+      transaction,
+      destination,
+      {
+        cache,
+        timeoutMs: FACTORY_MEMBERSHIP_TIMEOUT_MS,
+        schedule: scheduleBackground,
+      },
+    );
+    if (membership === "unknown") return factoryLookupUnavailable(destination);
+    if (membership === "not-member") return notApplicable();
+    destinationIsFactorySilo = true;
   }
   const entrypoint = destinationIsFactorySilo ? "market" : "router";
 

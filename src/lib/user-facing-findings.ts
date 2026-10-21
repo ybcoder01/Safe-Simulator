@@ -49,6 +49,7 @@ const CONSUMED_CODES = new Set([
   ...PROTOCOL_PATH_CODES,
   "silo-permissionless-market",
   "silo-market-review-stale",
+  "silo-factory-lookup-unavailable",
   "silo-approved-market",
   "protocol-route-attestation-incomplete",
   "explicitly-flagged-address",
@@ -234,6 +235,7 @@ export function resolveUserFacingFindings(
     (item) =>
       item.code === "silo-permissionless-market" ||
       item.code === "silo-market-review-stale" ||
+      item.code === "silo-factory-lookup-unavailable" ||
       item.code === "silo-approved-market",
   );
   if (
@@ -274,6 +276,21 @@ export function resolveUserFacingFindings(
         "Part of the Silo route is still unresolved",
         "The official Silo router and factory-created market were confirmed, but at least one traced contract is outside the market relationships Safe Inspector could prove on-chain.",
         routeAttestation.addresses,
+      ),
+    );
+  }
+
+  const factoryLookupUnavailable = findings.find(
+    (item) => item.code === "silo-factory-lookup-unavailable",
+  );
+  if (factoryLookupUnavailable) {
+    result.push(
+      finding(
+        factoryLookupUnavailable.code,
+        factoryLookupUnavailable.severity,
+        "Silo verification temporarily unavailable",
+        "The Silo Factory did not answer in time, so this destination was not classified. The lookup continues in the background. Reload the report before relying on it.",
+        factoryLookupUnavailable.addresses,
       ),
     );
   }
