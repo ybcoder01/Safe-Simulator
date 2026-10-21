@@ -9,6 +9,8 @@
   },
   "scripts": {
     "dev": "next dev",
+    "security:node": "node scripts/check-node-security.mjs",
+    "prebuild": "node scripts/check-node-security.mjs",
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
@@ -29,7 +31,7 @@
     "@upstash/qstash": "2.11.3",
     "@upstash/redis": "1.38.3",
     "drizzle-orm": "0.45.2",
-    "next": "16.3.3",
+    "next": "16.3.8",
     "postgres": "3.4.9",
     "react": "19.2.8",
     "react-dom": "19.2.8",
@@ -44,7 +46,7 @@
     "dotenv-cli": "11.0.0",
     "drizzle-kit": "0.31.10",
     "eslint": "9.34.0",
-    "eslint-config-next": "16.3.3",
+    "eslint-config-next": "16.3.8",
     "prettier": "3.6.2",
     "typescript": "5.9.2",
     "vitest": "4.1.11"
