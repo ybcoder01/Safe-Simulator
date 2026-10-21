@@ -27,7 +27,7 @@ jobs:
           ref: ${{ github.event.deployment.sha }}
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version-file: .node-version
           package-manager-cache: false
       - name: Verify the public Safe review product flow
         run: node scripts/production-product-acceptance.mjs
