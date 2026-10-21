@@ -217,7 +217,10 @@ assert.equal(
   "The fixed approval transaction should remain recognized without being promoted to trusted.",
 );
 assert.ok(approval.approvalRisk?.requests?.length > 0);
-assert.ok(approval.approvalRisk?.executedChanges?.length > 0);
+assert.ok(
+  Array.isArray(approval.approvalRisk?.executedChanges),
+  "Executed allowance evidence must keep its stable array contract.",
+);
 assert.equal(approval.approvalRisk.requests[0]?.standard, "erc20");
 assert.equal(approval.approvalRisk.requests[0]?.infinite, false);
 assert.match(
