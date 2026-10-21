@@ -489,22 +489,46 @@ async function attestSiloMarket(
 }
 
 /**
- * Whether the destination's identity is settled without any explorer data: it
- * is a pinned Silo deployment and the whole traced route was tied to the
- * factory-proven market graph. The permissionless-market finding is only
- * produced once no traced contract is left unaccounted for.
+ * Whether the destination's identity is settled without any explorer data: the
+ * whole traced route was tied to a factory-proven Silo market graph. That
+ * covers the pinned Silo router and direct calls to a factory market vault
+ * (for example `redeem` on the market itself). The permissionless-market
+ * finding is only produced once no traced contract is left unaccounted for.
  */
 export function isSiloRouteProven(
   targetProtocol: string | undefined,
   attestation: Pick<ProtocolRouteAttestation, "protocol" | "findings">,
 ): boolean {
-  return (
-    targetProtocol === "silo" &&
-    attestation.protocol === "silo" &&
-    attestation.findings.some(
+  if (
+    attestation.protocol !== "silo" ||
+    !attestation.findings.some(
       (finding) => finding.code === "silo-permissionless-market",
     )
-  );
+  ) {
+    return false;
+  }
+  // Registry-pinned Silo entrypoints, or a factory market with no static row.
+  return targetProtocol === "silo" || targetProtocol === undefined;
+}
+
+function siloDestinationCheck(
+  entrypoint: "router" | "market",
+): ProtocolVerificationCheck {
+  if (entrypoint === "market") {
+    return {
+      key: "destination",
+      status: "pass",
+      title: "Factory-created Silo market",
+      detail:
+        "The destination is recognized by Silo's live factory contract as a Silo market vault.",
+    };
+  }
+  return {
+    key: "destination",
+    status: "pass",
+    title: "Official Silo router",
+    detail: "The destination matches the reviewed Silo deployment record.",
+  };
 }
 
 function notApplicable(): ProtocolRouteAttestation {
@@ -684,13 +708,24 @@ export async function resolveProtocolRouteAttestation(
   execution: Pick<ExecutionInsight, "internalCalls">,
   resolvedProxyBoundaries: readonly InternalProxyBoundary[] = [],
 ): Promise<ProtocolRouteAttestation> {
+  if (transaction.safe.chainId !== 50) {
+    return notApplicable();
+  }
+
   const target = findContractRegistryEntry(
     transaction.safe.chainId,
     transaction.to,
   );
-  if (target?.protocol !== "silo" || transaction.safe.chainId !== 50) {
+  const destination = getAddress(transaction.to) as Address;
+  const registrySilo = target?.protocol === "silo";
+  // Direct market calls (redeem/deposit on the vault) are not in the pinned
+  // Silo registry; prove them through the official factory instead.
+  const destinationIsFactorySilo =
+    !registrySilo && (await isFactorySilo(chain, transaction, destination));
+  if (!registrySilo && !destinationIsFactorySilo) {
     return notApplicable();
   }
+  const entrypoint = destinationIsFactorySilo ? "market" : "router";
 
   const staticSiloAddresses = contractRegistryEntriesForChain(50)
     .filter((entry) => entry.protocol === "silo")
@@ -698,7 +733,7 @@ export async function resolveProtocolRouteAttestation(
   const staticKeys = new Set(
     staticSiloAddresses.map((item) => addressKey(item.address)),
   );
-  const candidates = [
+  const tracedCandidates = [
     ...new Set(
       execution.internalCalls
         .flatMap((call) => [call.from, call.to])
@@ -711,15 +746,30 @@ export async function resolveProtocolRouteAttestation(
       (address) =>
         !staticKeys.has(addressKey(address)) &&
         addressKey(address) !== addressKey(transaction.safe.address) &&
-        addressKey(address) !== addressKey(transaction.to) &&
+        addressKey(address) !== addressKey(destination) &&
         addressKey(address) !== ZERO_ADDRESS &&
         !isPrecompile(address) &&
         findContractRegistryEntry(50, address)?.protocol !== "safe",
-    )
-    .slice(0, MAX_CANDIDATE_CONTRACTS);
+    );
+  // When the Safe calls the market vault directly, the destination is the
+  // market to attest — it would otherwise be filtered out above.
+  const candidates = (
+    destinationIsFactorySilo
+      ? [destination, ...tracedCandidates]
+      : tracedCandidates
+  ).slice(0, MAX_CANDIDATE_CONTRACTS);
 
   const siloFlags = await Promise.all(
-    candidates.map((address) => isFactorySilo(chain, transaction, address)),
+    candidates.map(async (address) => {
+      // Already proven above when the Safe called the market vault directly.
+      if (
+        destinationIsFactorySilo &&
+        addressKey(address) === addressKey(destination)
+      ) {
+        return true;
+      }
+      return isFactorySilo(chain, transaction, address);
+    }),
   );
   const markets = candidates.filter((_, index) => siloFlags[index] === true);
   if (markets.length === 0) {
@@ -728,17 +778,13 @@ export async function resolveProtocolRouteAttestation(
       status: "unavailable",
       title: "Silo market lineage could not be proven",
       detail:
-        "The official router was recognized, but no traced market could be verified through the official Silo Factory.",
+        entrypoint === "market"
+          ? "The destination looks like a Silo market, but it could not be verified through the official Silo Factory."
+          : "The official router was recognized, but no traced market could be verified through the official Silo Factory.",
       addresses: staticSiloAddresses,
       proxyBoundaries: [],
       checks: [
-        {
-          key: "destination",
-          status: "pass",
-          title: "Official Silo router",
-          detail:
-            "The transaction destination matches the reviewed Silo deployment record.",
-        },
+        siloDestinationCheck(entrypoint),
         {
           key: "factory",
           status: "fail",
@@ -753,7 +799,9 @@ export async function resolveProtocolRouteAttestation(
           severity: "warning",
           title: "The Silo market route could not be proven",
           detail:
-            "Safe Inspector recognized the official router but could not connect the traced route to a market created by the official Silo Factory.",
+            entrypoint === "market"
+              ? "Safe Inspector could not connect this destination to a market created by the official Silo Factory."
+              : "Safe Inspector recognized the official router but could not connect the traced route to a market created by the official Silo Factory.",
           addresses: candidates,
         },
       ],
@@ -862,13 +910,7 @@ export async function resolveProtocolRouteAttestation(
       addresses: attested,
       proxyBoundaries,
       checks: [
-        {
-          key: "destination",
-          status: "pass",
-          title: "Official Silo router",
-          detail:
-            "The destination matches the reviewed Silo deployment record.",
-        },
+        siloDestinationCheck(entrypoint),
         {
           key: "factory",
           status: "pass",
@@ -907,7 +949,9 @@ export async function resolveProtocolRouteAttestation(
           severity: "warning",
           title: "Part of the Silo route is still unresolved",
           detail:
-            "Safe Inspector verified the official router and factory-created market relationships it could read, but at least one traced address remains outside that proven graph.",
+            entrypoint === "market"
+              ? "Safe Inspector verified the factory-created market relationships it could read, but at least one traced address remains outside that proven graph."
+              : "Safe Inspector verified the official router and factory-created market relationships it could read, but at least one traced address remains outside that proven graph.",
           addresses,
         },
       ],
@@ -923,12 +967,7 @@ export async function resolveProtocolRouteAttestation(
     addresses: attested,
     proxyBoundaries,
     checks: [
-      {
-        key: "destination",
-        status: "pass",
-        title: "Official Silo router",
-        detail: "The destination matches the reviewed Silo deployment record.",
-      },
+      siloDestinationCheck(entrypoint),
       {
         key: "factory",
         status: "pass",

@@ -286,7 +286,7 @@ function chainPort(
 }
 
 describe("resolveProtocolRouteAttestation", () => {
-  it("does not perform lookups for unsupported destinations", async () => {
+  it("does not attest unsupported destinations after a factory check", async () => {
     const chain = chainPort();
     const result = await resolveProtocolRouteAttestation(
       chain,
@@ -295,7 +295,72 @@ describe("resolveProtocolRouteAttestation", () => {
     );
 
     expect(result.status).toBe("not-applicable");
-    expect(chain.call).not.toHaveBeenCalled();
+    expect(chain.call).toHaveBeenCalledTimes(1);
+    expect(chain.call).toHaveBeenCalledWith(
+      50,
+      expect.objectContaining({ to: factory }),
+      123n,
+    );
+  });
+
+  it("attests a direct redeem on a factory-created market vault", async () => {
+    const result = await resolveProtocolRouteAttestation(
+      chainPort({ marketIsCollateralShare: true }),
+      transaction(market0),
+      {
+        internalCalls: [
+          {
+            depth: 1,
+            from: safe,
+            to: market0,
+            input: "0x" as Hex,
+            value: "0",
+            operation: "call",
+            reverted: false,
+            error: null,
+          },
+          {
+            depth: 2,
+            from: market0,
+            to: implementation,
+            input: "0x" as Hex,
+            value: "0",
+            operation: "delegatecall",
+            reverted: false,
+            error: null,
+          },
+        ],
+      },
+    );
+
+    expect(result.status).toBe("review");
+    expect(result.findings).toContainEqual(
+      expect.objectContaining({
+        code: "silo-permissionless-market",
+        addresses: expect.arrayContaining([market0]),
+      }),
+    );
+    expect(result.checks).toContainEqual(
+      expect.objectContaining({
+        key: "destination",
+        status: "pass",
+        title: "Factory-created Silo market",
+      }),
+    );
+    expect(result.addresses).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          address: market0,
+          label: "Silo market vault",
+        }),
+        expect.objectContaining({ address: share0 }),
+        expect.objectContaining({ address: asset0 }),
+      ]),
+    );
+    expect(result.proxyBoundaries).toContainEqual({
+      proxy: market0,
+      implementation,
+    });
   });
 
   it("proves factory lineage and the complete live market graph", async () => {
@@ -765,6 +830,10 @@ describe("isSiloRouteProven", () => {
     expect(isSiloRouteProven("silo", complete)).toBe(true);
   });
 
+  it("settles identity for a factory market with no registry row", () => {
+    expect(isSiloRouteProven(undefined, complete)).toBe(true);
+  });
+
   it("does not settle identity for an incomplete route", async () => {
     const incomplete = await resolveProtocolRouteAttestation(
       chainPort(),
@@ -774,8 +843,7 @@ describe("isSiloRouteProven", () => {
     expect(isSiloRouteProven("silo", incomplete)).toBe(false);
   });
 
-  it("requires both a Silo registry entry and a Silo attestation", () => {
-    expect(isSiloRouteProven(undefined, complete)).toBe(false);
+  it("rejects non-Silo destinations even when a Silo attestation is present", () => {
     expect(isSiloRouteProven("fathom", complete)).toBe(false);
     expect(isSiloRouteProven("silo", { ...complete, protocol: null })).toBe(
       false,
