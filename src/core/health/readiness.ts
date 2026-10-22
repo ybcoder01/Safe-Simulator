@@ -7,6 +7,7 @@ export interface ReadinessResult {
   readonly checks: {
     readonly database: ReadinessCheckStatus;
     readonly cache: ReadinessCheckStatus;
+    readonly executionRpc: ReadinessCheckStatus;
   };
 }
 
@@ -38,13 +39,14 @@ export async function checkReadiness(
   port: ReadinessPort,
   timeoutMs = 3_000,
 ): Promise<ReadinessResult> {
-  const [database, cache] = await Promise.all([
+  const [database, cache, executionRpc] = await Promise.all([
     checkDependency(() => port.checkDatabase(), timeoutMs),
     checkDependency(() => port.checkCache(), timeoutMs),
+    checkDependency(() => port.checkExecutionRpc(), timeoutMs),
   ]);
 
   return {
-    healthy: database === "ok" && cache === "ok",
-    checks: { database, cache },
+    healthy: database === "ok" && cache === "ok" && executionRpc === "ok",
+    checks: { database, cache, executionRpc },
   };
 }

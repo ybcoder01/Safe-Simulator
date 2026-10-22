@@ -60,13 +60,18 @@ const ZERO_WORD = ("0x" + "0".repeat(64)) as Hex;
 
 function defaultClient(chainId: ChainId): PublicClient {
   const chain = getSupportedChain(chainId);
-  const transports = getRpcUrls(chain).map((url) =>
-    http(url, { timeout: 12_000 }),
+  const urls = getRpcUrls(chain);
+  const hasFallback = urls.length > 1;
+  const transports = urls.map((url) =>
+    http(url, { timeout: hasFallback ? 4_000 : 12_000 }),
   );
 
   return createPublicClient({
     chain,
-    transport: fallback(transports, { rank: true, retryCount: 2 }),
+    transport: fallback(transports, {
+      rank: true,
+      retryCount: hasFallback ? 0 : 2,
+    }),
   });
 }
 

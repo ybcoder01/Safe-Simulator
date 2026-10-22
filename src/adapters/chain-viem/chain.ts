@@ -37,14 +37,17 @@ export class ViemChainAdapter implements ChainPort {
 
     const chain = getSupportedChain(chainId);
     const urls = historical ? getArchiveRpcUrls(chain) : getRpcUrls(chain);
+    const hasFallback = urls.length > 1;
     const transports = urls.map((url) =>
-      http(url, { timeout: historical ? 8_000 : 12_000 }),
+      http(url, {
+        timeout: hasFallback ? (historical ? 6_000 : 4_000) : 12_000,
+      }),
     );
     const client = createPublicClient({
       chain,
       transport: fallback(transports, {
         rank: !historical,
-        retryCount: historical ? 1 : 2,
+        retryCount: hasFallback ? 0 : historical ? 1 : 2,
       }),
     });
     clients.set(chainId, client);

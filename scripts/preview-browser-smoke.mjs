@@ -212,9 +212,17 @@ const approvalResponse = await requestJson(
 const approval = approvalResponse.data;
 assert.equal(approval.status, "executed");
 assert.equal(
-  approval.verdict?.verdict,
+  approval.execution?.mode,
+  "executed-replay",
+  "The fixed approval transaction should retain mined replay evidence.",
+);
+const approvalTarget = approval.verdict?.addresses?.find(
+  (entry) => entry.address.toLowerCase() === approval.to.toLowerCase(),
+);
+assert.equal(
+  approvalTarget?.status,
   "known",
-  "The fixed approval transaction should remain recognized without being promoted to trusted.",
+  "The fixed approval target should remain recognized without being promoted to trusted.",
 );
 assert.ok(approval.approvalRisk?.requests?.length > 0);
 assert.ok(

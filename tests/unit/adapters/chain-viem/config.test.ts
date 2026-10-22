@@ -41,8 +41,12 @@ describe("RPC URL configuration", () => {
     }
   });
 
-  it("uses only the public XDC endpoint, never viem's built-in one, when nothing is configured", () => {
-    expect(getRpcUrls(xdc)).toEqual(["https://rpc.xdcrpc.com"]);
+  it("uses public XDC fallbacks, never viem's built-in one, when nothing is configured", () => {
+    expect(getRpcUrls(xdc)).toEqual([
+      "https://rpc.xdcrpc.com",
+      "https://rpc.xinfin.network",
+      "https://erpc.xinfin.network",
+    ]);
     expect(getArchiveRpcUrls(xdc).join(" ")).not.toContain("rpc.xdc.org");
   });
 
@@ -50,13 +54,16 @@ describe("RPC URL configuration", () => {
     expect(getRpcUrls(mainnet)).toEqual(mainnet.rpcUrls.default.http);
   });
 
-  it("uses only unique configured endpoints when an override is present", () => {
+  it("keeps unique configured endpoints first and retains public XDC fallbacks", () => {
     process.env[rpcKey] =
       " https://custom-one.example , https://custom-one.example, https://custom-two.example ";
 
     expect(getRpcUrls(xdc)).toEqual([
       "https://custom-one.example",
       "https://custom-two.example",
+      "https://rpc.xdcrpc.com",
+      "https://rpc.xinfin.network",
+      "https://erpc.xinfin.network",
     ]);
   });
 
@@ -69,6 +76,8 @@ describe("RPC URL configuration", () => {
       "https://archive-one.example",
       "https://rpc.ankr.com/xdc",
       "https://rpc.xdcrpc.com",
+      "https://rpc.xinfin.network",
+      "https://erpc.xinfin.network",
       "https://current.example",
     ]);
   });
