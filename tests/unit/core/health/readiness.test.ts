@@ -7,6 +7,7 @@ function readinessPort(overrides: Partial<ReadinessPort> = {}): ReadinessPort {
   return {
     checkDatabase: vi.fn().mockResolvedValue(undefined),
     checkCache: vi.fn().mockResolvedValue(undefined),
+    checkExecutionRpc: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -19,7 +20,7 @@ describe("checkReadiness", () => {
   it("reports healthy only when every dependency responds", async () => {
     await expect(checkReadiness(readinessPort())).resolves.toEqual({
       healthy: true,
-      checks: { database: "ok", cache: "ok" },
+      checks: { database: "ok", cache: "ok", executionRpc: "ok" },
     });
   });
 
@@ -30,7 +31,11 @@ describe("checkReadiness", () => {
 
     await expect(checkReadiness(port)).resolves.toEqual({
       healthy: false,
-      checks: { database: "unavailable", cache: "ok" },
+      checks: {
+        database: "unavailable",
+        cache: "ok",
+        executionRpc: "ok",
+      },
     });
   });
 
@@ -45,7 +50,28 @@ describe("checkReadiness", () => {
 
     await expect(result).resolves.toEqual({
       healthy: false,
-      checks: { database: "ok", cache: "unavailable" },
+      checks: {
+        database: "ok",
+        cache: "unavailable",
+        executionRpc: "ok",
+      },
+    });
+  });
+
+  it("reports execution RPC failures explicitly", async () => {
+    const port = readinessPort({
+      checkExecutionRpc: vi
+        .fn()
+        .mockRejectedValue(new Error("private provider details")),
+    });
+
+    await expect(checkReadiness(port)).resolves.toEqual({
+      healthy: false,
+      checks: {
+        database: "ok",
+        cache: "ok",
+        executionRpc: "unavailable",
+      },
     });
   });
 });

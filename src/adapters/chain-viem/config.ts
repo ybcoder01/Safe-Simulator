@@ -5,10 +5,14 @@ import type { ChainId } from "@/core/domain";
 
 export const supportedChains = [mainnet, xdc] as const;
 
-const XDC_PUBLIC_RPC_URL = "https://rpc.xdcrpc.com";
+const XDC_PUBLIC_RPC_URLS = [
+  "https://rpc.xdcrpc.com",
+  "https://rpc.xinfin.network",
+  "https://erpc.xinfin.network",
+] as const;
 const XDC_PUBLIC_ARCHIVE_RPC_URLS = [
   "https://rpc.ankr.com/xdc",
-  XDC_PUBLIC_RPC_URL,
+  ...XDC_PUBLIC_RPC_URLS,
 ] as const;
 
 const XDC_PUBLIC_TRACE_RPC_URL = "https://xdc-mainnet.gateway.tatum.io";
@@ -28,11 +32,11 @@ export function getSupportedChain(chainId: ChainId): Chain {
 
 export function getRpcUrls(chain: Chain): readonly string[] {
   const urls = configuredUrls(`RPC_URL_${chain.id}`);
-  if (urls.length > 0) return [...new Set(urls)];
   // viem's built-in XDC endpoint is deliberately not used: it returns 502s.
-  return chain.id === xdc.id
-    ? [XDC_PUBLIC_RPC_URL]
-    : chain.rpcUrls.default.http;
+  const publicFallbacks =
+    chain.id === xdc.id ? XDC_PUBLIC_RPC_URLS : chain.rpcUrls.default.http;
+
+  return [...new Set([...urls, ...publicFallbacks])];
 }
 
 /**

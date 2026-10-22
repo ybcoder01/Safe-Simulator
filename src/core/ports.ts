@@ -326,6 +326,7 @@ export interface CachePort {
 export interface ReadinessPort {
   checkDatabase(): Promise<void>;
   checkCache(): Promise<void>;
+  checkExecutionRpc(): Promise<void>;
 }
 
 export interface RateLimitDecision {
