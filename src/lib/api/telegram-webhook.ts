@@ -1,5 +1,6 @@
 import type { SafeRef } from "@/core/domain";
 import type {
+  CachePort,
   PersistencePort,
   RecurringQueuePort,
   TelegramDeliveryPort,
@@ -10,8 +11,10 @@ import {
   TELEGRAM_SWEEP_CRON,
   TELEGRAM_SWEEP_SCHEDULE_ID,
 } from "@/lib/api/telegram-schedule";
+import { invalidateTelegramWatchRegistry } from "@/lib/api/telegram-watch-cache";
 
 interface TelegramCommandPorts {
+  readonly cache: CachePort;
   readonly persistence: Pick<
     PersistencePort,
     | "consumeTelegramLinkToken"
@@ -98,6 +101,7 @@ export async function handleTelegramCommand(
       });
       return;
     }
+    await invalidateTelegramWatchRegistry(ports.cache);
     await ensureTelegramWatch(subscription.safe, ports);
     await ports.telegram.sendMessage({
       chatId,
@@ -118,6 +122,7 @@ export async function handleTelegramCommand(
       await ports.persistence.listTelegramSubscriptionsForChat(chatId);
     const disabled =
       await ports.persistence.disableTelegramSubscriptionsForChat(chatId);
+    if (disabled > 0) await invalidateTelegramWatchRegistry(ports.cache);
     for (const safe of uniqueSafes(subscriptions)) {
       const scheduleId = legacyTelegramWatchScheduleId(
         safe.chainId,

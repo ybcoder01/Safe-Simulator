@@ -9,10 +9,12 @@ import { findTokenRegistryEntry } from "@/core/analysis/trust/token-registry";
 import type {
   AnalysisResult,
   Confirmation,
+  Page,
   QueueJob,
   SafeTransaction,
 } from "@/core/domain";
 import type {
+  CachePort,
   ChainPort,
   PersistencePort,
   QueuePort,
@@ -23,6 +25,16 @@ import { refreshSafeSnapshot } from "@/core/ingestion/safe-snapshot";
 import { TRANSACTION_ANALYSIS_ENGINE_VERSION } from "@/lib/api/analysis-version";
 import { createTelegramAlertReceipt } from "@/lib/api/telegram-alert-receipts";
 import { currentStageFromTransaction } from "@/lib/alert-stage";
+import {
+  TELEGRAM_WATCH_HEALTH_TTL_SECONDS,
+  TELEGRAM_WATCH_REGISTRY_TTL_SECONDS,
+  TELEGRAM_WATCH_STATE_TTL_SECONDS,
+  telegramWatchHealthKey,
+  telegramWatchRegistryKey,
+  telegramWatchStateKey,
+  type TelegramWatchHealth,
+  type TelegramWatchRegistryPage,
+} from "@/lib/api/telegram-watch-cache";
 
 const WATCH_PAGE_SIZE = 50;
 const ANALYSIS_WAIT_SECONDS = 12;
@@ -34,6 +46,7 @@ type SweepJob = Extract<QueueJob, { type: "telegram-sweep" }>;
 type AlertJob = Extract<QueueJob, { type: "telegram-alert" }>;
 
 interface WatchPorts {
+  readonly cache: CachePort;
   readonly chain: Pick<ChainPort, "getSafeSnapshot">;
   readonly persistence: Pick<
     PersistencePort,
@@ -80,6 +93,63 @@ function transactionState(transaction: SafeTransaction): string {
   });
 }
 
+function watchState(transactions: readonly SafeTransaction[]): string {
+  return createHash("sha256")
+    .update(
+      JSON.stringify(
+        transactions
+          .map((transaction) => ({
+            safeTxHash: transaction.safeTxHash.toLowerCase(),
+            state: transactionState(transaction),
+          }))
+          .sort((left, right) =>
+            left.safeTxHash.localeCompare(right.safeTxHash),
+          ),
+      ),
+    )
+    .digest("hex");
+}
+
+async function readCache<T>(cache: CachePort, key: string): Promise<T | null> {
+  try {
+    return await cache.get<T>(key);
+  } catch {
+    return null;
+  }
+}
+
+async function writeCache<T>(
+  cache: CachePort,
+  key: string,
+  value: T,
+  ttlSeconds: number,
+): Promise<void> {
+  try {
+    await cache.set(key, value, ttlSeconds);
+  } catch (error) {
+    console.error("[telegram-watch] cache write failed", {
+      key,
+      error:
+        error instanceof Error
+          ? { name: error.name, message: error.message }
+          : { message: String(error) },
+    });
+  }
+}
+
+async function recordCachedWatchHealth(
+  safe: WatchJob["safe"],
+  ports: Pick<WatchPorts, "cache" | "now">,
+  error: string | null,
+): Promise<void> {
+  await writeCache<TelegramWatchHealth>(
+    ports.cache,
+    telegramWatchHealthKey(safe),
+    { checkedAt: ports.now(), error },
+    TELEGRAM_WATCH_HEALTH_TTL_SECONDS,
+  );
+}
+
 function changed(
   previous: SafeTransaction | null,
   current: SafeTransaction,
@@ -88,7 +158,11 @@ function changed(
   return transactionState(previous) !== transactionState(current);
 }
 
-export async function runTelegramWatchJob(job: WatchJob, ports: WatchPorts) {
+export async function runTelegramWatchJob(
+  job: WatchJob,
+  ports: WatchPorts,
+  prefetchedPage?: Page<SafeTransaction>,
+) {
   const subscriptions = await ports.persistence.listTelegramSubscriptions(
     job.safe,
   );
@@ -97,11 +171,13 @@ export async function runTelegramWatchJob(job: WatchJob, ports: WatchPorts) {
   try {
     await refreshSafeSnapshot(job.safe, ports);
 
-    const page = await ports.safeData.listMultisigTransactions(
-      job.safe,
-      null,
-      WATCH_PAGE_SIZE,
-    );
+    const page =
+      prefetchedPage ??
+      (await ports.safeData.listMultisigTransactions(
+        job.safe,
+        null,
+        WATCH_PAGE_SIZE,
+      ));
     const previous = await Promise.all(
       page.items.map((item) =>
         ports.persistence.findTransaction(job.safe, item.safeTxHash),
@@ -144,15 +220,23 @@ export async function runTelegramWatchJob(job: WatchJob, ports: WatchPorts) {
       ports.now(),
       null,
     );
+    await Promise.all([
+      writeCache(
+        ports.cache,
+        telegramWatchStateKey(job.safe),
+        watchState(page.items),
+        TELEGRAM_WATCH_STATE_TTL_SECONDS,
+      ),
+      recordCachedWatchHealth(job.safe, ports, null),
+    ]);
     return { status: "watching", changes: changedTransactions.length };
   } catch (error) {
+    const publicError =
+      "The latest monitoring check failed. Use Check now or try again shortly.";
     await ports.persistence
-      .recordTelegramWatchResult(
-        job.safe,
-        ports.now(),
-        "The latest monitoring check failed. Use Check now or try again shortly.",
-      )
+      .recordTelegramWatchResult(job.safe, ports.now(), publicError)
       .catch(() => undefined);
+    await recordCachedWatchHealth(job.safe, ports, publicError);
     throw error;
   }
 }
@@ -163,18 +247,54 @@ interface SweepPorts extends Omit<WatchPorts, "persistence"> {
 }
 
 export async function runTelegramSweepJob(job: SweepJob, ports: SweepPorts) {
-  const page = await ports.persistence.listTelegramWatchedSafes(
-    job.cursor,
-    TELEGRAM_SWEEP_PAGE_SIZE,
+  const registryKey = telegramWatchRegistryKey(job.cursor);
+  let page = await readCache<TelegramWatchRegistryPage>(
+    ports.cache,
+    registryKey,
   );
+  if (!page) {
+    page = await ports.persistence.listTelegramWatchedSafes(
+      job.cursor,
+      TELEGRAM_SWEEP_PAGE_SIZE,
+    );
+    await writeCache(
+      ports.cache,
+      registryKey,
+      page,
+      TELEGRAM_WATCH_REGISTRY_TTL_SECONDS,
+    );
+  }
   let checked = 0;
   let failed = 0;
   for (const safe of page.items) {
     try {
-      await runTelegramWatchJob({ type: "telegram-watch", safe }, ports);
+      const transactionPage = await ports.safeData.listMultisigTransactions(
+        safe,
+        null,
+        WATCH_PAGE_SIZE,
+      );
+      const currentState = watchState(transactionPage.items);
+      const previousState = await readCache<string>(
+        ports.cache,
+        telegramWatchStateKey(safe),
+      );
+      if (previousState === currentState) {
+        await recordCachedWatchHealth(safe, ports, null);
+      } else {
+        await runTelegramWatchJob(
+          { type: "telegram-watch", safe },
+          ports,
+          transactionPage,
+        );
+      }
       checked += 1;
     } catch (error) {
       failed += 1;
+      await recordCachedWatchHealth(
+        safe,
+        ports,
+        "The latest monitoring check failed. Use Check now or try again shortly.",
+      );
       console.error("[telegram-sweep] Safe check failed", {
         chainId: safe.chainId,
         safe: safe.address,

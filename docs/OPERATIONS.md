@@ -208,14 +208,17 @@ have been exposed. Do not tell users that an unverified Telegram message is
 safe merely because it came from the familiar bot account.
 
 The poller checks all subscribed Safes through one shared durable QStash
-schedule every two minutes. Each scheduled sweep reads a bounded page of active
-Safes and checks them directly; only additional sweep pages, changed-transaction
-analysis, and alerts publish more messages. `/start` and `/safes` repair the
-shared schedule and request a best-effort immediate check. Legacy per-Safe
-schedules delete themselves after the shared schedule is confirmed, so a deploy
-migrates existing subscriptions without a manual reconnect. `/stop` disables the
-chat's subscriptions and removes any remaining legacy schedule. QStash retries
-failed deliveries; one failed sweep does not cancel later scheduled sweeps.
+schedule every two minutes. The hot watch registry and each Safe's last observed
+transaction state live in Redis. An unchanged sweep reads the Safe Transaction
+Service and Redis only; it does not open Postgres. Postgres is used when the
+transaction state changes, when the Redis state must be rebuilt, or during a
+six-hour registry reconciliation. Cache failures fail open to the existing
+database reconciliation path so alert reliability does not depend on Redis.
+`/start`, `/stop`, pause, resume, and disconnect invalidate the watch registry;
+`/start` and `/safes` also repair the shared schedule and request a best-effort
+immediate check. Legacy per-Safe schedules delete themselves after the shared
+schedule is confirmed. QStash retries failed deliveries; one failed sweep does
+not cancel later scheduled sweeps.
 
 Capacity is part of alert correctness. The shared two-minute schedule uses at
 most 720 baseline poll messages per day instead of 1,440 per watched Safe. The
@@ -223,6 +226,8 @@ QStash Free plan observed on 2026-10-07 allowed 1,000 messages per day and stopp
 accepting work after the limit was exceeded. Leave capacity for changed-event
 analysis, alerts, imports, and retries; verify the control center's last-poll
 timestamp remains current for a full daily cycle before broad rollout.
+The current poll timestamp is cached independently from Postgres writes so the
+control center remains accurate without keeping the Neon compute endpoint awake.
 
 If alerts stop, send `/safes` first and confirm that the bot reports monitoring
 as active. Then inspect the webhook response, QStash schedule and

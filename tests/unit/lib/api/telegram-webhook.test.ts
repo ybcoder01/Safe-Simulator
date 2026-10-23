@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { Address } from "../../../../src/core/domain";
+import type { CachePort } from "../../../../src/core/ports";
 import { hashTelegramLinkToken } from "../../../../src/lib/api/telegram-link";
 import { handleTelegramCommand } from "../../../../src/lib/api/telegram-webhook";
 import {
@@ -8,6 +9,15 @@ import {
   TELEGRAM_SWEEP_CRON,
   TELEGRAM_SWEEP_SCHEDULE_ID,
 } from "../../../../src/lib/api/telegram-schedule";
+
+function emptyCache(): CachePort {
+  return {
+    get: vi.fn().mockResolvedValue(null),
+    set: vi.fn().mockResolvedValue(undefined),
+    delete: vi.fn().mockResolvedValue(undefined),
+    deleteByPrefix: vi.fn().mockResolvedValue(0),
+  };
+}
 
 describe("handleTelegramCommand", () => {
   it("consumes a single-use link, starts watching, and confirms setup", async () => {
@@ -29,6 +39,7 @@ describe("handleTelegramCommand", () => {
     });
 
     await handleTelegramCommand("42", "@owner", "/start secret-code", {
+      cache: emptyCache(),
       persistence: {
         consumeTelegramLinkToken: consume,
         disableTelegramSubscriptionsForChat: vi.fn(),
@@ -69,6 +80,7 @@ describe("handleTelegramCommand", () => {
     const sendMessage = vi.fn().mockResolvedValue(undefined);
 
     await handleTelegramCommand("42", null, "/safes", {
+      cache: emptyCache(),
       persistence: {
         consumeTelegramLinkToken: vi.fn(),
         disableTelegramSubscriptionsForChat: vi.fn(),
@@ -103,6 +115,7 @@ describe("handleTelegramCommand", () => {
     const deleteSchedule = vi.fn().mockResolvedValue(undefined);
 
     await handleTelegramCommand("42", null, "/stop", {
+      cache: emptyCache(),
       persistence: {
         consumeTelegramLinkToken: vi.fn(),
         disableTelegramSubscriptionsForChat: vi.fn().mockResolvedValue(1),

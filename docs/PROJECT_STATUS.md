@@ -140,12 +140,15 @@ into a green result.
 - Execution fails.
 - The proposal is replaced by a competing transaction.
 
-Unsigned proposals do not currently generate Telegram alerts. A durable QStash
-schedule polls each subscribed Safe once per minute and retries failed
+Unsigned proposals do not currently generate Telegram alerts. One durable
+QStash schedule polls subscribed Safes every two minutes and retries failed
 deliveries independently; `/safes` repairs that schedule and starts an
-immediate check. The alert pipeline then allows approximately twelve seconds
-for independent analysis. Delivery is therefore not instantaneous. A
-one-of-one Safe may execute before the alert is delivered.
+immediate check. Unchanged polls compare Safe Transaction Service state in
+Redis and do not query Postgres. A state change or cache recovery reconciles
+the complete record in Postgres before analysis and delivery. The alert
+pipeline then allows approximately twelve seconds for independent analysis.
+Delivery is therefore not instantaneous. A one-of-one Safe may execute before
+the alert is delivered.
 
 ### 5.2 Information included in every transaction alert
 
@@ -672,6 +675,7 @@ After an alert-format or delivery change:
 | 2026-10-07 | A per-Safe Telegram control center, persisted delivery health, no-transaction test alerts, pause/resume/disconnect controls, and queue-independent Safe import recovery were implemented for review.                                                 |
 | 2026-10-07 | Production QStash was confirmed over its Free-plan daily message limit (1.2K/1K); paid capacity or a capacity-reviewed polling redesign is required for continuous one-minute alerts.                                                                |
 | 2026-10-07 | A shared two-minute Telegram sweep and queue-independent bounded dashboard refresh fallback were implemented to remove per-Safe polling amplification and keep manual recovery usable at quota.                                                      |
+| 2026-10-23 | The shared Telegram sweep moved its hot watch registry, transaction-state comparison, and poll health to Redis. Unchanged two-minute checks no longer open Neon; Postgres is used only for changes and bounded reconciliation.                       |
 | 2026-10-08 | Transaction reports were redesigned to lead with action, project identity, address/permission substitution checks, and a concrete final-approval checklist; unknown evidence is described as uncertainty rather than proof of an attack.             |
 | 2026-10-08 | Treasury review gained exact destination and recipient history, first-interaction indicators, lookalike-address blocking, permission checks, and transaction-type-specific signer prompts without claiming unavailable historical bytecode evidence. |
 | 2026-10-15 | Trusted recipient entries gained a purpose and trusted-since time, and a recipient trusted less than 24 hours ago needs a second look; migration `0009` was applied directly to Production and verified against the actual schema.                   |

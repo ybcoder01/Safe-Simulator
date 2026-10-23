@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { telegramWebhookSecret } from "@/adapters/telegram-bot/client";
 import {
+  getCachePort,
   getPersistencePort,
   getQueuePort,
   getTelegramDeliveryPort,
@@ -70,6 +71,7 @@ export async function POST(request: Request) {
       chatLabel || null,
       message.text,
       {
+        cache: getCachePort(),
         persistence: getPersistencePort(),
         queue: getQueuePort(),
         telegram: getTelegramDeliveryPort(),
