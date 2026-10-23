@@ -19,6 +19,37 @@ import type { InternalProxyBoundary } from "@/lib/api/internal-proxy-boundaries"
 import type { ProtocolRouteAttestation } from "@/lib/api/protocol-route-attestation";
 import type { StorageChangeAnalysis } from "@/lib/api/storage-changes";
 
+function sameAddress(left: string, right: string): boolean {
+  return left.toLowerCase() === right.toLowerCase();
+}
+
+/**
+ * Address-book trust approves a Silo market only when the stored fingerprint
+ * still matches the configuration proven for this transaction. A trusted
+ * address with a missing or different fingerprint is stale, not approved.
+ */
+function siloMarketApproval(
+  markets: readonly Address[],
+  addressBook: readonly AddressBookEntry[],
+  reviews: readonly { address: Address; fingerprint: string }[],
+): "current" | "stale" | "unapproved" {
+  const states = markets.map((market) => {
+    const entry = addressBook.find(
+      (item) => item.trust === "trusted" && sameAddress(item.address, market),
+    );
+    if (!entry) return "unapproved" as const;
+    const review = reviews.find((item) => sameAddress(item.address, market));
+    return entry.reviewFingerprint &&
+      review &&
+      entry.reviewFingerprint === review.fingerprint
+      ? ("current" as const)
+      : ("stale" as const);
+  });
+  if (states.every((state) => state === "current")) return "current";
+  if (states.every((state) => state !== "unapproved")) return "stale";
+  return "unapproved";
+}
+
 function decodeConfidence(
   provenance: ContractInsight["provenance"],
 ): DecodeConfidence {
@@ -51,26 +82,32 @@ export function resolveEvidenceVerdict(
   targetAccountType: "contract" | "wallet" | "unavailable" = "contract",
   routeAttestation: ProtocolRouteAttestation | null = null,
 ): EvidenceVerdict {
-  const trustedProfileAddresses = new Set(
-    addressBook
-      .filter((entry) => entry.trust === "trusted")
-      .map((entry) => entry.address.toLowerCase()),
-  );
   const routeFindings = (routeAttestation?.findings ?? []).map((finding) => {
-    if (
-      finding.code === "silo-permissionless-market" &&
-      finding.addresses.length > 0 &&
-      finding.addresses.every((address) =>
-        trustedProfileAddresses.has(address.toLowerCase()),
-      )
-    ) {
+    if (finding.code !== "silo-permissionless-market") return finding;
+    if (finding.addresses.length === 0) return finding;
+    const approval = siloMarketApproval(
+      finding.addresses,
+      addressBook,
+      routeAttestation?.marketReviews ?? [],
+    );
+    if (approval === "current") {
       return {
         ...finding,
         code: "silo-approved-market",
         severity: "info" as const,
-        title: "This exact Silo market is approved by your team",
+        title: "This exact Silo market configuration is approved by your team",
         detail:
-          "The route matches the official Silo Factory and live market configuration, and every market vault is trusted in this Safe's address book.",
+          "The route matches the official Silo Factory, and every market vault is trusted for this implementation and critical configuration.",
+      };
+    }
+    if (approval === "stale") {
+      return {
+        ...finding,
+        code: "silo-market-review-stale",
+        severity: "warning" as const,
+        title: "Approved Silo market configuration has changed",
+        detail:
+          "This market address is trusted, but its implementation, runtime code, assets, oracle, rate model, hook, or risk parameters no longer match the configuration your team approved. Approve the current configuration before relying on that trust record.",
       };
     }
     return finding;

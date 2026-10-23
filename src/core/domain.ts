@@ -233,6 +233,12 @@ export interface AddressBookEntry {
   readonly label: string;
   readonly trust: "trusted" | "flagged";
   readonly purpose?: string | null;
+  /**
+   * Configuration fingerprint captured when this address was trusted. Used to
+   * downgrade a Silo market approval after its implementation or critical
+   * configuration changes. Absent for address-only trust records.
+   */
+  readonly reviewFingerprint?: string | null;
   /** When the current trust classification was set; resets if it changes. */
   readonly trustedAt?: UnixTime;
 }

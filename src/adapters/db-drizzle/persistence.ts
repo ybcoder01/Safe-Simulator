@@ -1350,6 +1350,7 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
       label: row.label,
       trust: row.trustLevel,
       purpose: row.purpose,
+      reviewFingerprint: row.reviewFingerprint,
       trustedAt: Math.floor(row.trustedAt.getTime() / 1_000),
     }));
   }
@@ -1361,6 +1362,7 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
     label: string,
     trust: "trusted" | "flagged",
     purpose: string | null = null,
+    reviewFingerprint: string | null = null,
   ): Promise<void> {
     const safe = await this.requireSafeRow(safeRef);
     await this.requireProfileBookmark(profileId, safe.id);
@@ -1372,6 +1374,7 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
         address: lowerAddress(entryAddress),
         label,
         purpose,
+        reviewFingerprint: trust === "flagged" ? null : reviewFingerprint,
         trustLevel: trust,
       })
       .onConflictDoUpdate({
@@ -1384,6 +1387,9 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
           label,
           purpose,
           trustLevel: trust,
+          // A new fingerprint replaces the reviewed configuration. Omitting one
+          // keeps the previous review. Flagging the address clears it.
+          reviewFingerprint: sql`case when ${trust} = 'flagged' then null when ${reviewFingerprint} is not null then ${reviewFingerprint} else ${profileAddressBook.reviewFingerprint} end`,
           trustedAt: sql`case when ${profileAddressBook.trustLevel} = ${trust} then ${profileAddressBook.trustedAt} else now() end`,
         },
       });

@@ -1,0 +1,1 @@
+ALTER TABLE "profile_address_book" ADD COLUMN "review_fingerprint" text;

@@ -187,7 +187,9 @@ describe("resolveManualSimulation", () => {
     const simulate = vi.fn().mockResolvedValue(output);
     const ports = {
       abi: {},
-      chain: {},
+      chain: {
+        call: vi.fn().mockResolvedValue(`0x${"0".repeat(64)}` as Hex),
+      },
       safeData: {},
       simulation: { simulate },
     } as unknown as ManualSimulationPorts;

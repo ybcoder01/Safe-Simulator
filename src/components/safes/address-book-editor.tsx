@@ -26,6 +26,7 @@ interface SaveInput {
   readonly label: string;
   readonly purpose?: string;
   readonly trust: "trusted" | "flagged";
+  readonly reviewFingerprint?: string | null;
 }
 
 function formatSince(timestamp: number): string {
@@ -112,6 +113,9 @@ export function AddressBookEditor({
         address: suggestion.address,
         label: suggestedAddressBookLabel(suggestion),
         trust: classification,
+        ...(suggestion.reviewFingerprint
+          ? { reviewFingerprint: suggestion.reviewFingerprint }
+          : {}),
       });
       router.refresh();
     } catch (cause) {

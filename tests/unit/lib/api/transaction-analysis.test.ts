@@ -195,6 +195,8 @@ function ports(
   };
   const chain = {
     getCode: vi.fn().mockResolvedValue("0x6000" as Hex),
+    // Encoded isSilo(false), so an unrelated destination stays outside Silo attestation.
+    call: vi.fn().mockResolvedValue(`0x${"0".repeat(64)}` as Hex),
     ...chainOverrides,
   };
   return {

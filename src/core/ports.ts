@@ -233,6 +233,7 @@ export interface PersistencePort {
     label: string,
     trust: "trusted" | "flagged",
     purpose?: string | null,
+    reviewFingerprint?: string | null,
   ): Promise<void>;
   removeAddressBookEntry(
     profileId: string,

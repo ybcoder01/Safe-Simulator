@@ -22,6 +22,7 @@ describe("address book schemas", () => {
       address,
       label: "Treasury router",
       purpose: null,
+      reviewFingerprint: null,
       trust: "trusted",
     });
   });

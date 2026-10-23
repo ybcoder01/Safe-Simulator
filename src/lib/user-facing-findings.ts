@@ -48,6 +48,8 @@ const CONSUMED_CODES = new Set([
   ...BOUNDED_PERMISSION_CODES,
   ...PROTOCOL_PATH_CODES,
   "silo-permissionless-market",
+  "silo-market-review-stale",
+  "silo-factory-lookup-unavailable",
   "silo-approved-market",
   "protocol-route-attestation-incomplete",
   "explicitly-flagged-address",
@@ -232,6 +234,8 @@ export function resolveUserFacingFindings(
   const routeAccountedFor = findings.some(
     (item) =>
       item.code === "silo-permissionless-market" ||
+      item.code === "silo-market-review-stale" ||
+      item.code === "silo-factory-lookup-unavailable" ||
       item.code === "silo-approved-market",
   );
   if (
@@ -272,6 +276,36 @@ export function resolveUserFacingFindings(
         "Part of the Silo route is still unresolved",
         "The official Silo router and factory-created market were confirmed, but at least one traced contract is outside the market relationships Safe Inspector could prove on-chain.",
         routeAttestation.addresses,
+      ),
+    );
+  }
+
+  const factoryLookupUnavailable = findings.find(
+    (item) => item.code === "silo-factory-lookup-unavailable",
+  );
+  if (factoryLookupUnavailable) {
+    result.push(
+      finding(
+        factoryLookupUnavailable.code,
+        factoryLookupUnavailable.severity,
+        "Silo verification temporarily unavailable",
+        "The Silo Factory did not answer in time, so this destination was not classified. The lookup continues in the background. Reload the report before relying on it.",
+        factoryLookupUnavailable.addresses,
+      ),
+    );
+  }
+
+  const staleMarketReview = findings.find(
+    (item) => item.code === "silo-market-review-stale",
+  );
+  if (staleMarketReview) {
+    result.push(
+      finding(
+        staleMarketReview.code,
+        staleMarketReview.severity,
+        "Silo market configuration changed since approval",
+        "This market address is trusted, but its implementation or critical configuration no longer matches the fingerprint your team approved. Trust the current configuration before treating the market as approved.",
+        staleMarketReview.addresses,
       ),
     );
   }

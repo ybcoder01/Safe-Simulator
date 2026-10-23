@@ -2,6 +2,7 @@ import {
   decodeFunctionResult,
   encodeFunctionData,
   getAddress,
+  keccak256,
   parseAbi,
 } from "viem";
 
@@ -9,17 +10,37 @@ import {
   contractRegistryEntriesForChain,
   findContractRegistryEntry,
 } from "@/core/analysis/trust/contract-registry";
-import type { Address, Finding, SafeTransaction } from "@/core/domain";
-import type { ChainPort } from "@/core/ports";
+import type { Address, Finding, Hex, SafeTransaction } from "@/core/domain";
+import type { CachePort, ChainPort } from "@/core/ports";
 import type { ExecutionInsight } from "@/lib/api/execution-insight";
 import type { InternalProxyBoundary } from "@/lib/api/internal-proxy-boundaries";
 
 const SILO_FACTORY = "0xf81d90DF1B63d48536E78564d24d5DD8F2BE58aD" as Address;
 const MAX_CANDIDATE_CONTRACTS = 32;
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+// EIP-1967 implementation slot. The market proxy's runtime identity is part
+// of the approval fingerprint.
+const IMPLEMENTATION_SLOT =
+  "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc" as Hex;
+const BEACON_SLOT =
+  "0xa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b35133d50" as Hex;
+// Legacy OpenZeppelin / ZeppelinOS implementation slot, still used by some proxies.
+const LEGACY_IMPLEMENTATION_SLOT =
+  "0x7050c9e0f4ca769c69bd3a8ef740bc37934f8e2c036e5a723fd8ee048ed3f8c3" as Hex;
+const EIP_1167_PREFIX = "363d3d373d3d3d363d73";
+const EIP_1167_SUFFIX = "5af43d82803e903d91602b57fd5bf3";
+// Stop following proxy chains that never resolve to runtime code.
+const MAX_RUNTIME_PROXY_DEPTH = 4;
+// Unrelated XDC pages must not wait on a slow Silo Factory read.
+const FACTORY_MEMBERSHIP_TIMEOUT_MS = 500;
+const FACTORY_MEMBERSHIP_LATEST_TTL_SECONDS = 600;
+const FACTORY_MEMBERSHIP_BLOCK_TTL_SECONDS = 2_592_000;
 
 const factoryAbi = parseAbi([
   "function isSilo(address silo) view returns (bool)",
+]);
+const beaconAbi = parseAbi([
+  "function implementation() view returns (address)",
 ]);
 const siloAbi = parseAbi([
   "function config() view returns (address siloConfig)",
@@ -77,6 +98,16 @@ export interface ProtocolRouteAttestation {
   readonly proxyBoundaries: readonly InternalProxyBoundary[];
   readonly checks: readonly ProtocolVerificationCheck[];
   readonly findings: readonly Finding[];
+  /**
+   * Configuration the team would be approving. Address-book trust matches a
+   * market only when the stored fingerprint equals this value.
+   */
+  readonly marketReviews: readonly SiloMarketReview[];
+}
+
+export interface SiloMarketReview {
+  readonly address: Address;
+  readonly fingerprint: string;
 }
 
 function addressKey(value: string): string {
@@ -124,30 +155,383 @@ async function callContract(
   );
 }
 
-async function isFactorySilo(
+function factoryMembershipKey(
+  transaction: SafeTransaction,
+  address: Address,
+): string {
+  const block = transaction.blockNumber?.toString() ?? "latest";
+  return `silo-factory-membership:v1:${transaction.safe.chainId}:${addressKey(address)}:${block}`;
+}
+
+async function readCachedFactoryMembership(
+  cache: Pick<CachePort, "get"> | null | undefined,
+  key: string,
+): Promise<boolean | null> {
+  if (!cache) return null;
+  try {
+    const cached = await cache.get<boolean>(key);
+    return cached === true || cached === false ? cached : null;
+  } catch {
+    return null;
+  }
+}
+
+type FactoryMembership = "member" | "not-member" | "unknown";
+
+export type BackgroundSchedule = (task: Promise<unknown>) => void;
+
+function retainBackground(
+  task: Promise<unknown>,
+  schedule?: BackgroundSchedule | null,
+) {
+  const guarded = task.catch(() => undefined);
+  if (schedule) {
+    try {
+      schedule(guarded);
+    } catch {
+      // The lookup is already running. A scheduler failure must not hide it.
+    }
+    return;
+  }
+  // Keep the warm-up alive after the response on Vercel. Outside a request
+  // this throws, and the promise is left running on its own.
+  void import("next/server")
+    .then(({ after }) => {
+      try {
+        after(() => guarded);
+      } catch {
+        // No request scope.
+      }
+    })
+    .catch(() => undefined);
+}
+
+async function readFactoryMembership(
   chain: ChainPort,
   transaction: SafeTransaction,
   address: Address,
 ): Promise<boolean> {
+  const result = await callContract(
+    chain,
+    transaction,
+    SILO_FACTORY,
+    encodeFunctionData({
+      abi: factoryAbi,
+      functionName: "isSilo",
+      args: [address],
+    }),
+  );
+  return decodeFunctionResult({
+    abi: factoryAbi,
+    functionName: "isSilo",
+    data: result,
+  });
+}
+
+function membershipTtl(transaction: SafeTransaction): number {
+  return transaction.blockNumber === null
+    ? FACTORY_MEMBERSHIP_LATEST_TTL_SECONDS
+    : FACTORY_MEMBERSHIP_BLOCK_TTL_SECONDS;
+}
+
+async function factoryMembership(
+  chain: ChainPort,
+  transaction: SafeTransaction,
+  address: Address,
+  options: {
+    readonly cache?: Pick<CachePort, "get" | "set"> | null | undefined;
+    readonly timeoutMs?: number;
+    readonly schedule?: BackgroundSchedule | null | undefined;
+  } = {},
+): Promise<FactoryMembership> {
+  const key = factoryMembershipKey(transaction, address);
+  const cached = await readCachedFactoryMembership(options.cache, key);
+  if (cached === true) return "member";
+  if (cached === false) return "not-member";
+
+  const lookup = readFactoryMembership(chain, transaction, address);
+  const ttl = membershipTtl(transaction);
+  const store = (member: boolean) => {
+    // A definitive factory answer stands even when the cache write fails.
+    const cache = options.cache;
+    if (!cache) return Promise.resolve();
+    try {
+      return Promise.resolve(cache.set(key, member, ttl)).catch(
+        () => undefined,
+      );
+    } catch {
+      return Promise.resolve();
+    }
+  };
+
   try {
+    const member = await (options.timeoutMs === undefined
+      ? lookup
+      : withTimeout(lookup, options.timeoutMs));
+    await store(member);
+    return member ? "member" : "not-member";
+  } catch (error) {
+    // A timeout or RPC error is not "not a Silo". Finish the in-flight read,
+    // or retry once, and cache only a real answer.
+    const timedOut =
+      error instanceof Error && error.message === "silo-factory-timeout";
+    if (options.timeoutMs !== undefined) {
+      const warm = (
+        timedOut ? lookup : readFactoryMembership(chain, transaction, address)
+      ).then(store);
+      retainBackground(warm, options.schedule);
+    }
+    return "unknown";
+  }
+}
+
+async function isFactorySilo(
+  chain: ChainPort,
+  transaction: SafeTransaction,
+  address: Address,
+  options: {
+    readonly cache?: Pick<CachePort, "get" | "set"> | null | undefined;
+  } = {},
+): Promise<boolean> {
+  // Unbounded reads used after the destination is already a Silo route.
+  // Unknown stays unproven rather than being cached as non-member.
+  return (
+    (await factoryMembership(chain, transaction, address, options)) === "member"
+  );
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error("silo-factory-timeout")),
+      timeoutMs,
+    );
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error: unknown) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
+function addressFromWord(word: Hex): Address {
+  const body = word.toLowerCase().replace(/^0x/, "").padStart(64, "0");
+  return getAddress(`0x${body.slice(-40)}`) as Address;
+}
+
+export interface DependencyRuntimeIdentity {
+  readonly address: Address;
+  readonly implementation: Address;
+  readonly runtimeHash: Hex;
+}
+
+/**
+ * Stable review id for one Silo market at the transaction block. The market
+ * and every critical dependency contribute a runtime identity, not only an
+ * address. EIP-1967, legacy, beacon, and EIP-1167 proxies are followed until
+ * the code that actually runs is hashed, so an upgrade changes the id. `null`
+ * means that role is unset. A missing identity is omitted entirely and cannot
+ * be approved.
+ */
+export function siloMarketReviewFingerprint(input: {
+  readonly chainId: number;
+  readonly market: Address;
+  readonly implementation: Address;
+  readonly runtimeHash: Hex;
+  readonly token: DependencyRuntimeIdentity | null;
+  readonly protectedShareToken: DependencyRuntimeIdentity | null;
+  readonly collateralShareToken: DependencyRuntimeIdentity | null;
+  readonly debtShareToken: DependencyRuntimeIdentity | null;
+  readonly solvencyOracle: DependencyRuntimeIdentity | null;
+  readonly maxLtvOracle: DependencyRuntimeIdentity | null;
+  readonly interestRateModel: DependencyRuntimeIdentity | null;
+  readonly hookReceiver: DependencyRuntimeIdentity | null;
+  readonly daoFee: bigint;
+  readonly deployerFee: bigint;
+  readonly maxLtv: bigint;
+  readonly lt: bigint;
+  readonly liquidationTargetLtv: bigint;
+  readonly liquidationFee: bigint;
+  readonly flashloanFee: bigint;
+  readonly callBeforeQuote: boolean;
+}): string {
+  const dependency = (identity: DependencyRuntimeIdentity | null) =>
+    identity
+      ? `${identity.address}:${identity.implementation}:${identity.runtimeHash}`
+      : "absent";
+  return [
+    "silo-market-v2",
+    input.chainId,
+    input.market,
+    input.implementation,
+    input.runtimeHash,
+    dependency(input.token),
+    dependency(input.protectedShareToken),
+    dependency(input.collateralShareToken),
+    dependency(input.debtShareToken),
+    dependency(input.solvencyOracle),
+    dependency(input.maxLtvOracle),
+    dependency(input.interestRateModel),
+    dependency(input.hookReceiver),
+    input.daoFee,
+    input.deployerFee,
+    input.maxLtv,
+    input.lt,
+    input.liquidationTargetLtv,
+    input.liquidationFee,
+    input.flashloanFee,
+    input.callBeforeQuote ? "1" : "0",
+  ]
+    .join(":")
+    .toLowerCase();
+}
+
+function pointsElsewhere(candidate: Address, account: Address): boolean {
+  const key = addressKey(candidate);
+  return key !== ZERO_ADDRESS && key !== addressKey(account);
+}
+
+function minimalProxyTarget(code: Hex): Address | null {
+  const body = code.toLowerCase().replace(/^0x/, "");
+  if (body.length !== EIP_1167_PREFIX.length + 40 + EIP_1167_SUFFIX.length) {
+    return null;
+  }
+  if (!body.startsWith(EIP_1167_PREFIX) || !body.endsWith(EIP_1167_SUFFIX)) {
+    return null;
+  }
+  return getAddress(
+    `0x${body.slice(EIP_1167_PREFIX.length, EIP_1167_PREFIX.length + 40)}`,
+  ) as Address;
+}
+
+type RuntimeStep =
+  | { readonly kind: "follow"; readonly address: Address }
+  | { readonly kind: "code"; readonly code: Hex }
+  | { readonly kind: "unresolved" };
+
+/**
+ * One proxy hop. A slot that names the account itself is ignored so the
+ * account's own code can still be hashed. Empty code, a beacon with no
+ * implementation, or a failed read is unresolved and cannot be approved.
+ */
+async function nextRuntimeStep(
+  chain: ChainPort,
+  transaction: SafeTransaction,
+  account: Address,
+): Promise<RuntimeStep> {
+  const block = transaction.blockNumber ?? undefined;
+  const readSlot = (slot: Hex) =>
+    chain.getStorageAt(transaction.safe.chainId, account, slot, block);
+
+  const implementation = addressFromWord(await readSlot(IMPLEMENTATION_SLOT));
+  if (pointsElsewhere(implementation, account)) {
+    return { kind: "follow", address: implementation };
+  }
+  const legacy = addressFromWord(await readSlot(LEGACY_IMPLEMENTATION_SLOT));
+  if (pointsElsewhere(legacy, account)) {
+    return { kind: "follow", address: legacy };
+  }
+  const beacon = addressFromWord(await readSlot(BEACON_SLOT));
+  if (pointsElsewhere(beacon, account)) {
     const result = await callContract(
       chain,
       transaction,
-      SILO_FACTORY,
-      encodeFunctionData({
-        abi: factoryAbi,
-        functionName: "isSilo",
-        args: [address],
-      }),
+      beacon,
+      encodeFunctionData({ abi: beaconAbi, functionName: "implementation" }),
     );
-    return decodeFunctionResult({
-      abi: factoryAbi,
-      functionName: "isSilo",
-      data: result,
-    });
-  } catch {
-    return false;
+    const resolved = getAddress(
+      decodeFunctionResult({
+        abi: beaconAbi,
+        functionName: "implementation",
+        data: result,
+      }),
+    ) as Address;
+    if (!pointsElsewhere(resolved, account)) return { kind: "unresolved" };
+    return { kind: "follow", address: resolved };
   }
+
+  const code = await chain.getCode(transaction.safe.chainId, account, block);
+  if (!code || code === "0x") return { kind: "unresolved" };
+  const clone = minimalProxyTarget(code);
+  if (clone && pointsElsewhere(clone, account)) {
+    return { kind: "follow", address: clone };
+  }
+  return { kind: "code", code };
+}
+
+async function runtimeIdentity(
+  chain: ChainPort,
+  transaction: SafeTransaction,
+  account: Address,
+): Promise<DependencyRuntimeIdentity | null> {
+  try {
+    let current = getAddress(account) as Address;
+    const seen = new Set<string>([addressKey(current)]);
+    for (let depth = 0; depth < MAX_RUNTIME_PROXY_DEPTH; depth += 1) {
+      const step = await nextRuntimeStep(chain, transaction, current);
+      if (step.kind === "unresolved") return null;
+      if (step.kind === "code") {
+        return {
+          address: getAddress(account) as Address,
+          implementation: current,
+          runtimeHash: keccak256(step.code),
+        };
+      }
+      const nextKey = addressKey(step.address);
+      if (seen.has(nextKey)) return null;
+      seen.add(nextKey);
+      current = step.address;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+const CRITICAL_DEPENDENCY_KEYS = [
+  "token",
+  "protectedShareToken",
+  "collateralShareToken",
+  "debtShareToken",
+  "solvencyOracle",
+  "maxLtvOracle",
+  "interestRateModel",
+  "hookReceiver",
+] as const;
+
+async function criticalDependencyIdentities(
+  chain: ChainPort,
+  transaction: SafeTransaction,
+  config: ConfigData & { readonly silo: Address },
+  marketIdentity: DependencyRuntimeIdentity,
+): Promise<Record<
+  (typeof CRITICAL_DEPENDENCY_KEYS)[number],
+  DependencyRuntimeIdentity | null
+> | null> {
+  const identities = {} as Record<
+    (typeof CRITICAL_DEPENDENCY_KEYS)[number],
+    DependencyRuntimeIdentity | null
+  >;
+  for (const key of CRITICAL_DEPENDENCY_KEYS) {
+    const dependency = config[key];
+    if (addressKey(dependency) === ZERO_ADDRESS) {
+      identities[key] = null;
+      continue;
+    }
+    if (addressKey(dependency) === addressKey(marketIdentity.address)) {
+      identities[key] = marketIdentity;
+      continue;
+    }
+    const identity = await runtimeIdentity(chain, transaction, dependency);
+    if (!identity) return null;
+    identities[key] = identity;
+  }
+  return identities;
 }
 
 function configAddresses(
@@ -406,7 +790,11 @@ async function attestSiloMarket(
   transaction: SafeTransaction,
   silo: Address,
   traced: ReadonlySet<string>,
-): Promise<readonly AttestedProtocolAddress[] | null> {
+  cache?: Pick<CachePort, "get" | "set"> | null,
+): Promise<{
+  readonly addresses: readonly AttestedProtocolAddress[];
+  readonly reviews: readonly SiloMarketReview[];
+} | null> {
   try {
     const configResult = await callContract(
       chain,
@@ -433,7 +821,7 @@ async function attestSiloMarket(
       data: silosResult,
     });
     const factoryProofs = await Promise.all(
-      silos.map((item) => isFactorySilo(chain, transaction, item)),
+      silos.map((item) => isFactorySilo(chain, transaction, item, { cache })),
     );
     if (!factoryProofs.every(Boolean)) return null;
 
@@ -475,36 +863,137 @@ async function attestSiloMarket(
       ),
     );
 
-    return uniqueAddresses([
-      ...dependencies.flat(),
-      ...rateModels.flat(),
-      ...gauges.flat(),
-      { address: SILO_FACTORY, label: "Official Silo Factory" },
-      { address: configAddress, label: "Silo market configuration" },
-      ...configs.flatMap((item) => configAddresses(item as ConfigData)),
-    ]);
+    const reviews: SiloMarketReview[] = [];
+    for (const item of configs) {
+      const identity = await runtimeIdentity(chain, transaction, item.silo);
+      if (!identity) continue;
+      const dependencies = await criticalDependencyIdentities(
+        chain,
+        transaction,
+        item,
+        identity,
+      );
+      // No fingerprint unless every configured dependency has a runtime
+      // identity. An unknown proxy cannot stay approved.
+      if (!dependencies) continue;
+      reviews.push({
+        address: identity.address,
+        fingerprint: siloMarketReviewFingerprint({
+          chainId: transaction.safe.chainId,
+          market: identity.address,
+          implementation: identity.implementation,
+          runtimeHash: identity.runtimeHash,
+          token: dependencies.token,
+          protectedShareToken: dependencies.protectedShareToken,
+          collateralShareToken: dependencies.collateralShareToken,
+          debtShareToken: dependencies.debtShareToken,
+          solvencyOracle: dependencies.solvencyOracle,
+          maxLtvOracle: dependencies.maxLtvOracle,
+          interestRateModel: dependencies.interestRateModel,
+          hookReceiver: dependencies.hookReceiver,
+          daoFee: item.daoFee,
+          deployerFee: item.deployerFee,
+          maxLtv: item.maxLtv,
+          lt: item.lt,
+          liquidationTargetLtv: item.liquidationTargetLtv,
+          liquidationFee: item.liquidationFee,
+          flashloanFee: item.flashloanFee,
+          callBeforeQuote: item.callBeforeQuote,
+        }),
+      });
+    }
+
+    return {
+      addresses: uniqueAddresses([
+        ...dependencies.flat(),
+        ...rateModels.flat(),
+        ...gauges.flat(),
+        { address: SILO_FACTORY, label: "Official Silo Factory" },
+        { address: configAddress, label: "Silo market configuration" },
+        ...configs.flatMap((item) => configAddresses(item)),
+      ]),
+      reviews,
+    };
   } catch {
     return null;
   }
 }
 
 /**
- * Whether the destination's identity is settled without any explorer data: it
- * is a pinned Silo deployment and the whole traced route was tied to the
- * factory-proven market graph. The permissionless-market finding is only
- * produced once no traced contract is left unaccounted for.
+ * Whether the destination's identity is settled without any explorer data: the
+ * whole traced route was tied to a factory-proven Silo market graph. That
+ * covers the pinned Silo router and direct calls to a factory market vault
+ * (for example `redeem` on the market itself). The permissionless-market
+ * finding is only produced once no traced contract is left unaccounted for.
  */
 export function isSiloRouteProven(
   targetProtocol: string | undefined,
   attestation: Pick<ProtocolRouteAttestation, "protocol" | "findings">,
 ): boolean {
-  return (
-    targetProtocol === "silo" &&
-    attestation.protocol === "silo" &&
-    attestation.findings.some(
+  if (
+    attestation.protocol !== "silo" ||
+    !attestation.findings.some(
       (finding) => finding.code === "silo-permissionless-market",
     )
-  );
+  ) {
+    return false;
+  }
+  // Registry-pinned Silo entrypoints, or a factory market with no static row.
+  return targetProtocol === "silo" || targetProtocol === undefined;
+}
+
+function siloDestinationCheck(
+  entrypoint: "router" | "market",
+): ProtocolVerificationCheck {
+  if (entrypoint === "market") {
+    return {
+      key: "destination",
+      status: "pass",
+      title: "Factory-created Silo market",
+      detail:
+        "The destination is recognized by Silo's live factory contract as a Silo market vault.",
+    };
+  }
+  return {
+    key: "destination",
+    status: "pass",
+    title: "Official Silo router",
+    detail: "The destination matches the reviewed Silo deployment record.",
+  };
+}
+
+function factoryLookupUnavailable(
+  destination: Address,
+): ProtocolRouteAttestation {
+  return {
+    protocol: "silo",
+    status: "unavailable",
+    title: "Silo verification temporarily unavailable",
+    detail:
+      "The Silo Factory did not answer in time, so this destination was not classified. The lookup continues in the background. Reload the report before relying on it.",
+    addresses: [],
+    proxyBoundaries: [],
+    checks: [
+      {
+        key: "factory",
+        status: "review",
+        title: "Silo Factory lookup timed out",
+        detail:
+          "A slow or failed factory read is not treated as proof that this contract is unrelated to Silo.",
+      },
+    ],
+    findings: [
+      {
+        code: "silo-factory-lookup-unavailable",
+        severity: "warning",
+        title: "Silo verification temporarily unavailable",
+        detail:
+          "The Silo Factory did not answer in time. This destination was not classified, and the lookup continues in the background. Reload before relying on the report.",
+        addresses: [destination],
+      },
+    ],
+    marketReviews: [],
+  };
 }
 
 function notApplicable(): ProtocolRouteAttestation {
@@ -517,6 +1006,7 @@ function notApplicable(): ProtocolRouteAttestation {
     proxyBoundaries: [],
     checks: [],
     findings: [],
+    marketReviews: [],
   };
 }
 
@@ -683,14 +1173,38 @@ export async function resolveProtocolRouteAttestation(
   transaction: SafeTransaction,
   execution: Pick<ExecutionInsight, "internalCalls">,
   resolvedProxyBoundaries: readonly InternalProxyBoundary[] = [],
+  cache?: Pick<CachePort, "get" | "set"> | null,
+  scheduleBackground?: BackgroundSchedule | null,
 ): Promise<ProtocolRouteAttestation> {
+  if (transaction.safe.chainId !== 50) {
+    return notApplicable();
+  }
+
   const target = findContractRegistryEntry(
     transaction.safe.chainId,
     transaction.to,
   );
-  if (target?.protocol !== "silo" || transaction.safe.chainId !== 50) {
-    return notApplicable();
+  const destination = getAddress(transaction.to) as Address;
+  const registrySilo = target?.protocol === "silo";
+  // Direct market calls (redeem/deposit on the vault) are not in the pinned
+  // Silo registry; prove them through the official factory instead.
+  let destinationIsFactorySilo = false;
+  if (!registrySilo) {
+    const membership = await factoryMembership(
+      chain,
+      transaction,
+      destination,
+      {
+        cache,
+        timeoutMs: FACTORY_MEMBERSHIP_TIMEOUT_MS,
+        schedule: scheduleBackground,
+      },
+    );
+    if (membership === "unknown") return factoryLookupUnavailable(destination);
+    if (membership === "not-member") return notApplicable();
+    destinationIsFactorySilo = true;
   }
+  const entrypoint = destinationIsFactorySilo ? "market" : "router";
 
   const staticSiloAddresses = contractRegistryEntriesForChain(50)
     .filter((entry) => entry.protocol === "silo")
@@ -698,7 +1212,7 @@ export async function resolveProtocolRouteAttestation(
   const staticKeys = new Set(
     staticSiloAddresses.map((item) => addressKey(item.address)),
   );
-  const candidates = [
+  const tracedCandidates = [
     ...new Set(
       execution.internalCalls
         .flatMap((call) => [call.from, call.to])
@@ -711,15 +1225,30 @@ export async function resolveProtocolRouteAttestation(
       (address) =>
         !staticKeys.has(addressKey(address)) &&
         addressKey(address) !== addressKey(transaction.safe.address) &&
-        addressKey(address) !== addressKey(transaction.to) &&
+        addressKey(address) !== addressKey(destination) &&
         addressKey(address) !== ZERO_ADDRESS &&
         !isPrecompile(address) &&
         findContractRegistryEntry(50, address)?.protocol !== "safe",
-    )
-    .slice(0, MAX_CANDIDATE_CONTRACTS);
+    );
+  // When the Safe calls the market vault directly, the destination is the
+  // market to attest — it would otherwise be filtered out above.
+  const candidates = (
+    destinationIsFactorySilo
+      ? [destination, ...tracedCandidates]
+      : tracedCandidates
+  ).slice(0, MAX_CANDIDATE_CONTRACTS);
 
   const siloFlags = await Promise.all(
-    candidates.map((address) => isFactorySilo(chain, transaction, address)),
+    candidates.map(async (address) => {
+      // Already proven above when the Safe called the market vault directly.
+      if (
+        destinationIsFactorySilo &&
+        addressKey(address) === addressKey(destination)
+      ) {
+        return true;
+      }
+      return isFactorySilo(chain, transaction, address, { cache });
+    }),
   );
   const markets = candidates.filter((_, index) => siloFlags[index] === true);
   if (markets.length === 0) {
@@ -728,17 +1257,13 @@ export async function resolveProtocolRouteAttestation(
       status: "unavailable",
       title: "Silo market lineage could not be proven",
       detail:
-        "The official router was recognized, but no traced market could be verified through the official Silo Factory.",
+        entrypoint === "market"
+          ? "The destination looks like a Silo market, but it could not be verified through the official Silo Factory."
+          : "The official router was recognized, but no traced market could be verified through the official Silo Factory.",
       addresses: staticSiloAddresses,
       proxyBoundaries: [],
       checks: [
-        {
-          key: "destination",
-          status: "pass",
-          title: "Official Silo router",
-          detail:
-            "The transaction destination matches the reviewed Silo deployment record.",
-        },
+        siloDestinationCheck(entrypoint),
         {
           key: "factory",
           status: "fail",
@@ -753,10 +1278,13 @@ export async function resolveProtocolRouteAttestation(
           severity: "warning",
           title: "The Silo market route could not be proven",
           detail:
-            "Safe Inspector recognized the official router but could not connect the traced route to a market created by the official Silo Factory.",
+            entrypoint === "market"
+              ? "Safe Inspector could not connect this destination to a market created by the official Silo Factory."
+              : "Safe Inspector recognized the official router but could not connect the traced route to a market created by the official Silo Factory.",
           addresses: candidates,
         },
       ],
+      marketReviews: [],
     };
   }
 
@@ -768,15 +1296,16 @@ export async function resolveProtocolRouteAttestation(
   );
   const marketEvidence = await Promise.all(
     markets.map((market) =>
-      attestSiloMarket(chain, transaction, market, tracedAddresses),
+      attestSiloMarket(chain, transaction, market, tracedAddresses, cache),
     ),
   );
   const incompleteMarkets = markets.filter(
     (_, index) => marketEvidence[index] === null,
   );
+  const marketReviews = marketEvidence.flatMap((item) => item?.reviews ?? []);
   const baseAttested = uniqueAddresses([
     ...staticSiloAddresses,
-    ...marketEvidence.flatMap((items) => items ?? []),
+    ...marketEvidence.flatMap((item) => item?.addresses ?? []),
   ]);
   const proxyAttested = expandAttestedProxyGraph(
     baseAttested,
@@ -862,13 +1391,7 @@ export async function resolveProtocolRouteAttestation(
       addresses: attested,
       proxyBoundaries,
       checks: [
-        {
-          key: "destination",
-          status: "pass",
-          title: "Official Silo router",
-          detail:
-            "The destination matches the reviewed Silo deployment record.",
-        },
+        siloDestinationCheck(entrypoint),
         {
           key: "factory",
           status: "pass",
@@ -907,10 +1430,13 @@ export async function resolveProtocolRouteAttestation(
           severity: "warning",
           title: "Part of the Silo route is still unresolved",
           detail:
-            "Safe Inspector verified the official router and factory-created market relationships it could read, but at least one traced address remains outside that proven graph.",
+            entrypoint === "market"
+              ? "Safe Inspector verified the factory-created market relationships it could read, but at least one traced address remains outside that proven graph."
+              : "Safe Inspector verified the official router and factory-created market relationships it could read, but at least one traced address remains outside that proven graph.",
           addresses,
         },
       ],
+      marketReviews,
     };
   }
 
@@ -923,12 +1449,7 @@ export async function resolveProtocolRouteAttestation(
     addresses: attested,
     proxyBoundaries,
     checks: [
-      {
-        key: "destination",
-        status: "pass",
-        title: "Official Silo router",
-        detail: "The destination matches the reviewed Silo deployment record.",
-      },
+      siloDestinationCheck(entrypoint),
       {
         key: "factory",
         status: "pass",
@@ -961,5 +1482,6 @@ export async function resolveProtocolRouteAttestation(
         addresses: markets,
       },
     ],
+    marketReviews,
   };
 }

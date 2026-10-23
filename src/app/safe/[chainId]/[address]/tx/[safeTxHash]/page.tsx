@@ -5,6 +5,7 @@ import {
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { after } from "next/server";
 import { Suspense } from "react";
 
 import {
@@ -376,6 +377,10 @@ export default async function TransactionDetailPage({
     persisted,
     execution,
     internalProxyBoundaries,
+    cache,
+    (task) => {
+      after(() => task);
+    },
   );
   const verdict = resolveEvidenceVerdict(
     persisted,
@@ -417,10 +422,6 @@ export default async function TransactionDetailPage({
     safe.data.chainId,
     persisted.to,
   );
-  const protocolLabel = targetRegistryEntry
-    ? (PROTOCOL_LABELS[targetRegistryEntry.protocol] ??
-      targetRegistryEntry.protocol)
-    : null;
   const decodedAction = resolveTransactionActionLabel({
     chainId: safe.data.chainId,
     decoded,
@@ -474,6 +475,20 @@ export default async function TransactionDetailPage({
     activity.type === "liquidity"
       ? "Add liquidity to a pool"
       : transaction.summary;
+  // Identity is decided from the pinned registry and the on-chain route proof.
+  // XDCScan source metadata is supplementary and never changes this result.
+  const siloRouteProven = isSiloRouteProven(
+    targetRegistryEntry?.protocol,
+    routeAttestation,
+  );
+  const targetKnown = targetRegistryEntry !== undefined || siloRouteProven;
+  const targetVerified = insight.metadata.verified || siloRouteProven;
+  const protocolLabel = targetRegistryEntry
+    ? (PROTOCOL_LABELS[targetRegistryEntry.protocol] ??
+      targetRegistryEntry.protocol)
+    : siloRouteProven
+      ? (PROTOCOL_LABELS.silo ?? "Silo")
+      : null;
   const primaryAction =
     decoded?.method.split("(").at(0)?.toLowerCase() === "multicall" &&
     networkAction &&
@@ -496,13 +511,6 @@ export default async function TransactionDetailPage({
     safe.data.chainId,
     persisted.to,
   );
-  // Identity is decided from the pinned registry and the on-chain route proof.
-  // XDCScan source metadata is supplementary and never changes this result.
-  const siloRouteProven = isSiloRouteProven(
-    targetRegistryEntry?.protocol,
-    routeAttestation,
-  );
-  const targetVerified = insight.metadata.verified || siloRouteProven;
   const userFacingFindings = resolveUserFacingFindings({
     evidence: verdict,
     identifiedAddresses: [
@@ -518,7 +526,7 @@ export default async function TransactionDetailPage({
         .map((assessment) => assessment.address),
     ],
     protocolLabel,
-    targetKnown: targetRegistryEntry !== undefined,
+    targetKnown,
     targetVerified,
   });
   const criticalFindingCount = userFacingFindings.filter(
@@ -535,7 +543,7 @@ export default async function TransactionDetailPage({
     evidence: effectiveEvidence,
     execution,
     primaryAction,
-    targetKnown: targetRegistryEntry !== undefined,
+    targetKnown,
     target: targetRuntimeCode,
     targetVerified,
     transaction: persisted,
@@ -551,7 +559,7 @@ export default async function TransactionDetailPage({
     previousTransfers: transferHistoryPage?.items ?? [],
     protocolLabel,
     targetAccountType: targetRuntimeCode.accountType,
-    targetKnown: targetRegistryEntry !== undefined,
+    targetKnown,
     targetVerified,
     transferHistoryLoaded: transferHistoryPage !== null,
     transaction: persisted,
@@ -1124,11 +1132,19 @@ export default async function TransactionDetailPage({
             chainId={safe.data.chainId}
             initialEntries={addressBook}
             safeAddress={safe.data.address}
-            suggestions={verdict.addresses.map((assessment) => ({
-              address: assessment.address,
-              label: assessment.label,
-              roles: assessment.roles,
-            }))}
+            suggestions={verdict.addresses.map((assessment) => {
+              const review = routeAttestation.marketReviews.find(
+                (item) =>
+                  item.address.toLowerCase() ===
+                  assessment.address.toLowerCase(),
+              );
+              return {
+                address: assessment.address,
+                label: assessment.label,
+                roles: assessment.roles,
+                ...(review ? { reviewFingerprint: review.fingerprint } : {}),
+              };
+            })}
           />
         ) : null}
         <details

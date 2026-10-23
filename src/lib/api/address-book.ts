@@ -19,6 +19,13 @@ export const addressBookInputSchema = z.object({
     .nullish()
     .transform((value) => value || null),
   trust: z.enum(["trusted", "flagged"]),
+  reviewFingerprint: z
+    .string()
+    .trim()
+    .min(1)
+    .max(1024)
+    .nullish()
+    .transform((value) => value || null),
 });
 
 export const addressBookDeleteSchema = z.object({
@@ -30,6 +37,7 @@ export interface AddressBookView {
   readonly label: string;
   readonly trust: "trusted" | "flagged";
   readonly purpose?: string | null;
+  readonly reviewFingerprint?: string | null;
   readonly trustedAt?: number;
 }
 
@@ -39,6 +47,7 @@ export function toAddressBookView(entry: AddressBookEntry): AddressBookView {
     label: entry.label,
     trust: entry.trust,
     purpose: entry.purpose ?? null,
+    reviewFingerprint: entry.reviewFingerprint ?? null,
     ...(entry.trustedAt === undefined ? {} : { trustedAt: entry.trustedAt }),
   };
 }
@@ -47,6 +56,8 @@ export interface AddressBookSuggestion {
   readonly address: string;
   readonly label: string | null;
   readonly roles: readonly string[];
+  /** Present when this address is a Silo market with a proven configuration. */
+  readonly reviewFingerprint?: string | null;
 }
 
 export function suggestedAddressBookLabel(
