@@ -104,6 +104,29 @@ export const profiles = pgTable("profiles", {
   createdAt,
 });
 
+export const profileIdentities = pgTable(
+  "profile_identities",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    profileId: uuid("profile_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
+    privyUserId: text("privy_user_id").notNull(),
+    walletAddress: address("wallet_address").notNull(),
+    lastAuthenticatedAt: timestamp("last_authenticated_at", {
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+    createdAt,
+  },
+  (table) => [
+    uniqueIndex("profile_identities_profile_unique").on(table.profileId),
+    uniqueIndex("profile_identities_privy_user_unique").on(table.privyUserId),
+    uniqueIndex("profile_identities_wallet_unique").on(table.walletAddress),
+  ],
+);
+
 export const profileSafes = pgTable(
   "profile_safes",
   {

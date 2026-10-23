@@ -4,8 +4,8 @@ import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 
 import { getPersistencePort } from "@/container";
-import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
 import { safeRouteParamsSchema } from "@/lib/api/safe-details";
+import { AUTH_SESSION_COOKIE, parseAuthSession } from "@/lib/auth/session";
 
 interface RemoveSafeBookmarkInput {
   readonly chainId: number;
@@ -26,13 +26,13 @@ export async function removeSafeBookmark(
   }
 
   const cookieStore = await cookies();
-  const profileId = parseProfileId(cookieStore.get(PROFILE_COOKIE)?.value);
-  if (!profileId) {
-    return { ok: false, error: "This watchlist session is unavailable." };
+  const session = parseAuthSession(cookieStore.get(AUTH_SESSION_COOKIE)?.value);
+  if (!session) {
+    return { ok: false, error: "Sign in with your wallet first." };
   }
 
   try {
-    await getPersistencePort().unbookmarkSafe(profileId, safe.data);
+    await getPersistencePort().unbookmarkSafe(session.profileId, safe.data);
     revalidatePath("/safes");
     return { ok: true };
   } catch {

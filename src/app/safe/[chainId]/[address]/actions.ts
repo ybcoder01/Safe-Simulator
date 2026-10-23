@@ -9,7 +9,7 @@ import {
   getQueuePort,
   getSafeDataPort,
 } from "@/container";
-import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
+import { AUTH_SESSION_COOKIE, parseAuthSession } from "@/lib/auth/session";
 import {
   reanalysisRequestIdempotencyKey,
   type ReanalysisRequestState,
@@ -49,7 +49,9 @@ export async function requestSafeRefresh(
   }
 
   const cookieStore = await cookies();
-  const profileId = parseProfileId(cookieStore.get(PROFILE_COOKIE)?.value);
+  const profileId = parseAuthSession(
+    cookieStore.get(AUTH_SESSION_COOKIE)?.value,
+  )?.profileId;
   if (!profileId) {
     return {
       status: "error",
@@ -180,7 +182,9 @@ export async function requestSafeReanalysis(
   }
 
   const cookieStore = await cookies();
-  const profileId = parseProfileId(cookieStore.get(PROFILE_COOKIE)?.value);
+  const profileId = parseAuthSession(
+    cookieStore.get(AUTH_SESSION_COOKIE)?.value,
+  )?.profileId;
   if (!profileId) {
     return {
       status: "error",
@@ -244,7 +248,9 @@ export async function requestSafeModuleReanalysis(
   }
 
   const cookieStore = await cookies();
-  const profileId = parseProfileId(cookieStore.get(PROFILE_COOKIE)?.value);
+  const profileId = parseAuthSession(
+    cookieStore.get(AUTH_SESSION_COOKIE)?.value,
+  )?.profileId;
   if (!profileId) {
     return {
       status: "error",

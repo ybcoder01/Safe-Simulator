@@ -448,6 +448,59 @@ select {
   justify-content: space-between;
   border-bottom: 1px solid var(--line);
 }
+
+.auth-gate {
+  max-width: 760px;
+  margin: 7rem auto;
+  padding: clamp(2rem, 5vw, 4rem);
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  background: rgba(8, 25, 20, 0.7);
+}
+
+.auth-gate.compact {
+  margin-block: 4rem;
+}
+
+.auth-gate h1 {
+  margin: 0.65rem 0 1rem;
+  font-size: clamp(2rem, 5vw, 4rem);
+  letter-spacing: -0.045em;
+}
+
+.auth-gate p {
+  max-width: 650px;
+  margin: 0 0 1.75rem;
+  color: var(--muted);
+  font-size: 1.05rem;
+  line-height: 1.65;
+}
+
+.auth-state {
+  padding: 6rem 0;
+  color: var(--muted);
+  text-align: center;
+}
+
+.auth-account-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1rem;
+  padding: 1rem 0 0;
+  color: var(--muted);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.82rem;
+}
+
+.text-button {
+  padding: 0;
+  border: 0;
+  color: var(--green);
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+}
 .safes-content {
   padding: 72px 0 50px;
 }
@@ -665,11 +718,22 @@ select {
   cursor: not-allowed;
   opacity: 0.45;
 }
+.safe-card-owner-note {
+  padding: 0 8px;
+  color: var(--faint);
+  font-family: var(--font-geist-mono);
+  font-size: 10px;
+  text-align: center;
+}
+.verified-pill.review-pending {
+  border-color: rgba(255, 190, 84, 0.4);
+  color: #ffbe54;
+}
 .safe-card {
   display: grid;
   grid-template-columns:
     auto minmax(180px, 1fr) repeat(3, minmax(80px, 0.45fr))
-    auto;
+    auto auto;
   gap: 22px;
   align-items: center;
   padding: 18px 5px;

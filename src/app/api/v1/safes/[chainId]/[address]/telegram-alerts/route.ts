@@ -13,7 +13,7 @@ import {
   rateLimitHeaders,
   TELEGRAM_LINK_RATE_LIMIT,
 } from "@/lib/api/rate-limit";
-import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
+import { authSessionFromRequest } from "@/lib/auth/session";
 import { safeRouteParamsSchema } from "@/lib/api/safe-details";
 import { isSafeBookmarked } from "@/lib/api/sync-refresh";
 import { ensureTelegramWatch } from "@/lib/api/telegram-webhook";
@@ -60,13 +60,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
     );
   }
 
-  const profileId = parseProfileId(request.cookies.get(PROFILE_COOKIE)?.value);
-  if (!profileId) {
+  const session = authSessionFromRequest(request);
+  if (!session) {
     return NextResponse.json(
-      { error: { message: "This Safe is not in the current watchlist." } },
-      { status: 404 },
+      { error: { message: "Sign in with your wallet first." } },
+      { status: 401 },
     );
   }
+  const profileId = session.profileId;
 
   const rateLimit = await checkRequestRateLimit(
     getRateLimitPort(),

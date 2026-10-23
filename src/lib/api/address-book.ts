@@ -2,7 +2,11 @@ import { getAddress } from "viem";
 import { z } from "zod";
 
 import { findContractRegistryEntry } from "@/core/analysis/trust/contract-registry";
-import type { Address, AddressBookEntry } from "@/core/domain";
+import type {
+  Address,
+  AddressBookEntry,
+  AddressBookReview,
+} from "@/core/domain";
 
 const addressSchema = z
   .string()
@@ -31,6 +35,24 @@ export interface AddressBookView {
   readonly trust: "trusted" | "flagged";
   readonly purpose?: string | null;
   readonly trustedAt?: number;
+}
+
+export interface AddressBookReviewView {
+  readonly address: string;
+  readonly label: string;
+  readonly purpose?: string | null;
+  readonly status: "trusted" | "pending" | "flagged";
+  readonly trustedApprovals: number;
+  readonly flaggedApprovals: number;
+  readonly requiredApprovals: number;
+  readonly currentUserDecision: "trusted" | "flagged" | null;
+  readonly updatedAt: number;
+}
+
+export function toAddressBookReviewView(
+  review: AddressBookReview,
+): AddressBookReviewView {
+  return { ...review };
 }
 
 export function toAddressBookView(entry: AddressBookEntry): AddressBookView {
@@ -63,7 +85,7 @@ export function suggestedAddressBookLabel(
 
 export function availableAddressBookSuggestions(
   suggestions: readonly AddressBookSuggestion[],
-  entries: readonly AddressBookView[],
+  entries: readonly AddressBookView[] | readonly AddressBookReviewView[],
 ): AddressBookSuggestion[] {
   const configured = new Set(
     entries.map((entry) => entry.address.toLowerCase()),

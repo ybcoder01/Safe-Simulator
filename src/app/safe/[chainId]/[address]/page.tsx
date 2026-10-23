@@ -23,7 +23,7 @@ import { toMessageView } from "@/lib/api/message-details";
 import { toModuleTransactionView } from "@/lib/api/module-activity";
 import { MODULE_ANALYSIS_ENGINE_VERSION } from "@/lib/api/module-analysis";
 import { TRANSACTION_ANALYSIS_ENGINE_VERSION } from "@/lib/api/analysis-version";
-import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
+import { AUTH_SESSION_COOKIE, parseAuthSession } from "@/lib/auth/session";
 import { isRefreshActive } from "@/lib/api/sync-refresh";
 import { readTelegramWatchHealth } from "@/lib/api/telegram-watch-cache";
 import { explorerAddressUrl } from "@/lib/explorer-links";
@@ -97,7 +97,9 @@ export default async function SafeDashboardPage({
   if (!safe) notFound();
 
   const cookieStore = await cookies();
-  const profileId = parseProfileId(cookieStore.get(PROFILE_COOKIE)?.value);
+  const profileId = parseAuthSession(
+    cookieStore.get(AUTH_SESSION_COOKIE)?.value,
+  )?.profileId;
   const [
     sync,
     page,
@@ -106,6 +108,7 @@ export default async function SafeDashboardPage({
     messagePage,
     balanceResult,
     addressBook,
+    addressBookReviews,
     analysisCoverage,
     moduleAnalysisCoverage,
     telegramSubscriptions,
@@ -123,6 +126,9 @@ export default async function SafeDashboardPage({
       .catch(() => null),
     profileId
       ? persistence.listAddressBookEntries(profileId, safe)
+      : Promise.resolve([]),
+    profileId
+      ? persistence.listAddressBookReviews(profileId, safe)
       : Promise.resolve([]),
     persistence.getAnalysisCoverage(safe, TRANSACTION_ANALYSIS_ENGINE_VERSION),
     persistence.getModuleAnalysisCoverage(safe, MODULE_ANALYSIS_ENGINE_VERSION),
@@ -171,6 +177,10 @@ export default async function SafeDashboardPage({
     activeTelegramSubscriptions.length > 0
       ? activeTelegramSubscriptions
       : telegramSubscriptions;
+  const pendingTrustReviews = addressBookReviews.filter(
+    (review) =>
+      review.status === "pending" && review.currentUserDecision !== "trusted",
+  );
   const persistedTelegramPollAt = visibleTelegramSubscriptions.reduce<
     number | null
   >(
@@ -322,6 +332,23 @@ export default async function SafeDashboardPage({
             />
           </div>
         </section>
+
+        {pendingTrustReviews.length > 0 ? (
+          <section className="form-notice" role="status">
+            <strong>Your approval is needed.</strong>{" "}
+            {pendingTrustReviews.length}{" "}
+            {pendingTrustReviews.length === 1 ? "address is" : "addresses are"}{" "}
+            waiting for enough Safe-owner approvals before becoming trusted.{" "}
+            <Link
+              className="text-link"
+              href={
+                "/safe/" + safe.chainId + "/" + safe.address + "/address-book"
+              }
+            >
+              Review addresses
+            </Link>
+          </section>
+        ) : null}
 
         <section className="dashboard-metrics" aria-label="Safe configuration">
           <article>

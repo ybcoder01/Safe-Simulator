@@ -416,7 +416,7 @@ export function SafesClient({
 
       <section className="safe-list" aria-busy={loading}>
         <div className="list-heading">
-          <h2>Imported Safes</h2>
+          <h2>Your Safes</h2>
           <span>{items.length} total</span>
         </div>
         {loading ? <div className="list-state">Loading bookmarks…</div> : null}
@@ -475,16 +475,26 @@ export function SafesClient({
                         ? "Syncing"
                         : "Queued"}
                 </span>
+                {safe.pendingTrustReviews > 0 ? (
+                  <span className="verified-pill review-pending">
+                    {safe.pendingTrustReviews} trust review
+                    {safe.pendingTrustReviews === 1 ? "" : "s"} waiting
+                  </span>
+                ) : null}
               </Link>
-              <button
-                aria-label={`Remove Safe ${safe.address} from watchlist`}
-                className="safe-card-remove"
-                disabled={removing !== null}
-                onClick={() => void removeBookmarkedSafe(safe)}
-                type="button"
-              >
-                {removing === key ? "Removing…" : "Remove"}
-              </button>
+              {safe.bookmarked ? (
+                <button
+                  aria-label={`Remove Safe ${safe.address} from watchlist`}
+                  className="safe-card-remove"
+                  disabled={removing !== null}
+                  onClick={() => void removeBookmarkedSafe(safe)}
+                  type="button"
+                >
+                  {removing === key ? "Removing…" : "Remove"}
+                </button>
+              ) : (
+                <span className="safe-card-owner-note">Owner access</span>
+              )}
             </div>
           );
         })}
