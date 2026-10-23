@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import {
+  getCachePort,
   getPersistencePort,
   getQueuePort,
   getRateLimitPort,
@@ -17,6 +18,7 @@ import { safeRouteParamsSchema } from "@/lib/api/safe-details";
 import { isSafeBookmarked } from "@/lib/api/sync-refresh";
 import { ensureTelegramWatch } from "@/lib/api/telegram-webhook";
 import { legacyTelegramWatchScheduleId } from "@/lib/api/telegram-schedule";
+import { invalidateTelegramWatchRegistry } from "@/lib/api/telegram-watch-cache";
 
 interface RouteContext {
   readonly params: Promise<{ chainId: string; address: string }>;
@@ -170,6 +172,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
           safe.data,
           false,
         );
+        await invalidateTelegramWatchRegistry(getCachePort());
         await removeUnusedSchedule(safe.data.chainId, safe.data.address);
         return NextResponse.json({
           data: { message: "Alerts paused for this Safe." },
@@ -189,6 +192,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
           safe.data,
           true,
         );
+        await invalidateTelegramWatchRegistry(getCachePort());
         await ensureTelegramWatch(safe.data, {
           queue: getQueuePort(),
           now: () => now,
@@ -203,6 +207,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
           safe.data,
           now,
         );
+        await invalidateTelegramWatchRegistry(getCachePort());
         await removeUnusedSchedule(safe.data.chainId, safe.data.address);
         return NextResponse.json({
           data: { message: "Telegram disconnected from this Safe." },

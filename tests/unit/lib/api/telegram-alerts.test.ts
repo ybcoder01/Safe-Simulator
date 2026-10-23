@@ -9,6 +9,7 @@ import type {
   SafeSnapshot,
   SafeTransaction,
 } from "../../../../src/core/domain";
+import type { CachePort } from "../../../../src/core/ports";
 import {
   formatTelegramAlert,
   runTelegramAlertJob,
@@ -26,6 +27,33 @@ const owner = "0x2222222222222222222222222222222222222222" as Address;
 const spender = "0x3333333333333333333333333333333333333333" as Address;
 const secondOwner = "0x5555555555555555555555555555555555555555" as Address;
 const thirdOwner = "0x6666666666666666666666666666666666666666" as Address;
+
+function memoryCache(
+  initial: Readonly<Record<string, unknown>> = {},
+): CachePort {
+  const values = new Map(Object.entries(initial));
+  return {
+    async get<T>(key: string) {
+      return (values.get(key) as T | undefined) ?? null;
+    },
+    async set<T>(key: string, value: T) {
+      values.set(key, value);
+    },
+    async delete(key: string) {
+      values.delete(key);
+    },
+    async deleteByPrefix(prefix: string) {
+      let deleted = 0;
+      for (const key of values.keys()) {
+        if (key.startsWith(prefix)) {
+          values.delete(key);
+          deleted += 1;
+        }
+      }
+      return deleted;
+    },
+  };
+}
 
 const currentSnapshot: SafeSnapshot = {
   ...safe,
@@ -279,6 +307,7 @@ describe("Telegram transaction alerts", () => {
     const result = await runTelegramWatchJob(
       { type: "telegram-watch", safe },
       {
+        cache: memoryCache(),
         chain: { getSafeSnapshot: vi.fn().mockResolvedValue(currentSnapshot) },
         persistence: {
           listTelegramSubscriptions: vi.fn().mockResolvedValue([
@@ -316,56 +345,66 @@ describe("Telegram transaction alerts", () => {
 
   it("checks active Safes through one bounded shared sweep", async () => {
     const enqueue = vi.fn().mockResolvedValue({ jobId: "job" });
+    const cache = memoryCache();
     const listTelegramWatchedSafes = vi.fn().mockResolvedValue({
       items: [safe],
       nextCursor: null,
       total: null,
     });
 
+    const ports = {
+      cache,
+      chain: {
+        getSafeSnapshot: vi.fn().mockResolvedValue(currentSnapshot),
+      },
+      persistence: {
+        listTelegramWatchedSafes,
+        listTelegramSubscriptions: vi.fn().mockResolvedValue([
+          {
+            id: "sub",
+            profileId: "profile",
+            safe,
+            chatId: "42",
+            chatLabel: null,
+            enabled: true,
+            disconnectedAt: null,
+            lastPolledAt: null,
+            lastPollError: null,
+            lastDeliveryAttemptAt: null,
+            lastDeliveryError: null,
+            createdAt: 100,
+          },
+        ]),
+        findTransaction: vi.fn().mockResolvedValue(transaction()),
+        recordTelegramWatchResult: vi.fn().mockResolvedValue(undefined),
+        upsertSafe: vi.fn().mockResolvedValue(undefined),
+        upsertTransactions: vi.fn().mockResolvedValue(undefined),
+      },
+      queue: { enqueue },
+      safeData: {
+        listMultisigTransactions: vi.fn().mockResolvedValue({
+          items: [transaction()],
+          nextCursor: null,
+          total: 1,
+        }),
+      },
+      now: () => 300,
+    };
+
     await expect(
-      runTelegramSweepJob(
-        { type: "telegram-sweep", cursor: null },
-        {
-          chain: {
-            getSafeSnapshot: vi.fn().mockResolvedValue(currentSnapshot),
-          },
-          persistence: {
-            listTelegramWatchedSafes,
-            listTelegramSubscriptions: vi.fn().mockResolvedValue([
-              {
-                id: "sub",
-                profileId: "profile",
-                safe,
-                chatId: "42",
-                chatLabel: null,
-                enabled: true,
-                disconnectedAt: null,
-                lastPolledAt: null,
-                lastPollError: null,
-                lastDeliveryAttemptAt: null,
-                lastDeliveryError: null,
-                createdAt: 100,
-              },
-            ]),
-            findTransaction: vi.fn().mockResolvedValue(transaction()),
-            recordTelegramWatchResult: vi.fn().mockResolvedValue(undefined),
-            upsertSafe: vi.fn().mockResolvedValue(undefined),
-            upsertTransactions: vi.fn().mockResolvedValue(undefined),
-          },
-          queue: { enqueue },
-          safeData: {
-            listMultisigTransactions: vi.fn().mockResolvedValue({
-              items: [transaction()],
-              nextCursor: null,
-              total: 1,
-            }),
-          },
-          now: () => 300,
-        },
-      ),
+      runTelegramSweepJob({ type: "telegram-sweep", cursor: null }, ports),
     ).resolves.toEqual({ checked: 1, failed: 0, nextCursor: null });
 
+    await expect(
+      runTelegramSweepJob({ type: "telegram-sweep", cursor: null }, ports),
+    ).resolves.toEqual({ checked: 1, failed: 0, nextCursor: null });
+
+    expect(listTelegramWatchedSafes).toHaveBeenCalledOnce();
     expect(listTelegramWatchedSafes).toHaveBeenCalledWith(null, 20);
+    expect(ports.persistence.listTelegramSubscriptions).toHaveBeenCalledOnce();
+    expect(ports.persistence.recordTelegramWatchResult).toHaveBeenCalledOnce();
+    expect(ports.chain.getSafeSnapshot).toHaveBeenCalledOnce();
+    expect(ports.safeData.listMultisigTransactions).toHaveBeenCalledTimes(2);
     expect(enqueue).not.toHaveBeenCalled();
   });
 

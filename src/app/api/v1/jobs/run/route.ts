@@ -144,6 +144,7 @@ export async function POST(request: Request) {
           });
         }
         const result = await runTelegramWatchJob(job, {
+          cache: getCachePort(),
           chain: getChainPort(),
           persistence,
           queue,
@@ -167,6 +168,7 @@ export async function POST(request: Request) {
     case "telegram-sweep":
       return Response.json(
         await runTelegramSweepJob(job, {
+          cache: getCachePort(),
           chain: getChainPort(),
           persistence,
           queue,

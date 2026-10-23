@@ -25,6 +25,7 @@ import { MODULE_ANALYSIS_ENGINE_VERSION } from "@/lib/api/module-analysis";
 import { TRANSACTION_ANALYSIS_ENGINE_VERSION } from "@/lib/api/analysis-version";
 import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
 import { isRefreshActive } from "@/lib/api/sync-refresh";
+import { readTelegramWatchHealth } from "@/lib/api/telegram-watch-cache";
 import { explorerAddressUrl } from "@/lib/explorer-links";
 import { resolveTransactionViews } from "@/lib/api/transaction-list";
 import { resolveTransferViews } from "@/lib/api/transfer-activity";
@@ -109,6 +110,7 @@ export default async function SafeDashboardPage({
     moduleAnalysisCoverage,
     telegramSubscriptions,
     latestTelegramDeliveryAt,
+    cachedTelegramHealth,
   ] = await Promise.all([
     resolveSyncSummary(persistence, safe),
     persistence.listTransactions(safe, null, 25),
@@ -129,6 +131,9 @@ export default async function SafeDashboardPage({
       : Promise.resolve([]),
     profileId
       ? persistence.findLatestTelegramDeliveryAt(profileId, safe)
+      : Promise.resolve(null),
+    profileId
+      ? readTelegramWatchHealth(getCachePort(), safe)
       : Promise.resolve(null),
   ]);
   const [transactions, moduleAnalyses, transferViews] = await Promise.all([
@@ -166,7 +171,7 @@ export default async function SafeDashboardPage({
     activeTelegramSubscriptions.length > 0
       ? activeTelegramSubscriptions
       : telegramSubscriptions;
-  const latestTelegramPollAt = visibleTelegramSubscriptions.reduce<
+  const persistedTelegramPollAt = visibleTelegramSubscriptions.reduce<
     number | null
   >(
     (latest, subscription) =>
@@ -176,10 +181,14 @@ export default async function SafeDashboardPage({
         : latest,
     null,
   );
-  const reportedTelegramHealthError = visibleTelegramSubscriptions.find(
-    (subscription) =>
-      subscription.lastDeliveryError !== null ||
-      subscription.lastPollError !== null,
+  const latestTelegramPollAt = cachedTelegramHealth
+    ? Math.max(cachedTelegramHealth.checkedAt, persistedTelegramPollAt ?? 0)
+    : persistedTelegramPollAt;
+  const reportedTelegramDeliveryError = visibleTelegramSubscriptions.find(
+    (subscription) => subscription.lastDeliveryError !== null,
+  );
+  const reportedTelegramPollError = visibleTelegramSubscriptions.find(
+    (subscription) => subscription.lastPollError !== null,
   );
   const monitoringIsStale =
     latestTelegramPollAt !== null &&
@@ -199,8 +208,10 @@ export default async function SafeDashboardPage({
     lastPolledAt: latestTelegramPollAt,
     lastAlertAt: latestTelegramDeliveryAt,
     healthError:
-      reportedTelegramHealthError?.lastDeliveryError ??
-      reportedTelegramHealthError?.lastPollError ??
+      reportedTelegramDeliveryError?.lastDeliveryError ??
+      (cachedTelegramHealth
+        ? cachedTelegramHealth.error
+        : reportedTelegramPollError?.lastPollError) ??
       (activeTelegramSubscriptions.length > 0 && latestTelegramPollAt === null
         ? "No successful monitoring check has been recorded yet. Use Check now to verify the queue."
         : monitoringIsStale
