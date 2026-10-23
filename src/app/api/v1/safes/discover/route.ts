@@ -5,7 +5,7 @@ import {
   getRateLimitPort,
   getSafeDataPort,
 } from "@/container";
-import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
+import { authSessionFromRequest } from "@/lib/auth/session";
 import {
   checkRequestRateLimit,
   rateLimitHeaders,
@@ -15,6 +15,18 @@ import { resolveSafeDiscovery } from "@/lib/api/safe-discovery";
 import { discoverSafesInputSchema } from "@/lib/api/safes";
 
 export async function GET(request: NextRequest) {
+  const session = authSessionFromRequest(request);
+  if (!session) {
+    return NextResponse.json(
+      {
+        error: {
+          code: "authentication_required",
+          message: "Sign in with your wallet to discover your Safes.",
+        },
+      },
+      { status: 401 },
+    );
+  }
   const rateLimit = await checkRequestRateLimit(
     getRateLimitPort(),
     request,
@@ -53,14 +65,11 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const profileId = parseProfileId(
-      request.cookies.get(PROFILE_COOKIE)?.value,
-    );
     const result = await resolveSafeDiscovery(
       getSafeDataPort(),
       getPersistencePort(),
       input.data,
-      profileId,
+      session.profileId,
     );
     return NextResponse.json(
       { data: result.items, total: result.total, limited: result.limited },

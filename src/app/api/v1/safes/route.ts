@@ -13,11 +13,8 @@ import {
   rateLimitHeaders,
   SAFE_IMPORT_RATE_LIMIT,
 } from "@/lib/api/rate-limit";
-import {
-  parseProfileId,
-  PROFILE_COOKIE,
-  PROFILE_MAX_AGE,
-} from "@/lib/api/profile";
+import { PROFILE_COOKIE, PROFILE_MAX_AGE } from "@/lib/api/profile";
+import { authSessionFromRequest } from "@/lib/auth/session";
 import { importSafeInputSchema, toSafeView } from "@/lib/api/safes";
 
 function errorResponse(
@@ -46,20 +43,42 @@ function infrastructureError(error: unknown) {
 }
 
 export async function GET(request: NextRequest) {
-  const profileId = parseProfileId(request.cookies.get(PROFILE_COOKIE)?.value);
-  if (!profileId)
-    return NextResponse.json({ data: [], chains: supportedChainSummaries });
+  const session = authSessionFromRequest(request);
+  if (!session) {
+    return errorResponse(
+      "Sign in with your wallet to view saved Safes.",
+      401,
+      "authentication_required",
+    );
+  }
 
   try {
     const persistence = getPersistencePort();
-    const items = await persistence.listSafesForProfile(profileId);
+    const [bookmarked, owned] = await Promise.all([
+      persistence.listSafesForProfile(session.profileId),
+      persistence.listSafesForOwner(session.walletAddress),
+    ]);
+    const bookmarkedKeys = new Set(
+      bookmarked.map((safe) => `${safe.chainId}:${safe.address.toLowerCase()}`),
+    );
+    const items = [...bookmarked, ...owned].filter(
+      (safe, index, all) =>
+        all.findIndex(
+          (candidate) =>
+            candidate.chainId === safe.chainId &&
+            candidate.address.toLowerCase() === safe.address.toLowerCase(),
+        ) === index,
+    );
     const data = await Promise.all(
       items.map(async (safe) => {
-        const cursors = await Promise.all(
-          (["multisig", "module", "transfer", "message"] as const).map(
-            (stream) => persistence.findSyncCursor(safe, stream),
+        const [cursors, reviews] = await Promise.all([
+          Promise.all(
+            (["multisig", "module", "transfer", "message"] as const).map(
+              (stream) => persistence.findSyncCursor(safe, stream),
+            ),
           ),
-        );
+          persistence.listAddressBookReviews(session.profileId, safe),
+        ]);
         const syncStatus = cursors.some((cursor) => cursor?.status === "failed")
           ? "failed"
           : cursors.every((cursor) => cursor?.status === "complete")
@@ -67,7 +86,15 @@ export async function GET(request: NextRequest) {
             : cursors.some((cursor) => cursor?.status === "running")
               ? "syncing"
               : "queued";
-        return toSafeView(safe, syncStatus);
+        const key = `${safe.chainId}:${safe.address.toLowerCase()}`;
+        return toSafeView(safe, syncStatus, {
+          bookmarked: bookmarkedKeys.has(key),
+          pendingTrustReviews: reviews.filter(
+            (review) =>
+              review.status === "pending" &&
+              review.currentUserDecision === null,
+          ).length,
+        });
       }),
     );
     return NextResponse.json({ data, chains: supportedChainSummaries });
@@ -77,6 +104,14 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const session = authSessionFromRequest(request);
+  if (!session) {
+    return errorResponse(
+      "Sign in with your wallet before importing a Safe.",
+      401,
+      "authentication_required",
+    );
+  }
   const rateLimit = await checkRequestRateLimit(
     getRateLimitPort(),
     request,
@@ -99,9 +134,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const input = importSafeInputSchema.parse(await request.json());
-    const profileId =
-      parseProfileId(request.cookies.get(PROFILE_COOKIE)?.value) ??
-      crypto.randomUUID();
+    const profileId = session.profileId;
     const result = await getImportSafeService().execute({
       ...input,
       profileId,

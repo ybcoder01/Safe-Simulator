@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getPersistencePort, getSafeDataPort } from "@/container";
-import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
+import { authSessionFromRequest } from "@/lib/auth/session";
 import {
   resolveSyncSummary,
   safeRouteParamsSchema,
@@ -67,13 +67,21 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     );
   }
 
-  const profileId = parseProfileId(request.cookies.get(PROFILE_COOKIE)?.value);
-  if (!profileId) {
-    return new NextResponse(null, { status: 204 });
+  const session = authSessionFromRequest(request);
+  if (!session) {
+    return NextResponse.json(
+      {
+        error: {
+          code: "authentication_required",
+          message: "Sign in with your wallet to change saved Safes.",
+        },
+      },
+      { status: 401 },
+    );
   }
 
   try {
-    await getPersistencePort().unbookmarkSafe(profileId, parsed.data);
+    await getPersistencePort().unbookmarkSafe(session.profileId, parsed.data);
     return new NextResponse(null, { status: 204 });
   } catch {
     return NextResponse.json(

@@ -303,6 +303,38 @@ Neon Postgres, selected through the required server-only `NEON_DATABASE_URL`, is
 - Keep each serverless runtime limited to one short-lived PostgreSQL connection. Prepared statements remain disabled for pooled runtime compatibility.
 - Treat PostgreSQL error `53300` as connection saturation: inspect deployment and queue concurrency, wait for idle connections to drain, and verify recovery through `/api/health`. Do not raise the client pool limit as a first response.
 
+## Wallet authentication
+
+Privy provides external-wallet authentication only. Configure
+`NEXT_PUBLIC_PRIVY_APP_ID` and the server-only `PRIVY_APP_SECRET` in Preview
+and Production. The application explicitly limits login methods to `wallet`,
+disables embedded-wallet creation, and does not import Privy transaction or
+signing hooks. A login signature proves account control; it never authorizes a
+Safe transaction.
+
+The server verifies the Privy access token when establishing a one-hour,
+HTTP-only Safe Inspector session. Personal features use that signed session;
+public transaction reports and alert-verification pages remain accessible
+without it. An existing anonymous browser profile is claimed on first login so
+saved Safes are retained. Trust-record writes additionally require the logged-in
+wallet to be a current owner of that Safe. Each owner records an independent
+decision. An address is effective as trusted only when trusted votes reach the
+Safe's current signing threshold (for example 2 votes on a 2-of-3 Safe or 4 on a
+4-of-5 Safe). Pending votes are visible to other authenticated owners but do not
+influence the trust verdict. A single current-owner flag is effective immediately
+so a disputed address cannot remain green while the team resolves it. Owner
+membership and threshold are checked against the live Safe before every write.
+
+AI summaries are limited to 10 new generations per authenticated Privy user in
+a rolling 24-hour window. Reading an already saved summary does not consume the
+allowance. If Redis cannot enforce the authenticated-user allowance, summary
+generation fails closed.
+
+Migration `0011_privy_wallet_auth` is additive and must be applied to Preview,
+then Production, before deploying code that enables Privy. Apply only that SQL
+file using the manual process below; never run `pnpm db:migrate` or
+`drizzle-kit push` against Production.
+
 ### Applying migrations to Production
 
 The Production database has no Drizzle migration ledger (`drizzle.__drizzle_migrations`). Earlier migrations were applied directly, so Drizzle has no record of them. Drizzle's migrator creates the ledger when it is missing and then treats every migration as pending, so `pnpm db:migrate` against Production would try to replay migrations `0000` onward on tables that already exist. `drizzle-kit push` would try to reconcile the whole schema and is equally unsafe.

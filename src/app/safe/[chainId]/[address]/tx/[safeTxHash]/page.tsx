@@ -58,7 +58,7 @@ import {
   isSiloRouteProven,
   resolveProtocolRouteAttestation,
 } from "@/lib/api/protocol-route-attestation";
-import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
+import { AUTH_SESSION_COOKIE, parseAuthSession } from "@/lib/auth/session";
 import {
   attestedSiloMarkets,
   resolveSiloShareValues,
@@ -236,7 +236,9 @@ export default async function TransactionDetailPage({
   if (!persisted || !currentSafe) notFound();
 
   const cookieStore = await cookies();
-  const profileId = parseProfileId(cookieStore.get(PROFILE_COOKIE)?.value);
+  const profileId = parseAuthSession(
+    cookieStore.get(AUTH_SESSION_COOKIE)?.value,
+  )?.profileId;
   const chain = getChainPort();
   const safeData = getSafeDataPort();
   const abi = getAbiPort();
@@ -282,6 +284,9 @@ export default async function TransactionDetailPage({
     ? await persistence
         .listTelegramAlertReceipts(profileId, safe.data, hash.data)
         .catch(() => [])
+    : [];
+  const addressBookReviews = profileId
+    ? await persistence.listAddressBookReviews(profileId, safe.data)
     : [];
   const authenticAlertReceipts = alertReceipts.filter((receipt) =>
     verifyTelegramAlertReceipt(receipt),
@@ -1122,7 +1127,7 @@ export default async function TransactionDetailPage({
         {profileId ? (
           <AddressBookEditor
             chainId={safe.data.chainId}
-            initialEntries={addressBook}
+            initialEntries={addressBookReviews}
             safeAddress={safe.data.address}
             suggestions={verdict.addresses.map((assessment) => ({
               address: assessment.address,

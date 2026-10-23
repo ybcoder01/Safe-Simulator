@@ -6,7 +6,7 @@ import { AddressBookEditor } from "@/components/safes/address-book-editor";
 import { ProtocolDirectory } from "@/components/safes/protocol-directory";
 import { getPersistencePort } from "@/container";
 import { contractRegistryEntriesForChain } from "@/core/analysis/trust/contract-registry";
-import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
+import { AUTH_SESSION_COOKIE, parseAuthSession } from "@/lib/auth/session";
 import { safeRouteParamsSchema } from "@/lib/api/safe-details";
 
 interface PageProps {
@@ -22,9 +22,11 @@ export default async function AddressBookPage({ params }: PageProps) {
   if (!safe) notFound();
 
   const cookieStore = await cookies();
-  const profileId = parseProfileId(cookieStore.get(PROFILE_COOKIE)?.value);
+  const profileId = parseAuthSession(
+    cookieStore.get(AUTH_SESSION_COOKIE)?.value,
+  )?.profileId;
   const personalEntries = profileId
-    ? await persistence.listAddressBookEntries(profileId, safe)
+    ? await persistence.listAddressBookReviews(profileId, safe)
     : [];
 
   const protocolEntries = contractRegistryEntriesForChain(safe.chainId)
@@ -60,12 +62,12 @@ export default async function AddressBookPage({ params }: PageProps) {
             <p className="eyebrow">Identity controls</p>
             <h1>Address book</h1>
             <p className="address-book-intro">
-              Personal classifications override the reviewed protocol directory
-              for this browser profile and Safe.
+              Safe owners review addresses independently. Trust becomes active
+              only when approvals reach this Safe&apos;s signing threshold.
             </p>
           </div>
           <span className="verified-pill">
-            {personalEntries.length} personal · {protocolEntries.length}{" "}
+            {personalEntries.length} team-reviewed · {protocolEntries.length}{" "}
             protocol
           </span>
         </header>
@@ -81,12 +83,12 @@ export default async function AddressBookPage({ params }: PageProps) {
           <section className="detail-panel">
             <div className="panel-heading">
               <div>
-                <p className="eyebrow">Personal classifications</p>
+                <p className="eyebrow">Owner approvals</p>
                 <h2>Unavailable</h2>
               </div>
             </div>
             <div className="panel-empty">
-              Return to the watchlist to initialize this browser profile.
+              Sign in with a Safe owner wallet to review trusted addresses.
             </div>
           </section>
         )}

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { telegramBotUsername } from "@/adapters/telegram-bot/client";
 import { getPersistencePort, getRateLimitPort } from "@/container";
-import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
+import { authSessionFromRequest } from "@/lib/auth/session";
 import {
   checkRequestRateLimit,
   rateLimitHeaders,
@@ -25,18 +25,19 @@ export async function POST(request: NextRequest, context: RouteContext) {
     );
   }
 
-  const profileId = parseProfileId(request.cookies.get(PROFILE_COOKIE)?.value);
-  if (!profileId) {
+  const session = authSessionFromRequest(request);
+  if (!session) {
     return NextResponse.json(
       {
         error: {
-          code: "safe_not_bookmarked",
-          message: "Add this Safe to your watchlist before enabling alerts.",
+          code: "authentication_required",
+          message: "Sign in with your wallet before enabling alerts.",
         },
       },
-      { status: 404 },
+      { status: 401 },
     );
   }
+  const profileId = session.profileId;
 
   const rateLimit = await checkRequestRateLimit(
     getRateLimitPort(),

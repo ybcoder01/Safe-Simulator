@@ -14,7 +14,7 @@ import {
   collectXdcContractReferences,
   resolveXdcContractVerification,
 } from "@/lib/api/xdcscan-verification";
-import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
+import { authSessionFromRequest } from "@/lib/auth/session";
 import {
   safeRouteParamsSchema,
   safeTransactionHashSchema,
@@ -67,7 +67,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     );
   }
 
-  const profileId = parseProfileId(request.cookies.get(PROFILE_COOKIE)?.value);
+  const profileId = authSessionFromRequest(request)?.profileId;
   const chain = getChainPort();
   const safeData = getSafeDataPort();
   const abi = getAbiPort();

@@ -16,11 +16,13 @@ import {
 } from "@/container";
 import { decodedAddressFields } from "@/lib/api/decoded-addresses";
 import {
+  checkIdentityRateLimit,
   checkRequestRateLimit,
   rateLimitHeaders,
+  TRANSACTION_SUMMARY_DAILY_LIMIT,
   TRANSACTION_SUMMARY_RATE_LIMIT,
 } from "@/lib/api/rate-limit";
-import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
+import { authSessionFromRequest } from "@/lib/auth/session";
 import {
   safeRouteParamsSchema,
   safeTransactionHashSchema,
@@ -120,14 +122,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
     );
   }
 
-  const profileId = parseProfileId(request.cookies.get(PROFILE_COOKIE)?.value);
-  if (!profileId) {
+  const session = authSessionFromRequest(request);
+  if (!session) {
     return error(
-      "Import this Safe in the current browser before requesting a summary.",
-      403,
-      "profile_required",
+      "Sign in with your wallet before requesting a summary.",
+      401,
+      "authentication_required",
     );
   }
+  const profileId = session.profileId;
 
   const persistence = getPersistencePort();
   try {
@@ -275,6 +278,22 @@ export async function POST(request: NextRequest, context: RouteContext) {
         "Transaction summaries are not configured.",
         503,
         "summary_not_configured",
+      );
+    }
+
+    const dailyLimit = await checkIdentityRateLimit(
+      getRateLimitPort(),
+      session.privyUserId,
+      TRANSACTION_SUMMARY_DAILY_LIMIT,
+    );
+    if (!dailyLimit.allowed) {
+      return error(
+        dailyLimit.degraded
+          ? "The daily summary allowance could not be checked. Try again shortly."
+          : "You have used today's 10 AI summaries. Try again after the allowance resets.",
+        dailyLimit.degraded ? 503 : 429,
+        dailyLimit.degraded ? "rate_limit_unavailable" : "daily_limit_exceeded",
+        rateLimitHeaders(TRANSACTION_SUMMARY_DAILY_LIMIT, dailyLimit),
       );
     }
 
