@@ -85,7 +85,7 @@ assert.equal(
 
 const safes = await request("/safes");
 const safesHtml = await safes.text();
-assert.match(safesHtml, /Sign in to manage your Safes/);
+assert.match(safesHtml, /Checking wallet session/);
 assert.match(safesHtml, /Read-only by design/);
 
 const health = await request("/api/health", { allowFailure: true });
