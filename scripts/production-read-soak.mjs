@@ -50,7 +50,7 @@ const endpoints = [
     async validate(response) {
       assert.match(response.headers.get("content-type") ?? "", /text\/html/);
       const body = await response.text();
-      assert.match(body, /Safe accounts/);
+      assert.match(body, /Sign in to manage your Safes/);
       assert.match(body, /Read-only by design/);
     },
   },

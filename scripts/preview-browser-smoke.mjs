@@ -46,7 +46,7 @@ const pages = [
   {
     name: "watchlist",
     path: "/safes",
-    expected: ["Safe accounts", "Read-only by design"],
+    expected: ["Sign in to manage your Safes", "Read-only by design"],
   },
   {
     name: "safe-dashboard",
