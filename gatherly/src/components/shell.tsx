@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { unreadCount } from "@/lib/logic";
 import { Icon } from "./ui";
 import { useApp } from "./store";
@@ -29,6 +29,13 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const bare = path === "/" || path.startsWith("/onboarding") || path.endsWith("/live");
   const unread = me ? unreadCount(state, me.id) : 0;
   const notices = me ? state.notices.filter((notice) => notice.userId === me.id && !notice.read).length : 0;
+
+  const pathRef = useRef(path);
+  useEffect(() => {
+    if (pathRef.current === path) return;
+    pathRef.current = path;
+    api.clearToast();
+  }, [path, api]);
 
   useEffect(() => {
     if (!state.toast) return;
@@ -113,7 +120,7 @@ function Toast() {
   if (!state.toast) return null;
   const tone = state.toast.tone === "error" ? "bg-navy" : state.toast.tone === "good" ? "bg-teal" : "bg-ink";
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-24 z-40 flex justify-center px-4 md:bottom-6" role="status">
+    <div className="pointer-events-none fixed inset-x-0 top-4 z-40 flex justify-center px-4" role="status">
       <p className={`max-w-md rounded-2xl px-4 py-3 text-sm font-medium text-white shadow-lg ${tone}`}>{state.toast.message}</p>
     </div>
   );

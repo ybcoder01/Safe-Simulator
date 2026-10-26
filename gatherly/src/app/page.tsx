@@ -14,17 +14,25 @@ export default function WelcomePage() {
   const [code, setCode] = useState("");
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
+  const [nextPath, setNextPath] = useState<string | null>(null);
   const maya = state.users.find((user) => user.id === "user_maya");
 
   useEffect(() => {
-    if (!state.sessionUserId) return;
+    if (!state.sessionUserId || !nextPath) return;
+    const preference = state.preferences.find((item) => item.userId === state.sessionUserId);
+    const destination = nextPath === "auto" ? (preference?.guidelinesAcceptedAt ? "/discover" : "/onboarding") : nextPath;
+    router.replace(destination);
+  }, [nextPath, router, state.preferences, state.sessionUserId]);
+
+  useEffect(() => {
+    if (nextPath || !state.sessionUserId) return;
     const preference = state.preferences.find((item) => item.userId === state.sessionUserId);
     if (preference?.guidelinesAcceptedAt) router.replace("/discover");
-  }, [router, state.preferences, state.sessionUserId]);
+  }, [nextPath, router, state.preferences, state.sessionUserId]);
 
   function continueAsMaya() {
+    setNextPath("/discover");
     api.signIn("user_maya");
-    router.push("/discover");
   }
 
   function submitEmail(event: React.FormEvent) {
@@ -47,9 +55,8 @@ export default function WelcomePage() {
     const clean = email.trim().toLowerCase();
     const existing = state.users.find((user) => user.email.toLowerCase() === clean);
     if (existing) {
+      setNextPath("auto");
       api.signIn(existing.id);
-      const pref = state.preferences.find((item) => item.userId === existing.id);
-      router.push(pref?.guidelinesAcceptedAt ? "/discover" : "/onboarding");
       return;
     }
     sessionStorage.setItem("gatherly-new-email", clean);

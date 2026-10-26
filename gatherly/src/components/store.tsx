@@ -71,7 +71,7 @@ export function Providers({ children }: { children: ReactNode }) {
       if (raw) {
         const parsed = JSON.parse(raw) as AppState;
         if (parsed.schemaVersion === SCHEMA_VERSION && Array.isArray(parsed.users) && parsed.users.length > 0) {
-          dispatch({ type: "hydrate", state: parsed });
+          dispatch({ type: "hydrate", state: { ...parsed, toast: null } });
           setReady(true);
           return;
         }
@@ -85,7 +85,7 @@ export function Providers({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!ready || !state) return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, toast: null }));
   }, [ready, state]);
 
   const api = useMemo<Api>(() => {

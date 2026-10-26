@@ -28,7 +28,7 @@ export function Thread({ conversationId }: { conversationId: string }) {
         {roots.length === 0 ? <p className="text-sm text-muted">The room is quiet. A specific hello beats a generic one.</p> : null}
       </div>
       <form
-        className="mt-4 grid gap-2"
+        className="sticky bottom-24 z-20 mt-4 grid gap-2 rounded-3xl bg-sand/95 p-2 backdrop-blur md:bottom-4"
         onSubmit={(event) => {
           event.preventDefault();
           api.sendMessage(conversationId, body, parentId);

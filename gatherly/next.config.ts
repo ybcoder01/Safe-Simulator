@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  devIndicators: false,
   outputFileTracingRoot: path.dirname(fileURLToPath(import.meta.url)),
   eslint: { ignoreDuringBuilds: true },
 };
