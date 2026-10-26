@@ -5,9 +5,7 @@ const environment = process.env.SMOKE_ENVIRONMENT;
 const oidcToken = process.env.VERCEL_TRUSTED_OIDC_TOKEN;
 const timeoutMs = 30_000;
 
-const approvalSafe = "0x7ae1ef2979b0de85d7dea7f6a5582417d4a98c55";
-const approvalHash =
-  "0x0e47998fb92ce223105d15e36fa05aac47718baeaca8cc83a16be6e0815036cb";
+const publicSafe = "0xc8bae80ca5c2c9ec3bd4ac16c422220a33b6b173";
 
 assert.equal(
   environment,
@@ -130,21 +128,29 @@ assert.equal(
   "authentication_required",
 );
 
-// Public, shareable reports remain available without a login.
+// Public, shareable reports remain available without a login. Discover the
+// transaction from the Preview database instead of assuming Production seed
+// data is present there.
+const historyResponse = await request(
+  `/api/v1/safes/50/${publicSafe}/transactions?limit=1`,
+);
+const history = (await historyResponse.json()).data;
+assert.ok(Array.isArray(history) && history.length > 0);
+assert.match(history[0]?.safeTxHash ?? "", /^0x[0-9a-f]{64}$/i);
+
 const transactionResponse = await request(
-  `/api/v1/safes/50/${approvalSafe}/tx/${approvalHash}`,
+  `/api/v1/safes/50/${publicSafe}/tx/${history[0].safeTxHash}`,
 );
 const transaction = (await transactionResponse.json()).data;
-assert.equal(transaction.status, "executed");
-assert.equal(transaction.execution?.mode, "executed-replay");
-assert.equal(transaction.execution?.success, true);
-assert.ok(transaction.approvalRisk?.requests?.length > 0);
-assert.equal(transaction.approvalRisk.requests[0]?.standard, "erc20");
-assert.equal(transaction.approvalRisk.requests[0]?.infinite, false);
-assert.match(
-  transaction.approvalRisk.requests[0]?.spender ?? "",
-  /^0x[0-9a-f]{40}$/i,
+assert.equal(
+  transaction.safeTxHash.toLowerCase(),
+  history[0].safeTxHash.toLowerCase(),
 );
+assert.ok(
+  ["pending", "executed", "failed", "superseded"].includes(transaction.status),
+);
+assert.ok(transaction.verdict);
+assert.ok(transaction.insight);
 
 console.log(
   JSON.stringify({
@@ -157,9 +163,9 @@ console.log(
       "cache",
       "anonymous-watchlist-denied",
       "anonymous-import-denied",
+      "public-transaction-history",
       "public-transaction-report",
-      "receipt-evidence",
-      "approval-risk",
+      "analysis-evidence",
     ],
     status: "ok",
   }),

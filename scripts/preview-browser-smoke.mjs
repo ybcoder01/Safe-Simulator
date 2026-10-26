@@ -33,9 +33,6 @@ assert.notEqual(
 );
 
 const xdcSafe = "0xc8bae80ca5c2c9ec3bd4ac16c422220a33b6b173";
-const approvalSafe = "0x7ae1ef2979b0de85d7dea7f6a5582417d4a98c55";
-const approvalHash =
-  "0x0e47998fb92ce223105d15e36fa05aac47718baeaca8cc83a16be6e0815036cb";
 
 const pages = [
   {
@@ -205,36 +202,28 @@ async function requestJson(pathname, timeoutMs = navigationTimeoutMs) {
   return response.json();
 }
 
-const approvalResponse = await requestJson(
-  `/api/v1/safes/50/${approvalSafe}/tx/${approvalHash}`,
+const historyResponse = await requestJson(
+  `/api/v1/safes/50/${xdcSafe}/transactions?limit=1`,
   coldAnalysisTimeoutMs,
 );
-const approval = approvalResponse.data;
-assert.equal(approval.status, "executed");
-assert.equal(
-  approval.execution?.mode,
-  "executed-replay",
-  "The fixed approval transaction should retain mined replay evidence.",
-);
-const approvalTarget = approval.verdict?.addresses?.find(
-  (entry) => entry.address.toLowerCase() === approval.to.toLowerCase(),
-);
-assert.equal(
-  approvalTarget?.status,
-  "known",
-  "The fixed approval target should remain recognized without being promoted to trusted.",
-);
-assert.ok(approval.approvalRisk?.requests?.length > 0);
 assert.ok(
-  Array.isArray(approval.approvalRisk?.executedChanges),
-  "Executed allowance evidence must keep its stable array contract.",
+  Array.isArray(historyResponse.data) && historyResponse.data.length > 0,
+  "The fixed Preview Safe should expose at least one public transaction.",
 );
-assert.equal(approval.approvalRisk.requests[0]?.standard, "erc20");
-assert.equal(approval.approvalRisk.requests[0]?.infinite, false);
-assert.match(
-  approval.approvalRisk.requests[0]?.spender ?? "",
-  /^0x[0-9a-f]{40}$/i,
+const transactionHash = historyResponse.data[0]?.safeTxHash;
+assert.match(transactionHash ?? "", /^0x[0-9a-f]{64}$/i);
+
+const transactionResponse = await requestJson(
+  `/api/v1/safes/50/${xdcSafe}/tx/${transactionHash}`,
+  coldAnalysisTimeoutMs,
 );
+const transaction = transactionResponse.data;
+assert.equal(
+  transaction.safeTxHash.toLowerCase(),
+  transactionHash.toLowerCase(),
+);
+assert.ok(transaction.verdict);
+assert.ok(transaction.insight);
 
 const profileDirectory = await mkdtemp(
   join(tmpdir(), "safe-inspector-preview-browser-"),
