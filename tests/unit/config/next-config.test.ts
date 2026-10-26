@@ -14,13 +14,15 @@ describe("security response headers", () => {
 
   it("restricts executable and embeddable content to the application", () => {
     expect(contentSecurityPolicy).toContain("default-src 'self'");
-    expect(contentSecurityPolicy).toContain("connect-src 'self'");
+    expect(contentSecurityPolicy).toContain(
+      "connect-src 'self' https://auth.privy.io https://explorer-api.walletconnect.com wss://relay.walletconnect.com",
+    );
     expect(contentSecurityPolicy).toContain("frame-ancestors 'none'");
     expect(contentSecurityPolicy).toContain("object-src 'none'");
     expect(contentSecurityPolicy).toContain("script-src-attr 'none'");
     expect(contentSecurityPolicy).not.toContain("unsafe-eval");
     expect(contentSecurityPolicy).not.toContain("http:");
-    expect(contentSecurityPolicy).not.toContain("https:");
+    expect(contentSecurityPolicy).not.toContain("connect-src *");
   });
 
   it("prevents framing, sniffing, and unnecessary browser capabilities", () => {
