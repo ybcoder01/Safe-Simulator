@@ -10,7 +10,7 @@ import {
   rateLimitHeaders,
   SAFE_REFRESH_RATE_LIMIT,
 } from "@/lib/api/rate-limit";
-import { parseProfileId, PROFILE_COOKIE } from "@/lib/api/profile";
+import { authSessionFromRequest } from "@/lib/auth/session";
 import { safeRouteParamsSchema } from "@/lib/api/safe-details";
 import { isSafeBookmarked, queueSafeRefresh } from "@/lib/api/sync-refresh";
 
@@ -59,8 +59,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
     );
   }
 
-  const profileId = parseProfileId(request.cookies.get(PROFILE_COOKIE)?.value);
-  if (!profileId) return unavailableToProfile();
+  const session = authSessionFromRequest(request);
+  if (!session) return unavailableToProfile();
+  const profileId = session.profileId;
 
   try {
     const persistence = getPersistencePort();

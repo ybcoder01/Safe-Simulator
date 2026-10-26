@@ -3,7 +3,12 @@ import type { NextConfig } from "next";
 export const contentSecurityPolicy = [
   "default-src 'self'",
   "base-uri 'self'",
-  "connect-src 'self'",
+  [
+    "connect-src 'self'",
+    "https://auth.privy.io",
+    "https://explorer-api.walletconnect.com",
+    "wss://relay.walletconnect.com",
+  ].join(" "),
   "font-src 'self'",
   "form-action 'self'",
   "frame-ancestors 'none'",

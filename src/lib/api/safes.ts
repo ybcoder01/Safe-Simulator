@@ -37,13 +37,25 @@ export interface SafeView {
   readonly implementation: string | null;
   readonly observedAt: number;
   readonly syncStatus: "queued" | "syncing" | "complete" | "failed";
+  readonly bookmarked: boolean;
+  readonly pendingTrustReviews: number;
 }
 
 export function toSafeView(
   safe: SafeSnapshot,
   syncStatus: SafeView["syncStatus"] = "queued",
+  options: {
+    readonly bookmarked?: boolean;
+    readonly pendingTrustReviews?: number;
+  } = {},
 ): SafeView {
-  return { ...safe, nonce: safe.nonce.toString(), syncStatus };
+  return {
+    ...safe,
+    nonce: safe.nonce.toString(),
+    syncStatus,
+    bookmarked: options.bookmarked ?? true,
+    pendingTrustReviews: options.pendingTrustReviews ?? 0,
+  };
 }
 
 interface SafeIdentity {

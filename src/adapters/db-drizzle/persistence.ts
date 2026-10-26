@@ -15,6 +15,7 @@ import {
 import type {
   Address,
   AddressBookEntry,
+  AddressBookReview,
   AnalysisResult,
   CallNode,
   ContractMetadata,
@@ -36,6 +37,7 @@ import type {
   TransactionSummaryRecord,
 } from "@/core/domain";
 import type { PersistencePort } from "@/core/ports";
+import { buildAddressBookConsensus } from "@/lib/api/address-book-consensus";
 
 import type { Database } from "./client";
 import {
@@ -47,6 +49,7 @@ import {
   moduleAnalysisResults,
   moduleTransactions,
   profiles,
+  profileIdentities,
   profileAddressBook,
   profileSafes,
   rawTransfers,
@@ -170,6 +173,60 @@ function mapTransactionSummary(
 export class DrizzlePersistenceAdapter implements PersistencePort {
   constructor(private readonly db: Database) {}
 
+  async claimProfileIdentity(input: {
+    readonly privyUserId: string;
+    readonly walletAddress: Address;
+    readonly preferredProfileId: string;
+  }): Promise<string> {
+    const walletAddress = lowerAddress(input.walletAddress);
+
+    return this.db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select()
+        .from(profileIdentities)
+        .where(eq(profileIdentities.privyUserId, input.privyUserId))
+        .limit(1);
+      if (existing) {
+        if (existing.walletAddress !== walletAddress) {
+          throw new Error(
+            "This account is already bound to a different wallet.",
+          );
+        }
+        await tx
+          .update(profileIdentities)
+          .set({ lastAuthenticatedAt: new Date() })
+          .where(eq(profileIdentities.id, existing.id));
+        return existing.profileId;
+      }
+
+      const [walletIdentity] = await tx
+        .select()
+        .from(profileIdentities)
+        .where(eq(profileIdentities.walletAddress, walletAddress))
+        .limit(1);
+      if (walletIdentity) {
+        throw new Error("This wallet is already linked to another account.");
+      }
+
+      const [claimedProfile] = await tx
+        .select({ id: profileIdentities.id })
+        .from(profileIdentities)
+        .where(eq(profileIdentities.profileId, input.preferredProfileId))
+        .limit(1);
+      const profileId = claimedProfile
+        ? crypto.randomUUID()
+        : input.preferredProfileId;
+
+      await tx.insert(profiles).values({ id: profileId }).onConflictDoNothing();
+      await tx.insert(profileIdentities).values({
+        profileId,
+        privyUserId: input.privyUserId,
+        walletAddress,
+      });
+      return profileId;
+    });
+  }
+
   private async findSafeRow(ref: SafeRef): Promise<SafeRow | null> {
     const [row] = await this.db
       .select()
@@ -285,6 +342,17 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
       .innerJoin(safes, eq(profileSafes.safeId, safes.id))
       .where(eq(profileSafes.profileId, profileId))
       .orderBy(desc(profileSafes.createdAt));
+
+    return Promise.all(rows.map(({ safe }) => this.hydrateSafe(safe)));
+  }
+
+  async listSafesForOwner(owner: Address): Promise<readonly SafeSnapshot[]> {
+    const rows = await this.db
+      .select({ safe: safes })
+      .from(safeOwners)
+      .innerJoin(safes, eq(safeOwners.safeId, safes.id))
+      .where(eq(safeOwners.ownerAddress, lowerAddress(owner)))
+      .orderBy(desc(safes.observedAt));
 
     return Promise.all(rows.map(({ safe }) => this.hydrateSafe(safe)));
   }
@@ -1334,24 +1402,76 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
     const safe = await this.findSafeRow(safeRef);
     if (!safe) return [];
 
-    const rows = await this.db
-      .select()
+    const rows = await this.addressBookOwnerVotes(safe.id);
+    const grouped = buildAddressBookConsensus(
+      rows.map((row) => ({
+        profileId: row.profileId,
+        address: row.address as Address,
+        label: row.label,
+        purpose: row.purpose,
+        trust: row.trustLevel,
+        updatedAt: Math.floor(row.trustedAt.getTime() / 1_000),
+      })),
+      safe.threshold,
+      profileId,
+    );
+
+    return grouped
+      .filter((entry) => entry.status !== "pending")
+      .map((entry) => ({
+        address: entry.address,
+        label: entry.label,
+        trust: entry.status as "trusted" | "flagged",
+        ...(entry.purpose === undefined ? {} : { purpose: entry.purpose }),
+        trustedAt: entry.updatedAt,
+      }));
+  }
+
+  async listAddressBookReviews(
+    profileId: string,
+    safeRef: SafeRef,
+  ): Promise<readonly AddressBookReview[]> {
+    const safe = await this.findSafeRow(safeRef);
+    if (!safe) return [];
+    const rows = await this.addressBookOwnerVotes(safe.id);
+    return buildAddressBookConsensus(
+      rows.map((row) => ({
+        profileId: row.profileId,
+        address: row.address as Address,
+        label: row.label,
+        purpose: row.purpose,
+        trust: row.trustLevel,
+        updatedAt: Math.floor(row.trustedAt.getTime() / 1_000),
+      })),
+      safe.threshold,
+      profileId,
+    );
+  }
+
+  private async addressBookOwnerVotes(safeId: string) {
+    return this.db
+      .select({
+        profileId: profileAddressBook.profileId,
+        address: profileAddressBook.address,
+        label: profileAddressBook.label,
+        purpose: profileAddressBook.purpose,
+        trustLevel: profileAddressBook.trustLevel,
+        trustedAt: profileAddressBook.trustedAt,
+      })
       .from(profileAddressBook)
-      .where(
+      .innerJoin(
+        profileIdentities,
+        eq(profileIdentities.profileId, profileAddressBook.profileId),
+      )
+      .innerJoin(
+        safeOwners,
         and(
-          eq(profileAddressBook.profileId, profileId),
-          eq(profileAddressBook.safeId, safe.id),
+          eq(safeOwners.safeId, safeId),
+          eq(safeOwners.ownerAddress, profileIdentities.walletAddress),
         ),
       )
+      .where(eq(profileAddressBook.safeId, safeId))
       .orderBy(asc(profileAddressBook.address));
-
-    return rows.map((row) => ({
-      address: row.address as Address,
-      label: row.label,
-      trust: row.trustLevel,
-      purpose: row.purpose,
-      trustedAt: Math.floor(row.trustedAt.getTime() / 1_000),
-    }));
   }
 
   async setAddressBookEntry(
@@ -1363,7 +1483,6 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
     purpose: string | null = null,
   ): Promise<void> {
     const safe = await this.requireSafeRow(safeRef);
-    await this.requireProfileBookmark(profileId, safe.id);
     await this.db
       .insert(profileAddressBook)
       .values({

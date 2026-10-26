@@ -236,6 +236,18 @@ export interface AddressBookEntry {
   /** When the current trust classification was set; resets if it changes. */
   readonly trustedAt?: UnixTime;
 }
+
+export interface AddressBookReview {
+  readonly address: Address;
+  readonly label: string;
+  readonly purpose?: string | null;
+  readonly status: "trusted" | "pending" | "flagged";
+  readonly trustedApprovals: number;
+  readonly flaggedApprovals: number;
+  readonly requiredApprovals: number;
+  readonly currentUserDecision: "trusted" | "flagged" | null;
+  readonly updatedAt: UnixTime;
+}
 export type FindingSeverity = "info" | "warning" | "critical";
 
 export interface Finding {

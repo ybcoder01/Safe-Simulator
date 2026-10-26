@@ -1,6 +1,7 @@
 import type {
   Address,
   AddressBookEntry,
+  AddressBookReview,
   AnalysisResult,
   CallRequest,
   ChainId,
@@ -127,9 +128,15 @@ export interface AbiPort {
 }
 
 export interface PersistencePort {
+  claimProfileIdentity(input: {
+    readonly privyUserId: string;
+    readonly walletAddress: Address;
+    readonly preferredProfileId: string;
+  }): Promise<string>;
   upsertSafe(snapshot: SafeSnapshot): Promise<void>;
   findSafe(ref: SafeRef): Promise<SafeSnapshot | null>;
   listSafesForProfile(profileId: string): Promise<readonly SafeSnapshot[]>;
+  listSafesForOwner(owner: Address): Promise<readonly SafeSnapshot[]>;
   /** Lists all persisted Safes for bounded background sweeps. The cursor is opaque to callers. */
   listSafes(cursor: string | null, limit: number): Promise<Page<SafeSnapshot>>;
   bookmarkSafe(profileId: string, safe: SafeRef): Promise<void>;
@@ -138,6 +145,10 @@ export interface PersistencePort {
     profileId: string,
     safe: SafeRef,
   ): Promise<readonly AddressBookEntry[]>;
+  listAddressBookReviews(
+    profileId: string,
+    safe: SafeRef,
+  ): Promise<readonly AddressBookReview[]>;
   upsertTransactions(items: readonly SafeTransaction[]): Promise<void>;
   upsertModuleTransactions(items: readonly ModuleTransaction[]): Promise<void>;
   listModuleTransactions(

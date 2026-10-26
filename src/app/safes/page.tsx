@@ -1,6 +1,8 @@
 import Link from "next/link";
 
 import { supportedChainSummaries } from "@/adapters/chain-viem/config";
+import { WalletAuthGate } from "@/components/auth/wallet-auth-gate";
+import { WalletAuthProvider } from "@/components/auth/wallet-auth-provider";
 import { SafesClient } from "@/components/safes/safes-client";
 import { TransactionReviewForm } from "@/components/safes/transaction-review-form";
 
@@ -22,11 +24,19 @@ export default function SafesPage() {
           <i aria-hidden="true" /> Read-only by design
         </span>
       </header>
-      <SafesClient
-        chains={supportedChainSummaries}
-        removeSafe={removeSafeBookmark}
-        reviewForm={<TransactionReviewForm chains={supportedChainSummaries} />}
-      />
+      <WalletAuthProvider appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID}>
+        <WalletAuthGate
+          configured={Boolean(process.env.NEXT_PUBLIC_PRIVY_APP_ID)}
+        >
+          <SafesClient
+            chains={supportedChainSummaries}
+            removeSafe={removeSafeBookmark}
+            reviewForm={
+              <TransactionReviewForm chains={supportedChainSummaries} />
+            }
+          />
+        </WalletAuthGate>
+      </WalletAuthProvider>
       <footer className="workspace-footer">
         <Link className="text-link" href="/">
           Return to overview

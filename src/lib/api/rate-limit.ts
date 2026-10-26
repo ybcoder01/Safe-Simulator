@@ -38,8 +38,14 @@ export const TELEGRAM_LINK_RATE_LIMIT: RateLimitPolicy = {
 
 export const TRANSACTION_SUMMARY_RATE_LIMIT: RateLimitPolicy = {
   scope: "transaction-summary",
-  limit: 5,
+  limit: 30,
   windowSeconds: 60 * 60,
+};
+
+export const TRANSACTION_SUMMARY_DAILY_LIMIT: RateLimitPolicy = {
+  scope: "transaction-summary-user-daily",
+  limit: 10,
+  windowSeconds: 24 * 60 * 60,
 };
 
 export const XDC_SOURCE_EVIDENCE_RATE_LIMIT: RateLimitPolicy = {
@@ -87,6 +93,30 @@ export async function checkRequestRateLimit(
       allowed: true,
       remaining: policy.limit,
       retryAfterSeconds: 0,
+      degraded: true,
+    };
+  }
+}
+
+export async function checkIdentityRateLimit(
+  port: RateLimitPort,
+  identity: string,
+  policy: RateLimitPolicy,
+): Promise<RequestRateLimitDecision> {
+  const key = `rate-limit:${policy.scope}:${fingerprint(identity)}`;
+  try {
+    const decision = await port.consume(
+      key,
+      policy.limit,
+      policy.windowSeconds,
+    );
+    return { ...decision, degraded: false };
+  } catch (error) {
+    console.error("Identity rate-limit check unavailable.", error);
+    return {
+      allowed: false,
+      remaining: 0,
+      retryAfterSeconds: 60,
       degraded: true,
     };
   }

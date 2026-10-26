@@ -7,13 +7,13 @@ import {
   availableAddressBookSuggestions,
   suggestedAddressBookLabel,
   type AddressBookSuggestion,
-  type AddressBookView,
+  type AddressBookReviewView,
 } from "@/lib/api/address-book";
 
 interface Props {
   readonly chainId: number;
   readonly safeAddress: string;
-  readonly initialEntries: readonly AddressBookView[];
+  readonly initialEntries: readonly AddressBookReviewView[];
   readonly suggestions: readonly AddressBookSuggestion[];
 }
 
@@ -57,6 +57,10 @@ export function AddressBookEditor({
     entries,
   );
   const busy = submitting || quickSaving !== null;
+  const approvalsNeeded = entries.filter(
+    (entry) =>
+      entry.status === "pending" && entry.currentUserDecision !== "trusted",
+  );
 
   async function persistEntry(input: SaveInput) {
     const response = await fetch(endpoint, {
@@ -65,7 +69,7 @@ export function AddressBookEditor({
       body: JSON.stringify(input),
     });
     const body = (await response.json()) as {
-      data?: AddressBookView;
+      data?: AddressBookReviewView;
     } & ErrorBody;
     if (!response.ok || !body.data) {
       throw new Error(body.error?.message ?? "Could not save trust record.");
@@ -160,20 +164,28 @@ export function AddressBookEditor({
     <section className="detail-panel" id="address-book">
       <div className="panel-heading">
         <div>
-          <p className="eyebrow">Profile trust records</p>
+          <p className="eyebrow">Owner trust reviews</p>
           <h2>Address book</h2>
         </div>
         <span>{entries.length} configured</span>
       </div>
       <p className="trust-copy">
-        These labels affect only this browser profile. Verified source alone
-        never creates a trusted verdict, and critical evidence remains critical.
+        Trust is shared at the Safe level. An address becomes trusted only after
+        the number of current owners approving it reaches this Safe&apos;s
+        signing threshold. Critical evidence remains critical.
       </p>
       <p className="trust-copy">
         A newly trusted address is shown as &ldquo;only just trusted&rdquo; for
         24 hours, unless this Safe has paid it before. That gives your team time
         to confirm the address with the person who asked for the payment.
       </p>
+      {approvalsNeeded.length > 0 ? (
+        <div className="form-notice" role="status">
+          <strong>Your review is needed.</strong> {approvalsNeeded.length}{" "}
+          {approvalsNeeded.length === 1 ? "address is" : "addresses are"}{" "}
+          waiting for enough Safe-owner approvals before becoming trusted.
+        </div>
+      ) : null}
       {availableSuggestions.length > 0 ? (
         <div className="trust-suggestions">
           <p>Classify addresses found in this transaction</p>
@@ -273,24 +285,49 @@ export function AddressBookEditor({
           entries.map((entry) => (
             <div className="trust-record" key={entry.address.toLowerCase()}>
               <div>
-                <span>{entry.trust}</span>
+                <span>{entry.status}</span>
                 <strong>{entry.label}</strong>
                 {entry.purpose ? <em>{entry.purpose}</em> : null}
                 <code>{entry.address}</code>
-                {entry.trustedAt === undefined ? null : (
-                  <small>
-                    {entry.trust === "trusted" ? "Trusted" : "Flagged"} since{" "}
-                    {formatSince(entry.trustedAt)}
-                  </small>
-                )}
+                <small>
+                  {entry.trustedApprovals} of {entry.requiredApprovals} owner
+                  approvals
+                  {entry.flaggedApprovals > 0
+                    ? ` · ${entry.flaggedApprovals} owner flag${entry.flaggedApprovals === 1 ? "" : "s"}`
+                    : ""}
+                </small>
+                <small>Updated {formatSince(entry.updatedAt)}</small>
+                <small>
+                  Your decision: {entry.currentUserDecision ?? "not reviewed"}
+                </small>
               </div>
-              <button
-                disabled={busy}
-                onClick={() => void remove(entry.address)}
-                type="button"
-              >
-                Remove
-              </button>
+              <div className="trust-suggestion-actions">
+                {entry.currentUserDecision !== "trusted" ? (
+                  <button
+                    disabled={busy}
+                    onClick={() =>
+                      void persistEntry({
+                        address: entry.address,
+                        label: entry.label,
+                        ...(entry.purpose ? { purpose: entry.purpose } : {}),
+                        trust: "trusted",
+                      })
+                    }
+                    type="button"
+                  >
+                    Approve trust
+                  </button>
+                ) : null}
+                {entry.currentUserDecision ? (
+                  <button
+                    disabled={busy}
+                    onClick={() => void remove(entry.address)}
+                    type="button"
+                  >
+                    Withdraw my decision
+                  </button>
+                ) : null}
+              </div>
             </div>
           ))
         )}

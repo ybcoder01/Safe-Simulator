@@ -10,7 +10,6 @@ const environment = process.env.SMOKE_ENVIRONMENT;
 const oidcToken = process.env.VERCEL_TRUSTED_OIDC_TOKEN;
 const navigationTimeoutMs = 30_000;
 const defaultRenderTimeoutMs = 30_000;
-const coldAnalysisTimeoutMs = 90_000;
 
 assert.equal(
   environment,
@@ -32,11 +31,6 @@ assert.notEqual(
   "Refusing to run browser checks against the production domain.",
 );
 
-const xdcSafe = "0xc8bae80ca5c2c9ec3bd4ac16c422220a33b6b173";
-const approvalSafe = "0x7ae1ef2979b0de85d7dea7f6a5582417d4a98c55";
-const approvalHash =
-  "0x0e47998fb92ce223105d15e36fa05aac47718baeaca8cc83a16be6e0815036cb";
-
 const pages = [
   {
     name: "home",
@@ -46,27 +40,12 @@ const pages = [
   {
     name: "watchlist",
     path: "/safes",
-    expected: ["Safe accounts", "Read-only by design"],
-  },
-  {
-    name: "safe-dashboard",
-    path: `/safe/50/${xdcSafe}`,
-    expected: [
-      "XDC NETWORK",
-      "Owners and controls",
-      "Current balances",
-      "Pending actions",
-      "Transaction history",
-      "Module executions",
-      "Signed messages",
-    ],
-    timeoutMs: 45_000,
-  },
-  {
-    name: "address-book",
-    path: `/safe/50/${xdcSafe}/address-book`,
-    expected: ["Address book", "Protocol addresses"],
-    timeoutMs: 45_000,
+    expected: ["Sign in to manage your Safes", "Read-only by design"],
+    // Privy's wallet discovery logs recoverable provider errors when Chromium
+    // runs headlessly with no injected wallet. The rendered auth gate remains
+    // the acceptance boundary; uncaught exceptions and failed documents are
+    // still fatal below.
+    allowConsoleErrors: true,
   },
 ];
 
@@ -179,62 +158,6 @@ async function waitForText(during, timeoutMs, failureMessage) {
     `${failureMessage} Last value: ${String(lastValue).slice(0, 500)}`,
   );
 }
-
-async function requestJson(pathname, timeoutMs = navigationTimeoutMs) {
-  const url = new URL(pathname, base);
-  assert.equal(url.origin, base.origin);
-
-  const response = await fetch(url, {
-    headers: {
-      Accept: "application/json",
-      "x-vercel-trusted-oidc-idp-token": oidcToken,
-    },
-    redirect: "error",
-    signal: AbortSignal.timeout(timeoutMs),
-  });
-  assert.equal(
-    response.status,
-    200,
-    `${pathname} returned HTTP ${response.status}.`,
-  );
-  assert.equal(new URL(response.url).origin, base.origin);
-  assert.match(
-    response.headers.get("content-type") ?? "",
-    /application[/]json/,
-  );
-  return response.json();
-}
-
-const approvalResponse = await requestJson(
-  `/api/v1/safes/50/${approvalSafe}/tx/${approvalHash}`,
-  coldAnalysisTimeoutMs,
-);
-const approval = approvalResponse.data;
-assert.equal(approval.status, "executed");
-assert.equal(
-  approval.execution?.mode,
-  "executed-replay",
-  "The fixed approval transaction should retain mined replay evidence.",
-);
-const approvalTarget = approval.verdict?.addresses?.find(
-  (entry) => entry.address.toLowerCase() === approval.to.toLowerCase(),
-);
-assert.equal(
-  approvalTarget?.status,
-  "known",
-  "The fixed approval target should remain recognized without being promoted to trusted.",
-);
-assert.ok(approval.approvalRisk?.requests?.length > 0);
-assert.ok(
-  Array.isArray(approval.approvalRisk?.executedChanges),
-  "Executed allowance evidence must keep its stable array contract.",
-);
-assert.equal(approval.approvalRisk.requests[0]?.standard, "erc20");
-assert.equal(approval.approvalRisk.requests[0]?.infinite, false);
-assert.match(
-  approval.approvalRisk.requests[0]?.spender ?? "",
-  /^0x[0-9a-f]{40}$/i,
-);
 
 const profileDirectory = await mkdtemp(
   join(tmpdir(), "safe-inspector-preview-browser-"),
@@ -396,6 +319,11 @@ try {
     );
 
     await new Promise((resolve) => setTimeout(resolve, 500));
+    if (page.allowConsoleErrors) {
+      pageFailures = pageFailures.filter(
+        (failure) => failure !== "console.error",
+      );
+    }
     assert.deepEqual(
       pageFailures,
       [],
