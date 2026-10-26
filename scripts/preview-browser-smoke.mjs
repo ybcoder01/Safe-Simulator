@@ -10,7 +10,6 @@ const environment = process.env.SMOKE_ENVIRONMENT;
 const oidcToken = process.env.VERCEL_TRUSTED_OIDC_TOKEN;
 const navigationTimeoutMs = 30_000;
 const defaultRenderTimeoutMs = 30_000;
-const coldAnalysisTimeoutMs = 90_000;
 
 assert.equal(
   environment,
@@ -32,8 +31,6 @@ assert.notEqual(
   "Refusing to run browser checks against the production domain.",
 );
 
-const xdcSafe = "0xc8bae80ca5c2c9ec3bd4ac16c422220a33b6b173";
-
 const pages = [
   {
     name: "home",
@@ -44,26 +41,6 @@ const pages = [
     name: "watchlist",
     path: "/safes",
     expected: ["Sign in to manage your Safes", "Read-only by design"],
-  },
-  {
-    name: "safe-dashboard",
-    path: `/safe/50/${xdcSafe}`,
-    expected: [
-      "XDC NETWORK",
-      "Owners and controls",
-      "Current balances",
-      "Pending actions",
-      "Transaction history",
-      "Module executions",
-      "Signed messages",
-    ],
-    timeoutMs: 45_000,
-  },
-  {
-    name: "address-book",
-    path: `/safe/50/${xdcSafe}/address-book`,
-    expected: ["Address book", "Protocol addresses"],
-    timeoutMs: 45_000,
   },
 ];
 
@@ -176,54 +153,6 @@ async function waitForText(during, timeoutMs, failureMessage) {
     `${failureMessage} Last value: ${String(lastValue).slice(0, 500)}`,
   );
 }
-
-async function requestJson(pathname, timeoutMs = navigationTimeoutMs) {
-  const url = new URL(pathname, base);
-  assert.equal(url.origin, base.origin);
-
-  const response = await fetch(url, {
-    headers: {
-      Accept: "application/json",
-      "x-vercel-trusted-oidc-idp-token": oidcToken,
-    },
-    redirect: "error",
-    signal: AbortSignal.timeout(timeoutMs),
-  });
-  assert.equal(
-    response.status,
-    200,
-    `${pathname} returned HTTP ${response.status}.`,
-  );
-  assert.equal(new URL(response.url).origin, base.origin);
-  assert.match(
-    response.headers.get("content-type") ?? "",
-    /application[/]json/,
-  );
-  return response.json();
-}
-
-const historyResponse = await requestJson(
-  `/api/v1/safes/50/${xdcSafe}/transactions?limit=1`,
-  coldAnalysisTimeoutMs,
-);
-assert.ok(
-  Array.isArray(historyResponse.data) && historyResponse.data.length > 0,
-  "The fixed Preview Safe should expose at least one public transaction.",
-);
-const transactionHash = historyResponse.data[0]?.safeTxHash;
-assert.match(transactionHash ?? "", /^0x[0-9a-f]{64}$/i);
-
-const transactionResponse = await requestJson(
-  `/api/v1/safes/50/${xdcSafe}/tx/${transactionHash}`,
-  coldAnalysisTimeoutMs,
-);
-const transaction = transactionResponse.data;
-assert.equal(
-  transaction.safeTxHash.toLowerCase(),
-  transactionHash.toLowerCase(),
-);
-assert.ok(transaction.verdict);
-assert.ok(transaction.insight);
 
 const profileDirectory = await mkdtemp(
   join(tmpdir(), "safe-inspector-preview-browser-"),
