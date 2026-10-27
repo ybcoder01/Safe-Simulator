@@ -5514,3 +5514,262 @@ select {
     grid-column: 2;
   }
 }
+
+/* Synthetic malicious-transaction training preview */
+.malicious-demo-notice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.8rem 1rem;
+  align-items: start;
+  margin-top: 1.5rem;
+  padding: 1rem 1.15rem;
+  border: 1px solid rgba(255, 190, 92, 0.36);
+  border-radius: 0.85rem;
+  background: rgba(255, 190, 92, 0.055);
+}
+
+.malicious-demo-notice strong {
+  color: #ffbe5c;
+}
+
+.malicious-demo-notice p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.attack-lab-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(20rem, 0.65fr);
+  gap: 2rem;
+  align-items: end;
+  margin-top: 3rem;
+}
+
+.attack-lab-hero h1 {
+  max-width: 14ch;
+  margin: 0.35rem 0 0.8rem;
+  font-size: clamp(3rem, 7vw, 6.25rem);
+  line-height: 0.95;
+  letter-spacing: -0.055em;
+}
+
+.attack-lab-hero > div > p:last-child {
+  max-width: 44rem;
+  margin: 0;
+  color: var(--muted);
+  font-size: 1.12rem;
+  line-height: 1.6;
+}
+
+.attack-lab-hero dl {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: rgba(9, 28, 22, 0.55);
+  overflow: hidden;
+}
+
+.attack-lab-hero dl div {
+  padding: 1rem;
+  border-left: 1px solid var(--line);
+  text-align: center;
+}
+
+.attack-lab-hero dl div:first-child {
+  border-left: 0;
+}
+
+.attack-lab-hero dt {
+  color: var(--muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.attack-lab-hero dd {
+  margin: 0.3rem 0 0;
+  color: var(--ink);
+  font-size: 1.7rem;
+  font-weight: 800;
+}
+
+.attack-lab-index {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 1.25rem 0 2rem;
+}
+
+.attack-lab-index a {
+  min-width: 0;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background: rgba(9, 28, 22, 0.4);
+  color: var(--ink);
+  text-decoration: none;
+  transition:
+    border-color 140ms ease,
+    background 140ms ease,
+    transform 140ms ease;
+}
+
+.attack-lab-index a:hover {
+  border-color: rgba(255, 118, 104, 0.48);
+  background: rgba(255, 118, 104, 0.06);
+  transform: translateY(-1px);
+}
+
+.attack-lab-index span,
+.attack-scenario summary small {
+  display: block;
+  margin-bottom: 0.3rem;
+  color: #ff8d82;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.7rem;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.attack-lab-index strong {
+  display: block;
+  overflow: hidden;
+  font-size: 0.94rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attack-list {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.attack-scenario {
+  scroll-margin-top: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: rgba(6, 20, 16, 0.62);
+  overflow: hidden;
+}
+
+.attack-scenario > summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: center;
+  padding: 1rem 1.1rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.attack-scenario > summary::-webkit-details-marker {
+  display: none;
+}
+
+.attack-scenario > summary:hover {
+  background: rgba(255, 118, 104, 0.035);
+}
+
+.attack-scenario-number {
+  display: grid;
+  width: 2.65rem;
+  height: 2.65rem;
+  place-items: center;
+  border: 1px solid rgba(255, 118, 104, 0.38);
+  border-radius: 50%;
+  color: #ff8d82;
+  font-family: var(--font-mono), monospace;
+  font-weight: 800;
+}
+
+.attack-scenario summary strong,
+.attack-scenario summary em {
+  display: block;
+}
+
+.attack-scenario summary strong {
+  color: var(--ink);
+  font-size: 1.05rem;
+}
+
+.attack-scenario summary em {
+  margin-top: 0.2rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-style: normal;
+}
+
+.attack-scenario-status {
+  padding: 0.45rem 0.65rem;
+  border: 1px solid rgba(255, 118, 104, 0.36);
+  border-radius: 999px;
+  color: #ff8d82;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.attack-scenario[open] > summary {
+  border-bottom: 1px solid var(--line);
+  background: rgba(255, 118, 104, 0.045);
+}
+
+.attack-scenario-body {
+  padding: clamp(1rem, 3vw, 2rem);
+}
+
+.attack-transaction-title {
+  margin: 0 0 1.25rem;
+}
+
+.attack-transaction-title h2 {
+  max-width: 24ch;
+  margin: 0.35rem 0 0;
+  font-size: clamp(1.85rem, 4vw, 3.5rem);
+  line-height: 1.02;
+  letter-spacing: -0.045em;
+}
+
+@media (max-width: 720px) {
+  .malicious-demo-notice,
+  .attack-lab-hero,
+  .attack-scenario > summary {
+    grid-template-columns: 1fr;
+  }
+
+  .attack-lab-hero {
+    margin-top: 2rem;
+  }
+
+  .attack-lab-hero h1 {
+    font-size: clamp(2.8rem, 14vw, 4.4rem);
+  }
+
+  .attack-lab-index {
+    grid-template-columns: 1fr;
+  }
+
+  .attack-lab-index strong {
+    white-space: normal;
+  }
+
+  .attack-scenario-status {
+    justify-self: start;
+  }
+}
+
+@media (min-width: 721px) and (max-width: 1080px) {
+  .attack-lab-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .attack-lab-index {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
