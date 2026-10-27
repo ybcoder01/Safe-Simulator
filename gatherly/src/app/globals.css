@@ -1,0 +1,92 @@
+@import "tailwindcss";
+
+@theme {
+  --color-sand: #f3eee6;
+  --color-cream: #fffdf9;
+  --color-ink: #1a2744;
+  --color-muted: #5c6880;
+  --color-coral: #e15d32;
+  --color-coral-deep: #c2410c;
+  --color-tangerine: #f0a15a;
+  --color-teal: #1c7a62;
+  --color-line: #e7dcd0;
+  --color-navy: #14213d;
+  --font-sans: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-fraunces), ui-serif, Georgia, serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(900px 420px at 0% -10%, rgb(225 93 50 / 0.1), transparent 55%),
+    radial-gradient(700px 380px at 100% 0%, rgb(28 122 98 / 0.08), transparent 50%),
+    var(--color-sand);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+body,
+button,
+input,
+textarea,
+select {
+  font-family: inherit;
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-coral);
+  outline-offset: 2px;
+}
+
+.font-display {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+}
+
+.rise {
+  animation: rise 0.45s ease both;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .rise,
+  .pulse-dot {
+    animation: none;
+  }
+}
+
+.pulse-dot {
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  50% {
+    transform: scale(0.85);
+    opacity: 0.6;
+  }
+}
+
+.scroll-x {
+  scrollbar-width: none;
+}
+
+.scroll-x::-webkit-scrollbar {
+  display: none;
+}
