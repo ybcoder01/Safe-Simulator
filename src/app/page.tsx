@@ -50,6 +50,12 @@ export default function HomePage() {
           <span className="read-only-pill">
             <i aria-hidden="true" /> Read-only by design
           </span>
+          <Link
+            className="button button-small button-secondary"
+            href="/demo/malicious-transaction"
+          >
+            Attack demo
+          </Link>
           <Link className="button button-small" href="/safes">
             Open inspector
           </Link>
@@ -69,12 +75,6 @@ export default function HomePage() {
           <div className="hero-actions">
             <Link className="button" href="/safes">
               Inspect a Safe <span aria-hidden="true">→</span>
-            </Link>
-            <Link
-              className="button button-secondary"
-              href="/demo/malicious-transaction"
-            >
-              View dummy attack examples
             </Link>
             <Link
               className="text-link"
