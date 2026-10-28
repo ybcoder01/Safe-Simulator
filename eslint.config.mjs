@@ -27,7 +27,7 @@ const signingKitBan = {
 };
 
 export default defineConfig([
-  globalIgnores([".next/**", "coverage/**", "node_modules/**"]),
+  globalIgnores([".next/**", "coverage/**", "node_modules/**", "swapfair/**"]),
   ...nextVitals,
   ...nextTypescript,
   {
