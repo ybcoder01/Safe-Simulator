@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { ApothemInspection } from "@/lib/testnet/apothem";
 
@@ -9,14 +9,22 @@ interface InspectResponse {
   readonly error?: { readonly message?: string };
 }
 
-export function ApothemAttackLabInspector() {
-  const [transactionHash, setTransactionHash] = useState("");
+interface ApothemAttackLabInspectorProps {
+  readonly initialTransactionHash?: string;
+}
+
+export function ApothemAttackLabInspector({
+  initialTransactionHash = "",
+}: ApothemAttackLabInspectorProps) {
+  const [transactionHash, setTransactionHash] = useState(
+    initialTransactionHash,
+  );
+  const autoInspectionStarted = useRef(false);
   const [inspection, setInspection] = useState<ApothemInspection | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function inspect(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  const inspectHash = useCallback(async (hash: string) => {
     setPending(true);
     setError(null);
     setInspection(null);
@@ -24,7 +32,7 @@ export function ApothemAttackLabInspector() {
       const response = await fetch("/api/v1/testnet/apothem/inspect", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ transactionHash }),
+        body: JSON.stringify({ transactionHash: hash }),
       });
       const body = (await response.json().catch(() => ({}))) as InspectResponse;
       if (!response.ok || !body.data) {
@@ -43,6 +51,23 @@ export function ApothemAttackLabInspector() {
     } finally {
       setPending(false);
     }
+  }, []);
+
+  useEffect(() => {
+    if (
+      autoInspectionStarted.current ||
+      !/^0x[0-9a-fA-F]{64}$/.test(initialTransactionHash)
+    ) {
+      return;
+    }
+
+    autoInspectionStarted.current = true;
+    void inspectHash(initialTransactionHash);
+  }, [initialTransactionHash, inspectHash]);
+
+  function inspect(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void inspectHash(transactionHash);
   }
 
   return (
@@ -56,9 +81,9 @@ export function ApothemAttackLabInspector() {
             <p className="eyebrow">Real chain evidence · Test assets only</p>
             <h2 id="apothem-inspector-title">Inspect an Apothem transaction</h2>
             <p>
-              Paste a transaction hash broadcast on chain 51. Safe Inspector
-              reads fixed Apothem RPC endpoints; it never follows a URL supplied
-              by the browser.
+              Paste a transaction hash broadcast on chain 51, or open a generated
+              demo link to inspect it automatically. Safe Inspector reads fixed
+              Apothem RPC endpoints; it never follows a URL supplied by the browser.
             </p>
           </div>
           <span className="telegram-alert-state state-paused">
