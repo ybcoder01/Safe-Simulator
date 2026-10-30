@@ -1,0 +1,199 @@
+name: Generate Apothem attack demos
+
+on:
+  pull_request:
+    paths:
+      - "testnet/apothem/**"
+      - ".github/workflows/generate-apothem-attack-demos.yml"
+  workflow_dispatch:
+    inputs:
+      confirm_apothem_only:
+        description: "Type APOTHEM to deploy and broadcast test-only scenarios"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apothem-attack-demo-generation
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: testnet/apothem
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Check Solidity formatting
+        run: forge fmt --check
+
+      - name: Build training contracts
+        run: forge build
+
+  generate:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.confirm_apothem_only == 'APOTHEM' }}
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: apothem-testnet
+    defaults:
+      run:
+        working-directory: testnet/apothem
+    env:
+      APOTHEM_RPC_URL: ${{ secrets.APOTHEM_RPC_URL }}
+      APOTHEM_DEPLOYER_PRIVATE_KEY: ${{ secrets.APOTHEM_DEPLOYER_PRIVATE_KEY }}
+      INSPECTOR_URL: https://safe-simulator.vercel.app/demo/apothem-attack-lab
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Refuse non-Apothem endpoints and missing test credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$APOTHEM_RPC_URL"
+          test -n "$APOTHEM_DEPLOYER_PRIVATE_KEY"
+          chain_id="$(cast chain-id --rpc-url "$APOTHEM_RPC_URL")"
+          test "$chain_id" = "51" || {
+            echo "::error::Refusing demo generation: RPC returned chain ID $chain_id, expected 51."
+            exit 1
+          }
+
+      - name: Deploy fixtures and broadcast attack-shaped transactions
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          zero_address="0x0000000000000000000000000000000000000000"
+          injected_recipient="0x000000000000000000000000000000000000dEaD"
+          suspicious_module="0x000000000000000000000000000000000000bEEF"
+          max_uint="0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+          one_token="1000000000000000000"
+
+          deploy() {
+            local contract="$1"
+            forge create \
+              --broadcast \
+              --chain 51 \
+              --rpc-url "$APOTHEM_RPC_URL" \
+              --private-key "$APOTHEM_DEPLOYER_PRIVATE_KEY" \
+              --json \
+              "src/AttackLab.sol:$contract" | jq -r '.deployedTo'
+          }
+
+          send_tx() {
+            cast send \
+              --rpc-url "$APOTHEM_RPC_URL" \
+              --private-key "$APOTHEM_DEPLOYER_PRIVATE_KEY" \
+              --json \
+              "$@" | jq -r '.transactionHash'
+          }
+
+          token="$(deploy TrainingToken)"
+          spender="$(deploy UnknownSpender)"
+          router="$(deploy InjectedRecipientRouter)"
+          delegate="$(deploy DelegateMutation)"
+          multicall="$(deploy HiddenMulticall)"
+          proxy="$(deploy ProxyUpgradeTrap)"
+          safe_harness="$(deploy SafeDelegatecallHarness)"
+          control_trap="$(deploy SafeControlTrap)"
+
+          unlimited_approval="$(
+            send_tx "$token" "approve(address,uint256)(bool)" "$spender" "$max_uint"
+          )"
+
+          send_tx "$token" "approve(address,uint256)(bool)" "$router" "$one_token" >/dev/null
+          injected_route="$(
+            send_tx "$router" "route(address,address,uint256)" \
+              "$token" "$injected_recipient" "$one_token"
+          )"
+
+          nested_call="$(
+            cast calldata "sendNative(address,uint256)" "$injected_recipient" 1
+          )"
+          hidden_multicall="$(
+            send_tx --value 1 "$multicall" "multicall(bytes[])(bytes[])" "[$nested_call]"
+          )"
+
+          mutation_call="$(cast calldata "mutate()")"
+          proxy_upgrade="$(
+            send_tx "$proxy" "upgradeToAndCall(address,bytes)" "$delegate" "$mutation_call"
+          )"
+
+          delegatecall="$(
+            send_tx "$safe_harness" \
+              "execTransaction(address,uint256,bytes,uint8,uint256,uint256,uint256,address,address,bytes)(bool)" \
+              "$delegate" 0 "$mutation_call" 1 0 0 0 "$zero_address" "$zero_address" 0x
+          )"
+
+          safe_control_change="$(
+            send_tx "$control_trap" "enableModule(address)" "$suspicious_module"
+          )"
+
+          jq -n \
+            --arg network "XDC Apothem" \
+            --argjson chainId 51 \
+            --arg token "$token" \
+            --arg spender "$spender" \
+            --arg router "$router" \
+            --arg delegate "$delegate" \
+            --arg multicall "$multicall" \
+            --arg proxy "$proxy" \
+            --arg safeHarness "$safe_harness" \
+            --arg controlTrap "$control_trap" \
+            --arg unlimitedApproval "$unlimited_approval" \
+            --arg injectedRoute "$injected_route" \
+            --arg hiddenMulticall "$hidden_multicall" \
+            --arg proxyUpgrade "$proxy_upgrade" \
+            --arg delegatecall "$delegatecall" \
+            --arg safeControlChange "$safe_control_change" \
+            '{
+              network: $network,
+              chainId: $chainId,
+              contracts: {
+                trainingToken: $token,
+                unknownSpender: $spender,
+                injectedRecipientRouter: $router,
+                delegateMutation: $delegate,
+                hiddenMulticall: $multicall,
+                proxyUpgradeTrap: $proxy,
+                safeDelegatecallHarness: $safeHarness,
+                safeControlTrap: $controlTrap
+              },
+              transactions: [
+                {id: "unlimited-approval", title: "Unlimited token approval", hash: $unlimitedApproval},
+                {id: "injected-recipient", title: "Injected recipient", hash: $injectedRoute},
+                {id: "hidden-multicall", title: "Hidden multicall and native transfer", hash: $hiddenMulticall},
+                {id: "proxy-upgrade", title: "Proxy implementation replacement", hash: $proxyUpgrade},
+                {id: "safe-delegatecall", title: "Safe-shaped delegatecall", hash: $delegatecall},
+                {id: "safe-control-change", title: "Safe security-control modification", hash: $safeControlChange}
+              ]
+            }' > demo-transactions.json
+
+          {
+            echo "## XDC Apothem attack demos"
+            echo
+            echo "All transactions use faucet TXDC and newly deployed training contracts."
+            echo
+            jq -r --arg base "$INSPECTOR_URL" \
+              '.transactions[] | "- [\(.title)](\($base)?tx=\(.hash)) — `\(.hash)`"' \
+              demo-transactions.json
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload public demo manifest
+        uses: actions/upload-artifact@v6
+        with:
+          name: apothem-attack-demo-transactions
+          path: testnet/apothem/demo-transactions.json
+          if-no-files-found: error
+          retention-days: 30

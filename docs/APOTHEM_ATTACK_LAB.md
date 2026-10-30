@@ -29,6 +29,8 @@ Official network parameters:
 | `DelegateMutation`        | delegatecall into code that writes caller storage       |
 | `HiddenMulticall`         | a value transfer hidden inside a nested batch           |
 | `ProxyUpgradeTrap`        | implementation replacement and delegated initialization |
+| `SafeDelegatecallHarness` | Safe-shaped delegatecall into external training code    |
+| `SafeControlTrap`         | module, guard, handler, owner, and threshold changes    |
 
 The contracts enforce `block.chainid == 51` on state-changing training
 functions. They are deliberately unaudited test fixtures, not reusable protocol
@@ -47,6 +49,22 @@ components.
 
 The private key is consumed only by the GitHub runner and must never be placed
 in Vercel, source code, workflow inputs, logs, or a browser.
+
+## Generate clickable demo transactions
+
+After the same disposable deployer is funded, run **Generate Apothem attack
+demos** and type `APOTHEM`. The workflow deploys fresh fixtures and broadcasts
+six test-only transactions: unlimited approval, injected recipient, hidden
+multicall, proxy upgrade, Safe-shaped delegatecall, and Safe security-control
+change.
+
+The job summary and downloadable `demo-transactions.json` artifact contain a
+separate inspector link for every transaction. Each link supplies only a public
+transaction hash; the page loads the corresponding chain-51 evidence
+automatically. The artifact contains no private key.
+
+Generated contracts and hashes are disposable training evidence. Do not label
+or reuse them as official protocol deployments.
 
 ## Safe limitation on Apothem
 

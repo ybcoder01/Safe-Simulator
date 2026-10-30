@@ -121,8 +121,7 @@ contract HiddenMulticall {
 }
 
 contract ProxyUpgradeTrap {
-    bytes32 private constant IMPLEMENTATION_SLOT =
-        bytes32(uint256(keccak256("eip1967.proxy.implementation")) - 1);
+    bytes32 private constant IMPLEMENTATION_SLOT = bytes32(uint256(keccak256("eip1967.proxy.implementation")) - 1);
 
     event Upgraded(address indexed implementation);
 
@@ -149,5 +148,81 @@ contract ProxyUpgradeTrap {
                 }
             }
         }
+    }
+}
+
+/// @notice Mimics the Safe execTransaction ABI solely so the inspector can
+/// unwrap a real chain-51 delegatecall-shaped training transaction.
+contract SafeDelegatecallHarness {
+    event Executed(address indexed target, uint8 operation, bool success);
+
+    function execTransaction(
+        address to,
+        uint256 value,
+        bytes calldata data,
+        uint8 operation,
+        uint256,
+        uint256,
+        uint256,
+        address,
+        address payable,
+        bytes calldata
+    ) external payable returns (bool success) {
+        require(block.chainid == 51, "APOTHEM_ONLY");
+        require(operation <= 1, "OPERATION");
+        if (operation == 1) {
+            (success,) = to.delegatecall(data);
+        } else {
+            (success,) = to.call{value: value}(data);
+        }
+        require(success, "TRAINING_CALL_FAILED");
+        emit Executed(to, operation, success);
+    }
+}
+
+/// @notice Exposes Safe security-control selectors without controlling a real
+/// Safe. Successful calls are intentionally suspicious training evidence.
+contract SafeControlTrap {
+    mapping(address => bool) public modules;
+    address public guard;
+    address public fallbackHandler;
+    uint256 public threshold;
+    mapping(address => bool) public owners;
+
+    event ModuleEnabled(address indexed module);
+    event GuardChanged(address indexed guard);
+    event FallbackHandlerChanged(address indexed handler);
+    event OwnerAdded(address indexed owner, uint256 threshold);
+    event ThresholdChanged(uint256 threshold);
+
+    function enableModule(address module) external {
+        require(block.chainid == 51, "APOTHEM_ONLY");
+        modules[module] = true;
+        emit ModuleEnabled(module);
+    }
+
+    function setGuard(address newGuard) external {
+        require(block.chainid == 51, "APOTHEM_ONLY");
+        guard = newGuard;
+        emit GuardChanged(newGuard);
+    }
+
+    function setFallbackHandler(address handler) external {
+        require(block.chainid == 51, "APOTHEM_ONLY");
+        fallbackHandler = handler;
+        emit FallbackHandlerChanged(handler);
+    }
+
+    function addOwnerWithThreshold(address owner, uint256 newThreshold) external {
+        require(block.chainid == 51, "APOTHEM_ONLY");
+        owners[owner] = true;
+        threshold = newThreshold;
+        emit OwnerAdded(owner, newThreshold);
+    }
+
+    function changeThreshold(uint256 newThreshold) external {
+        require(block.chainid == 51, "APOTHEM_ONLY");
+        threshold = newThreshold;
+        emit ThresholdChanged(newThreshold);
     }
 }

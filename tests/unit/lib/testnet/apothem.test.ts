@@ -129,4 +129,106 @@ describe("XDC Apothem attack classification", () => {
       "delegatecall-operation",
     );
   });
+
+  it("flags nested multicalls", () => {
+    const data = encodeFunctionData({
+      abi: [
+        {
+          type: "function",
+          name: "multicall",
+          stateMutability: "payable",
+          inputs: [{ name: "calls", type: "bytes[]" }],
+          outputs: [{ name: "results", type: "bytes[]" }],
+        },
+      ] as const,
+      functionName: "multicall",
+      args: [["0x12345678"]],
+    });
+
+    expect(
+      classifyApothemCall({
+        target,
+        value: 0n,
+        data,
+        operation: "call",
+        wrappedBySafe: false,
+      }),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "nested-multicall",
+          severity: "warning",
+        }),
+      ]),
+    );
+  });
+
+  it("flags proxy implementation replacement", () => {
+    const data = encodeFunctionData({
+      abi: [
+        {
+          type: "function",
+          name: "upgradeToAndCall",
+          stateMutability: "payable",
+          inputs: [
+            { name: "implementation", type: "address" },
+            { name: "data", type: "bytes" },
+          ],
+          outputs: [],
+        },
+      ] as const,
+      functionName: "upgradeToAndCall",
+      args: [spender, "0x12345678"],
+    });
+
+    expect(
+      classifyApothemCall({
+        target,
+        value: 0n,
+        data,
+        operation: "call",
+        wrappedBySafe: false,
+      }),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "proxy-implementation-change",
+          severity: "critical",
+        }),
+      ]),
+    );
+  });
+
+  it("flags Safe security-control changes", () => {
+    const data = encodeFunctionData({
+      abi: [
+        {
+          type: "function",
+          name: "enableModule",
+          stateMutability: "nonpayable",
+          inputs: [{ name: "module", type: "address" }],
+          outputs: [],
+        },
+      ] as const,
+      functionName: "enableModule",
+      args: [spender],
+    });
+
+    expect(
+      classifyApothemCall({
+        target,
+        value: 0n,
+        data,
+        operation: "call",
+        wrappedBySafe: false,
+      }),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "safe-control-change",
+          severity: "critical",
+        }),
+      ]),
+    );
+  });
 });

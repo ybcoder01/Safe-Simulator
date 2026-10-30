@@ -70,6 +70,8 @@ jobs:
           delegate="$(deploy DelegateMutation)"
           multicall="$(deploy HiddenMulticall)"
           proxy="$(deploy ProxyUpgradeTrap)"
+          safe_harness="$(deploy SafeDelegatecallHarness)"
+          control_trap="$(deploy SafeControlTrap)"
 
           jq -n \
             --arg network "XDC Apothem" \
@@ -80,6 +82,8 @@ jobs:
             --arg delegate "$delegate" \
             --arg multicall "$multicall" \
             --arg proxy "$proxy" \
+            --arg safeHarness "$safe_harness" \
+            --arg controlTrap "$control_trap" \
             '{
               network: $network,
               chainId: $chainId,
@@ -89,7 +93,9 @@ jobs:
                 injectedRecipientRouter: $router,
                 delegateMutation: $delegate,
                 hiddenMulticall: $multicall,
-                proxyUpgradeTrap: $proxy
+                proxyUpgradeTrap: $proxy,
+                safeDelegatecallHarness: $safeHarness,
+                safeControlTrap: $controlTrap
               }
             }' > deployment.json
 
