@@ -151,11 +151,12 @@ jobs:
               "$token" "$injected_recipient" "$one_token"
           )"
 
+          send_tx --value 1 "$multicall" "multicall(bytes[])(bytes[])" "[]" >/dev/null
           nested_call="$(
             cast calldata "sendNative(address,uint256)" "$injected_recipient" 1
           )"
           hidden_multicall="$(
-            send_tx --value 1 "$multicall" "multicall(bytes[])(bytes[])" "[$nested_call]"
+            send_tx "$multicall" "multicall(bytes[])(bytes[])" "[$nested_call]"
           )"
 
           mutation_call="$(cast calldata "mutate()")"
