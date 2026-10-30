@@ -698,6 +698,15 @@ export default function MaliciousTransactionDemoPage() {
         </header>
 
         <div className="malicious-demo-notice" role="note">
+          <strong>Ready for a real testnet transaction?</strong>
+          <p>
+            The <Link href="/demo/apothem-attack-lab">XDC Apothem attack lab</Link>{" "}
+            reads actual chain-51 transaction evidence using test assets only.
+            It never signs or broadcasts from Safe Inspector.
+          </p>
+        </div>
+
+        <div className="malicious-demo-notice" role="note">
           <strong>Training environment</strong>
           <p>
             Every address, nonce, balance, result, and protocol identity below
