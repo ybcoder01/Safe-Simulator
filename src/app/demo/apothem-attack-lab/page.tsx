@@ -36,9 +36,24 @@ const SCENARIOS = [
     detail:
       "Call upgradeToAndCall on the training proxy and verify the address is not treated as trusted after code changes.",
   },
+  {
+    title: "Safe security-control change",
+    detail:
+      "Use a Safe security selector such as enableModule and confirm that a new execution path is treated as critical.",
+  },
 ] as const;
 
-export default function ApothemAttackLabPage() {
+interface PageProps {
+  readonly searchParams: Promise<{ readonly tx?: string | string[] }>;
+}
+
+const TRANSACTION_HASH = /^0x[0-9a-fA-F]{64}$/;
+
+export default async function ApothemAttackLabPage({ searchParams }: PageProps) {
+  const query = await searchParams;
+  const suppliedHash = Array.isArray(query.tx) ? query.tx[0] : query.tx;
+  const initialTransactionHash =
+    suppliedHash && TRANSACTION_HASH.test(suppliedHash) ? suppliedHash : "";
   return (
     <main className="workspace shell attack-lab">
       <header className="workspace-header">
@@ -93,7 +108,9 @@ export default function ApothemAttackLabPage() {
           </p>
         </div>
 
-        <ApothemAttackLabInspector />
+        <ApothemAttackLabInspector
+          initialTransactionHash={initialTransactionHash}
+        />
 
         <section
           className="telegram-alerts-card"
