@@ -29,7 +29,8 @@ export function ApothemAttackLabInspector() {
       const body = (await response.json().catch(() => ({}))) as InspectResponse;
       if (!response.ok || !body.data) {
         throw new Error(
-          body.error?.message ?? "The Apothem transaction could not be inspected.",
+          body.error?.message ??
+            "The Apothem transaction could not be inspected.",
         );
       }
       setInspection(body.data);
@@ -46,7 +47,10 @@ export function ApothemAttackLabInspector() {
 
   return (
     <>
-      <section className="telegram-alerts-card" aria-labelledby="apothem-inspector-title">
+      <section
+        className="telegram-alerts-card"
+        aria-labelledby="apothem-inspector-title"
+      >
         <div className="telegram-alerts-heading">
           <div>
             <p className="eyebrow">Real chain evidence · Test assets only</p>
@@ -68,7 +72,9 @@ export function ApothemAttackLabInspector() {
             <input
               autoComplete="off"
               inputMode="text"
-              onChange={(event) => setTransactionHash(event.target.value.trim())}
+              onChange={(event) =>
+                setTransactionHash(event.target.value.trim())
+              }
               pattern="^0x[0-9a-fA-F]{64}$"
               placeholder="0x…"
               required
@@ -104,7 +110,8 @@ export function ApothemAttackLabInspector() {
           <header className="transaction-title attack-transaction-title">
             <div>
               <p className="eyebrow">
-                {inspection.network} · Block {inspection.blockNumber ?? "pending"}
+                {inspection.network} · Block{" "}
+                {inspection.blockNumber ?? "pending"}
               </p>
               <h2>
                 {inspection.verdict === "stop"
@@ -152,7 +159,9 @@ export function ApothemAttackLabInspector() {
                 key={finding.code}
               >
                 <strong>
-                  {finding.severity === "critical" ? "Critical · " : "Review · "}
+                  {finding.severity === "critical"
+                    ? "Critical · "
+                    : "Review · "}
                   {finding.title}
                 </strong>
                 <p>{finding.explanation}</p>
