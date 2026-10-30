@@ -87,23 +87,26 @@ export default function ApothemAttackLabPage() {
           <strong>Strict testnet boundary</strong>
           <p>
             Use a disposable wallet and faucet TXDC. Never enter a private key
-            here, reuse a production signer, or fund the training contracts
-            with real assets. Safe Inspector remains read-only and does not sign
-            or broadcast transactions.
+            here, reuse a production signer, or fund the training contracts with
+            real assets. Safe Inspector remains read-only and does not sign or
+            broadcast transactions.
           </p>
         </div>
 
         <ApothemAttackLabInspector />
 
-        <section className="telegram-alerts-card" aria-labelledby="apothem-scenarios">
+        <section
+          className="telegram-alerts-card"
+          aria-labelledby="apothem-scenarios"
+        >
           <div className="telegram-alerts-heading">
             <div>
               <p className="eyebrow">Controlled attack fixtures</p>
               <h2 id="apothem-scenarios">Scenarios to exercise</h2>
               <p>
-                Each fixture is intentionally suspicious and restricted to
-                chain 51. A successful execution is expected and does not mean
-                the action is safe.
+                Each fixture is intentionally suspicious and restricted to chain
+                51. A successful execution is expected and does not mean the
+                action is safe.
               </p>
             </div>
           </div>
