@@ -1,6 +1,10 @@
 name: Generate Apothem attack demos
 
 on:
+  pull_request:
+    paths:
+      - "testnet/apothem/**"
+      - ".github/workflows/generate-apothem-attack-demos.yml"
   workflow_dispatch:
     inputs:
       confirm_apothem_only:
@@ -16,8 +20,27 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  validate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: testnet/apothem
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Check Solidity formatting
+        run: forge fmt --check
+
+      - name: Build training contracts
+        run: forge build
+
   generate:
-    if: ${{ inputs.confirm_apothem_only == 'APOTHEM' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.confirm_apothem_only == 'APOTHEM' }}
+    needs: validate
     runs-on: ubuntu-latest
     environment: apothem-testnet
     defaults:
@@ -45,9 +68,6 @@ jobs:
             echo "::error::Refusing demo generation: RPC returned chain ID $chain_id, expected 51."
             exit 1
           }
-
-      - name: Build training contracts
-        run: forge build
 
       - name: Deploy fixtures and broadcast attack-shaped transactions
         shell: bash
