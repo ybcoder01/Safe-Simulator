@@ -20,8 +20,8 @@ import {
   type ApothemInspection,
 } from "@/lib/testnet/apothem";
 import {
+  APOTHEM_INSPECTION_RATE_LIMIT,
   checkRequestRateLimit,
-  MANUAL_SIMULATION_RATE_LIMIT,
   rateLimitHeaders,
 } from "@/lib/api/rate-limit";
 
@@ -72,14 +72,14 @@ export async function POST(request: NextRequest) {
   const rateLimit = await checkRequestRateLimit(
     getRateLimitPort(),
     request,
-    MANUAL_SIMULATION_RATE_LIMIT,
+    APOTHEM_INSPECTION_RATE_LIMIT,
   );
   if (!rateLimit.allowed) {
     return NextResponse.json(
       { error: { message: "Too many testnet inspections. Try again later." } },
       {
         status: 429,
-        headers: rateLimitHeaders(MANUAL_SIMULATION_RATE_LIMIT, rateLimit),
+        headers: rateLimitHeaders(APOTHEM_INSPECTION_RATE_LIMIT, rateLimit),
       },
     );
   }
