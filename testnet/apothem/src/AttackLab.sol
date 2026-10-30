@@ -121,8 +121,7 @@ contract HiddenMulticall {
 }
 
 contract ProxyUpgradeTrap {
-    bytes32 private constant IMPLEMENTATION_SLOT =
-        bytes32(uint256(keccak256("eip1967.proxy.implementation")) - 1);
+    bytes32 private constant IMPLEMENTATION_SLOT = bytes32(uint256(keccak256("eip1967.proxy.implementation")) - 1);
 
     event Upgraded(address indexed implementation);
 
@@ -151,7 +150,6 @@ contract ProxyUpgradeTrap {
         }
     }
 }
-
 
 /// @notice Mimics the Safe execTransaction ABI solely so the inspector can
 /// unwrap a real chain-51 delegatecall-shaped training transaction.
