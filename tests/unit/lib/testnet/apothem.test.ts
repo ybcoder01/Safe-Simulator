@@ -129,6 +129,7 @@ describe("XDC Apothem attack classification", () => {
       "delegatecall-operation",
     );
   });
+
   it("flags nested multicalls", () => {
     const data = encodeFunctionData({
       abi: [
@@ -230,5 +231,4 @@ describe("XDC Apothem attack classification", () => {
       ]),
     );
   });
-
 });
