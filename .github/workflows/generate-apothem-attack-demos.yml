@@ -82,21 +82,54 @@ jobs:
 
           deploy() {
             local contract="$1"
-            forge create \
+            local output
+            local address
+
+            if ! output="$(forge create \
               --broadcast \
               --chain 51 \
               --rpc-url "$APOTHEM_RPC_URL" \
               --private-key "$APOTHEM_DEPLOYER_PRIVATE_KEY" \
               --json \
-              "src/AttackLab.sol:$contract" | jq -r '.deployedTo'
+              "src/AttackLab.sol:$contract" 2>&1)"; then
+              echo "::error::Deployment failed for $contract."
+              printf '%s\n' "$output" >&2
+              return 1
+            fi
+
+            if ! address="$(jq -er '.deployedTo' <<<"$output")"; then
+              echo "::error::Could not read the deployed address for $contract."
+              printf '%s\n' "$output" >&2
+              return 1
+            fi
+
+            echo "Deployed $contract to $address" >&2
+            printf '%s\n' "$address"
           }
 
           send_tx() {
-            cast send \
+            local target="$1"
+            local output
+            local transaction_hash
+
+            if ! output="$(cast send \
               --rpc-url "$APOTHEM_RPC_URL" \
               --private-key "$APOTHEM_DEPLOYER_PRIVATE_KEY" \
               --json \
-              "$@" | jq -r '.transactionHash'
+              "$@" 2>&1)"; then
+              echo "::error::Transaction broadcast failed for target $target."
+              printf '%s\n' "$output" >&2
+              return 1
+            fi
+
+            if ! transaction_hash="$(jq -er '.transactionHash' <<<"$output")"; then
+              echo "::error::Could not read the transaction hash for target $target."
+              printf '%s\n' "$output" >&2
+              return 1
+            fi
+
+            echo "Broadcast to $target: $transaction_hash" >&2
+            printf '%s\n' "$transaction_hash"
           }
 
           token="$(deploy TrainingToken)"
