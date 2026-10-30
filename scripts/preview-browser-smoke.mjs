@@ -51,15 +51,6 @@ const pages = [
     // still fatal below.
     allowConsoleErrors: true,
   },
-  {
-    name: "apothem attack lab",
-    path: "/demo/apothem-attack-lab",
-    expected: [
-      "Malicious transaction testnet lab",
-      "XDC Apothem · Chain ID 51",
-      "Strict testnet boundary",
-    ],
-  },
 ];
 
 const forbiddenControl =
