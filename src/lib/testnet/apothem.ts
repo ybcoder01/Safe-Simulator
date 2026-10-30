@@ -52,9 +52,7 @@ const SELECTORS = {
   ),
   changeThreshold: toFunctionSelector("changeThreshold(uint256)"),
   swapOwner: toFunctionSelector("swapOwner(address,address,address)"),
-  removeOwner: toFunctionSelector(
-    "removeOwner(address,address,uint256)",
-  ),
+  removeOwner: toFunctionSelector("removeOwner(address,address,uint256)"),
 } as const;
 
 export type ApothemSeverity = "warning" | "critical";
@@ -173,7 +171,8 @@ export function classifyApothemCall(
   call: EffectiveApothemCall,
 ): readonly ApothemFinding[] {
   const findings: ApothemFinding[] = [];
-  const selector = call.data.length >= 10 ? (call.data.slice(0, 10) as Hex) : "0x";
+  const selector =
+    call.data.length >= 10 ? (call.data.slice(0, 10) as Hex) : "0x";
 
   if (call.operation === "delegatecall") {
     findings.push({
@@ -190,9 +189,7 @@ export function classifyApothemCall(
     const amount = wordUint(call.data, 1);
     findings.push({
       code:
-        amount === maxUint256
-          ? "unlimited-token-approval"
-          : "token-approval",
+        amount === maxUint256 ? "unlimited-token-approval" : "token-approval",
       severity: amount === maxUint256 ? "critical" : "warning",
       title:
         amount === maxUint256
