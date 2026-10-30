@@ -19,13 +19,21 @@ import { isSafeBookmarked } from "@/lib/api/sync-refresh";
 import { ensureTelegramWatch } from "@/lib/api/telegram-webhook";
 import { legacyTelegramWatchScheduleId } from "@/lib/api/telegram-schedule";
 import { invalidateTelegramWatchRegistry } from "@/lib/api/telegram-watch-cache";
+import { formatMaliciousTrainingAlert } from "@/lib/api/telegram-training-alert";
 
 interface RouteContext {
   readonly params: Promise<{ chainId: string; address: string }>;
 }
 
 const actionSchema = z.object({
-  action: z.enum(["check", "test", "pause", "resume", "disconnect"]),
+  action: z.enum([
+    "check",
+    "test",
+    "attack-test",
+    "pause",
+    "resume",
+    "disconnect",
+  ]),
 });
 
 async function removeUnusedSchedule(chainId: number, address: string) {
@@ -120,6 +128,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         });
 
       case "test":
+      case "attack-test":
         if (active.length === 0) {
           return NextResponse.json(
             { error: { message: "Resume alerts before sending a test." } },
@@ -131,14 +140,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
             try {
               await getTelegramDeliveryPort().sendMessage({
                 chatId: subscription.chatId,
-                text: [
-                  "✅ SAFE INSPECTOR TEST ALERT",
-                  "",
-                  "Telegram delivery is connected for this Safe.",
-                  "This is only a test. No transaction was created, signed, or executed.",
-                  "",
-                  `Safe: ${safe.data.address.slice(0, 8)}…${safe.data.address.slice(-6)}`,
-                ].join("\n"),
+                text:
+                  input.data.action === "attack-test"
+                    ? formatMaliciousTrainingAlert(safe.data)
+                    : [
+                        "✅ SAFE INSPECTOR TEST ALERT",
+                        "",
+                        "Telegram delivery is connected for this Safe.",
+                        "This is only a test. No transaction was created, signed, or executed.",
+                        "",
+                        `Safe: ${safe.data.address.slice(0, 8)}…${safe.data.address.slice(-6)}`,
+                      ].join("\n"),
               });
               await persistence.recordTelegramDeliveryResult(
                 subscription.id,
@@ -157,7 +169,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
         );
         return NextResponse.json({
           data: {
-            message: "Test alert sent. Check the connected Telegram chat.",
+            message:
+              input.data.action === "attack-test"
+                ? "Malicious transaction training alert sent. Check the connected Telegram chat."
+                : "Test alert sent. Check the connected Telegram chat.",
           },
         });
 
@@ -228,7 +243,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       {
         error: {
           message:
-            input.data.action === "test"
+            input.data.action === "test" || input.data.action === "attack-test"
               ? "The test alert could not be delivered. Reconnect Telegram and try again."
               : "The alert setting could not be changed right now.",
         },
