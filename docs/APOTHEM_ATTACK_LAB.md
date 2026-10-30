@@ -30,7 +30,7 @@ Official network parameters:
 | `HiddenMulticall`         | a value transfer hidden inside a nested batch           |
 | `ProxyUpgradeTrap`        | implementation replacement and delegated initialization |
 | `SafeDelegatecallHarness` | Safe-shaped delegatecall into external training code    |
-| `SafeControlTrap`         | module, guard, handler, owner, and threshold changes       |
+| `SafeControlTrap`         | module, guard, handler, owner, and threshold changes    |
 
 The contracts enforce `block.chainid == 51` on state-changing training
 functions. They are deliberately unaudited test fixtures, not reusable protocol
