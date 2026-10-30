@@ -115,6 +115,7 @@ jobs:
             if ! output="$(cast send \
               --rpc-url "$APOTHEM_RPC_URL" \
               --private-key "$APOTHEM_DEPLOYER_PRIVATE_KEY" \
+              --gas-limit 750000 \
               --json \
               "$@" 2>&1)"; then
               echo "::error::Transaction broadcast failed for target $target."
