@@ -60,6 +60,12 @@ export const MANUAL_SIMULATION_RATE_LIMIT: RateLimitPolicy = {
   windowSeconds: 60 * 60,
 };
 
+export const APOTHEM_INSPECTION_RATE_LIMIT: RateLimitPolicy = {
+  scope: "apothem-inspection",
+  limit: 60,
+  windowSeconds: 10 * 60,
+};
+
 function requestIdentity(request: Request) {
   const forwarded =
     request.headers.get("x-vercel-forwarded-for") ??
