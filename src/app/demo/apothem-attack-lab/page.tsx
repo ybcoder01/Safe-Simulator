@@ -49,7 +49,9 @@ interface PageProps {
 
 const TRANSACTION_HASH = /^0x[0-9a-fA-F]{64}$/;
 
-export default async function ApothemAttackLabPage({ searchParams }: PageProps) {
+export default async function ApothemAttackLabPage({
+  searchParams,
+}: PageProps) {
   const query = await searchParams;
   const suppliedHash = Array.isArray(query.tx) ? query.tx[0] : query.tx;
   const initialTransactionHash =
