@@ -29,7 +29,7 @@ Official network parameters:
 | `DelegateMutation`        | delegatecall into code that writes caller storage       |
 | `HiddenMulticall`         | a value transfer hidden inside a nested batch           |
 | `ProxyUpgradeTrap`        | implementation replacement and delegated initialization |
-| `SafeDelegatecallHarness` | Safe-shaped delegatecall into external training code      |
+| `SafeDelegatecallHarness` | Safe-shaped delegatecall into external training code    |
 | `SafeControlTrap`         | module, guard, handler, owner, and threshold changes       |
 
 The contracts enforce `block.chainid == 51` on state-changing training
