@@ -22,7 +22,13 @@ interface ApiResponse {
   readonly error?: { readonly message?: string };
 }
 
-type ControlAction = "check" | "test" | "pause" | "resume" | "disconnect";
+type ControlAction =
+  | "check"
+  | "test"
+  | "attack-test"
+  | "pause"
+  | "resume"
+  | "disconnect";
 
 function formatTime(timestamp: number | null): string {
   if (timestamp === null) return "Not recorded yet";
@@ -180,6 +186,16 @@ export function TelegramAlertsCard({
               type="button"
             >
               {pending === "test" ? "Sending…" : "Send test alert"}
+            </button>
+            <button
+              className="button button-secondary"
+              disabled={pending !== null}
+              onClick={() => control("attack-test")}
+              type="button"
+            >
+              {pending === "attack-test"
+                ? "Sending training alert…"
+                : "Send malicious demo alert"}
             </button>
             <button
               className="button button-secondary"
