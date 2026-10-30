@@ -21,14 +21,14 @@ Official network parameters:
 
 ## Contracts and scenarios
 
-| Contract | Test |
-| --- | --- |
-| `TrainingToken` | bounded and unlimited ERC-20 approvals |
-| `UnknownSpender` | delayed `transferFrom` after an approval |
-| `InjectedRecipientRouter` | recipient substitution in calldata |
-| `DelegateMutation` | delegatecall into code that writes caller storage |
-| `HiddenMulticall` | a value transfer hidden inside a nested batch |
-| `ProxyUpgradeTrap` | implementation replacement and delegated initialization |
+| Contract                  | Test                                                    |
+| ------------------------- | ------------------------------------------------------- |
+| `TrainingToken`           | bounded and unlimited ERC-20 approvals                  |
+| `UnknownSpender`          | delayed `transferFrom` after an approval                |
+| `InjectedRecipientRouter` | recipient substitution in calldata                      |
+| `DelegateMutation`        | delegatecall into code that writes caller storage       |
+| `HiddenMulticall`         | a value transfer hidden inside a nested batch           |
+| `ProxyUpgradeTrap`        | implementation replacement and delegated initialization |
 
 The contracts enforce `block.chainid == 51` on state-changing training
 functions. They are deliberately unaudited test fixtures, not reusable protocol
