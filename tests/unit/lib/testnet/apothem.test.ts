@@ -129,54 +129,19 @@ describe("XDC Apothem attack classification", () => {
       "delegatecall-operation",
     );
   });
-  it.each([
-    {
-      name: "nested multicall",
-      signature: {
-        type: "function",
-        name: "multicall",
-        stateMutability: "payable",
-        inputs: [{ name: "calls", type: "bytes[]" }],
-        outputs: [{ name: "results", type: "bytes[]" }],
-      } as const,
-      args: [["0x12345678"]] as const,
-      code: "nested-multicall",
-      severity: "warning",
-    },
-    {
-      name: "proxy implementation replacement",
-      signature: {
-        type: "function",
-        name: "upgradeToAndCall",
-        stateMutability: "payable",
-        inputs: [
-          { name: "implementation", type: "address" },
-          { name: "data", type: "bytes" },
-        ],
-        outputs: [],
-      } as const,
-      args: [spender, "0x12345678"] as const,
-      code: "proxy-implementation-change",
-      severity: "critical",
-    },
-    {
-      name: "Safe module enablement",
-      signature: {
-        type: "function",
-        name: "enableModule",
-        stateMutability: "nonpayable",
-        inputs: [{ name: "module", type: "address" }],
-        outputs: [],
-      } as const,
-      args: [spender] as const,
-      code: "safe-control-change",
-      severity: "critical",
-    },
-  ])("flags $name", ({ signature, args, code, severity }) => {
+  it("flags nested multicalls", () => {
     const data = encodeFunctionData({
-      abi: [signature],
-      functionName: signature.name,
-      args,
+      abi: [
+        {
+          type: "function",
+          name: "multicall",
+          stateMutability: "payable",
+          inputs: [{ name: "calls", type: "bytes[]" }],
+          outputs: [{ name: "results", type: "bytes[]" }],
+        },
+      ] as const,
+      functionName: "multicall",
+      args: [["0x12345678"]],
     });
 
     expect(
@@ -190,8 +155,77 @@ describe("XDC Apothem attack classification", () => {
     ).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          code,
-          severity,
+          code: "nested-multicall",
+          severity: "warning",
+        }),
+      ]),
+    );
+  });
+
+  it("flags proxy implementation replacement", () => {
+    const data = encodeFunctionData({
+      abi: [
+        {
+          type: "function",
+          name: "upgradeToAndCall",
+          stateMutability: "payable",
+          inputs: [
+            { name: "implementation", type: "address" },
+            { name: "data", type: "bytes" },
+          ],
+          outputs: [],
+        },
+      ] as const,
+      functionName: "upgradeToAndCall",
+      args: [spender, "0x12345678"],
+    });
+
+    expect(
+      classifyApothemCall({
+        target,
+        value: 0n,
+        data,
+        operation: "call",
+        wrappedBySafe: false,
+      }),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "proxy-implementation-change",
+          severity: "critical",
+        }),
+      ]),
+    );
+  });
+
+  it("flags Safe security-control changes", () => {
+    const data = encodeFunctionData({
+      abi: [
+        {
+          type: "function",
+          name: "enableModule",
+          stateMutability: "nonpayable",
+          inputs: [{ name: "module", type: "address" }],
+          outputs: [],
+        },
+      ] as const,
+      functionName: "enableModule",
+      args: [spender],
+    });
+
+    expect(
+      classifyApothemCall({
+        target,
+        value: 0n,
+        data,
+        operation: "call",
+        wrappedBySafe: false,
+      }),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "safe-control-change",
+          severity: "critical",
         }),
       ]),
     );
