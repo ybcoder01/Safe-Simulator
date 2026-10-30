@@ -16,7 +16,9 @@ interface ApothemAttackLabInspectorProps {
 export function ApothemAttackLabInspector({
   initialTransactionHash = "",
 }: ApothemAttackLabInspectorProps) {
-  const [transactionHash, setTransactionHash] = useState(initialTransactionHash);
+  const [transactionHash, setTransactionHash] = useState(
+    initialTransactionHash,
+  );
   const autoInspectionStarted = useRef(false);
   const [inspection, setInspection] = useState<ApothemInspection | null>(null);
   const [pending, setPending] = useState(false);
@@ -79,10 +81,10 @@ export function ApothemAttackLabInspector({
             <p className="eyebrow">Real chain evidence · Test assets only</p>
             <h2 id="apothem-inspector-title">Inspect an Apothem transaction</h2>
             <p>
-              Paste a transaction hash broadcast on chain 51, or open a generated
-              demo link to inspect it automatically. Safe Inspector reads fixed
-              Apothem RPC endpoints; it never follows a URL supplied by the
-              browser.
+              Paste a transaction hash broadcast on chain 51, or open a
+              generated demo link to inspect it automatically. Safe Inspector
+              reads fixed Apothem RPC endpoints; it never follows a URL supplied
+              by the browser.
             </p>
           </div>
           <span className="telegram-alert-state state-paused">
