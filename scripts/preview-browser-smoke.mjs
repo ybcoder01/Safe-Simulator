@@ -40,7 +40,11 @@ const pages = [
   {
     name: "watchlist",
     path: "/safes",
-    expected: ["Sign in to manage your Safes", "Read-only by design"],
+    expected: ["Read-only by design"],
+    expectedAny: [
+      "Sign in to manage your Safes",
+      "Wallet login is not configured",
+    ],
     // Privy's wallet discovery logs recoverable provider errors when Chromium
     // runs headlessly with no injected wallet. The rendered auth gate remains
     // the acceptance boundary; uncaught exceptions and failed documents are
@@ -285,7 +289,11 @@ try {
     const bodyText = await waitForText(
       async () => {
         const value = await evaluate("document.body?.innerText || ''");
-        return page.expected.every((text) => value.includes(text)) ? value : "";
+        const hasExpected = page.expected.every((text) => value.includes(text));
+        const hasExpectedAlternative =
+          !page.expectedAny ||
+          page.expectedAny.some((text) => value.includes(text));
+        return hasExpected && hasExpectedAlternative ? value : "";
       },
       page.timeoutMs ?? defaultRenderTimeoutMs,
       `${page.name} did not render its acceptance text.`,

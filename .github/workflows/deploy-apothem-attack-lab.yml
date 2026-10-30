@@ -1,0 +1,112 @@
+name: Deploy Apothem attack lab
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_apothem_only:
+        description: "Type APOTHEM to allow a chain-51 deployment"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apothem-attack-lab-deployment
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: ${{ inputs.confirm_apothem_only == 'APOTHEM' }}
+    runs-on: ubuntu-latest
+    environment: apothem-testnet
+    defaults:
+      run:
+        working-directory: testnet/apothem
+    env:
+      APOTHEM_RPC_URL: ${{ secrets.APOTHEM_RPC_URL }}
+      APOTHEM_DEPLOYER_PRIVATE_KEY: ${{ secrets.APOTHEM_DEPLOYER_PRIVATE_KEY }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Refuse non-Apothem RPC endpoints
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$APOTHEM_RPC_URL"
+          test -n "$APOTHEM_DEPLOYER_PRIVATE_KEY"
+          chain_id="$(cast chain-id --rpc-url "$APOTHEM_RPC_URL")"
+          test "$chain_id" = "51" || {
+            echo "::error::Refusing deployment: RPC returned chain ID $chain_id, expected 51."
+            exit 1
+          }
+
+      - name: Build training contracts
+        run: forge build
+
+      - name: Deploy valueless training contracts
+        id: deploy
+        shell: bash
+        run: |
+          set -euo pipefail
+          deploy() {
+            local contract="$1"
+            forge create \
+              --broadcast \
+              --chain 51 \
+              --rpc-url "$APOTHEM_RPC_URL" \
+              --private-key "$APOTHEM_DEPLOYER_PRIVATE_KEY" \
+              --json \
+              "src/AttackLab.sol:$contract" | jq -r '.deployedTo'
+          }
+
+          token="$(deploy TrainingToken)"
+          spender="$(deploy UnknownSpender)"
+          router="$(deploy InjectedRecipientRouter)"
+          delegate="$(deploy DelegateMutation)"
+          multicall="$(deploy HiddenMulticall)"
+          proxy="$(deploy ProxyUpgradeTrap)"
+
+          jq -n \
+            --arg network "XDC Apothem" \
+            --argjson chainId 51 \
+            --arg token "$token" \
+            --arg spender "$spender" \
+            --arg router "$router" \
+            --arg delegate "$delegate" \
+            --arg multicall "$multicall" \
+            --arg proxy "$proxy" \
+            '{
+              network: $network,
+              chainId: $chainId,
+              contracts: {
+                trainingToken: $token,
+                unknownSpender: $spender,
+                injectedRecipientRouter: $router,
+                delegateMutation: $delegate,
+                hiddenMulticall: $multicall,
+                proxyUpgradeTrap: $proxy
+              }
+            }' > deployment.json
+
+          {
+            echo "## XDC Apothem attack-lab deployment"
+            echo
+            echo '~~~json'
+            cat deployment.json
+            echo '~~~'
+            echo
+            echo "All assets and contracts are testnet-only. Do not reuse the deployer on mainnet."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload public deployment manifest
+        uses: actions/upload-artifact@v6
+        with:
+          name: apothem-attack-lab-deployment
+          path: testnet/apothem/deployment.json
+          if-no-files-found: error
+          retention-days: 30
