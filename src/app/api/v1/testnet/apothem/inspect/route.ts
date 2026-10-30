@@ -146,11 +146,12 @@ export async function POST(request: NextRequest) {
       effectiveCall: {
         target: effectiveCall.target,
         value: effectiveCall.value.toString(),
-        valueTxdc: Number(effectiveCall.value) === 0
-          ? "0"
-          : (Number(effectiveCall.value) / 1e18).toLocaleString("en", {
-              maximumFractionDigits: 8,
-            }),
+        valueTxdc:
+          Number(effectiveCall.value) === 0
+            ? "0"
+            : (Number(effectiveCall.value) / 1e18).toLocaleString("en", {
+                maximumFractionDigits: 8,
+              }),
         operation: effectiveCall.operation,
         selector: apothemSelector(effectiveCall.data),
         wrappedBySafe: effectiveCall.wrappedBySafe,
