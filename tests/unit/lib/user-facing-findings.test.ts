@@ -157,6 +157,26 @@ describe("resolveUserFacingFindings", () => {
     ]);
   });
 
+  it("shows proxy upgrades as a dedicated critical signer check", () => {
+    const result = resolveUserFacingFindings({
+      evidence: evidence([
+        finding("proxy-implementation-change", "critical", [implementation]),
+      ]),
+      identifiedAddresses: [target],
+      protocolLabel: null,
+      targetKnown: false,
+      targetVerified: false,
+    });
+
+    expect(result).toEqual([
+      expect.objectContaining({
+        code: "proxy-control-change",
+        severity: "critical",
+        addresses: [implementation],
+      }),
+    ]);
+  });
+
   it("removes a route warning when every ordinary call target is identified", () => {
     const result = resolveUserFacingFindings({
       evidence: evidence([
