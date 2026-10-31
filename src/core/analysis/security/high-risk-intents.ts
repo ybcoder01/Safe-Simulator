@@ -109,7 +109,9 @@ const HIGH_RISK_SELECTORS: Readonly<Record<string, HighRiskIntent>> = {
 };
 
 function selector(data: Hex): string {
-  return data.length >= 10 ? data.slice(0, 10).toLowerCase() : data.toLowerCase();
+  return data.length >= 10
+    ? data.slice(0, 10).toLowerCase()
+    : data.toLowerCase();
 }
 
 function address(value: string | null | undefined): Address | null {
