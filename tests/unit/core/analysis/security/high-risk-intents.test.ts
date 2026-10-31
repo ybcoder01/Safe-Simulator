@@ -54,10 +54,11 @@ describe("detectHighRiskCallIntents", () => {
 
   it("finds a Safe module change hidden in nested calldata", () => {
     const nested = call(module, encoded("0x610b5925"));
-    const decoded = call(target, encoded("0xac9650d8"), [nested]);
+    const rootData = encoded("0xac9650d8");
+    const decoded = call(target, rootData, [nested]);
 
     const findings = detectHighRiskCallIntents(
-      { to: target, data: decoded.data },
+      { to: target, data: rootData },
       decoded,
     );
 
