@@ -15,20 +15,20 @@ within the evidence that was actually available.
 These controls apply to supported XDC Network and EVM Safe transactions through
 the chain-neutral analysis engine.
 
-| Area | Live checks | Important boundary |
-| --- | --- | --- |
-| ERC-20 approvals | Direct and nested approval intent, new spenders, bounded and maximum allowances, increase/decrease allowance, emitted allowance changes | Non-standard token semantics can still require manual review |
-| NFT/operator approvals | Detects enabled `setApprovalForAll` and treats full operator access as critical | Proprietary operator systems require protocol-specific support |
-| Permit2 | Single and batch allowances, signature transfers, maximum amounts, owner/token/spender/expiry where decodable, bounded recursion and item limits | Caller-dependent spenders and unavailable parameters remain explicit warnings |
-| Delegatecall | Direct Safe delegatecall and unexplained internal delegatecalls are critical; known Safe batch, proxy, and documented protocol boundaries are narrowly exempted | Requires trace data for internal delegatecalls |
-| Safe authority | Owner, threshold, module, guard, fallback handler, and Safe implementation changes are critical; high-risk selectors are checked even when simulation evidence is incomplete | Custom Safe extensions may need additional selectors |
-| Proxy authority | Common EIP-1967/UUPS `upgradeTo`, `upgradeToAndCall`, proxy admin changes, and diamond cuts are critical | Non-standard upgrade interfaces require protocol-specific support |
-| Recipient trust | Flagged addresses, new recipients, recently trusted recipients, prior exact use, and beginning/ending lookalike poisoning checks | Prior use is context, not proof of safety |
-| Contract identity | Reviewed registry, verified source, proxy implementation chains, internal targets, and profile-specific trust records | Verified source establishes identity, never user trust |
-| Asset movement | Receipt token movements and successful traced native transfers are checked against recipients and trust records | Missing or truncated traces reduce coverage |
-| Safe simulation | Failed calls block; unavailable simulation remains unknown | Success proves execution, not business intent |
-| Evidence completeness | A contract transaction with an incomplete internal trace cannot receive a green/known clearance solely because its target is recognized | Providers can still limit trace and storage detail |
-| Silo markets | Official factory membership, live market configuration, dependency code identities, and team approval fingerprints | Anyone can create a Silo market; each exact market still needs approval |
+| Area                   | Live checks                                                                                                                                                                  | Important boundary                                                            |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| ERC-20 approvals       | Direct and nested approval intent, new spenders, bounded and maximum allowances, increase/decrease allowance, emitted allowance changes                                      | Non-standard token semantics can still require manual review                  |
+| NFT/operator approvals | Detects enabled `setApprovalForAll` and treats full operator access as critical                                                                                              | Proprietary operator systems require protocol-specific support                |
+| Permit2                | Single and batch allowances, signature transfers, maximum amounts, owner/token/spender/expiry where decodable, bounded recursion and item limits                             | Caller-dependent spenders and unavailable parameters remain explicit warnings |
+| Delegatecall           | Direct Safe delegatecall and unexplained internal delegatecalls are critical; known Safe batch, proxy, and documented protocol boundaries are narrowly exempted              | Requires trace data for internal delegatecalls                                |
+| Safe authority         | Owner, threshold, module, guard, fallback handler, and Safe implementation changes are critical; high-risk selectors are checked even when simulation evidence is incomplete | Custom Safe extensions may need additional selectors                          |
+| Proxy authority        | Common EIP-1967/UUPS `upgradeTo`, `upgradeToAndCall`, proxy admin changes, and diamond cuts are critical                                                                     | Non-standard upgrade interfaces require protocol-specific support             |
+| Recipient trust        | Flagged addresses, new recipients, recently trusted recipients, prior exact use, and beginning/ending lookalike poisoning checks                                             | Prior use is context, not proof of safety                                     |
+| Contract identity      | Reviewed registry, verified source, proxy implementation chains, internal targets, and profile-specific trust records                                                        | Verified source establishes identity, never user trust                        |
+| Asset movement         | Receipt token movements and successful traced native transfers are checked against recipients and trust records                                                              | Missing or truncated traces reduce coverage                                   |
+| Safe simulation        | Failed calls block; unavailable simulation remains unknown                                                                                                                   | Success proves execution, not business intent                                 |
+| Evidence completeness  | A contract transaction with an incomplete internal trace cannot receive a green/known clearance solely because its target is recognized                                      | Providers can still limit trace and storage detail                            |
+| Silo markets           | Official factory membership, live market configuration, dependency code identities, and team approval fingerprints                                                           | Anyone can create a Silo market; each exact market still needs approval       |
 
 ## Live testnet demonstrations
 
