@@ -1,11 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { detectHighRiskCallIntents } from "../../../../../src/core/analysis/security/high-risk-intents";
-import type {
-  Address,
-  DecodedCall,
-  Hex,
-} from "../../../../../src/core/domain";
+import type { Address, DecodedCall, Hex } from "../../../../../src/core/domain";
 
 const target = "0x1111111111111111111111111111111111111111" as Address;
 const module = "0x2222222222222222222222222222222222222222" as Address;
