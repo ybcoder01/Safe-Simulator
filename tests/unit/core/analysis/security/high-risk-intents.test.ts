@@ -4,7 +4,7 @@ import { detectHighRiskCallIntents } from "../../../../../src/core/analysis/secu
 import type { Address, DecodedCall, Hex } from "../../../../../src/core/domain";
 
 const target = "0x1111111111111111111111111111111111111111" as Address;
-const module = "0x2222222222222222222222222222222222222222" as Address;
+const safeModule = "0x2222222222222222222222222222222222222222" as Address;
 
 function encoded(selector: string): Hex {
   return (selector + "0".repeat(64)) as Hex;
@@ -49,7 +49,7 @@ describe("detectHighRiskCallIntents", () => {
   });
 
   it("finds a Safe module change hidden in nested calldata", () => {
-    const nested = call(module, encoded("0x610b5925"));
+    const nested = call(safeModule, encoded("0x610b5925"));
     const rootData = encoded("0xac9650d8");
     const decoded = call(target, rootData, [nested]);
 
@@ -62,7 +62,7 @@ describe("detectHighRiskCallIntents", () => {
       expect.objectContaining({
         code: "safe-module-change",
         severity: "critical",
-        addresses: [module],
+        addresses: [safeModule],
       }),
     );
   });
