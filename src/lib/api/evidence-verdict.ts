@@ -5,6 +5,7 @@ import {
   type EvidenceVerdictInput,
 } from "@/core/analysis/trust/evidence-verdict";
 import { successfulNativeTransfers } from "@/core/analysis/tokens/native-transfers";
+import { detectHighRiskCallIntents } from "@/core/analysis/security/high-risk-intents";
 import { contractRegistryEntriesForChain } from "@/core/analysis/trust/contract-registry";
 import type {
   Address,
@@ -75,6 +76,17 @@ export function resolveEvidenceVerdict(
     }
     return finding;
   });
+  const observedSafeChangeCodes = new Set(
+    execution.safeConfigurationChanges.map(
+      (change) => `safe-${change.field}-change`,
+    ),
+  );
+  const intentFindings = detectHighRiskCallIntents(
+    transaction,
+    contract.decoded,
+  ).filter((finding) => !observedSafeChangeCodes.has(finding.code));
+  const additionalFindings = [...routeFindings, ...intentFindings];
+
   const attestedBoundaries = routeAttestation?.proxyBoundaries ?? [];
   const mergedBoundaries = [
     ...new Map(
@@ -115,11 +127,9 @@ export function resolveEvidenceVerdict(
     ),
     internalProxyBoundaries: mergedBoundaries,
     ...(routeAttestation
-      ? {
-          attestedAddresses: routeAttestation.addresses,
-          additionalFindings: routeFindings,
-        }
+      ? { attestedAddresses: routeAttestation.addresses }
       : {}),
+    ...(additionalFindings.length > 0 ? { additionalFindings } : {}),
     decodeConfidence: decodeConfidence(contract.provenance),
     movements: execution.tokenMovements.map((movement) => ({
       token: movement.token as Address,
