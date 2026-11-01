@@ -185,9 +185,7 @@ export function ProgressiveBriefFlow({
               </strong>
               {row.worth ? (
                 <small>
-                  {row.direction === "outbound"
-                    ? "Worth"
-                    : "Redeemable for"}{" "}
+                  {row.direction === "outbound" ? "Worth" : "Redeemable for"}{" "}
                   {row.worth.amount} {row.worth.symbol}
                 </small>
               ) : null}
