@@ -5,7 +5,6 @@ import {
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Suspense } from "react";
 
 import {
   getAbiPort,
@@ -23,10 +22,7 @@ import {
   type BriefFlowRow,
 } from "@/components/safes/transaction-brief";
 import { TransactionSafetyOverview } from "@/components/safes/transaction-safety-overview";
-import {
-  TransactionSummaryDialog,
-  type SummaryView,
-} from "@/components/safes/transaction-summary-dialog";
+import { TransactionSummaryDialog } from "@/components/safes/transaction-summary-dialog";
 import { AddressIdentity } from "@/components/shared/address-identity";
 import { CopyIdentifierButton } from "@/components/shared/copy-identifier-button";
 import { AlertStageTimeline } from "@/components/shared/alert-stage-timeline";
@@ -38,16 +34,13 @@ import { classifyTransactionActivity } from "@/core/analysis/decoding/activity";
 import { findContractRegistryEntry } from "@/core/analysis/trust/contract-registry";
 import { findTokenRegistryEntry } from "@/core/analysis/trust/token-registry";
 import { formatTokenAmount } from "@/core/analysis/tokens/metadata";
-import type { Address, Hex, SafeRef } from "@/core/domain";
+import type { Address, Hex } from "@/core/domain";
 import { resolveApprovalRisk } from "@/lib/api/approval-risk";
 import { TRANSACTION_ANALYSIS_ENGINE_VERSION } from "@/lib/api/analysis-version";
 import { resolveContractInsight } from "@/lib/api/contract-insight";
 import { decodedAddressFields } from "@/lib/api/decoded-addresses";
 import { resolveEvidenceVerdict } from "@/lib/api/evidence-verdict";
-import {
-  collectXdcContractReferences,
-  resolveCachedXdcContractVerification,
-} from "@/lib/api/xdcscan-verification";
+import { collectXdcContractReferences } from "@/lib/api/xdcscan-verification";
 import {
   EXECUTION_EVIDENCE_ENGINE_VERSION,
   resolveExecutionInsight,
@@ -61,7 +54,6 @@ import {
 import { AUTH_SESSION_COOKIE, parseAuthSession } from "@/lib/auth/session";
 import {
   attestedSiloMarkets,
-  resolveSiloShareValues,
   siloShareMovements,
 } from "@/lib/api/silo-share-values";
 import { resolveStorageChangeAnalysis } from "@/lib/api/storage-changes";
@@ -90,13 +82,6 @@ import {
   treasuryReviewFocus,
 } from "@/lib/treasury-review";
 import { resolveUserFacingFindings } from "@/lib/user-facing-findings";
-import {
-  buildTransactionSummaryEvidence,
-  configuredOpenRouterModel,
-  TRANSACTION_SUMMARY_PROMPT_VERSION,
-  transactionSummaryFingerprint,
-  type TransactionSummaryEvidenceInput,
-} from "@/lib/api/transaction-summary";
 import {
   orderTransactionReviewQueue,
   safeRouteParamsSchema,
@@ -144,75 +129,6 @@ function formatDate(timestamp: number | null) {
     timeStyle: "long",
     timeZone: "UTC",
   }).format(new Date(timestamp * 1_000));
-}
-
-type SummaryEvidenceWithoutExplorer = Omit<
-  TransactionSummaryEvidenceInput,
-  "contractVerification"
->;
-
-interface DeferredTransactionSummaryProps {
-  readonly canGenerate: boolean;
-  readonly chainId: number;
-  readonly endpoint: string;
-  readonly evidence: SummaryEvidenceWithoutExplorer;
-  readonly references: readonly string[];
-  readonly safe: SafeRef;
-  readonly safeTxHash: Hex;
-}
-
-async function DeferredTransactionSummary({
-  canGenerate,
-  chainId,
-  endpoint,
-  evidence,
-  references,
-  safe,
-  safeTxHash,
-}: DeferredTransactionSummaryProps) {
-  let initialSummary: SummaryView | null = null;
-
-  // A saved summary is only reusable when its fingerprint can be rebuilt from
-  // explorer answers that are already cached; no explorer call is made here.
-  const verification = canGenerate
-    ? await resolveCachedXdcContractVerification(
-        getCachePort(),
-        chainId,
-        references,
-      )
-    : null;
-
-  if (verification) {
-    const summaryEvidence = buildTransactionSummaryEvidence({
-      ...evidence,
-      contractVerification: verification,
-    });
-    const savedSummary = await getPersistencePort().findTransactionSummary(
-      safe,
-      safeTxHash,
-      transactionSummaryFingerprint(summaryEvidence),
-      TRANSACTION_SUMMARY_PROMPT_VERSION,
-      configuredOpenRouterModel(),
-    );
-    if (savedSummary?.summary) {
-      initialSummary = {
-        id: savedSummary.id,
-        model: savedSummary.model,
-        summary: savedSummary.summary,
-        usage: savedSummary.usage,
-        completedAt: savedSummary.completedAt,
-        cached: true,
-      };
-    }
-  }
-
-  return (
-    <TransactionSummaryDialog
-      canGenerate={canGenerate}
-      endpoint={endpoint}
-      initialSummary={initialSummary}
-    />
-  );
 }
 
 export default async function TransactionDetailPage({
@@ -561,13 +477,12 @@ export default async function TransactionDetailPage({
     transferHistoryLoaded: transferHistoryPage !== null,
     transaction: persisted,
   });
-  const siloShareValues = await resolveSiloShareValues(chain, {
+  const siloShareLookup = {
     chainId: safe.data.chainId,
     markets: attestedSiloMarkets(routeAttestation.addresses),
     movements: siloShareMovements(execution.tokenMovements),
-    blockNumber:
-      execution.blockNumber === null ? null : BigInt(execution.blockNumber),
-  });
+    blockNumber: execution.blockNumber,
+  };
   const briefMovements = [...execution.tokenMovements]
     .sort(
       (a, b) =>
@@ -578,13 +493,13 @@ export default async function TransactionDetailPage({
       const metadata = tokenMetadataByAddress.get(movement.token.toLowerCase());
       return {
         key: ["brief", movement.logIndex, movement.token].join(":"),
+        logIndex: movement.logIndex,
         direction: movement.direction,
         from: movement.from,
         to: movement.to,
         amount: groupDigits(
           formatTokenAmount(movement.amount, metadata?.decimals ?? null),
         ),
-        worth: siloShareValues.get(movement.logIndex) ?? null,
         symbol: resolveTokenPresentation(
           safe.data.chainId,
           movement.token,
@@ -658,18 +573,6 @@ export default async function TransactionDetailPage({
     currentSafe.threshold,
   );
   const summaryEndpoint = `/api/v1/safes/${safe.data.chainId}/${safe.data.address}/tx/${hash.data}/summary`;
-  const summaryEvidence: SummaryEvidenceWithoutExplorer = {
-    transaction: persisted,
-    activity,
-    contract: insight,
-    execution,
-    approvalRisk,
-    storageAnalysis,
-    baselineVerdict,
-    signerVerdict: effectiveEvidence,
-    tokenMetadata,
-    balanceChanges,
-  };
 
   return (
     <main className="workspace shell">
@@ -742,25 +645,11 @@ export default async function TransactionDetailPage({
                 {lifecycleStatus}
               </span>
             </div>
-            <Suspense
-              fallback={
-                <TransactionSummaryDialog
-                  canGenerate={Boolean(profileId)}
-                  endpoint={summaryEndpoint}
-                  initialSummary={null}
-                />
-              }
-            >
-              <DeferredTransactionSummary
-                canGenerate={Boolean(profileId)}
-                chainId={safe.data.chainId}
-                endpoint={summaryEndpoint}
-                evidence={summaryEvidence}
-                references={contractReferences}
-                safe={safe.data}
-                safeTxHash={hash.data}
-              />
-            </Suspense>
+            <TransactionSummaryDialog
+              canGenerate={Boolean(profileId)}
+              endpoint={summaryEndpoint}
+              initialSummary={null}
+            />
           </div>
         </header>
 
@@ -784,6 +673,7 @@ export default async function TransactionDetailPage({
           flow={briefFlow}
           knownLabels={briefLabels}
           safeAddress={persisted.safe.address}
+          siloShareLookup={siloShareLookup}
           stage={currentStage}
           totalMovements={briefFlow.length}
         >
