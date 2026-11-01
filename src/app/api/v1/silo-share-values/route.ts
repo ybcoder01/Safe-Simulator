@@ -57,7 +57,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const parsed = bodySchema.safeParse(await request.json().catch(() => null));
+  const parsed = bodySchema.safeParse(
+    await request.json().catch(() => null),
+  );
   if (!parsed.success) {
     return error("Invalid Silo share value request.", 400, "invalid_request");
   }
