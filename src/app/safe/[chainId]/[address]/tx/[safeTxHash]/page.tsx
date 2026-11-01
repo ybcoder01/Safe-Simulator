@@ -1764,9 +1764,7 @@ export default async function TransactionDetailPage({
               <p className="eyebrow">Public source data</p>
               <h2>Raw transaction evidence</h2>
             </div>
-            <ProgressiveRawPayloadStatus
-              request={progressiveEvidenceRequest}
-            />
+            <ProgressiveRawPayloadStatus request={progressiveEvidenceRequest} />
           </div>
           <p className="trust-copy">
             These values are presented without reinterpretation. Missing Safe
@@ -1885,11 +1883,8 @@ export default async function TransactionDetailPage({
               addressBook={addressBook}
               request={progressiveEvidenceRequest}
             />
-
           </dl>
-          <ProgressiveRawPayloadWarning
-            request={progressiveEvidenceRequest}
-          />
+          <ProgressiveRawPayloadWarning request={progressiveEvidenceRequest} />
           <div className="calldata">
             <span>Raw calldata · {transaction.data.length / 2 - 1} bytes</span>
             <code>{transaction.data || "0x"}</code>
