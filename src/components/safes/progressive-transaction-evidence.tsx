@@ -154,14 +154,8 @@ function humanTokenAmount(
 }
 
 export function ProgressiveBalanceChangesPanel() {
-  const {
-    addressBook,
-    chainId,
-    evidence,
-    retry,
-    status,
-    tokenMetadata,
-  } = useProgressiveEvidence();
+  const { addressBook, chainId, evidence, retry, status, tokenMetadata } =
+    useProgressiveEvidence();
   const balanceChanges = evidence?.balanceChanges ?? null;
 
   return (
@@ -185,7 +179,8 @@ export function ProgressiveBalanceChangesPanel() {
       </div>
       {status === "loading" ? (
         <div className="panel-empty">
-          Loading optional balance evidence without delaying the security report.
+          Loading optional balance evidence without delaying the security
+          report.
         </div>
       ) : status === "failed" || !balanceChanges ? (
         <div className="panel-empty">
