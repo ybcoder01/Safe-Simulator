@@ -24,6 +24,7 @@ interface Props {
   readonly addressBook: readonly AddressBookView[];
   readonly chainId: number;
   readonly flow: readonly BriefFlowRow[];
+  readonly effects: readonly string[];
   readonly knownLabels: Readonly<Record<string, string>>;
   readonly safeAddress: string;
   readonly siloShareLookup?: SiloShareLookup | null;
@@ -84,6 +85,7 @@ function FlowNode({
 export function ProgressiveBriefFlow({
   addressBook,
   chainId,
+  effects,
   flow,
   knownLabels,
   safeAddress,
@@ -204,6 +206,13 @@ export function ProgressiveBriefFlow({
           </p>
         ) : null}
       </div>
+      {effects.length > 0 ? (
+        <ul className="brief-effects">
+          {effects.map((effect) => (
+            <li key={effect}>{effect}</li>
+          ))}
+        </ul>
+      ) : null}
     </div>
   );
 }
