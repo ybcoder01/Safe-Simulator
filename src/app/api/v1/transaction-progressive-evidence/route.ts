@@ -91,7 +91,11 @@ export async function POST(request: NextRequest) {
   const safe = safeRouteParamsSchema.safeParse(body);
   const hash = safeTransactionHashSchema.safeParse(body?.safeTxHash);
   if (!safe.success || !hash.success) {
-    return error("Invalid transaction evidence request.", 400, "invalid_request");
+    return error(
+      "Invalid transaction evidence request.",
+      400,
+      "invalid_request",
+    );
   }
 
   const rateLimit = await checkRequestRateLimit(
