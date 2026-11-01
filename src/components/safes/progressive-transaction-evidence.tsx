@@ -178,7 +178,8 @@ export function ProgressiveBalanceChangesPanel({
       </div>
       {status === "loading" ? (
         <div className="panel-empty">
-          Loading optional balance evidence without delaying the security report.
+          Loading optional balance evidence without delaying the security
+          report.
         </div>
       ) : status === "failed" || !balanceChanges ? (
         <div className="panel-empty">
