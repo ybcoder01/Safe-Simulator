@@ -27,7 +27,7 @@ interface Props {
   readonly effects: readonly string[];
   readonly knownLabels: Readonly<Record<string, string>>;
   readonly safeAddress: string;
-  readonly siloShareLookup?: SiloShareLookup | null;
+  readonly siloShareLookup: SiloShareLookup | null | undefined;
   readonly totalMovements: number;
 }
 
