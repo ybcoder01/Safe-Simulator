@@ -16,7 +16,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --max-warnings=0",
     "format": "prettier --write .",
-    "format:check": "prettier --check . || (prettier --write src/app/api/v1/silo-share-values/route.ts src/components/safes/progressive-brief-flow.tsx && git diff -- src/app/api/v1/silo-share-values/route.ts src/components/safes/progressive-brief-flow.tsx && exit 1)",
+    "format:check": "prettier --check .",
     "db:generate": "dotenv -e .env.local -- drizzle-kit generate",
     "db:migrate": "dotenv -e .env.local -- drizzle-kit migrate",
     "db:studio": "dotenv -e .env.local -- drizzle-kit studio",
