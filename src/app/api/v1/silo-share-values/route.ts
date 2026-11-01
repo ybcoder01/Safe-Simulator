@@ -28,7 +28,10 @@ const bodySchema = z.object({
     )
     .min(1)
     .max(MAX_MOVEMENTS),
-  blockNumber: z.string().regex(/^[0-9]+$/).nullable(),
+  blockNumber: z
+    .string()
+    .regex(/^[0-9]+$/)
+    .nullable(),
 });
 
 function error(
@@ -57,9 +60,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const parsed = bodySchema.safeParse(
-    await request.json().catch(() => null),
-  );
+  const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return error("Invalid Silo share value request.", 400, "invalid_request");
   }
@@ -90,9 +91,7 @@ export async function POST(request: NextRequest) {
     markets: parsed.data.markets as Address[],
     movements: parsed.data.movements,
     blockNumber:
-      parsed.data.blockNumber === null
-        ? null
-        : BigInt(parsed.data.blockNumber),
+      parsed.data.blockNumber === null ? null : BigInt(parsed.data.blockNumber),
   });
 
   return NextResponse.json({
