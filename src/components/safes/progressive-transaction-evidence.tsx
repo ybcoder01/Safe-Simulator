@@ -1,15 +1,6 @@
 "use client";
 
-import {
-  createContext,
-  type ReactNode,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { AddressIdentity } from "@/components/shared/address-identity";
 import { TokenIdentity } from "@/components/shared/token-identity";
@@ -20,6 +11,12 @@ import type { TokenMetadataView } from "@/lib/api/token-metadata";
 import { groupDigits } from "@/lib/api/token-presentation";
 
 const REQUEST_TIMEOUT_MS = 12_000;
+
+export interface ProgressiveEvidenceRequest {
+  readonly address: string;
+  readonly chainId: number;
+  readonly safeTxHash: string;
+}
 
 interface RawPayloadView {
   readonly safeTxGas: string;
@@ -34,118 +31,98 @@ interface ProgressiveEvidence {
   readonly balanceChanges: TokenBalanceChangeResult;
 }
 
-interface EvidenceContextValue {
-  readonly status: "loading" | "ready" | "failed";
-  readonly evidence: ProgressiveEvidence | null;
-  readonly retry: () => void;
-  readonly addressBook: readonly AddressBookView[];
-  readonly chainId: number;
-  readonly tokenMetadata: ReadonlyMap<string, TokenMetadataView>;
+type EvidenceState =
+  | { readonly status: "loading"; readonly evidence: null }
+  | { readonly status: "ready"; readonly evidence: ProgressiveEvidence }
+  | { readonly status: "failed"; readonly evidence: null };
+
+const resolvedEvidence = new Map<string, ProgressiveEvidence>();
+const pendingEvidence = new Map<string, Promise<ProgressiveEvidence>>();
+
+function requestKey(request: ProgressiveEvidenceRequest) {
+  return [
+    request.chainId,
+    request.address.toLowerCase(),
+    request.safeTxHash.toLowerCase(),
+  ].join(":");
 }
 
-const EvidenceContext = createContext<EvidenceContextValue | null>(null);
-
-interface ProviderProps {
-  readonly address: string;
-  readonly addressBook: readonly AddressBookView[];
-  readonly chainId: number;
-  readonly children: ReactNode;
-  readonly safeTxHash: string;
-  readonly tokenMetadata: readonly TokenMetadataView[];
-}
-
-export function ProgressiveTransactionEvidenceProvider({
-  address,
-  addressBook,
-  chainId,
-  children,
-  safeTxHash,
-  tokenMetadata,
-}: ProviderProps) {
-  const [status, setStatus] = useState<"loading" | "ready" | "failed">(
-    "loading",
-  );
-  const [evidence, setEvidence] = useState<ProgressiveEvidence | null>(null);
-  const activeRequest = useRef<AbortController | null>(null);
-  const metadataByAddress = useMemo(
-    () =>
-      new Map(
-        tokenMetadata.map((item) => [item.token.toLowerCase(), item] as const),
-      ),
-    [tokenMetadata],
-  );
-
-  const load = useCallback(() => {
-    activeRequest.current?.abort();
-    const controller = new AbortController();
-    activeRequest.current = controller;
-    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-
-    void fetch("/api/v1/transaction-progressive-evidence", {
+async function fetchEvidence(
+  request: ProgressiveEvidenceRequest,
+): Promise<ProgressiveEvidence> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const response = await fetch("/api/v1/transaction-progressive-evidence", {
       method: "POST",
       credentials: "same-origin",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ chainId, address, safeTxHash }),
+      body: JSON.stringify(request),
       signal: controller.signal,
-    })
-      .then(async (response) => {
-        if (!response.ok) throw new Error("Evidence request failed.");
-        return (await response.json()) as {
-          readonly data?: ProgressiveEvidence;
-        };
-      })
-      .then((payload) => {
-        if (!payload.data) throw new Error("Evidence response was incomplete.");
-        setEvidence(payload.data);
-        setStatus("ready");
-      })
-      .catch(() => {
-        if (activeRequest.current === controller) setStatus("failed");
-      })
-      .finally(() => {
-        clearTimeout(timeout);
-        if (activeRequest.current === controller) {
-          activeRequest.current = null;
-        }
-      });
-
-    return () => {
-      clearTimeout(timeout);
-      controller.abort();
+    });
+    if (!response.ok) throw new Error("Evidence request failed.");
+    const payload = (await response.json()) as {
+      readonly data?: ProgressiveEvidence;
     };
-  }, [address, chainId, safeTxHash]);
-
-  useEffect(() => load(), [load]);
-
-  const retry = useCallback(() => {
-    setStatus("loading");
-    load();
-  }, [load]);
-
-  return (
-    <EvidenceContext.Provider
-      value={{
-        status,
-        evidence,
-        retry,
-        addressBook,
-        chainId,
-        tokenMetadata: metadataByAddress,
-      }}
-    >
-      {children}
-    </EvidenceContext.Provider>
-  );
+    if (!payload.data) throw new Error("Evidence response was incomplete.");
+    return payload.data;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
-function useProgressiveEvidence() {
-  const value = useContext(EvidenceContext);
-  if (!value) {
-    throw new Error(
-      "Progressive transaction evidence must be inside its provider.",
-    );
-  }
-  return value;
+function loadEvidence(
+  key: string,
+  request: ProgressiveEvidenceRequest,
+): Promise<ProgressiveEvidence> {
+  const cached = resolvedEvidence.get(key);
+  if (cached) return Promise.resolve(cached);
+
+  const active = pendingEvidence.get(key);
+  if (active) return active;
+
+  const pending = fetchEvidence(request)
+    .then((evidence) => {
+      resolvedEvidence.set(key, evidence);
+      return evidence;
+    })
+    .finally(() => pendingEvidence.delete(key));
+  pendingEvidence.set(key, pending);
+  return pending;
+}
+
+function useProgressiveEvidence(request: ProgressiveEvidenceRequest) {
+  const key = requestKey(request);
+  const [attempt, setAttempt] = useState(0);
+  const [state, setState] = useState<EvidenceState>(() => {
+    const cached = resolvedEvidence.get(key);
+    return cached
+      ? { status: "ready", evidence: cached }
+      : { status: "loading", evidence: null };
+  });
+
+  useEffect(() => {
+    let active = true;
+    void loadEvidence(key, request)
+      .then((evidence) => {
+        if (active) setState({ status: "ready", evidence });
+      })
+      .catch(() => {
+        if (active) setState({ status: "failed", evidence: null });
+      });
+    return () => {
+      active = false;
+    };
+  }, [attempt, key, request]);
+
+  const retry = useCallback(() => {
+    resolvedEvidence.delete(key);
+    pendingEvidence.delete(key);
+    setState({ status: "loading", evidence: null });
+    setAttempt((value) => value + 1);
+  }, [key]);
+
+  return { ...state, retry };
 }
 
 function humanTokenAmount(
@@ -161,10 +138,24 @@ function humanTokenAmount(
   return `${negative ? "−" : ""}${formatted}${symbol ? ` ${symbol}` : ""}`;
 }
 
-export function ProgressiveBalanceChangesPanel() {
-  const { addressBook, chainId, evidence, retry, status, tokenMetadata } =
-    useProgressiveEvidence();
+export function ProgressiveBalanceChangesPanel({
+  addressBook,
+  request,
+  tokenMetadata,
+}: {
+  readonly addressBook: readonly AddressBookView[];
+  readonly request: ProgressiveEvidenceRequest;
+  readonly tokenMetadata: readonly TokenMetadataView[];
+}) {
+  const { evidence, retry, status } = useProgressiveEvidence(request);
   const balanceChanges = evidence?.balanceChanges ?? null;
+  const metadataByAddress = useMemo(
+    () =>
+      new Map(
+        tokenMetadata.map((item) => [item.token.toLowerCase(), item] as const),
+      ),
+    [tokenMetadata],
+  );
 
   return (
     <section className="detail-panel">
@@ -187,8 +178,7 @@ export function ProgressiveBalanceChangesPanel() {
       </div>
       {status === "loading" ? (
         <div className="panel-empty">
-          Loading optional balance evidence without delaying the security
-          report.
+          Loading optional balance evidence without delaying the security report.
         </div>
       ) : status === "failed" || !balanceChanges ? (
         <div className="panel-empty">
@@ -205,7 +195,7 @@ export function ProgressiveBalanceChangesPanel() {
         </div>
       ) : (
         balanceChanges.items.map((change, index) => {
-          const metadata = tokenMetadata.get(change.token.toLowerCase());
+          const metadata = metadataByAddress.get(change.token.toLowerCase());
           const before = humanTokenAmount(
             change.before,
             metadata?.decimals,
@@ -236,7 +226,7 @@ export function ProgressiveBalanceChangesPanel() {
                     : ""}
               </span>
               <TokenIdentity
-                chainId={chainId}
+                chainId={request.chainId}
                 symbol={metadata?.symbol}
                 token={change.token}
               />
@@ -245,7 +235,7 @@ export function ProgressiveBalanceChangesPanel() {
                 <AddressIdentity
                   address={change.account}
                   addressBook={addressBook}
-                  chainId={chainId}
+                  chainId={request.chainId}
                 />
               </div>
               <dl className="balance-change-values">
@@ -276,8 +266,12 @@ export function ProgressiveBalanceChangesPanel() {
   );
 }
 
-export function ProgressiveRawPayloadStatus() {
-  const { evidence, status } = useProgressiveEvidence();
+export function ProgressiveRawPayloadStatus({
+  request,
+}: {
+  readonly request: ProgressiveEvidenceRequest;
+}) {
+  const { evidence, status } = useProgressiveEvidence(request);
   if (status === "loading") return <span>Loading Safe execution fields</span>;
   if (status === "failed" || !evidence?.rawPayload) {
     return <span>Stored fields only</span>;
@@ -285,8 +279,14 @@ export function ProgressiveRawPayloadStatus() {
   return <span>Safe execution fields available</span>;
 }
 
-export function ProgressiveRawPayloadFields() {
-  const { addressBook, chainId, evidence, status } = useProgressiveEvidence();
+export function ProgressiveRawPayloadFields({
+  addressBook,
+  request,
+}: {
+  readonly addressBook: readonly AddressBookView[];
+  readonly request: ProgressiveEvidenceRequest;
+}) {
+  const { evidence, status } = useProgressiveEvidence(request);
   const payload = evidence?.rawPayload ?? null;
   const unavailable = status === "loading" ? "Loading…" : "Unavailable";
 
@@ -311,7 +311,7 @@ export function ProgressiveRawPayloadFields() {
             <AddressIdentity
               address={payload.gasToken}
               addressBook={addressBook}
-              chainId={chainId}
+              chainId={request.chainId}
             />
           ) : status === "loading" ? (
             "Loading…"
@@ -327,7 +327,7 @@ export function ProgressiveRawPayloadFields() {
             <AddressIdentity
               address={payload.refundReceiver}
               addressBook={addressBook}
-              chainId={chainId}
+              chainId={request.chainId}
             />
           ) : status === "loading" ? (
             "Loading…"
@@ -340,8 +340,12 @@ export function ProgressiveRawPayloadFields() {
   );
 }
 
-export function ProgressiveRawPayloadWarning() {
-  const { evidence, retry, status } = useProgressiveEvidence();
+export function ProgressiveRawPayloadWarning({
+  request,
+}: {
+  readonly request: ProgressiveEvidenceRequest;
+}) {
+  const { evidence, retry, status } = useProgressiveEvidence(request);
   if (status !== "failed" && (status !== "ready" || evidence?.rawPayload)) {
     return null;
   }
