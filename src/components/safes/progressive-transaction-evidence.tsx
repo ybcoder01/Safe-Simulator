@@ -7,6 +7,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -65,6 +66,7 @@ export function ProgressiveTransactionEvidenceProvider({
     "loading",
   );
   const [evidence, setEvidence] = useState<ProgressiveEvidence | null>(null);
+  const activeRequest = useRef<AbortController | null>(null);
   const metadataByAddress = useMemo(
     () =>
       new Map(
@@ -74,9 +76,10 @@ export function ProgressiveTransactionEvidenceProvider({
   );
 
   const load = useCallback(() => {
+    activeRequest.current?.abort();
     const controller = new AbortController();
+    activeRequest.current = controller;
     const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-    setStatus("loading");
 
     void fetch("/api/v1/transaction-progressive-evidence", {
       method: "POST",
@@ -97,10 +100,14 @@ export function ProgressiveTransactionEvidenceProvider({
         setStatus("ready");
       })
       .catch(() => {
-        if (!controller.signal.aborted) setStatus("failed");
-        else setStatus("failed");
+        if (activeRequest.current === controller) setStatus("failed");
       })
-      .finally(() => clearTimeout(timeout));
+      .finally(() => {
+        clearTimeout(timeout);
+        if (activeRequest.current === controller) {
+          activeRequest.current = null;
+        }
+      });
 
     return () => {
       clearTimeout(timeout);
@@ -111,6 +118,7 @@ export function ProgressiveTransactionEvidenceProvider({
   useEffect(() => load(), [load]);
 
   const retry = useCallback(() => {
+    setStatus("loading");
     load();
   }, [load]);
 
