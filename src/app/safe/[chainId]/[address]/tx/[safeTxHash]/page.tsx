@@ -28,7 +28,6 @@ import {
   ProgressiveRawPayloadFields,
   ProgressiveRawPayloadStatus,
   ProgressiveRawPayloadWarning,
-  ProgressiveTransactionEvidenceProvider,
 } from "@/components/safes/progressive-transaction-evidence";
 import { AddressIdentity } from "@/components/shared/address-identity";
 import { CopyIdentifierButton } from "@/components/shared/copy-identifier-button";
@@ -561,6 +560,11 @@ export default async function TransactionDetailPage({
     currentSafe.threshold,
   );
   const summaryEndpoint = `/api/v1/safes/${safe.data.chainId}/${safe.data.address}/tx/${hash.data}/summary`;
+  const progressiveEvidenceRequest = {
+    chainId: safe.data.chainId,
+    address: safe.data.address,
+    safeTxHash: hash.data,
+  };
 
   return (
     <main className="workspace shell">
@@ -576,1383 +580,1358 @@ export default async function TransactionDetailPage({
         </span>
       </header>
 
-      <ProgressiveTransactionEvidenceProvider
-        address={safe.data.address}
-        addressBook={addressBook}
-        chainId={safe.data.chainId}
-        safeTxHash={hash.data}
-        tokenMetadata={tokenMetadata.items}
-      >
-        <article className="transaction-detail">
-          <Link
-            className="dashboard-back"
-            href={
-              reviewFilter.success
-                ? `${safePath}?review=${reviewFilter.data}#transaction-review`
-                : safePath
+      <article className="transaction-detail">
+        <Link
+          className="dashboard-back"
+          href={
+            reviewFilter.success
+              ? `${safePath}?review=${reviewFilter.data}#transaction-review`
+              : safePath
+          }
+        >
+          ← Safe overview
+        </Link>
+
+        {reviewFilter.success && reviewPosition >= 0 ? (
+          <ReviewQueueProgress
+            address={safe.data.address}
+            chainId={safe.data.chainId}
+            currentSafeTxHash={transaction.safeTxHash}
+            overviewHref={
+              safePath + "?review=" + reviewFilter.data + "#transaction-review"
             }
-          >
-            ← Safe overview
-          </Link>
-
-          {reviewFilter.success && reviewPosition >= 0 ? (
-            <ReviewQueueProgress
-              address={safe.data.address}
-              chainId={safe.data.chainId}
-              currentSafeTxHash={transaction.safeTxHash}
-              overviewHref={
+            queue={reviewQueue.map((item) => ({
+              href:
                 safePath +
+                "/tx/" +
+                item.safeTxHash +
                 "?review=" +
-                reviewFilter.data +
-                "#transaction-review"
-              }
-              queue={reviewQueue.map((item) => ({
-                href:
-                  safePath +
-                  "/tx/" +
-                  item.safeTxHash +
-                  "?review=" +
-                  reviewFilter.data,
-                safeTxHash: item.safeTxHash,
-              }))}
-            />
-          ) : null}
-
-          <header className="transaction-title">
-            <div>
-              <p className="eyebrow">
-                Safe transaction · Nonce {transaction.nonce}
-              </p>
-              <h1
-                className={
-                  primaryAction.length > 72
-                    ? "transaction-title-long"
-                    : undefined
-                }
-              >
-                {primaryAction}
-              </h1>
-            </div>
-            <div className="transaction-title-actions">
-              <div className="transaction-title-labels">
-                <span
-                  className={`tx-activity tx-activity-${transaction.activity.type}`}
-                  title={`Classified from ${transaction.activity.basis.replaceAll("-", " ")} evidence.`}
-                >
-                  {transaction.activity.label}
-                </span>
-                <span className={`tx-status tx-${lifecycleStatus}`}>
-                  {lifecycleStatus}
-                </span>
-              </div>
-              <TransactionSummaryDialog
-                canGenerate={Boolean(profileId)}
-                endpoint={summaryEndpoint}
-                initialSummary={null}
-              />
-            </div>
-          </header>
-
-          {lifecycleStatus === "superseded" ? (
-            <section className="superseded-transaction-notice" role="status">
-              <strong>This proposal can no longer be executed.</strong>
-              <p>
-                It uses nonce {transaction.nonce}, but this Safe has already
-                advanced to nonce {currentSafe.nonce.toString()}. Another
-                transaction consumed this nonce. Create a new proposal if you
-                still intend to perform this action.
-              </p>
-            </section>
-          ) : null}
-
-          <TransactionBriefPanel
-            addressBook={addressBook}
-            brief={brief}
-            chainId={safe.data.chainId}
-            executed={persisted.status === "executed"}
-            flow={briefFlow}
-            knownLabels={briefLabels}
-            safeAddress={persisted.safe.address}
-            siloShareLookup={siloShareLookup}
-            stage={currentStage}
-            totalMovements={briefFlow.length}
-          >
-            <details className="brief-full-details">
-              <summary>
-                <span>
-                  <strong>Full safety checklist and detailed summary</strong>
-                  <small>
-                    The complete treasury checklist, contract route checks, and
-                    every warning with its guidance.
-                  </small>
-                </span>
-                <span aria-hidden="true">+</span>
-              </summary>
-              <TransactionSafetyOverview
-                addressBook={addressBook}
-                chainId={safe.data.chainId}
-                presentation={reviewPresentation}
-                protocolLabel={protocolLabel}
-                protocolLogoKey={targetRegistryEntry?.logoKey ?? null}
-                routeAttestation={routeAttestation}
-                targetAddress={persisted.to}
-                targetLabel={
-                  insight.metadata.label ?? targetRegistryEntry?.label ?? null
-                }
-                targetTokenSymbol={targetTokenEntry?.symbol ?? null}
-                treasuryChecks={treasuryChecks}
-                treasuryFocus={treasuryReviewFocus(activity.type)}
-              />
-
-              <section
-                className="detail-panel transaction-impact-summary"
-                aria-labelledby="transaction-impact-title"
-              >
-                <div className="panel-heading">
-                  <div>
-                    <p className="eyebrow">What will happen</p>
-                    <h2 id="transaction-impact-title">Transaction summary</h2>
-                  </div>
-                  <span>
-                    {criticalFindingCount > 0
-                      ? criticalFindingCount + " critical"
-                      : warningFindingCount > 0
-                        ? warningFindingCount + " warnings"
-                        : "No material warning"}
-                  </span>
-                </div>
-                <div className="panel-empty">
-                  Start here. These are the changes Safe Inspector could
-                  identify from the transaction and the available blockchain
-                  evidence.
-                </div>
-                <div className="detail-grid">
-                  <div>
-                    <span>Main action</span>
-                    <strong>{primaryAction}</strong>
-                  </div>
-                  <div>
-                    <span>Tokens moved</span>
-                    <strong>
-                      {execution.tokenMovements.length === 0
-                        ? "No token transfers found"
-                        : `${execution.tokenMovements.length} token ${execution.tokenMovements.length === 1 ? "transfer" : "transfers"}`}
-                    </strong>
-                  </div>
-                  <div>
-                    <span>Spending permissions</span>
-                    <strong>
-                      {infiniteAuthorization
-                        ? "Unlimited spending permission requested"
-                        : approvalRisk.requests.length === 0 &&
-                            approvalRisk.executedChanges.length === 0
-                          ? "No spending permission change found"
-                          : `${approvalRisk.requests.length + approvalRisk.executedChanges.length} spending permission ${approvalRisk.requests.length + approvalRisk.executedChanges.length === 1 ? "change" : "changes"}`}
-                    </strong>
-                  </div>
-                  <div>
-                    <span>Owners and security settings</span>
-                    <strong>
-                      {execution.safeConfigurationChanges.length === 0
-                        ? "No changes found"
-                        : `${execution.safeConfigurationChanges.length} Safe setting ${execution.safeConfigurationChanges.length === 1 ? "change" : "changes"}`}
-                    </strong>
-                  </div>
-                </div>
-
-                {impactMovements.length > 0 ? (
-                  <>
-                    <div className="calldata">
-                      <span>Who moved assets</span>
-                      <strong>
-                        {execution.tokenMovements.length} token movement
-                        {execution.tokenMovements.length === 1 ? "" : "s"}{" "}
-                        confirmed on-chain
-                      </strong>
-                    </div>
-                    {impactMovements.map((movement) => {
-                      const metadata = tokenMetadataByAddress.get(
-                        movement.token.toLowerCase(),
-                      );
-                      const formatted = formatTokenAmount(
-                        movement.amount,
-                        metadata?.decimals ?? null,
-                      );
-
-                      return (
-                        <div
-                          className="calldata"
-                          key={[
-                            "impact",
-                            movement.logIndex,
-                            movement.token,
-                          ].join(":")}
-                        >
-                          <span>
-                            {movementDirectionLabel(movement.direction)}
-                          </span>
-                          <TokenIdentity
-                            amount={formatted}
-                            chainId={safe.data.chainId}
-                            symbol={metadata?.symbol}
-                            token={movement.token}
-                            verifiedLabel={
-                              routeAttestation.addresses.find(
-                                (item) =>
-                                  item.address.toLowerCase() ===
-                                  movement.token.toLowerCase(),
-                              )?.label ?? null
-                            }
-                          />
-                          {formatted === null ? (
-                            <code>
-                              Amount unavailable because token decimals could
-                              not be verified.
-                            </code>
-                          ) : null}
-                          <div className="approval-party">
-                            <span>From</span>
-                            <AddressIdentity
-                              address={movement.from}
-                              addressBook={addressBook}
-                              chainId={safe.data.chainId}
-                              compact
-                            />
-                          </div>
-                          <div className="approval-party">
-                            <span>To</span>
-                            <AddressIdentity
-                              address={movement.to}
-                              addressBook={addressBook}
-                              chainId={safe.data.chainId}
-                              compact
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                    {execution.tokenMovements.length >
-                    impactMovements.length ? (
-                      <div className="panel-empty">
-                        {execution.tokenMovements.length -
-                          impactMovements.length}{" "}
-                        additional movements are listed in the receipt evidence.
-                      </div>
-                    ) : null}
-                  </>
-                ) : null}
-
-                {impactApprovals.length > 0 ? (
-                  <>
-                    <div className="calldata">
-                      <span>Who receives permissions</span>
-                      <strong>
-                        {infiniteAuthorization
-                          ? "At least one unlimited authorization"
-                          : approvalRisk.requests.length +
-                            " decoded authorization " +
-                            (approvalRisk.requests.length === 1
-                              ? "request"
-                              : "requests")}
-                      </strong>
-                    </div>
-                    {impactApprovals.map((approval, index) => {
-                      const metadata = approval.token
-                        ? tokenMetadataByAddress.get(
-                            approval.token.toLowerCase(),
-                          )
-                        : null;
-                      const formatted =
-                        approval.amount === null
-                          ? null
-                          : formatTokenAmount(
-                              approval.amount,
-                              metadata?.decimals ?? null,
-                            );
-
-                      return (
-                        <div
-                          className="calldata"
-                          key={["impact-approval", index, approval.target].join(
-                            ":",
-                          )}
-                        >
-                          <span>
-                            {approval.standard} · {approval.method}
-                          </span>
-                          <strong>
-                            {approval.infinite
-                              ? "Unlimited authorization requested"
-                              : formatted
-                                ? formatted +
-                                  (metadata?.symbol
-                                    ? " " + metadata.symbol
-                                    : "") +
-                                  " requested"
-                                : "Authorization change requested"}
-                          </strong>
-                          {approval.spender ? (
-                            <div className="approval-party">
-                              <span>Spender or operator</span>
-                              <AddressIdentity
-                                address={approval.spender}
-                                addressBook={addressBook}
-                                chainId={safe.data.chainId}
-                                compact
-                              />
-                            </div>
-                          ) : (
-                            <code>
-                              Spender cannot be established from this call.
-                            </code>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </>
-                ) : null}
-
-                {impactConfigurationChanges.length > 0 ? (
-                  <div className="calldata">
-                    <span>Safe control changes</span>
-                    {impactConfigurationChanges.map((change) => (
-                      <strong
-                        key={[
-                          "impact-safe-change",
-                          change.logIndex,
-                          change.field,
-                        ].join(":")}
-                      >
-                        {change.field}: {change.before ?? "unknown"} →{" "}
-                        {change.after ?? "not configured"}
-                      </strong>
-                    ))}
-                  </div>
-                ) : null}
-
-                {criticalFindingCount > 0 || warningFindingCount > 0 ? (
-                  <div className="calldata">
-                    <span>Why this needs review</span>
-                    {userFacingFindings.slice(0, 3).map((finding) => (
-                      <strong key={"impact-finding-" + finding.code}>
-                        {finding.severity}: {finding.title}
-                      </strong>
-                    ))}
-                  </div>
-                ) : null}
-
-                <nav
-                  className="identifier-actions"
-                  aria-label="Technical transaction evidence"
-                >
-                  <a className="text-link" href="#technical-details">
-                    Technical evidence is available below
-                  </a>
-                </nav>
-              </section>
-
-              <section className="detail-panel">
-                <div className="panel-heading">
-                  <div>
-                    <p className="eyebrow">Important checks</p>
-                    <h2>
-                      {criticalFindingCount > 0 || warningFindingCount > 0
-                        ? "Review these warnings"
-                        : "What we checked"}
-                    </h2>
-                  </div>
-                  <span>
-                    {criticalFindingCount + warningFindingCount} requiring
-                    attention
-                  </span>
-                </div>
-                <EvidenceFindings
-                  executed={persisted.status === "executed"}
-                  findings={userFacingFindings}
-                />
-              </section>
-            </details>
-          </TransactionBriefPanel>
-
-          {alertTimeline.length > 0 ? (
-            <details className="brief-alerts">
-              <summary>
-                <span>
-                  <strong>
-                    Alerts you received (
-                    {alertTimeline.filter((entry) => entry.alert).length})
-                  </strong>
-                  <small>
-                    What you were told, and at which stage of signing.
-                  </small>
-                </span>
-                <span aria-hidden="true">+</span>
-              </summary>
-              <AlertStageTimeline
-                entries={alertTimeline}
-                findingTitle={plainAlertFindingCode}
-              />
-            </details>
-          ) : null}
-
-          <details
-            className="transaction-disclosure reviewer-tools-disclosure"
-            id="reviewer-tools"
-          >
-            <summary>
-              <span>
-                <strong>Review and record a decision</strong>
-                <small>
-                  Save your checks, record a decision, or manage trusted
-                  addresses.
-                </small>
-              </span>
-              <span aria-hidden="true">+</span>
-            </summary>
-          </details>
-
-          <TransactionReviewWorkflow
-            chainId={safe.data.chainId}
-            evidenceVersion={`${TRANSACTION_ANALYSIS_ENGINE_VERSION}+${EXECUTION_EVIDENCE_ENGINE_VERSION}@${execution.blockNumber ?? "latest"}`}
-            executed={persisted.status === "executed"}
-            findings={userFacingFindings}
-            hasAddressBook={Boolean(profileId)}
-            safeAddress={safe.data.address}
-            safeTxHash={hash.data}
+                reviewFilter.data,
+              safeTxHash: item.safeTxHash,
+            }))}
           />
+        ) : null}
 
-          {profileId ? (
-            <AddressBookEditor
-              chainId={safe.data.chainId}
-              initialEntries={addressBookReviews}
-              safeAddress={safe.data.address}
-              suggestions={verdict.addresses.map((assessment) => ({
-                address: assessment.address,
-                label: assessment.label,
-                roles: assessment.roles,
-              }))}
+        <header className="transaction-title">
+          <div>
+            <p className="eyebrow">
+              Safe transaction · Nonce {transaction.nonce}
+            </p>
+            <h1
+              className={
+                primaryAction.length > 72 ? "transaction-title-long" : undefined
+              }
+            >
+              {primaryAction}
+            </h1>
+          </div>
+          <div className="transaction-title-actions">
+            <div className="transaction-title-labels">
+              <span
+                className={`tx-activity tx-activity-${transaction.activity.type}`}
+                title={`Classified from ${transaction.activity.basis.replaceAll("-", " ")} evidence.`}
+              >
+                {transaction.activity.label}
+              </span>
+              <span className={`tx-status tx-${lifecycleStatus}`}>
+                {lifecycleStatus}
+              </span>
+            </div>
+            <TransactionSummaryDialog
+              canGenerate={Boolean(profileId)}
+              endpoint={summaryEndpoint}
+              initialSummary={null}
             />
-          ) : null}
-          <details
-            className="transaction-disclosure technical-details-disclosure"
-            id="technical-details"
-          >
+          </div>
+        </header>
+
+        {lifecycleStatus === "superseded" ? (
+          <section className="superseded-transaction-notice" role="status">
+            <strong>This proposal can no longer be executed.</strong>
+            <p>
+              It uses nonce {transaction.nonce}, but this Safe has already
+              advanced to nonce {currentSafe.nonce.toString()}. Another
+              transaction consumed this nonce. Create a new proposal if you
+              still intend to perform this action.
+            </p>
+          </section>
+        ) : null}
+
+        <TransactionBriefPanel
+          addressBook={addressBook}
+          brief={brief}
+          chainId={safe.data.chainId}
+          executed={persisted.status === "executed"}
+          flow={briefFlow}
+          knownLabels={briefLabels}
+          safeAddress={persisted.safe.address}
+          siloShareLookup={siloShareLookup}
+          stage={currentStage}
+          totalMovements={briefFlow.length}
+        >
+          <details className="brief-full-details">
             <summary>
               <span>
-                <strong>View technical details</strong>
+                <strong>Full safety checklist and detailed summary</strong>
                 <small>
-                  Contract verification, execution traces, storage changes,
-                  calldata, gas fields, and signatures.
+                  The complete treasury checklist, contract route checks, and
+                  every warning with its guidance.
                 </small>
               </span>
               <span aria-hidden="true">+</span>
             </summary>
-          </details>
-
-          <section className="detail-panel">
-            <div className="panel-heading">
-              <div>
-                <p className="eyebrow">Evidence verdict</p>
-                <h2>{verdict.headline}</h2>
-              </div>
-              <span>{verdict.verdict}</span>
-            </div>
-            <dl className="detail-list">
-              <div>
-                <dt>Coverage</dt>
-                <dd>{verdict.coverage}</dd>
-              </div>
-              <div>
-                <dt>Trust rule</dt>
-                <dd>{verdict.trustBoundary}</dd>
-              </div>
-              <div>
-                <dt>Target account evidence</dt>
-                <dd>
-                  {targetRuntimeCode.accountType} · {targetRuntimeCode.anchor}
-                </dd>
-              </div>
-            </dl>
-            {verdict.addresses.map((assessment) => (
-              <div
-                className="calldata"
-                key={`address-trust-${assessment.address.toLowerCase()}`}
-              >
-                <span>
-                  {assessment.status} · {assessment.source.replaceAll("-", " ")}{" "}
-                  · {assessment.roles.join(" · ")}
-                </span>
-                <strong>
-                  {assessment.label ?? "No registry or profile label"}
-                </strong>
-                <code>{assessment.address}</code>
-              </div>
-            ))}
-            {rawAttentionFindings.length > 0 ? (
-              <div className="calldata">
-                <span>Raw engine findings</span>
-                <EvidenceFindings
-                  findings={rawAttentionFindings}
-                  showAddresses
-                  showRecommendation={false}
-                />
-              </div>
-            ) : null}
-          </section>
-
-          {safe.data.chainId === 50 ? (
-            <XdcSourceEvidence
+            <TransactionSafetyOverview
               addressBook={addressBook}
               chainId={safe.data.chainId}
-              references={contractReferences}
+              presentation={reviewPresentation}
+              protocolLabel={protocolLabel}
+              protocolLogoKey={targetRegistryEntry?.logoKey ?? null}
+              routeAttestation={routeAttestation}
+              targetAddress={persisted.to}
+              targetLabel={
+                insight.metadata.label ?? targetRegistryEntry?.label ?? null
+              }
+              targetTokenSymbol={targetTokenEntry?.symbol ?? null}
+              treasuryChecks={treasuryChecks}
+              treasuryFocus={treasuryReviewFocus(activity.type)}
             />
-          ) : null}
 
-          <section className="detail-grid">
-            <div>
-              <span>Operation</span>
-              <strong>
-                {transaction.operation === "delegatecall"
-                  ? "Delegate call"
-                  : "Contract call"}
-              </strong>
-            </div>
-            <div>
-              <span>Value</span>
-              <strong>{transaction.value}</strong>
-            </div>
-            <div>
-              <span>Proposed</span>
-              <strong>{formatDate(transaction.proposedAt)}</strong>
-            </div>
-            <div>
-              <span>Executed</span>
-              <strong>{formatDate(transaction.executedAt)}</strong>
-            </div>
-          </section>
-
-          <section className="detail-panel" id="execution-evidence">
-            <div className="panel-heading">
-              <div>
-                <p className="eyebrow">Execution evidence</p>
-                <h2>
-                  {execution.mode === "executed-replay"
-                    ? "On-chain replay"
-                    : execution.mode === "safe-execution-check"
-                      ? "Full Safe execution check"
-                      : "Execution unavailable"}
-                </h2>
+            <section
+              className="detail-panel transaction-impact-summary"
+              aria-labelledby="transaction-impact-title"
+            >
+              <div className="panel-heading">
+                <div>
+                  <p className="eyebrow">What will happen</p>
+                  <h2 id="transaction-impact-title">Transaction summary</h2>
+                </div>
+                <span>
+                  {criticalFindingCount > 0
+                    ? criticalFindingCount + " critical"
+                    : warningFindingCount > 0
+                      ? warningFindingCount + " warnings"
+                      : "No material warning"}
+                </span>
               </div>
+              <div className="panel-empty">
+                Start here. These are the changes Safe Inspector could identify
+                from the transaction and the available blockchain evidence.
+              </div>
+              <div className="detail-grid">
+                <div>
+                  <span>Main action</span>
+                  <strong>{primaryAction}</strong>
+                </div>
+                <div>
+                  <span>Tokens moved</span>
+                  <strong>
+                    {execution.tokenMovements.length === 0
+                      ? "No token transfers found"
+                      : `${execution.tokenMovements.length} token ${execution.tokenMovements.length === 1 ? "transfer" : "transfers"}`}
+                  </strong>
+                </div>
+                <div>
+                  <span>Spending permissions</span>
+                  <strong>
+                    {infiniteAuthorization
+                      ? "Unlimited spending permission requested"
+                      : approvalRisk.requests.length === 0 &&
+                          approvalRisk.executedChanges.length === 0
+                        ? "No spending permission change found"
+                        : `${approvalRisk.requests.length + approvalRisk.executedChanges.length} spending permission ${approvalRisk.requests.length + approvalRisk.executedChanges.length === 1 ? "change" : "changes"}`}
+                  </strong>
+                </div>
+                <div>
+                  <span>Owners and security settings</span>
+                  <strong>
+                    {execution.safeConfigurationChanges.length === 0
+                      ? "No changes found"
+                      : `${execution.safeConfigurationChanges.length} Safe setting ${execution.safeConfigurationChanges.length === 1 ? "change" : "changes"}`}
+                  </strong>
+                </div>
+              </div>
+
+              {impactMovements.length > 0 ? (
+                <>
+                  <div className="calldata">
+                    <span>Who moved assets</span>
+                    <strong>
+                      {execution.tokenMovements.length} token movement
+                      {execution.tokenMovements.length === 1 ? "" : "s"}{" "}
+                      confirmed on-chain
+                    </strong>
+                  </div>
+                  {impactMovements.map((movement) => {
+                    const metadata = tokenMetadataByAddress.get(
+                      movement.token.toLowerCase(),
+                    );
+                    const formatted = formatTokenAmount(
+                      movement.amount,
+                      metadata?.decimals ?? null,
+                    );
+
+                    return (
+                      <div
+                        className="calldata"
+                        key={["impact", movement.logIndex, movement.token].join(
+                          ":",
+                        )}
+                      >
+                        <span>
+                          {movementDirectionLabel(movement.direction)}
+                        </span>
+                        <TokenIdentity
+                          amount={formatted}
+                          chainId={safe.data.chainId}
+                          symbol={metadata?.symbol}
+                          token={movement.token}
+                          verifiedLabel={
+                            routeAttestation.addresses.find(
+                              (item) =>
+                                item.address.toLowerCase() ===
+                                movement.token.toLowerCase(),
+                            )?.label ?? null
+                          }
+                        />
+                        {formatted === null ? (
+                          <code>
+                            Amount unavailable because token decimals could not
+                            be verified.
+                          </code>
+                        ) : null}
+                        <div className="approval-party">
+                          <span>From</span>
+                          <AddressIdentity
+                            address={movement.from}
+                            addressBook={addressBook}
+                            chainId={safe.data.chainId}
+                            compact
+                          />
+                        </div>
+                        <div className="approval-party">
+                          <span>To</span>
+                          <AddressIdentity
+                            address={movement.to}
+                            addressBook={addressBook}
+                            chainId={safe.data.chainId}
+                            compact
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {execution.tokenMovements.length > impactMovements.length ? (
+                    <div className="panel-empty">
+                      {execution.tokenMovements.length - impactMovements.length}{" "}
+                      additional movements are listed in the receipt evidence.
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
+
+              {impactApprovals.length > 0 ? (
+                <>
+                  <div className="calldata">
+                    <span>Who receives permissions</span>
+                    <strong>
+                      {infiniteAuthorization
+                        ? "At least one unlimited authorization"
+                        : approvalRisk.requests.length +
+                          " decoded authorization " +
+                          (approvalRisk.requests.length === 1
+                            ? "request"
+                            : "requests")}
+                    </strong>
+                  </div>
+                  {impactApprovals.map((approval, index) => {
+                    const metadata = approval.token
+                      ? tokenMetadataByAddress.get(approval.token.toLowerCase())
+                      : null;
+                    const formatted =
+                      approval.amount === null
+                        ? null
+                        : formatTokenAmount(
+                            approval.amount,
+                            metadata?.decimals ?? null,
+                          );
+
+                    return (
+                      <div
+                        className="calldata"
+                        key={["impact-approval", index, approval.target].join(
+                          ":",
+                        )}
+                      >
+                        <span>
+                          {approval.standard} · {approval.method}
+                        </span>
+                        <strong>
+                          {approval.infinite
+                            ? "Unlimited authorization requested"
+                            : formatted
+                              ? formatted +
+                                (metadata?.symbol
+                                  ? " " + metadata.symbol
+                                  : "") +
+                                " requested"
+                              : "Authorization change requested"}
+                        </strong>
+                        {approval.spender ? (
+                          <div className="approval-party">
+                            <span>Spender or operator</span>
+                            <AddressIdentity
+                              address={approval.spender}
+                              addressBook={addressBook}
+                              chainId={safe.data.chainId}
+                              compact
+                            />
+                          </div>
+                        ) : (
+                          <code>
+                            Spender cannot be established from this call.
+                          </code>
+                        )}
+                      </div>
+                    );
+                  })}
+                </>
+              ) : null}
+
+              {impactConfigurationChanges.length > 0 ? (
+                <div className="calldata">
+                  <span>Safe control changes</span>
+                  {impactConfigurationChanges.map((change) => (
+                    <strong
+                      key={[
+                        "impact-safe-change",
+                        change.logIndex,
+                        change.field,
+                      ].join(":")}
+                    >
+                      {change.field}: {change.before ?? "unknown"} →{" "}
+                      {change.after ?? "not configured"}
+                    </strong>
+                  ))}
+                </div>
+              ) : null}
+
+              {criticalFindingCount > 0 || warningFindingCount > 0 ? (
+                <div className="calldata">
+                  <span>Why this needs review</span>
+                  {userFacingFindings.slice(0, 3).map((finding) => (
+                    <strong key={"impact-finding-" + finding.code}>
+                      {finding.severity}: {finding.title}
+                    </strong>
+                  ))}
+                </div>
+              ) : null}
+
+              <nav
+                className="identifier-actions"
+                aria-label="Technical transaction evidence"
+              >
+                <a className="text-link" href="#technical-details">
+                  Technical evidence is available below
+                </a>
+              </nav>
+            </section>
+
+            <section className="detail-panel">
+              <div className="panel-heading">
+                <div>
+                  <p className="eyebrow">Important checks</p>
+                  <h2>
+                    {criticalFindingCount > 0 || warningFindingCount > 0
+                      ? "Review these warnings"
+                      : "What we checked"}
+                  </h2>
+                </div>
+                <span>
+                  {criticalFindingCount + warningFindingCount} requiring
+                  attention
+                </span>
+              </div>
+              <EvidenceFindings
+                executed={persisted.status === "executed"}
+                findings={userFacingFindings}
+              />
+            </section>
+          </details>
+        </TransactionBriefPanel>
+
+        {alertTimeline.length > 0 ? (
+          <details className="brief-alerts">
+            <summary>
               <span>
-                {execution.success === null
-                  ? "No verdict"
-                  : execution.success
-                    ? "Succeeded"
-                    : "Reverted"}
+                <strong>
+                  Alerts you received (
+                  {alertTimeline.filter((entry) => entry.alert).length})
+                </strong>
+                <small>
+                  What you were told, and at which stage of signing.
+                </small>
               </span>
-            </div>
-            <dl className="detail-list">
-              <div>
-                <dt>Evidence source</dt>
-                <dd>{execution.coverage.outcome}</dd>
-              </div>
-              <div>
-                <dt>Gas used</dt>
-                <dd>{execution.gasUsed ?? "Unavailable"}</dd>
-              </div>
-              <div>
-                <dt>Block</dt>
+              <span aria-hidden="true">+</span>
+            </summary>
+            <AlertStageTimeline
+              entries={alertTimeline}
+              findingTitle={plainAlertFindingCode}
+            />
+          </details>
+        ) : null}
 
-                <dd>{execution.blockNumber ?? "Latest state"}</dd>
-              </div>
-              <div>
-                <dt>Event logs</dt>
-                <dd>
-                  {execution.coverage.eventLogs === "complete"
-                    ? `${execution.logs.length} emitted`
-                    : "Unavailable"}
-                </dd>
-              </div>
-              <div>
-                <dt>Token event extraction</dt>
-                <dd>{execution.coverage.tokenEvents}</dd>
-              </div>
-              <div>
-                <dt>Call trace</dt>
-                <dd>{execution.coverage.callTrace}</dd>
-              </div>
-              <div>
-                <dt>Storage diff</dt>
-                <dd>{execution.coverage.storageDiff}</dd>
-              </div>
-            </dl>
-            {execution.rootCall ? (
-              <div className="calldata">
-                <span>Outer call</span>
-                <strong>
-                  {execution.rootCall.reverted ? "Reverted" : "Completed"} ·{" "}
-                  {execution.rootCall.from} → {execution.rootCall.to}
-                </strong>
-                <code>{execution.rootCall.input}</code>
-              </div>
-            ) : null}
-            {execution.internalCalls.slice(0, 40).map((call, index) => (
-              <div
-                className="calldata"
-                key={`internal-call-${index}-${call.to}`}
-              >
-                <span>
-                  Internal call {index + 1} · depth {call.depth} ·{" "}
-                  {call.operation}
-                </span>
-                <strong>
-                  {call.reverted ? "Reverted" : "Completed"} · {call.from} →{" "}
-                  {call.to}
-                </strong>
-                <code>{call.input}</code>
-                {call.error ? <code>{call.error}</code> : null}
-              </div>
-            ))}
-            {execution.internalCalls.length > 40 ? (
-              <div className="panel-empty">
-                {execution.internalCalls.length - 40} additional internal calls
-                are available through the transaction API.
-              </div>
-            ) : null}
-            {execution.coverage.callTrace === "complete" &&
-            execution.internalCalls.length === 0 ? (
-              <div className="panel-empty">
-                The complete trace contains no internal calls.
-              </div>
-            ) : null}
-            {storageAnalysis.items.length > 0 ? (
-              <div className="calldata">
-                <span>Storage interpretation</span>
-                <strong>
-                  {storageAnalysis.namedCount} named ·{" "}
-                  {storageAnalysis.rawCount} raw
-                </strong>
-                {storageAnalysis.warnings.map((warning) => (
-                  <code key={warning}>{warning}</code>
-                ))}
-              </div>
-            ) : null}
-            {storageAnalysis.items.slice(0, 40).map((change, index) => (
-              <div
-                className="calldata"
-                key={`storage-${index}-${change.address}-${change.slot}`}
-              >
-                <span>
-                  {change.status === "named"
-                    ? "Named storage slot · verified layout"
-                    : "Unrecognized raw storage slot change"}
-                </span>
-                <strong>
-                  {change.status === "named"
-                    ? `${change.contractLabel ? `${change.contractLabel} · ` : ""}${change.label} · ${change.type}`
-                    : change.address}
-                </strong>
-                {change.status === "named" ? (
-                  <code>{change.address}</code>
-                ) : null}
-                <code>{change.slot}</code>
-                <code>
-                  {change.before} → {change.after}
-                </code>
-              </div>
-            ))}
-            {storageAnalysis.items.length > 40 ? (
-              <div className="panel-empty">
-                {storageAnalysis.items.length - 40} additional storage changes
-                are available through the transaction API.
-              </div>
-            ) : null}
-            {execution.coverage.storageDiff === "complete" &&
-            execution.storageChanges.length === 0 ? (
-              <div className="panel-empty">
-                The complete prestate diff contains no storage slot changes.
-              </div>
-            ) : null}
-            {execution.error ? (
-              <div className="calldata">
-                <span>Execution error</span>
-                <strong>{execution.error}</strong>
-              </div>
-            ) : null}
-            {execution.logs.slice(0, 20).map((log) => (
-              <div className="calldata" key={`${log.logIndex}-${log.address}`}>
-                <span>Event log {log.logIndex}</span>
-                <strong>{log.address}</strong>
-                <code>
-                  {log.topics[0] ?? "No topic"} · {log.data}
-                </code>
-              </div>
-            ))}
-            {execution.logs.length > 20 ? (
-              <div className="panel-empty">
-                {execution.logs.length - 20} additional logs are available
-                through the transaction API.
-              </div>
-            ) : null}
+        <details
+          className="transaction-disclosure reviewer-tools-disclosure"
+          id="reviewer-tools"
+        >
+          <summary>
+            <span>
+              <strong>Review and record a decision</strong>
+              <small>
+                Save your checks, record a decision, or manage trusted
+                addresses.
+              </small>
+            </span>
+            <span aria-hidden="true">+</span>
+          </summary>
+        </details>
+
+        <TransactionReviewWorkflow
+          chainId={safe.data.chainId}
+          evidenceVersion={`${TRANSACTION_ANALYSIS_ENGINE_VERSION}+${EXECUTION_EVIDENCE_ENGINE_VERSION}@${execution.blockNumber ?? "latest"}`}
+          executed={persisted.status === "executed"}
+          findings={userFacingFindings}
+          hasAddressBook={Boolean(profileId)}
+          safeAddress={safe.data.address}
+          safeTxHash={hash.data}
+        />
+
+        {profileId ? (
+          <AddressBookEditor
+            chainId={safe.data.chainId}
+            initialEntries={addressBookReviews}
+            safeAddress={safe.data.address}
+            suggestions={verdict.addresses.map((assessment) => ({
+              address: assessment.address,
+              label: assessment.label,
+              roles: assessment.roles,
+            }))}
+          />
+        ) : null}
+        <details
+          className="transaction-disclosure technical-details-disclosure"
+          id="technical-details"
+        >
+          <summary>
+            <span>
+              <strong>View technical details</strong>
+              <small>
+                Contract verification, execution traces, storage changes,
+                calldata, gas fields, and signatures.
+              </small>
+            </span>
+            <span aria-hidden="true">+</span>
+          </summary>
+        </details>
+
+        <section className="detail-panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Evidence verdict</p>
+              <h2>{verdict.headline}</h2>
+            </div>
+            <span>{verdict.verdict}</span>
+          </div>
+          <dl className="detail-list">
+            <div>
+              <dt>Coverage</dt>
+              <dd>{verdict.coverage}</dd>
+            </div>
+            <div>
+              <dt>Trust rule</dt>
+              <dd>{verdict.trustBoundary}</dd>
+            </div>
+            <div>
+              <dt>Target account evidence</dt>
+              <dd>
+                {targetRuntimeCode.accountType} · {targetRuntimeCode.anchor}
+              </dd>
+            </div>
+          </dl>
+          {verdict.addresses.map((assessment) => (
+            <div
+              className="calldata"
+              key={`address-trust-${assessment.address.toLowerCase()}`}
+            >
+              <span>
+                {assessment.status} · {assessment.source.replaceAll("-", " ")} ·{" "}
+                {assessment.roles.join(" · ")}
+              </span>
+              <strong>
+                {assessment.label ?? "No registry or profile label"}
+              </strong>
+              <code>{assessment.address}</code>
+            </div>
+          ))}
+          {rawAttentionFindings.length > 0 ? (
             <div className="calldata">
-              <span>Coverage limits</span>
-              {execution.warnings.map((warning) => (
-                <strong key={warning}>{warning}</strong>
+              <span>Raw engine findings</span>
+              <EvidenceFindings
+                findings={rawAttentionFindings}
+                showAddresses
+                showRecommendation={false}
+              />
+            </div>
+          ) : null}
+        </section>
+
+        {safe.data.chainId === 50 ? (
+          <XdcSourceEvidence
+            addressBook={addressBook}
+            chainId={safe.data.chainId}
+            references={contractReferences}
+          />
+        ) : null}
+
+        <section className="detail-grid">
+          <div>
+            <span>Operation</span>
+            <strong>
+              {transaction.operation === "delegatecall"
+                ? "Delegate call"
+                : "Contract call"}
+            </strong>
+          </div>
+          <div>
+            <span>Value</span>
+            <strong>{transaction.value}</strong>
+          </div>
+          <div>
+            <span>Proposed</span>
+            <strong>{formatDate(transaction.proposedAt)}</strong>
+          </div>
+          <div>
+            <span>Executed</span>
+            <strong>{formatDate(transaction.executedAt)}</strong>
+          </div>
+        </section>
+
+        <section className="detail-panel" id="execution-evidence">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Execution evidence</p>
+              <h2>
+                {execution.mode === "executed-replay"
+                  ? "On-chain replay"
+                  : execution.mode === "safe-execution-check"
+                    ? "Full Safe execution check"
+                    : "Execution unavailable"}
+              </h2>
+            </div>
+            <span>
+              {execution.success === null
+                ? "No verdict"
+                : execution.success
+                  ? "Succeeded"
+                  : "Reverted"}
+            </span>
+          </div>
+          <dl className="detail-list">
+            <div>
+              <dt>Evidence source</dt>
+              <dd>{execution.coverage.outcome}</dd>
+            </div>
+            <div>
+              <dt>Gas used</dt>
+              <dd>{execution.gasUsed ?? "Unavailable"}</dd>
+            </div>
+            <div>
+              <dt>Block</dt>
+
+              <dd>{execution.blockNumber ?? "Latest state"}</dd>
+            </div>
+            <div>
+              <dt>Event logs</dt>
+              <dd>
+                {execution.coverage.eventLogs === "complete"
+                  ? `${execution.logs.length} emitted`
+                  : "Unavailable"}
+              </dd>
+            </div>
+            <div>
+              <dt>Token event extraction</dt>
+              <dd>{execution.coverage.tokenEvents}</dd>
+            </div>
+            <div>
+              <dt>Call trace</dt>
+              <dd>{execution.coverage.callTrace}</dd>
+            </div>
+            <div>
+              <dt>Storage diff</dt>
+              <dd>{execution.coverage.storageDiff}</dd>
+            </div>
+          </dl>
+          {execution.rootCall ? (
+            <div className="calldata">
+              <span>Outer call</span>
+              <strong>
+                {execution.rootCall.reverted ? "Reverted" : "Completed"} ·{" "}
+                {execution.rootCall.from} → {execution.rootCall.to}
+              </strong>
+              <code>{execution.rootCall.input}</code>
+            </div>
+          ) : null}
+          {execution.internalCalls.slice(0, 40).map((call, index) => (
+            <div className="calldata" key={`internal-call-${index}-${call.to}`}>
+              <span>
+                Internal call {index + 1} · depth {call.depth} ·{" "}
+                {call.operation}
+              </span>
+              <strong>
+                {call.reverted ? "Reverted" : "Completed"} · {call.from} →{" "}
+                {call.to}
+              </strong>
+              <code>{call.input}</code>
+              {call.error ? <code>{call.error}</code> : null}
+            </div>
+          ))}
+          {execution.internalCalls.length > 40 ? (
+            <div className="panel-empty">
+              {execution.internalCalls.length - 40} additional internal calls
+              are available through the transaction API.
+            </div>
+          ) : null}
+          {execution.coverage.callTrace === "complete" &&
+          execution.internalCalls.length === 0 ? (
+            <div className="panel-empty">
+              The complete trace contains no internal calls.
+            </div>
+          ) : null}
+          {storageAnalysis.items.length > 0 ? (
+            <div className="calldata">
+              <span>Storage interpretation</span>
+              <strong>
+                {storageAnalysis.namedCount} named · {storageAnalysis.rawCount}{" "}
+                raw
+              </strong>
+              {storageAnalysis.warnings.map((warning) => (
+                <code key={warning}>{warning}</code>
               ))}
             </div>
-          </section>
-
-          <section className="detail-panel">
-            <div className="panel-heading">
-              <div>
-                <p className="eyebrow">Safe configuration</p>
-                <h2>Receipt-derived changes</h2>
-              </div>
+          ) : null}
+          {storageAnalysis.items.slice(0, 40).map((change, index) => (
+            <div
+              className="calldata"
+              key={`storage-${index}-${change.address}-${change.slot}`}
+            >
               <span>
-                {execution.safeConfigurationChanges.length} recognized
+                {change.status === "named"
+                  ? "Named storage slot · verified layout"
+                  : "Unrecognized raw storage slot change"}
               </span>
+              <strong>
+                {change.status === "named"
+                  ? `${change.contractLabel ? `${change.contractLabel} · ` : ""}${change.label} · ${change.type}`
+                  : change.address}
+              </strong>
+              {change.status === "named" ? <code>{change.address}</code> : null}
+              <code>{change.slot}</code>
+              <code>
+                {change.before} → {change.after}
+              </code>
             </div>
-            {execution.coverage.eventLogs === "unavailable" ? (
-              <div className="panel-empty">
-                Safe configuration event evidence is unavailable for this
-                transaction.
+          ))}
+          {storageAnalysis.items.length > 40 ? (
+            <div className="panel-empty">
+              {storageAnalysis.items.length - 40} additional storage changes are
+              available through the transaction API.
+            </div>
+          ) : null}
+          {execution.coverage.storageDiff === "complete" &&
+          execution.storageChanges.length === 0 ? (
+            <div className="panel-empty">
+              The complete prestate diff contains no storage slot changes.
+            </div>
+          ) : null}
+          {execution.error ? (
+            <div className="calldata">
+              <span>Execution error</span>
+              <strong>{execution.error}</strong>
+            </div>
+          ) : null}
+          {execution.logs.slice(0, 20).map((log) => (
+            <div className="calldata" key={`${log.logIndex}-${log.address}`}>
+              <span>Event log {log.logIndex}</span>
+              <strong>{log.address}</strong>
+              <code>
+                {log.topics[0] ?? "No topic"} · {log.data}
+              </code>
+            </div>
+          ))}
+          {execution.logs.length > 20 ? (
+            <div className="panel-empty">
+              {execution.logs.length - 20} additional logs are available through
+              the transaction API.
+            </div>
+          ) : null}
+          <div className="calldata">
+            <span>Coverage limits</span>
+            {execution.warnings.map((warning) => (
+              <strong key={warning}>{warning}</strong>
+            ))}
+          </div>
+        </section>
+
+        <section className="detail-panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Safe configuration</p>
+              <h2>Receipt-derived changes</h2>
+            </div>
+            <span>{execution.safeConfigurationChanges.length} recognized</span>
+          </div>
+          {execution.coverage.eventLogs === "unavailable" ? (
+            <div className="panel-empty">
+              Safe configuration event evidence is unavailable for this
+              transaction.
+            </div>
+          ) : execution.safeConfigurationChanges.length === 0 ? (
+            <div className="panel-empty">
+              No canonical Safe configuration events were emitted by this Safe.
+            </div>
+          ) : (
+            execution.safeConfigurationChanges.map((change) => (
+              <div
+                className="calldata"
+                key={`safe-change-${change.logIndex}-${change.field}`}
+              >
+                <span>
+                  {change.field} · {change.action}
+                </span>
+                <strong>
+                  {change.before ?? "Previous value not emitted"} →{" "}
+                  {change.after ?? "No longer configured"}
+                </strong>
+                <code>
+                  Receipt log {change.logIndex} · canonical Safe event
+                </code>
               </div>
-            ) : execution.safeConfigurationChanges.length === 0 ? (
-              <div className="panel-empty">
-                No canonical Safe configuration events were emitted by this
-                Safe.
-              </div>
-            ) : (
-              execution.safeConfigurationChanges.map((change) => (
+            ))
+          )}
+          <div className="panel-empty">
+            Only events emitted by this Safe are interpreted. Values absent from
+            an event remain unknown and are never inferred from raw storage.
+          </div>
+        </section>
+
+        <section className="detail-panel" id="asset-movements">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Token activity</p>
+              <h2>Receipt-derived movements</h2>
+            </div>
+            <span>{execution.tokenMovements.length} recognized</span>
+          </div>
+          {execution.coverage.tokenEvents === "unavailable" ? (
+            <div className="panel-empty">
+              Token event evidence is unavailable for this transaction.
+            </div>
+          ) : execution.tokenMovements.length === 0 ? (
+            <div className="panel-empty">
+              No canonical ERC-20-shaped Transfer events were emitted.
+            </div>
+          ) : (
+            execution.tokenMovements.map((movement) => {
+              const metadata = tokenMetadataByAddress.get(
+                movement.token.toLowerCase(),
+              );
+              const formatted = formatTokenAmount(
+                movement.amount,
+                metadata?.decimals ?? null,
+              );
+
+              return (
                 <div
                   className="calldata"
-                  key={`safe-change-${change.logIndex}-${change.field}`}
+                  key={`movement-${movement.logIndex}-${movement.token}`}
                 >
                   <span>
-                    {change.field} · {change.action}
+                    {movement.direction} movement ·{" "}
+                    {metadata?.status ?? "unavailable"} metadata
                   </span>
-                  <strong>
-                    {change.before ?? "Previous value not emitted"} →{" "}
-                    {change.after ?? "No longer configured"}
-                  </strong>
+                  <TokenIdentity
+                    amount={formatted}
+                    chainId={safe.data.chainId}
+                    symbol={metadata?.symbol}
+                    token={movement.token}
+                  />
+                  {formatted === null ? (
+                    <code>
+                      Amount unavailable because token decimals could not be
+                      verified.
+                    </code>
+                  ) : null}
                   <code>
-                    Receipt log {change.logIndex} · canonical Safe event
+                    {movement.from} → {movement.to}
                   </code>
+                  {metadata?.warning ? <code>{metadata.warning}</code> : null}
                 </div>
-              ))
-            )}
+              );
+            })
+          )}
+          <div className="panel-empty">
+            Metadata resolved for{" "}
+            {
+              tokenMetadata.items.filter(
+                (metadata) => metadata.status === "resolved",
+              ).length
+            }{" "}
+            of {tokenMetadata.totalTokens} token contracts
+            {tokenMetadata.blockHash
+              ? " at the execution block"
+              : " at latest state"}
+            {tokenMetadata.limited
+              ? "; additional token contracts remain unenriched"
+              : ""}
+            .
+          </div>
+          <div className="panel-empty">
+            Derived from canonical event shape. The emitting contract is not
+            independently proven to implement ERC-20.
+          </div>
+        </section>
+
+        <ProgressiveBalanceChangesPanel
+          addressBook={addressBook}
+          request={progressiveEvidenceRequest}
+          tokenMetadata={tokenMetadata.items}
+        />
+
+        <section className="detail-panel" id="permission-changes">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Approval risk</p>
+              <h2>Requested and receipt-proven changes</h2>
+            </div>
+            <span>
+              {[...approvalRisk.requests, ...approvalRisk.executedChanges].some(
+                (item) => item.infinite,
+              )
+                ? "Infinite detected"
+                : `${approvalRisk.requests.length} requested · ${approvalRisk.executedChanges.length} emitted`}
+            </span>
+          </div>
+
+          <div className="calldata">
+            <span>Calldata requests</span>
+            <strong>{approvalRisk.requests.length} recognized</strong>
+          </div>
+          {approvalRisk.requests.length === 0 ? (
             <div className="panel-empty">
-              Only events emitted by this Safe are interpreted. Values absent
-              from an event remain unknown and are never inferred from raw
-              storage.
+              No direct or recursively decoded ERC-20 or Permit2 authorization
+              request was recognized.
             </div>
-          </section>
-
-          <section className="detail-panel" id="asset-movements">
-            <div className="panel-heading">
-              <div>
-                <p className="eyebrow">Token activity</p>
-                <h2>Receipt-derived movements</h2>
-              </div>
-              <span>{execution.tokenMovements.length} recognized</span>
-            </div>
-            {execution.coverage.tokenEvents === "unavailable" ? (
-              <div className="panel-empty">
-                Token event evidence is unavailable for this transaction.
-              </div>
-            ) : execution.tokenMovements.length === 0 ? (
-              <div className="panel-empty">
-                No canonical ERC-20-shaped Transfer events were emitted.
-              </div>
-            ) : (
-              execution.tokenMovements.map((movement) => {
-                const metadata = tokenMetadataByAddress.get(
-                  movement.token.toLowerCase(),
-                );
-                const formatted = formatTokenAmount(
-                  movement.amount,
-                  metadata?.decimals ?? null,
-                );
-
-                return (
-                  <div
-                    className="calldata"
-                    key={`movement-${movement.logIndex}-${movement.token}`}
-                  >
-                    <span>
-                      {movement.direction} movement ·{" "}
-                      {metadata?.status ?? "unavailable"} metadata
-                    </span>
-                    <TokenIdentity
-                      amount={formatted}
-                      chainId={safe.data.chainId}
-                      symbol={metadata?.symbol}
-                      token={movement.token}
-                    />
-                    {formatted === null ? (
-                      <code>
-                        Amount unavailable because token decimals could not be
-                        verified.
-                      </code>
-                    ) : null}
-                    <code>
-                      {movement.from} → {movement.to}
-                    </code>
-                    {metadata?.warning ? <code>{metadata.warning}</code> : null}
-                  </div>
-                );
-              })
-            )}
-            <div className="panel-empty">
-              Metadata resolved for{" "}
-              {
-                tokenMetadata.items.filter(
-                  (metadata) => metadata.status === "resolved",
-                ).length
-              }{" "}
-              of {tokenMetadata.totalTokens} token contracts
-              {tokenMetadata.blockHash
-                ? " at the execution block"
-                : " at latest state"}
-              {tokenMetadata.limited
-                ? "; additional token contracts remain unenriched"
-                : ""}
-              .
-            </div>
-            <div className="panel-empty">
-              Derived from canonical event shape. The emitting contract is not
-              independently proven to implement ERC-20.
-            </div>
-          </section>
-
-          <ProgressiveBalanceChangesPanel />
-
-          <section className="detail-panel" id="permission-changes">
-            <div className="panel-heading">
-              <div>
-                <p className="eyebrow">Approval risk</p>
-                <h2>Requested and receipt-proven changes</h2>
-              </div>
-              <span>
-                {[
-                  ...approvalRisk.requests,
-                  ...approvalRisk.executedChanges,
-                ].some((item) => item.infinite)
-                  ? "Infinite detected"
-                  : `${approvalRisk.requests.length} requested · ${approvalRisk.executedChanges.length} emitted`}
-              </span>
-            </div>
-
-            <div className="calldata">
-              <span>Calldata requests</span>
-              <strong>{approvalRisk.requests.length} recognized</strong>
-            </div>
-            {approvalRisk.requests.length === 0 ? (
-              <div className="panel-empty">
-                No direct or recursively decoded ERC-20 or Permit2 authorization
-                request was recognized.
-              </div>
-            ) : (
-              approvalRisk.requests.map((approval, index) => {
-                const metadata = approval.token
-                  ? tokenMetadataByAddress.get(approval.token.toLowerCase())
-                  : null;
-                const amount = humanTokenAmount(
-                  approval.amount,
-                  metadata?.decimals,
-                  metadata?.symbol,
-                );
-                const severity =
-                  approval.infinite === true || approval.spender === null
-                    ? "critical"
-                    : approval.newSpenderAtAnchor !== false
-                      ? "warning"
-                      : "bounded";
-                const headline =
-                  approval.standard === "operator-all"
-                    ? approval.infinite
-                      ? "Full token operator access requested"
-                      : "Full token operator access revoked"
-                    : approval.infinite === true
-                      ? "Infinite resulting allowance requested"
+          ) : (
+            approvalRisk.requests.map((approval, index) => {
+              const metadata = approval.token
+                ? tokenMetadataByAddress.get(approval.token.toLowerCase())
+                : null;
+              const amount = humanTokenAmount(
+                approval.amount,
+                metadata?.decimals,
+                metadata?.symbol,
+              );
+              const severity =
+                approval.infinite === true || approval.spender === null
+                  ? "critical"
+                  : approval.newSpenderAtAnchor !== false
+                    ? "warning"
+                    : "bounded";
+              const headline =
+                approval.standard === "operator-all"
+                  ? approval.infinite
+                    ? "Full token operator access requested"
+                    : "Full token operator access revoked"
+                  : approval.infinite === true
+                    ? "Infinite resulting allowance requested"
+                    : approval.amount !== null &&
+                        approval.amountMode === "increase"
+                      ? `Increase allowance by ${amount}`
                       : approval.amount !== null &&
-                          approval.amountMode === "increase"
-                        ? `Increase allowance by ${amount}`
-                        : approval.amount !== null &&
-                            approval.amountMode === "decrease"
-                          ? `Decrease allowance by ${amount}`
-                          : approval.amount !== null
-                            ? `${amount} requested`
-                            : "Authorization request detected";
+                          approval.amountMode === "decrease"
+                        ? `Decrease allowance by ${amount}`
+                        : approval.amount !== null
+                          ? `${amount} requested`
+                          : "Authorization request detected";
 
-                return (
-                  <div
-                    className={`calldata approval-review-card approval-review-${severity}`}
-                    key={`approval-request-${index}-${approval.target}`}
-                  >
-                    <div className="approval-review-heading">
-                      <span>
-                        requested · {approval.standard} · {approval.method}
-                        {approval.depth > 0
-                          ? ` · nested depth ${approval.depth}`
-                          : ""}
-                      </span>
-                      <strong>{headline}</strong>
-                      <em>{severity}</em>
-                    </div>
-                    {approval.token ? (
-                      <TokenIdentity
-                        chainId={safe.data.chainId}
-                        symbol={metadata?.symbol}
-                        token={approval.token}
-                      />
-                    ) : (
-                      <code>Token contract unavailable</code>
-                    )}
-                    <div className="approval-party">
-                      <span>Spender or operator</span>
-                      {approval.spender ? (
-                        <AddressIdentity
-                          address={approval.spender}
-                          addressBook={addressBook}
-                          chainId={safe.data.chainId}
-                        />
-                      ) : (
-                        <strong>Cannot be established from this call</strong>
-                      )}
-                    </div>
-                    <code>
-                      Owner: {approval.owner ?? "Unavailable"} · target:{" "}
-                      {approval.target}
-                    </code>
-                    <code>
-                      Prior authorization:{" "}
-                      {humanTokenAmount(
-                        approval.priorAmount,
-                        metadata?.decimals,
-                        metadata?.symbol,
-                      )}{" "}
-                      · new spender at comparison anchor:{" "}
-                      {approval.newSpenderAtAnchor === null
-                        ? "unknown"
-                        : approval.newSpenderAtAnchor
-                          ? "yes"
-                          : "no"}
-                    </code>
-                    {approval.amountMode !== "absolute" ? (
-                      <code>
-                        Projected resulting allowance:{" "}
-                        {humanTokenAmount(
-                          approval.resultingAmount,
-                          metadata?.decimals,
-                          metadata?.symbol,
-                        )}
-                      </code>
-                    ) : null}
-                    {approval.expiration !== null ? (
-                      <code>Expiration: {approval.expiration}</code>
-                    ) : null}
-                    {approval.warning ? <code>{approval.warning}</code> : null}
-                  </div>
-                );
-              })
-            )}
-
-            <div className="calldata">
-              <span>Receipt events</span>
-              <strong>{approvalRisk.executedChanges.length} recognized</strong>
-            </div>
-            {execution.coverage.tokenEvents === "unavailable" ? (
-              <div className="panel-empty">
-                Allowance event evidence is unavailable for this transaction.
-              </div>
-            ) : approvalRisk.executedChanges.length === 0 ? (
-              <div className="panel-empty">
-                No canonical ERC-20-shaped Approval events were emitted.
-              </div>
-            ) : (
-              approvalRisk.executedChanges.map((allowance) => {
-                const metadata = tokenMetadataByAddress.get(
-                  allowance.token.toLowerCase(),
-                );
-                const formatted = formatTokenAmount(
-                  allowance.amount,
-                  metadata?.decimals ?? null,
-                );
-
-                return (
-                  <div
-                    className="calldata"
-                    key={`allowance-${allowance.logIndex}-${allowance.token}`}
-                  >
+              return (
+                <div
+                  className={`calldata approval-review-card approval-review-${severity}`}
+                  key={`approval-request-${index}-${approval.target}`}
+                >
+                  <div className="approval-review-heading">
                     <span>
-                      emitted ·{" "}
-                      {allowance.infinite
-                        ? "infinite allowance"
-                        : "bounded allowance"}{" "}
-                      · {metadata?.status ?? "unavailable"} metadata
+                      requested · {approval.standard} · {approval.method}
+                      {approval.depth > 0
+                        ? ` · nested depth ${approval.depth}`
+                        : ""}
                     </span>
-                    <div className="approval-party">
-                      <span>Receipt-proven spender</span>
-                      <AddressIdentity
-                        address={allowance.spender}
-                        addressBook={addressBook}
-                        chainId={safe.data.chainId}
-                      />
-                    </div>
-                    <code>Owner: {allowance.owner}</code>
+                    <strong>{headline}</strong>
+                    <em>{severity}</em>
+                  </div>
+                  {approval.token ? (
                     <TokenIdentity
-                      amount={formatted}
                       chainId={safe.data.chainId}
                       symbol={metadata?.symbol}
-                      token={allowance.token}
+                      token={approval.token}
                     />
-                    <code>
-                      Prior allowance:{" "}
-                      {humanTokenAmount(
-                        allowance.priorAmount,
-                        metadata?.decimals,
-                        metadata?.symbol,
-                      )}{" "}
-                      · new at comparison anchor:{" "}
-                      {allowance.newSpenderAtAnchor === null
-                        ? "unknown"
-                        : allowance.newSpenderAtAnchor
-                          ? "yes"
-                          : "no"}
-                    </code>
-                    {allowance.warning ? (
-                      <code>{allowance.warning}</code>
-                    ) : null}
-                    {metadata?.warning ? <code>{metadata.warning}</code> : null}
-                  </div>
-                );
-              })
-            )}
-
-            <div className="calldata">
-              <span>Approval coverage limits</span>
-              {approvalRisk.warnings.map((warning) => (
-                <strong key={warning}>{warning}</strong>
-              ))}
-            </div>
-          </section>
-
-          <section className="detail-panel">
-            <div className="panel-heading">
-              <div>
-                <p className="eyebrow">Contract metadata</p>
-                <h2>{insight.metadata.label ?? "Target contract"}</h2>
-              </div>
-              <span>
-                {insight.metadata.verified
-                  ? "Verified by Sourcify"
-                  : "No verified ABI"}
-              </span>
-            </div>
-            <dl className="detail-list">
-              <div>
-                <dt>Metadata source</dt>
-                <dd>{insight.metadata.source}</dd>
-              </div>
-              <div>
-                <dt>Proxy status</dt>
-                <dd>
-                  {insight.implementationChain.length > 0
-                    ? `${insight.implementationChain.length} implementation layer(s)`
-                    : "No ERC-1967 implementation detected"}
-                </dd>
-              </div>
-            </dl>
-            {insight.implementationChain.length > 0 ? (
-              <div className="calldata">
-                <span>Implementation chain</span>
-                <code>
-                  {[transaction.to, ...insight.implementationChain].join(" → ")}
-                </code>
-              </div>
-            ) : null}
-          </section>
-
-          <section className="detail-panel" id="decoded-action">
-            <div className="panel-heading">
-              <div>
-                <p className="eyebrow">Decoded action</p>
-                <h2>Human-readable call</h2>
-              </div>
-              <span>
-                {insight.provenance === "verified-abi"
-                  ? "Verified ABI"
-                  : insight.provenance === "safe-service"
-                    ? "Safe service decode"
-                    : insight.provenance === "signature-database"
-                      ? "Signature match · unverified"
-                      : (decoded?.method ??
-                        (transaction.summary
-                          ? "Known selector"
-                          : "Unknown selector"))}
-              </span>
-            </div>
-            <div className="calldata">
-              <span>Decode provenance</span>
-              <strong>
-                {insight.provenance === "verified-abi"
-                  ? "Sourcify verified contract ABI"
-                  : insight.provenance === "safe-service"
-                    ? "Safe transaction service"
-                    : insight.provenance === "signature-database"
-                      ? `Sourcify signature database · ${insight.signature}`
-                      : "Raw calldata only"}
-              </strong>
-            </div>
-            {decoded ? (
-              <>
-                <div className="calldata">
-                  <span>Summary</span>
-                  <strong>{decodedCallSummary(decoded)}</strong>
-                </div>
-
-                {decoded.parameters.length > 0 ? (
-                  <dl className="detail-list">
-                    {decoded.parameters.map((parameter, index) => (
-                      <div key={`${parameter.name}-${index}`}>
-                        <dt>
-                          {parameter.name || `Parameter ${index + 1}`} ·{" "}
-                          {parameter.type}
-                        </dt>
-                        <dd>
-                          {parameter.nestedCalls.length > 0 ? (
-                            `${parameter.nestedCalls.length} decoded calls`
-                          ) : (
-                            <span className="decoded-parameter-value">
-                              <code>{parameter.value}</code>
-                              {decodedAddressFields(
-                                safe.data.chainId,
-                                parameter,
-                              ).map((field) => (
-                                <span
-                                  className="decoded-address-field"
-                                  key={field.address.toLowerCase()}
-                                >
-                                  <span>
-                                    {field.role} · {field.source}
-                                  </span>
-                                  <AddressIdentity
-                                    address={field.address}
-                                    addressBook={addressBook}
-                                    chainId={safe.data.chainId}
-                                    compact
-                                  />
-                                </span>
-                              ))}
-                            </span>
-                          )}
-                        </dd>
-                      </div>
-                    ))}
-                  </dl>
-                ) : null}
-                {nestedCalls.map((call, index) => (
-                  <div className="calldata" key={`${call.to}-${index}`}>
-                    <span>Nested call {index + 1}</span>
-                    <strong>{decodedCallSummary(call)}</strong>
-                    {call.to ? (
+                  ) : (
+                    <code>Token contract unavailable</code>
+                  )}
+                  <div className="approval-party">
+                    <span>Spender or operator</span>
+                    {approval.spender ? (
                       <AddressIdentity
-                        address={call.to}
+                        address={approval.spender}
                         addressBook={addressBook}
                         chainId={safe.data.chainId}
                       />
                     ) : (
-                      <code>Unknown target</code>
+                      <strong>Cannot be established from this call</strong>
                     )}
-                    <code>{call.operation ?? "Unknown operation"}</code>
                   </div>
-                ))}
-              </>
-            ) : transaction.summary ? (
-              <div className="calldata">
-                <span>Selector summary · ABI unverified</span>
-                <strong>{transaction.summary}</strong>
-              </div>
-            ) : (
-              <div className="panel-empty">
-                No verified decode is available. Review the raw calldata below.
-              </div>
-            )}
-          </section>
+                  <code>
+                    Owner: {approval.owner ?? "Unavailable"} · target:{" "}
+                    {approval.target}
+                  </code>
+                  <code>
+                    Prior authorization:{" "}
+                    {humanTokenAmount(
+                      approval.priorAmount,
+                      metadata?.decimals,
+                      metadata?.symbol,
+                    )}{" "}
+                    · new spender at comparison anchor:{" "}
+                    {approval.newSpenderAtAnchor === null
+                      ? "unknown"
+                      : approval.newSpenderAtAnchor
+                        ? "yes"
+                        : "no"}
+                  </code>
+                  {approval.amountMode !== "absolute" ? (
+                    <code>
+                      Projected resulting allowance:{" "}
+                      {humanTokenAmount(
+                        approval.resultingAmount,
+                        metadata?.decimals,
+                        metadata?.symbol,
+                      )}
+                    </code>
+                  ) : null}
+                  {approval.expiration !== null ? (
+                    <code>Expiration: {approval.expiration}</code>
+                  ) : null}
+                  {approval.warning ? <code>{approval.warning}</code> : null}
+                </div>
+              );
+            })
+          )}
 
-          <section
-            className="detail-panel raw-evidence-panel"
-            id="raw-evidence"
-          >
-            <div className="panel-heading">
-              <div>
-                <p className="eyebrow">Public source data</p>
-                <h2>Raw transaction evidence</h2>
-              </div>
-              <ProgressiveRawPayloadStatus />
+          <div className="calldata">
+            <span>Receipt events</span>
+            <strong>{approvalRisk.executedChanges.length} recognized</strong>
+          </div>
+          {execution.coverage.tokenEvents === "unavailable" ? (
+            <div className="panel-empty">
+              Allowance event evidence is unavailable for this transaction.
             </div>
-            <p className="trust-copy">
-              These values are presented without reinterpretation. Missing Safe
-              execution fields are shown as unavailable rather than inferred.
-            </p>
-            <dl className="detail-list raw-transaction-fields">
-              <div>
-                <dt>Safe transaction hash</dt>
-                <dd>
-                  <span className="identifier-actions identifier-actions-end">
-                    <code>{transaction.safeTxHash}</code>
-                    <CopyIdentifierButton
-                      label="Copy Safe transaction hash"
-                      value={transaction.safeTxHash}
-                    />
+          ) : approvalRisk.executedChanges.length === 0 ? (
+            <div className="panel-empty">
+              No canonical ERC-20-shaped Approval events were emitted.
+            </div>
+          ) : (
+            approvalRisk.executedChanges.map((allowance) => {
+              const metadata = tokenMetadataByAddress.get(
+                allowance.token.toLowerCase(),
+              );
+              const formatted = formatTokenAmount(
+                allowance.amount,
+                metadata?.decimals ?? null,
+              );
+
+              return (
+                <div
+                  className="calldata"
+                  key={`allowance-${allowance.logIndex}-${allowance.token}`}
+                >
+                  <span>
+                    emitted ·{" "}
+                    {allowance.infinite
+                      ? "infinite allowance"
+                      : "bounded allowance"}{" "}
+                    · {metadata?.status ?? "unavailable"} metadata
                   </span>
-                </dd>
+                  <div className="approval-party">
+                    <span>Receipt-proven spender</span>
+                    <AddressIdentity
+                      address={allowance.spender}
+                      addressBook={addressBook}
+                      chainId={safe.data.chainId}
+                    />
+                  </div>
+                  <code>Owner: {allowance.owner}</code>
+                  <TokenIdentity
+                    amount={formatted}
+                    chainId={safe.data.chainId}
+                    symbol={metadata?.symbol}
+                    token={allowance.token}
+                  />
+                  <code>
+                    Prior allowance:{" "}
+                    {humanTokenAmount(
+                      allowance.priorAmount,
+                      metadata?.decimals,
+                      metadata?.symbol,
+                    )}{" "}
+                    · new at comparison anchor:{" "}
+                    {allowance.newSpenderAtAnchor === null
+                      ? "unknown"
+                      : allowance.newSpenderAtAnchor
+                        ? "yes"
+                        : "no"}
+                  </code>
+                  {allowance.warning ? <code>{allowance.warning}</code> : null}
+                  {metadata?.warning ? <code>{metadata.warning}</code> : null}
+                </div>
+              );
+            })
+          )}
+
+          <div className="calldata">
+            <span>Approval coverage limits</span>
+            {approvalRisk.warnings.map((warning) => (
+              <strong key={warning}>{warning}</strong>
+            ))}
+          </div>
+        </section>
+
+        <section className="detail-panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Contract metadata</p>
+              <h2>{insight.metadata.label ?? "Target contract"}</h2>
+            </div>
+            <span>
+              {insight.metadata.verified
+                ? "Verified by Sourcify"
+                : "No verified ABI"}
+            </span>
+          </div>
+          <dl className="detail-list">
+            <div>
+              <dt>Metadata source</dt>
+              <dd>{insight.metadata.source}</dd>
+            </div>
+            <div>
+              <dt>Proxy status</dt>
+              <dd>
+                {insight.implementationChain.length > 0
+                  ? `${insight.implementationChain.length} implementation layer(s)`
+                  : "No ERC-1967 implementation detected"}
+              </dd>
+            </div>
+          </dl>
+          {insight.implementationChain.length > 0 ? (
+            <div className="calldata">
+              <span>Implementation chain</span>
+              <code>
+                {[transaction.to, ...insight.implementationChain].join(" → ")}
+              </code>
+            </div>
+          ) : null}
+        </section>
+
+        <section className="detail-panel" id="decoded-action">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Decoded action</p>
+              <h2>Human-readable call</h2>
+            </div>
+            <span>
+              {insight.provenance === "verified-abi"
+                ? "Verified ABI"
+                : insight.provenance === "safe-service"
+                  ? "Safe service decode"
+                  : insight.provenance === "signature-database"
+                    ? "Signature match · unverified"
+                    : (decoded?.method ??
+                      (transaction.summary
+                        ? "Known selector"
+                        : "Unknown selector"))}
+            </span>
+          </div>
+          <div className="calldata">
+            <span>Decode provenance</span>
+            <strong>
+              {insight.provenance === "verified-abi"
+                ? "Sourcify verified contract ABI"
+                : insight.provenance === "safe-service"
+                  ? "Safe transaction service"
+                  : insight.provenance === "signature-database"
+                    ? `Sourcify signature database · ${insight.signature}`
+                    : "Raw calldata only"}
+            </strong>
+          </div>
+          {decoded ? (
+            <>
+              <div className="calldata">
+                <span>Summary</span>
+                <strong>{decodedCallSummary(decoded)}</strong>
               </div>
-              <div>
-                <dt>Safe</dt>
-                <dd>
+
+              {decoded.parameters.length > 0 ? (
+                <dl className="detail-list">
+                  {decoded.parameters.map((parameter, index) => (
+                    <div key={`${parameter.name}-${index}`}>
+                      <dt>
+                        {parameter.name || `Parameter ${index + 1}`} ·{" "}
+                        {parameter.type}
+                      </dt>
+                      <dd>
+                        {parameter.nestedCalls.length > 0 ? (
+                          `${parameter.nestedCalls.length} decoded calls`
+                        ) : (
+                          <span className="decoded-parameter-value">
+                            <code>{parameter.value}</code>
+                            {decodedAddressFields(
+                              safe.data.chainId,
+                              parameter,
+                            ).map((field) => (
+                              <span
+                                className="decoded-address-field"
+                                key={field.address.toLowerCase()}
+                              >
+                                <span>
+                                  {field.role} · {field.source}
+                                </span>
+                                <AddressIdentity
+                                  address={field.address}
+                                  addressBook={addressBook}
+                                  chainId={safe.data.chainId}
+                                  compact
+                                />
+                              </span>
+                            ))}
+                          </span>
+                        )}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              ) : null}
+              {nestedCalls.map((call, index) => (
+                <div className="calldata" key={`${call.to}-${index}`}>
+                  <span>Nested call {index + 1}</span>
+                  <strong>{decodedCallSummary(call)}</strong>
+                  {call.to ? (
+                    <AddressIdentity
+                      address={call.to}
+                      addressBook={addressBook}
+                      chainId={safe.data.chainId}
+                    />
+                  ) : (
+                    <code>Unknown target</code>
+                  )}
+                  <code>{call.operation ?? "Unknown operation"}</code>
+                </div>
+              ))}
+            </>
+          ) : transaction.summary ? (
+            <div className="calldata">
+              <span>Selector summary · ABI unverified</span>
+              <strong>{transaction.summary}</strong>
+            </div>
+          ) : (
+            <div className="panel-empty">
+              No verified decode is available. Review the raw calldata below.
+            </div>
+          )}
+        </section>
+
+        <section className="detail-panel raw-evidence-panel" id="raw-evidence">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Public source data</p>
+              <h2>Raw transaction evidence</h2>
+            </div>
+            <ProgressiveRawPayloadStatus
+              request={progressiveEvidenceRequest}
+            />
+          </div>
+          <p className="trust-copy">
+            These values are presented without reinterpretation. Missing Safe
+            execution fields are shown as unavailable rather than inferred.
+          </p>
+          <dl className="detail-list raw-transaction-fields">
+            <div>
+              <dt>Safe transaction hash</dt>
+              <dd>
+                <span className="identifier-actions identifier-actions-end">
+                  <code>{transaction.safeTxHash}</code>
+                  <CopyIdentifierButton
+                    label="Copy Safe transaction hash"
+                    value={transaction.safeTxHash}
+                  />
+                </span>
+              </dd>
+            </div>
+            <div>
+              <dt>Safe</dt>
+              <dd>
+                <AddressIdentity
+                  address={safe.data.address}
+                  addressBook={addressBook}
+                  chainId={safe.data.chainId}
+                />
+              </dd>
+            </div>
+            <div>
+              <dt>Target</dt>
+              <dd>
+                <span className="identifier-actions identifier-actions-end">
                   <AddressIdentity
-                    address={safe.data.address}
+                    address={transaction.to}
                     addressBook={addressBook}
                     chainId={safe.data.chainId}
                   />
-                </dd>
-              </div>
-              <div>
-                <dt>Target</dt>
-                <dd>
+                  <CopyIdentifierButton
+                    label="Copy transaction target"
+                    value={transaction.to}
+                  />
+                </span>
+              </dd>
+            </div>
+            <div>
+              <dt>Lifecycle status</dt>
+              <dd>{lifecycleStatus}</dd>
+            </div>
+            <div>
+              <dt>Source status</dt>
+              <dd>{transaction.status}</dd>
+            </div>
+            <div>
+              <dt>Nonce</dt>
+              <dd>{transaction.nonce}</dd>
+            </div>
+            <div>
+              <dt>Operation</dt>
+              <dd>{transaction.operation}</dd>
+            </div>
+            <div>
+              <dt>Value</dt>
+              <dd>{transaction.value} wei</dd>
+            </div>
+            <div>
+              <dt>Proposed</dt>
+              <dd>{formatDate(transaction.proposedAt)} UTC</dd>
+            </div>
+            <div>
+              <dt>Executed</dt>
+              <dd>
+                {transaction.executedAt === null
+                  ? "Not executed"
+                  : `${formatDate(transaction.executedAt)} UTC`}
+              </dd>
+            </div>
+            <div>
+              <dt>Executed transaction</dt>
+              <dd>
+                {transaction.executedTxHash ? (
                   <span className="identifier-actions identifier-actions-end">
-                    <AddressIdentity
-                      address={transaction.to}
-                      addressBook={addressBook}
-                      chainId={safe.data.chainId}
-                    />
+                    {executedExplorerUrl ? (
+                      <a
+                        className="explorer-link"
+                        href={executedExplorerUrl}
+                        rel="noreferrer"
+                        target="_blank"
+                      >
+                        <code>{transaction.executedTxHash}</code>
+                        <span aria-hidden="true">↗</span>
+                      </a>
+                    ) : (
+                      <code>{transaction.executedTxHash}</code>
+                    )}
                     <CopyIdentifierButton
-                      label="Copy transaction target"
-                      value={transaction.to}
+                      label="Copy executed transaction hash"
+                      value={transaction.executedTxHash}
                     />
                   </span>
-                </dd>
-              </div>
-              <div>
-                <dt>Lifecycle status</dt>
-                <dd>{lifecycleStatus}</dd>
-              </div>
-              <div>
-                <dt>Source status</dt>
-                <dd>{transaction.status}</dd>
-              </div>
-              <div>
-                <dt>Nonce</dt>
-                <dd>{transaction.nonce}</dd>
-              </div>
-              <div>
-                <dt>Operation</dt>
-                <dd>{transaction.operation}</dd>
-              </div>
-              <div>
-                <dt>Value</dt>
-                <dd>{transaction.value} wei</dd>
-              </div>
-              <div>
-                <dt>Proposed</dt>
-                <dd>{formatDate(transaction.proposedAt)} UTC</dd>
-              </div>
-              <div>
-                <dt>Executed</dt>
-                <dd>
-                  {transaction.executedAt === null
-                    ? "Not executed"
-                    : `${formatDate(transaction.executedAt)} UTC`}
-                </dd>
-              </div>
-              <div>
-                <dt>Executed transaction</dt>
-                <dd>
-                  {transaction.executedTxHash ? (
-                    <span className="identifier-actions identifier-actions-end">
-                      {executedExplorerUrl ? (
-                        <a
-                          className="explorer-link"
-                          href={executedExplorerUrl}
-                          rel="noreferrer"
-                          target="_blank"
-                        >
-                          <code>{transaction.executedTxHash}</code>
-                          <span aria-hidden="true">↗</span>
-                        </a>
-                      ) : (
-                        <code>{transaction.executedTxHash}</code>
-                      )}
-                      <CopyIdentifierButton
-                        label="Copy executed transaction hash"
-                        value={transaction.executedTxHash}
-                      />
-                    </span>
-                  ) : (
-                    "Unavailable"
-                  )}
-                </dd>
-              </div>
-              <div>
-                <dt>Block number</dt>
-                <dd>{transaction.blockNumber ?? "Unavailable"}</dd>
-              </div>
-              <div>
-                <dt>Block hash</dt>
-                <dd>
-                  <code>{transaction.blockHash ?? "Unavailable"}</code>
-                </dd>
-              </div>
-              <ProgressiveRawPayloadFields />
-            </dl>
-            <ProgressiveRawPayloadWarning />
-            <div className="calldata">
-              <span>
-                Raw calldata · {transaction.data.length / 2 - 1} bytes
-              </span>
-              <code>{transaction.data || "0x"}</code>
+                ) : (
+                  "Unavailable"
+                )}
+              </dd>
             </div>
-          </section>
+            <div>
+              <dt>Block number</dt>
+              <dd>{transaction.blockNumber ?? "Unavailable"}</dd>
+            </div>
+            <div>
+              <dt>Block hash</dt>
+              <dd>
+                <code>{transaction.blockHash ?? "Unavailable"}</code>
+              </dd>
+            </div>
+            <ProgressiveRawPayloadFields
+              addressBook={addressBook}
+              request={progressiveEvidenceRequest}
+            />
 
-          <section className="detail-panel confirmation-evidence-panel">
-            <div className="panel-heading">
-              <div>
-                <p className="eyebrow">Owner attestations</p>
-                <h2>Confirmations and raw signatures</h2>
-              </div>
-              <span>{transaction.confirmations.length} collected</span>
+          </dl>
+          <ProgressiveRawPayloadWarning
+            request={progressiveEvidenceRequest}
+          />
+          <div className="calldata">
+            <span>Raw calldata · {transaction.data.length / 2 - 1} bytes</span>
+            <code>{transaction.data || "0x"}</code>
+          </div>
+        </section>
+
+        <section className="detail-panel confirmation-evidence-panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Owner attestations</p>
+              <h2>Confirmations and raw signatures</h2>
             </div>
-            {transaction.confirmations.length === 0 ? (
-              <div className="panel-empty">No confirmations recorded.</div>
-            ) : (
-              <div className="owner-list">
-                {transaction.confirmations.map((confirmation, index) => (
-                  <div className="owner-row" key={confirmation.owner}>
-                    <span>{String(index + 1).padStart(2, "0")}</span>
-                    <AddressIdentity
-                      address={confirmation.owner}
-                      addressBook={addressBook}
-                      chainId={safe.data.chainId}
-                      compact
-                    />
-                    <time>
-                      {confirmation.signedAt
-                        ? formatDate(confirmation.signedAt)
-                        : "Time unavailable"}
-                    </time>
-                    <details className="confirmation-signature">
-                      <summary>Raw signature</summary>
-                      <code>{confirmation.signature}</code>
-                    </details>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-        </article>
-      </ProgressiveTransactionEvidenceProvider>
+            <span>{transaction.confirmations.length} collected</span>
+          </div>
+          {transaction.confirmations.length === 0 ? (
+            <div className="panel-empty">No confirmations recorded.</div>
+          ) : (
+            <div className="owner-list">
+              {transaction.confirmations.map((confirmation, index) => (
+                <div className="owner-row" key={confirmation.owner}>
+                  <span>{String(index + 1).padStart(2, "0")}</span>
+                  <AddressIdentity
+                    address={confirmation.owner}
+                    addressBook={addressBook}
+                    chainId={safe.data.chainId}
+                    compact
+                  />
+                  <time>
+                    {confirmation.signedAt
+                      ? formatDate(confirmation.signedAt)
+                      : "Time unavailable"}
+                  </time>
+                  <details className="confirmation-signature">
+                    <summary>Raw signature</summary>
+                    <code>{confirmation.signature}</code>
+                  </details>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      </article>
 
       <footer className="workspace-footer">
         <Link className="text-link" href={safePath}>
