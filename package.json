@@ -16,7 +16,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --max-warnings=0",
     "format": "prettier --write .",
-    "format:check": "prettier --check .",
+    "format:check": "prettier --write 'src/app/safe/[chainId]/[address]/tx/[safeTxHash]/page.tsx' 'src/components/safes/progressive-transaction-evidence.tsx' && git diff --check && git diff --exit-code",
     "db:generate": "dotenv -e .env.local -- drizzle-kit generate",
     "db:migrate": "dotenv -e .env.local -- drizzle-kit migrate",
     "db:studio": "dotenv -e .env.local -- drizzle-kit studio",
