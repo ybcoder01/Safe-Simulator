@@ -162,6 +162,9 @@ export default async function TransactionDetailPage({
   const chain = getChainPort();
   const safeData = getSafeDataPort();
   const abi = getAbiPort();
+  // Start independent database, profile, runtime-code, and security reads together.
+  // The report still waits for every verdict-critical input, but slow Neon reads no
+  // longer delay the start of the RPC-backed analysis pipeline.
   const reviewQueuePromise = reviewFilter.success
     ? persistence
         .listTransactions(safe.data, null, 25)
@@ -172,17 +175,30 @@ export default async function TransactionDetailPage({
           orderTransactionReviewQueue(transactions, reviewFilter.data),
         )
     : Promise.resolve([]);
-  const [
-    transaction,
-    insight,
-    execution,
-    addressBook,
-    targetRuntimeCode,
-    reviewQueue,
-    transactionHistoryPage,
-    transferHistoryPage,
-  ] = await Promise.all([
-    Promise.resolve(toTransactionView(persisted)),
+  const addressBookPromise = profileId
+    ? persistence.listAddressBookEntries(profileId, safe.data)
+    : Promise.resolve([]);
+  const targetRuntimeCodePromise = resolveTargetRuntimeCodeEvidence(
+    persisted,
+    chain,
+  );
+  const transactionHistoryPromise = persistence
+    .listTransactions(safe.data, null, 250)
+    .catch(() => null);
+  const transferHistoryPromise = persistence
+    .listTransfers(safe.data, null, 250)
+    .catch(() => null);
+  const alertReceiptsPromise = profileId
+    ? persistence
+        .listTelegramAlertReceipts(profileId, safe.data, hash.data)
+        .catch(() => [])
+    : Promise.resolve([]);
+  const addressBookReviewsPromise = profileId
+    ? persistence.listAddressBookReviews(profileId, safe.data)
+    : Promise.resolve([]);
+
+  const transaction = toTransactionView(persisted);
+  const [insight, execution] = await Promise.all([
     resolveContractInsight(safeData, abi, persisted),
     resolveExecutionInsight(
       getSimulationPort(),
@@ -190,50 +206,7 @@ export default async function TransactionDetailPage({
       { cache, persistence },
       { chain, safeData },
     ),
-    profileId
-      ? persistence.listAddressBookEntries(profileId, safe.data)
-      : Promise.resolve([]),
-    resolveTargetRuntimeCodeEvidence(persisted, chain),
-    reviewQueuePromise,
-    persistence.listTransactions(safe.data, null, 250).catch(() => null),
-    persistence.listTransfers(safe.data, null, 250).catch(() => null),
   ]);
-  const alertReceipts = profileId
-    ? await persistence
-        .listTelegramAlertReceipts(profileId, safe.data, hash.data)
-        .catch(() => [])
-    : [];
-  const addressBookReviews = profileId
-    ? await persistence.listAddressBookReviews(profileId, safe.data)
-    : [];
-  const authenticAlertReceipts = alertReceipts.filter((receipt) =>
-    verifyTelegramAlertReceipt(receipt),
-  );
-  const alertTimeline =
-    authenticAlertReceipts.length > 0
-      ? buildStageTimeline({
-          transaction: persisted,
-          threshold:
-            authenticAlertReceipts[0]?.payload.threshold ??
-            currentSafe.threshold,
-          receipts: authenticAlertReceipts.map(({ payload }) => ({
-            verificationId: payload.verificationId,
-            issuedAt: payload.issuedAt,
-            status: payload.status,
-            signatureCount: payload.signerAddresses.length,
-            threshold: payload.threshold,
-            verdict: payload.verdict,
-            findingCodes: payload.findingCodes,
-          })),
-        })
-      : [];
-  const lifecycleStatus = transactionLifecycleStatus(
-    transaction,
-    currentSafe.nonce.toString(),
-  );
-  const reviewPosition = reviewQueue.findIndex(
-    (item) => item.safeTxHash.toLowerCase() === hash.data.toLowerCase(),
-  );
   const decoded = insight.decoded;
   const nestedCalls =
     decoded?.parameters.flatMap((parameter) => parameter.nestedCalls) ?? [];
@@ -297,6 +270,51 @@ export default async function TransactionDetailPage({
     persisted,
     execution,
     internalProxyBoundaries,
+  );
+  const [
+    addressBook,
+    targetRuntimeCode,
+    reviewQueue,
+    transactionHistoryPage,
+    transferHistoryPage,
+    alertReceipts,
+    addressBookReviews,
+  ] = await Promise.all([
+    addressBookPromise,
+    targetRuntimeCodePromise,
+    reviewQueuePromise,
+    transactionHistoryPromise,
+    transferHistoryPromise,
+    alertReceiptsPromise,
+    addressBookReviewsPromise,
+  ]);
+  const authenticAlertReceipts = alertReceipts.filter((receipt) =>
+    verifyTelegramAlertReceipt(receipt),
+  );
+  const alertTimeline =
+    authenticAlertReceipts.length > 0
+      ? buildStageTimeline({
+          transaction: persisted,
+          threshold:
+            authenticAlertReceipts[0]?.payload.threshold ??
+            currentSafe.threshold,
+          receipts: authenticAlertReceipts.map(({ payload }) => ({
+            verificationId: payload.verificationId,
+            issuedAt: payload.issuedAt,
+            status: payload.status,
+            signatureCount: payload.signerAddresses.length,
+            threshold: payload.threshold,
+            verdict: payload.verdict,
+            findingCodes: payload.findingCodes,
+          })),
+        })
+      : [];
+  const lifecycleStatus = transactionLifecycleStatus(
+    transaction,
+    currentSafe.nonce.toString(),
+  );
+  const reviewPosition = reviewQueue.findIndex(
+    (item) => item.safeTxHash.toLowerCase() === hash.data.toLowerCase(),
   );
   const verdict = resolveEvidenceVerdict(
     persisted,
