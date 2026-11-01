@@ -1,12 +1,16 @@
 import type { ReactNode } from "react";
 
-import { AddressIdentity } from "@/components/shared/address-identity";
+import {
+  ProgressiveBriefFlow,
+  type SiloShareLookup,
+} from "@/components/safes/progressive-brief-flow";
 import type { AlertStage } from "@/lib/alert-stage";
 import type { AddressBookView } from "@/lib/api/address-book";
 import type { BriefVerdictId, TransactionBrief } from "@/lib/transaction-brief";
 
 export interface BriefFlowRow {
   readonly key: string;
+  readonly logIndex?: number;
   readonly direction: "inbound" | "outbound" | "self" | "external";
   readonly amount: string | null;
   readonly symbol: string | null;
@@ -24,6 +28,7 @@ interface Props {
   readonly flow: readonly BriefFlowRow[];
   readonly knownLabels: Readonly<Record<string, string>>;
   readonly safeAddress: string;
+  readonly siloShareLookup?: SiloShareLookup | null;
   readonly stage: AlertStage;
   readonly totalMovements: number;
 }
@@ -35,60 +40,6 @@ const ICONS: Readonly<Record<BriefVerdictId, string>> = {
   unverified: "?",
 };
 
-const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
-const MAX_FLOW_ROWS = 4;
-
-function FlowNode({
-  address,
-  addressBook,
-  chainId,
-  knownLabels,
-  role,
-  safeAddress,
-}: {
-  readonly role: "from" | "to";
-  readonly address: string;
-  readonly addressBook: readonly AddressBookView[];
-  readonly chainId: number;
-  readonly knownLabels: Readonly<Record<string, string>>;
-  readonly safeAddress: string;
-}) {
-  const key = address.toLowerCase();
-  if (key === safeAddress.toLowerCase()) {
-    return (
-      <div className="brief-node brief-node-safe">
-        <strong>Your Safe</strong>
-        <span>This wallet</span>
-      </div>
-    );
-  }
-  if (key === ZERO_ADDRESS) {
-    return role === "from" ? (
-      <div className="brief-node brief-node-mint">
-        <strong>Newly created</strong>
-        <span>Issued by the token itself</span>
-      </div>
-    ) : (
-      <div className="brief-node brief-node-burn">
-        <strong>Removed</strong>
-        <span>Taken out of circulation</span>
-      </div>
-    );
-  }
-  const label = knownLabels[key] ?? null;
-  return (
-    <div className="brief-node">
-      {label ? <strong>{label}</strong> : null}
-      <AddressIdentity
-        address={address}
-        addressBook={addressBook}
-        chainId={chainId}
-        compact
-      />
-    </div>
-  );
-}
-
 export function TransactionBriefPanel({
   addressBook,
   brief,
@@ -98,11 +49,11 @@ export function TransactionBriefPanel({
   flow,
   knownLabels,
   safeAddress,
+  siloShareLookup,
   stage,
   totalMovements,
 }: Props) {
   const { verdict } = brief;
-  const shownFlow = flow.slice(0, MAX_FLOW_ROWS);
 
   const ROW_ICONS = { ok: "✓", check: "!", stop: "×", unknown: "?" } as const;
 
@@ -157,65 +108,16 @@ export function TransactionBriefPanel({
           <span aria-hidden="true">+</span>
         </summary>
 
-        {shownFlow.length > 0 ? (
-          <div className="brief-group">
-            <h3>Where the money goes</h3>
-            <div className="brief-flow">
-              {shownFlow.map((row) => (
-                <div
-                  className={`brief-flow-row brief-flow-${row.direction}`}
-                  key={row.key}
-                >
-                  <FlowNode
-                    role="from"
-                    address={row.from}
-                    addressBook={addressBook}
-                    chainId={chainId}
-                    knownLabels={knownLabels}
-                    safeAddress={safeAddress}
-                  />
-                  <div className="brief-flow-arrow">
-                    <strong>
-                      {row.amount ? `${row.amount} ` : ""}
-                      {row.symbol ?? "tokens"}
-                    </strong>
-                    {row.worth ? (
-                      <small>
-                        {row.direction === "outbound"
-                          ? "Worth"
-                          : "Redeemable for"}{" "}
-                        {row.worth.amount} {row.worth.symbol}
-                      </small>
-                    ) : null}
-                    <span aria-hidden="true">→</span>
-                  </div>
-                  <FlowNode
-                    role="to"
-                    address={row.to}
-                    addressBook={addressBook}
-                    chainId={chainId}
-                    knownLabels={knownLabels}
-                    safeAddress={safeAddress}
-                  />
-                </div>
-              ))}
-              {totalMovements > shownFlow.length ? (
-                <p className="brief-flow-more">
-                  {totalMovements - shownFlow.length} more{" "}
-                  {totalMovements - shownFlow.length === 1
-                    ? "movement is"
-                    : "movements are"}{" "}
-                  listed in the technical details.
-                </p>
-              ) : null}
-            </div>
-            <ul className="brief-effects">
-              {brief.effects.map((effect) => (
-                <li key={effect}>{effect}</li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
+        <ProgressiveBriefFlow
+          addressBook={addressBook}
+          chainId={chainId}
+          effects={brief.effects}
+          flow={flow}
+          knownLabels={knownLabels}
+          safeAddress={safeAddress}
+          siloShareLookup={siloShareLookup}
+          totalMovements={totalMovements}
+        />
 
         {brief.checks.length > 0 ? (
           <div className="brief-group">

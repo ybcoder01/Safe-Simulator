@@ -54,6 +54,12 @@ export const XDC_SOURCE_EVIDENCE_RATE_LIMIT: RateLimitPolicy = {
   windowSeconds: 10 * 60,
 };
 
+export const SILO_SHARE_VALUE_RATE_LIMIT: RateLimitPolicy = {
+  scope: "silo-share-value",
+  limit: 60,
+  windowSeconds: 10 * 60,
+};
+
 export const MANUAL_SIMULATION_RATE_LIMIT: RateLimitPolicy = {
   scope: "manual-simulation",
   limit: 10,
