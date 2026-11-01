@@ -109,7 +109,10 @@ describe("PublicAbiAdapter", () => {
       expect.stringContaining(
         `/v2/contract/50/${target}?fields=abi,compilation,storageLayout`,
       ),
-      { cache: "force-cache" },
+      expect.objectContaining({
+        cache: "force-cache",
+        signal: expect.any(AbortSignal),
+      }),
     );
   });
 
@@ -130,6 +133,26 @@ describe("PublicAbiAdapter", () => {
     await expect(
       adapter.resolveImplementationChain(50, target),
     ).resolves.toEqual([implementation]);
+  });
+
+  it("deduplicates concurrent implementation-chain reads", async () => {
+    let release: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const storage = vi.fn(async () => {
+      await gate;
+      return "0x" as Hex;
+    });
+    const adapter = new PublicAbiAdapter(makeChain({ getStorageAt: storage }));
+
+    const first = adapter.resolveImplementationChain(50, target);
+    const second = adapter.resolveImplementationChain(50, target);
+    expect(storage).toHaveBeenCalledTimes(3);
+
+    release?.();
+    await expect(Promise.all([first, second])).resolves.toEqual([[], []]);
+    expect(storage).toHaveBeenCalledTimes(3);
   });
 
   it("resolves a legacy ZeppelinOS implementation slot", async () => {
