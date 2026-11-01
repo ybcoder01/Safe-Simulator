@@ -93,7 +93,9 @@ export function ProgressiveBriefFlow({
   totalMovements,
 }: Props) {
   const [shareValues, setShareValues] = useState<
-    Readonly<Record<number, { readonly amount: string; readonly symbol: string }>>
+    Readonly<
+      Record<number, { readonly amount: string; readonly symbol: string }>
+    >
   >({});
 
   useEffect(() => {
@@ -131,7 +133,10 @@ export function ProgressiveBriefFlow({
           { readonly amount: string; readonly symbol: string }
         > = {};
         for (const item of payload.data.items) {
-          next[item.logIndex] = { amount: item.amount, symbol: item.symbol };
+          next[item.logIndex] = {
+            amount: item.amount,
+            symbol: item.symbol,
+          };
         }
         setShareValues(next);
       })
@@ -180,7 +185,9 @@ export function ProgressiveBriefFlow({
               </strong>
               {row.worth ? (
                 <small>
-                  {row.direction === "outbound" ? "Worth" : "Redeemable for"}{" "}
+                  {row.direction === "outbound"
+                    ? "Worth"
+                    : "Redeemable for"}{" "}
                   {row.worth.amount} {row.worth.symbol}
                 </small>
               ) : null}
