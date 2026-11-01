@@ -27,6 +27,7 @@ import {
   ProgressiveBalanceChangesPanel,
   ProgressiveRawPayloadFields,
   ProgressiveRawPayloadStatus,
+  ProgressiveRawPayloadWarning,
   ProgressiveTransactionEvidenceProvider,
 } from "@/components/safes/progressive-transaction-evidence";
 import { AddressIdentity } from "@/components/shared/address-identity";
@@ -1878,8 +1879,8 @@ export default async function TransactionDetailPage({
               </dd>
             </div>
             <ProgressiveRawPayloadFields />
-
           </dl>
+          <ProgressiveRawPayloadWarning />
           <div className="calldata">
             <span>Raw calldata · {transaction.data.length / 2 - 1} bytes</span>
             <code>{transaction.data || "0x"}</code>
