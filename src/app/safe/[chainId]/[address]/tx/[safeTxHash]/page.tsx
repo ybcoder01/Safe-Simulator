@@ -23,6 +23,12 @@ import {
 } from "@/components/safes/transaction-brief";
 import { TransactionSafetyOverview } from "@/components/safes/transaction-safety-overview";
 import { TransactionSummaryDialog } from "@/components/safes/transaction-summary-dialog";
+import {
+  ProgressiveBalanceChangesPanel,
+  ProgressiveRawPayloadFields,
+  ProgressiveRawPayloadStatus,
+  ProgressiveTransactionEvidenceProvider,
+} from "@/components/safes/progressive-transaction-evidence";
 import { AddressIdentity } from "@/components/shared/address-identity";
 import { CopyIdentifierButton } from "@/components/shared/copy-identifier-button";
 import { AlertStageTimeline } from "@/components/shared/alert-stage-timeline";
@@ -46,7 +52,6 @@ import {
   resolveExecutionInsight,
 } from "@/lib/api/execution-insight";
 import { resolveInternalProxyBoundaries } from "@/lib/api/internal-proxy-boundaries";
-import { resolveOptionalLivePayload } from "@/lib/api/optional-live-payload";
 import {
   isSiloRouteProven,
   resolveProtocolRouteAttestation,
@@ -57,7 +62,6 @@ import {
   siloShareMovements,
 } from "@/lib/api/silo-share-values";
 import { resolveStorageChangeAnalysis } from "@/lib/api/storage-changes";
-import { resolveTokenBalanceChanges } from "@/lib/api/token-balance-changes";
 import { plainAlertFindingCode } from "@/lib/api/telegram-alerts";
 import { verifyTelegramAlertReceipt } from "@/lib/api/telegram-alert-receipts";
 import {
@@ -173,7 +177,6 @@ export default async function TransactionDetailPage({
     insight,
     execution,
     addressBook,
-    rawPayload,
     targetRuntimeCode,
     reviewQueue,
     transactionHistoryPage,
@@ -190,7 +193,6 @@ export default async function TransactionDetailPage({
     profileId
       ? persistence.listAddressBookEntries(profileId, safe.data)
       : Promise.resolve([]),
-    resolveOptionalLivePayload(safeData, safe.data, hash.data),
     resolveTargetRuntimeCodeEvidence(persisted, chain),
     reviewQueuePromise,
     persistence.listTransactions(safe.data, null, 250).catch(() => null),
@@ -245,7 +247,6 @@ export default async function TransactionDetailPage({
     approvalRisk,
     tokenMetadata,
     storageAnalysis,
-    balanceChanges,
     internalProxyBoundaries,
   ] = await Promise.all([
     resolveApprovalRisk(chain, persisted, insight, execution),
@@ -256,7 +257,6 @@ export default async function TransactionDetailPage({
       execution,
     ),
     resolveStorageChangeAnalysis(abi, persisted.safe.chainId, execution),
-    resolveTokenBalanceChanges(chain, persisted, execution),
     resolveInternalProxyBoundaries(
       abi,
       persisted.safe.chainId,
@@ -575,7 +575,14 @@ export default async function TransactionDetailPage({
         </span>
       </header>
 
-      <article className="transaction-detail">
+      <ProgressiveTransactionEvidenceProvider
+        address={safe.data.address}
+        addressBook={addressBook}
+        chainId={safe.data.chainId}
+        safeTxHash={hash.data}
+        tokenMetadata={tokenMetadata.items}
+      >
+        <article className="transaction-detail">
         <Link
           className="dashboard-back"
           href={
@@ -1396,97 +1403,7 @@ export default async function TransactionDetailPage({
           </div>
         </section>
 
-        <section className="detail-panel">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">Token state changes</p>
-              <h2>Before and after balances</h2>
-            </div>
-            <span>
-              {balanceChanges.anchor.type === "exact-blocks"
-                ? `Blocks ${balanceChanges.anchor.beforeBlock} → ${balanceChanges.anchor.afterBlock}`
-                : balanceChanges.anchor.type === "latest-state-projection"
-                  ? "Pending projection"
-                  : "Unavailable"}
-            </span>
-          </div>
-          {balanceChanges.items.length === 0 ? (
-            <div className="panel-empty">
-              No token-account pairs were identified from Transfer-shaped event
-              evidence.
-            </div>
-          ) : (
-            balanceChanges.items.map((change, index) => {
-              const metadata = tokenMetadataByAddress.get(
-                change.token.toLowerCase(),
-              );
-              const before = humanTokenAmount(
-                change.before,
-                metadata?.decimals,
-                metadata?.symbol,
-              );
-              const after = humanTokenAmount(
-                change.after,
-                metadata?.decimals,
-                metadata?.symbol,
-              );
-              const delta = humanTokenAmount(
-                change.delta,
-                metadata?.decimals,
-                metadata?.symbol,
-              );
-
-              return (
-                <div
-                  className={`calldata balance-change balance-change-${change.status}`}
-                  key={`balance-change-${index}-${change.token}-${change.account}`}
-                >
-                  <span>
-                    {change.status.replaceAll("-", " ")}
-                    {change.consistentWithEvents === true
-                      ? " · matches Transfer events"
-                      : change.consistentWithEvents === false
-                        ? " · differs from Transfer events"
-                        : ""}
-                  </span>
-                  <TokenIdentity
-                    chainId={safe.data.chainId}
-                    symbol={metadata?.symbol}
-                    token={change.token}
-                  />
-                  <div className="approval-party">
-                    <span>Affected account</span>
-                    <AddressIdentity
-                      address={change.account}
-                      addressBook={addressBook}
-                      chainId={safe.data.chainId}
-                    />
-                  </div>
-                  <dl className="balance-change-values">
-                    <div>
-                      <dt>Before</dt>
-                      <dd>{before}</dd>
-                    </div>
-                    <div>
-                      <dt>After</dt>
-                      <dd>{after}</dd>
-                    </div>
-                    <div>
-                      <dt>Net change</dt>
-                      <dd>{delta}</dd>
-                    </div>
-                  </dl>
-                  {change.warning ? <code>{change.warning}</code> : null}
-                </div>
-              );
-            })
-          )}
-          {balanceChanges.warnings.map((warning) => (
-            <div className="panel-empty" key={warning}>
-              {warning}
-            </div>
-          ))}
-        </section>
+        <ProgressiveBalanceChangesPanel />
 
         <section className="detail-panel" id="permission-changes">
           <div className="panel-heading">
@@ -1845,11 +1762,7 @@ export default async function TransactionDetailPage({
               <p className="eyebrow">Public source data</p>
               <h2>Raw transaction evidence</h2>
             </div>
-            <span>
-              {rawPayload
-                ? "Safe execution fields available"
-                : "Stored fields only"}
-            </span>
+            <ProgressiveRawPayloadStatus />
           </div>
           <p className="trust-copy">
             These values are presented without reinterpretation. Missing Safe
@@ -1964,53 +1877,9 @@ export default async function TransactionDetailPage({
                 <code>{transaction.blockHash ?? "Unavailable"}</code>
               </dd>
             </div>
-            <div>
-              <dt>Safe transaction gas</dt>
-              <dd>{rawPayload?.safeTxGas.toString() ?? "Unavailable"}</dd>
-            </div>
-            <div>
-              <dt>Base gas</dt>
-              <dd>{rawPayload?.baseGas.toString() ?? "Unavailable"}</dd>
-            </div>
-            <div>
-              <dt>Gas price</dt>
-              <dd>{rawPayload?.gasPrice.toString() ?? "Unavailable"}</dd>
-            </div>
-            <div>
-              <dt>Gas token</dt>
-              <dd>
-                {rawPayload?.gasToken ? (
-                  <AddressIdentity
-                    address={rawPayload.gasToken}
-                    addressBook={addressBook}
-                    chainId={safe.data.chainId}
-                  />
-                ) : (
-                  "Native or unavailable"
-                )}
-              </dd>
-            </div>
-            <div>
-              <dt>Refund receiver</dt>
-              <dd>
-                {rawPayload?.refundReceiver ? (
-                  <AddressIdentity
-                    address={rawPayload.refundReceiver}
-                    addressBook={addressBook}
-                    chainId={safe.data.chainId}
-                  />
-                ) : (
-                  "Default or unavailable"
-                )}
-              </dd>
-            </div>
+            <ProgressiveRawPayloadFields />
+
           </dl>
-          {!rawPayload ? (
-            <div className="raw-evidence-warning">
-              The live Safe payload could not be read. Stored transaction fields
-              remain available above; unavailable gas fields are not inferred.
-            </div>
-          ) : null}
           <div className="calldata">
             <span>Raw calldata · {transaction.data.length / 2 - 1} bytes</span>
             <code>{transaction.data || "0x"}</code>
@@ -2052,7 +1921,8 @@ export default async function TransactionDetailPage({
             </div>
           )}
         </section>
-      </article>
+        </article>
+      </ProgressiveTransactionEvidenceProvider>
 
       <footer className="workspace-footer">
         <Link className="text-link" href={safePath}>
