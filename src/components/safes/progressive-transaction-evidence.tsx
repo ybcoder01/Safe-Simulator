@@ -283,8 +283,7 @@ export function ProgressiveRawPayloadStatus() {
 }
 
 export function ProgressiveRawPayloadFields() {
-  const { addressBook, chainId, evidence, retry, status } =
-    useProgressiveEvidence();
+  const { addressBook, chainId, evidence, status } = useProgressiveEvidence();
   const payload = evidence?.rawPayload ?? null;
   const unavailable = status === "loading" ? "Loading…" : "Unavailable";
 
@@ -334,17 +333,25 @@ export function ProgressiveRawPayloadFields() {
           )}
         </dd>
       </div>
-      {status === "failed" || (status === "ready" && !payload) ? (
-        <div className="raw-evidence-warning">
-          The optional live Safe payload could not be read. Stored transaction
-          fields remain authoritative; unavailable gas fields are not inferred.{" "}
-          {status === "failed" ? (
-            <button className="text-link" type="button" onClick={retry}>
-              Try again
-            </button>
-          ) : null}
-        </div>
-      ) : null}
     </>
+  );
+}
+
+export function ProgressiveRawPayloadWarning() {
+  const { evidence, retry, status } = useProgressiveEvidence();
+  if (status !== "failed" && (status !== "ready" || evidence?.rawPayload)) {
+    return null;
+  }
+
+  return (
+    <div className="raw-evidence-warning">
+      The optional live Safe payload could not be read. Stored transaction
+      fields remain authoritative; unavailable gas fields are not inferred.{" "}
+      {status === "failed" ? (
+        <button className="text-link" type="button" onClick={retry}>
+          Try again
+        </button>
+      ) : null}
+    </div>
   );
 }
