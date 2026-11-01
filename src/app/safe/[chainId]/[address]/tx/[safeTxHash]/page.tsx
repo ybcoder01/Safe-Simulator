@@ -34,7 +34,7 @@ import { classifyTransactionActivity } from "@/core/analysis/decoding/activity";
 import { findContractRegistryEntry } from "@/core/analysis/trust/contract-registry";
 import { findTokenRegistryEntry } from "@/core/analysis/trust/token-registry";
 import { formatTokenAmount } from "@/core/analysis/tokens/metadata";
-import type { Address, Hex } from "@/core/domain";
+import type { Address } from "@/core/domain";
 import { resolveApprovalRisk } from "@/lib/api/approval-risk";
 import { TRANSACTION_ANALYSIS_ENGINE_VERSION } from "@/lib/api/analysis-version";
 import { resolveContractInsight } from "@/lib/api/contract-insight";
@@ -303,19 +303,6 @@ export default async function TransactionDetailPage({
     insight,
     execution,
     addressBook,
-    approvalRisk,
-    storageAnalysis,
-    targetRuntimeCode.hash,
-    targetRuntimeCode.anchor,
-    internalProxyBoundaries,
-    targetRuntimeCode.accountType,
-    routeAttestation,
-  );
-  const baselineVerdict = resolveEvidenceVerdict(
-    persisted,
-    insight,
-    execution,
-    [],
     approvalRisk,
     storageAnalysis,
     targetRuntimeCode.hash,
