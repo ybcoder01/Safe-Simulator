@@ -173,16 +173,22 @@ describe("resolveEvidenceVerdict", () => {
         provenance: "verified-abi",
         signature: null,
       },
-      execution([
-        {
-          token,
-          owner: safe,
-          spender,
-          amount: "1000000",
-          infinite: false,
-          logIndex: 2,
+      {
+        ...execution([
+          {
+            token,
+            owner: safe,
+            spender,
+            amount: "1000000",
+            infinite: false,
+            logIndex: 2,
+          },
+        ]),
+        coverage: {
+          ...execution().coverage,
+          callTrace: "complete",
         },
-      ]),
+      },
       [
         { address: target, label: "Target", trust: "trusted" },
         { address: token, label: "Token", trust: "trusted" },

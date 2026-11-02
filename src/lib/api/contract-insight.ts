@@ -21,6 +21,8 @@ export type DecodeProvenance =
   | "signature-database"
   | "raw";
 
+const SAFE_DECODE_TIMEOUT_MS = 1_200;
+
 export interface ContractInsight {
   readonly metadata: Awaited<ReturnType<AbiPort["getContractMetadata"]>>;
   readonly implementationChain: readonly string[];
@@ -113,6 +115,25 @@ function functionFromSignature(signature: string): AbiFunction | null {
   }
 }
 
+async function resolveSafeDecodedCall(
+  safeData: SafeDataPort,
+  transaction: SafeTransaction,
+): Promise<DecodedCall | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      resolveDecodedCall(safeData, transaction),
+      new Promise<null>((resolve) => {
+        timer = setTimeout(() => resolve(null), SAFE_DECODE_TIMEOUT_MS);
+      }),
+    ]);
+  } catch {
+    return null;
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
+
 export async function resolveContractInsight(
   safeData: SafeDataPort,
   abiPort: AbiPort,
@@ -124,7 +145,7 @@ export async function resolveContractInsight(
       transaction.safe.chainId,
       transaction.to,
     ),
-    resolveDecodedCall(safeData, transaction),
+    resolveSafeDecodedCall(safeData, transaction),
   ]);
 
   if (safeDecoded) {

@@ -66,6 +66,26 @@ export interface NeutralTransactionAnalysis {
   readonly persisted: AnalysisResult;
 }
 
+interface CachedNeutralTransactionAnalysis
+  extends Omit<NeutralTransactionAnalysis, "persisted"> {
+  readonly engineVersion: string;
+  readonly blockHash: Hex;
+}
+
+function neutralAnalysisCacheKey(transaction: SafeTransaction) {
+  if (transaction.status !== "executed" || transaction.blockHash === null) {
+    return null;
+  }
+
+  return [
+    "neutral-transaction-analysis",
+    TRANSACTION_ANALYSIS_ENGINE_VERSION,
+    transaction.safe.chainId,
+    transaction.safeTxHash.toLowerCase(),
+    transaction.blockHash.toLowerCase(),
+  ].join(":");
+}
+
 async function loadImmutableSimulation(
   transaction: SafeTransaction,
   execution: ExecutionInsight,
@@ -150,6 +170,26 @@ export async function resolveNeutralTransactionAnalysis(
   transaction: SafeTransaction,
   ports: NeutralTransactionAnalysisPorts,
 ): Promise<NeutralTransactionAnalysis> {
+  const cacheKey = neutralAnalysisCacheKey(transaction);
+  if (cacheKey && transaction.blockHash) {
+    try {
+      const cached =
+        await ports.cache.get<CachedNeutralTransactionAnalysis>(cacheKey);
+      if (
+        cached?.engineVersion === TRANSACTION_ANALYSIS_ENGINE_VERSION &&
+        cached.blockHash.toLowerCase() === transaction.blockHash.toLowerCase()
+      ) {
+        const persisted = await ports.persistence.findAnalysis(
+          transaction.safeTxHash,
+          TRANSACTION_ANALYSIS_ENGINE_VERSION,
+        );
+        if (persisted) return { ...cached, persisted };
+      }
+    } catch {
+      // Cache availability must never decide whether analysis can proceed.
+    }
+  }
+
   const [contract, execution, targetRuntimeCode] = await Promise.all([
     resolveContractInsight(ports.safeData, ports.abi, transaction),
     resolveExecutionInsight(
@@ -216,7 +256,7 @@ export async function resolveNeutralTransactionAnalysis(
 
   await ports.persistence.saveAnalysis(persisted);
 
-  return {
+  const neutral = {
     contract,
     execution,
     approvalRisk,
@@ -225,6 +265,25 @@ export async function resolveNeutralTransactionAnalysis(
     internalProxyBoundaries,
     routeAttestation,
     baselineVerdict,
+  };
+  if (cacheKey && transaction.blockHash) {
+    try {
+      await ports.cache.set<CachedNeutralTransactionAnalysis>(
+        cacheKey,
+        {
+          ...neutral,
+          engineVersion: TRANSACTION_ANALYSIS_ENGINE_VERSION,
+          blockHash: transaction.blockHash,
+        },
+        null,
+      );
+    } catch {
+      // The persisted result remains authoritative if Redis is unavailable.
+    }
+  }
+
+  return {
+    ...neutral,
     persisted,
   };
 }

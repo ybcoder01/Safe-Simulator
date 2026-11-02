@@ -5,7 +5,6 @@ import {
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Suspense } from "react";
 
 import {
   getAbiPort,
@@ -23,10 +22,13 @@ import {
   type BriefFlowRow,
 } from "@/components/safes/transaction-brief";
 import { TransactionSafetyOverview } from "@/components/safes/transaction-safety-overview";
+import { TransactionSummaryDialog } from "@/components/safes/transaction-summary-dialog";
 import {
-  TransactionSummaryDialog,
-  type SummaryView,
-} from "@/components/safes/transaction-summary-dialog";
+  ProgressiveBalanceChangesPanel,
+  ProgressiveRawPayloadFields,
+  ProgressiveRawPayloadStatus,
+  ProgressiveRawPayloadWarning,
+} from "@/components/safes/progressive-transaction-evidence";
 import { AddressIdentity } from "@/components/shared/address-identity";
 import { CopyIdentifierButton } from "@/components/shared/copy-identifier-button";
 import { AlertStageTimeline } from "@/components/shared/alert-stage-timeline";
@@ -38,34 +40,17 @@ import { classifyTransactionActivity } from "@/core/analysis/decoding/activity";
 import { findContractRegistryEntry } from "@/core/analysis/trust/contract-registry";
 import { findTokenRegistryEntry } from "@/core/analysis/trust/token-registry";
 import { formatTokenAmount } from "@/core/analysis/tokens/metadata";
-import type { Address, Hex, SafeRef } from "@/core/domain";
-import { resolveApprovalRisk } from "@/lib/api/approval-risk";
 import { TRANSACTION_ANALYSIS_ENGINE_VERSION } from "@/lib/api/analysis-version";
-import { resolveContractInsight } from "@/lib/api/contract-insight";
 import { decodedAddressFields } from "@/lib/api/decoded-addresses";
 import { resolveEvidenceVerdict } from "@/lib/api/evidence-verdict";
-import {
-  collectXdcContractReferences,
-  resolveCachedXdcContractVerification,
-} from "@/lib/api/xdcscan-verification";
-import {
-  EXECUTION_EVIDENCE_ENGINE_VERSION,
-  resolveExecutionInsight,
-} from "@/lib/api/execution-insight";
-import { resolveInternalProxyBoundaries } from "@/lib/api/internal-proxy-boundaries";
-import { resolveOptionalLivePayload } from "@/lib/api/optional-live-payload";
-import {
-  isSiloRouteProven,
-  resolveProtocolRouteAttestation,
-} from "@/lib/api/protocol-route-attestation";
+import { collectXdcContractReferences } from "@/lib/api/xdcscan-verification";
+import { EXECUTION_EVIDENCE_ENGINE_VERSION } from "@/lib/api/execution-insight";
+import { isSiloRouteProven } from "@/lib/api/protocol-route-attestation";
 import { AUTH_SESSION_COOKIE, parseAuthSession } from "@/lib/auth/session";
 import {
   attestedSiloMarkets,
-  resolveSiloShareValues,
   siloShareMovements,
 } from "@/lib/api/silo-share-values";
-import { resolveStorageChangeAnalysis } from "@/lib/api/storage-changes";
-import { resolveTokenBalanceChanges } from "@/lib/api/token-balance-changes";
 import { plainAlertFindingCode } from "@/lib/api/telegram-alerts";
 import { verifyTelegramAlertReceipt } from "@/lib/api/telegram-alert-receipts";
 import {
@@ -80,7 +65,7 @@ import {
 } from "@/lib/alert-stage";
 import { buildTransactionBrief } from "@/lib/transaction-brief";
 import { resolveTransactionActionLabel } from "@/lib/transaction-action-label";
-import { resolveTargetRuntimeCodeEvidence } from "@/lib/api/transaction-analysis";
+import { resolveNeutralTransactionAnalysis } from "@/lib/api/transaction-analysis";
 import { resolveExecutionTokenMetadata } from "@/lib/api/token-metadata";
 import { explorerTransactionUrl } from "@/lib/explorer-links";
 import { PROTOCOL_LABELS } from "@/lib/protocol-directory";
@@ -90,13 +75,6 @@ import {
   treasuryReviewFocus,
 } from "@/lib/treasury-review";
 import { resolveUserFacingFindings } from "@/lib/user-facing-findings";
-import {
-  buildTransactionSummaryEvidence,
-  configuredOpenRouterModel,
-  TRANSACTION_SUMMARY_PROMPT_VERSION,
-  transactionSummaryFingerprint,
-  type TransactionSummaryEvidenceInput,
-} from "@/lib/api/transaction-summary";
 import {
   orderTransactionReviewQueue,
   safeRouteParamsSchema,
@@ -146,75 +124,6 @@ function formatDate(timestamp: number | null) {
   }).format(new Date(timestamp * 1_000));
 }
 
-type SummaryEvidenceWithoutExplorer = Omit<
-  TransactionSummaryEvidenceInput,
-  "contractVerification"
->;
-
-interface DeferredTransactionSummaryProps {
-  readonly canGenerate: boolean;
-  readonly chainId: number;
-  readonly endpoint: string;
-  readonly evidence: SummaryEvidenceWithoutExplorer;
-  readonly references: readonly string[];
-  readonly safe: SafeRef;
-  readonly safeTxHash: Hex;
-}
-
-async function DeferredTransactionSummary({
-  canGenerate,
-  chainId,
-  endpoint,
-  evidence,
-  references,
-  safe,
-  safeTxHash,
-}: DeferredTransactionSummaryProps) {
-  let initialSummary: SummaryView | null = null;
-
-  // A saved summary is only reusable when its fingerprint can be rebuilt from
-  // explorer answers that are already cached; no explorer call is made here.
-  const verification = canGenerate
-    ? await resolveCachedXdcContractVerification(
-        getCachePort(),
-        chainId,
-        references,
-      )
-    : null;
-
-  if (verification) {
-    const summaryEvidence = buildTransactionSummaryEvidence({
-      ...evidence,
-      contractVerification: verification,
-    });
-    const savedSummary = await getPersistencePort().findTransactionSummary(
-      safe,
-      safeTxHash,
-      transactionSummaryFingerprint(summaryEvidence),
-      TRANSACTION_SUMMARY_PROMPT_VERSION,
-      configuredOpenRouterModel(),
-    );
-    if (savedSummary?.summary) {
-      initialSummary = {
-        id: savedSummary.id,
-        model: savedSummary.model,
-        summary: savedSummary.summary,
-        usage: savedSummary.usage,
-        completedAt: savedSummary.completedAt,
-        cached: true,
-      };
-    }
-  }
-
-  return (
-    <TransactionSummaryDialog
-      canGenerate={canGenerate}
-      endpoint={endpoint}
-      initialSummary={initialSummary}
-    />
-  );
-}
-
 export default async function TransactionDetailPage({
   params,
   searchParams,
@@ -242,6 +151,8 @@ export default async function TransactionDetailPage({
   const chain = getChainPort();
   const safeData = getSafeDataPort();
   const abi = getAbiPort();
+  // Resolve the immutable, profile-neutral security projection once per engine
+  // version and mined block. Profile trust and history remain live per request.
   const reviewQueuePromise = reviewFilter.success
     ? persistence
         .listTransactions(safe.data, null, 25)
@@ -252,42 +163,102 @@ export default async function TransactionDetailPage({
           orderTransactionReviewQueue(transactions, reviewFilter.data),
         )
     : Promise.resolve([]);
+  const addressBookPromise = profileId
+    ? persistence.listAddressBookEntries(profileId, safe.data)
+    : Promise.resolve([]);
+  const transactionHistoryPromise = persistence
+    .listTransactions(safe.data, null, 250)
+    .catch(() => null);
+  const transferHistoryPromise = persistence
+    .listTransfers(safe.data, null, 250)
+    .catch(() => null);
+  const alertReceiptsPromise = profileId
+    ? persistence
+        .listTelegramAlertReceipts(profileId, safe.data, hash.data)
+        .catch(() => [])
+    : Promise.resolve([]);
+  const addressBookReviewsPromise = profileId
+    ? persistence.listAddressBookReviews(profileId, safe.data)
+    : Promise.resolve([]);
+
+  const transaction = toTransactionView(persisted);
+  const neutralAnalysisPromise = resolveNeutralTransactionAnalysis(persisted, {
+    abi,
+    cache,
+    chain,
+    persistence,
+    safeData,
+    simulation: getSimulationPort(),
+    now: unixNow,
+  });
+  const tokenMetadataPromise = neutralAnalysisPromise.then(({ execution }) =>
+    resolveExecutionTokenMetadata(
+      chain,
+      cache,
+      persisted.safe.chainId,
+      execution,
+    ),
+  );
   const [
-    transaction,
-    insight,
-    execution,
+    analysis,
     addressBook,
-    rawPayload,
-    targetRuntimeCode,
     reviewQueue,
     transactionHistoryPage,
     transferHistoryPage,
+    alertReceipts,
+    addressBookReviews,
+    tokenMetadata,
   ] = await Promise.all([
-    Promise.resolve(toTransactionView(persisted)),
-    resolveContractInsight(safeData, abi, persisted),
-    resolveExecutionInsight(
-      getSimulationPort(),
-      persisted,
-      { cache, persistence },
-      { chain, safeData },
-    ),
-    profileId
-      ? persistence.listAddressBookEntries(profileId, safe.data)
-      : Promise.resolve([]),
-    resolveOptionalLivePayload(safeData, safe.data, hash.data),
-    resolveTargetRuntimeCodeEvidence(persisted, chain),
+    neutralAnalysisPromise,
+    addressBookPromise,
     reviewQueuePromise,
-    persistence.listTransactions(safe.data, null, 250).catch(() => null),
-    persistence.listTransfers(safe.data, null, 250).catch(() => null),
+    transactionHistoryPromise,
+    transferHistoryPromise,
+    alertReceiptsPromise,
+    addressBookReviewsPromise,
+    tokenMetadataPromise,
   ]);
-  const alertReceipts = profileId
-    ? await persistence
-        .listTelegramAlertReceipts(profileId, safe.data, hash.data)
-        .catch(() => [])
-    : [];
-  const addressBookReviews = profileId
-    ? await persistence.listAddressBookReviews(profileId, safe.data)
-    : [];
+  const {
+    contract: insight,
+    execution,
+    approvalRisk,
+    storageAnalysis,
+    targetRuntimeCode,
+    internalProxyBoundaries,
+    routeAttestation,
+  } = analysis;
+  const decoded = insight.decoded;
+  const nestedCalls =
+    decoded?.parameters.flatMap((parameter) => parameter.nestedCalls) ?? [];
+  const decodedAddresses =
+    decoded?.parameters.flatMap((parameter) =>
+      decodedAddressFields(safe.data.chainId, parameter).map(
+        (field) => field.address,
+      ),
+    ) ?? [];
+  const contractReferences = collectXdcContractReferences({
+    transactionTarget: persisted.to,
+    decodedAddresses,
+    nestedTargets: nestedCalls.map((call) => call.to),
+    traceTargets: [
+      execution.rootCall?.to,
+      ...execution.internalCalls.flatMap((call) => [call.from, call.to]),
+    ],
+    logEmitters: execution.logs.map((log) => log.address),
+    storageContracts: execution.storageChanges.map((change) => change.address),
+    tokenContracts: execution.tokenMovements.map((movement) => movement.token),
+    approvalContracts: [
+      ...approvalRisk.requests.flatMap((approval) => [
+        approval.target,
+        approval.token,
+        approval.spender,
+      ]),
+      ...execution.allowanceChanges.flatMap((approval) => [
+        approval.token,
+        approval.spender,
+      ]),
+    ],
+  });
   const authenticAlertReceipts = alertReceipts.filter((receipt) =>
     verifyTelegramAlertReceipt(receipt),
   );
@@ -316,90 +287,11 @@ export default async function TransactionDetailPage({
   const reviewPosition = reviewQueue.findIndex(
     (item) => item.safeTxHash.toLowerCase() === hash.data.toLowerCase(),
   );
-  const decoded = insight.decoded;
-  const nestedCalls =
-    decoded?.parameters.flatMap((parameter) => parameter.nestedCalls) ?? [];
-  const decodedAddresses =
-    decoded?.parameters.flatMap((parameter) =>
-      decodedAddressFields(safe.data.chainId, parameter).map(
-        (field) => field.address,
-      ),
-    ) ?? [];
-  const [
-    approvalRisk,
-    tokenMetadata,
-    storageAnalysis,
-    balanceChanges,
-    internalProxyBoundaries,
-  ] = await Promise.all([
-    resolveApprovalRisk(chain, persisted, insight, execution),
-    resolveExecutionTokenMetadata(
-      chain,
-      cache,
-      persisted.safe.chainId,
-      execution,
-    ),
-    resolveStorageChangeAnalysis(abi, persisted.safe.chainId, execution),
-    resolveTokenBalanceChanges(chain, persisted, execution),
-    resolveInternalProxyBoundaries(
-      abi,
-      persisted.safe.chainId,
-      execution.internalCalls,
-      [
-        persisted.safe.address,
-        persisted.to,
-        ...insight.implementationChain.map((address) => address as Address),
-      ],
-      persisted.blockNumber ?? undefined,
-    ),
-  ]);
-  const contractReferences = collectXdcContractReferences({
-    transactionTarget: persisted.to,
-    decodedAddresses,
-    nestedTargets: nestedCalls.map((call) => call.to),
-    traceTargets: [
-      execution.rootCall?.to,
-      ...execution.internalCalls.flatMap((call) => [call.from, call.to]),
-    ],
-    logEmitters: execution.logs.map((log) => log.address),
-    storageContracts: execution.storageChanges.map((change) => change.address),
-    tokenContracts: execution.tokenMovements.map((movement) => movement.token),
-    approvalContracts: [
-      ...approvalRisk.requests.flatMap((approval) => [
-        approval.target,
-        approval.token,
-        approval.spender,
-      ]),
-      ...execution.allowanceChanges.flatMap((approval) => [
-        approval.token,
-        approval.spender,
-      ]),
-    ],
-  });
-  const routeAttestation = await resolveProtocolRouteAttestation(
-    chain,
-    persisted,
-    execution,
-    internalProxyBoundaries,
-  );
   const verdict = resolveEvidenceVerdict(
     persisted,
     insight,
     execution,
     addressBook,
-    approvalRisk,
-    storageAnalysis,
-    targetRuntimeCode.hash,
-    targetRuntimeCode.anchor,
-    internalProxyBoundaries,
-    targetRuntimeCode.accountType,
-    routeAttestation,
-  );
-  const baselineVerdict = resolveEvidenceVerdict(
-    persisted,
-    insight,
-    execution,
-    [],
     approvalRisk,
     storageAnalysis,
     targetRuntimeCode.hash,
@@ -561,13 +453,12 @@ export default async function TransactionDetailPage({
     transferHistoryLoaded: transferHistoryPage !== null,
     transaction: persisted,
   });
-  const siloShareValues = await resolveSiloShareValues(chain, {
+  const siloShareLookup = {
     chainId: safe.data.chainId,
     markets: attestedSiloMarkets(routeAttestation.addresses),
     movements: siloShareMovements(execution.tokenMovements),
-    blockNumber:
-      execution.blockNumber === null ? null : BigInt(execution.blockNumber),
-  });
+    blockNumber: execution.blockNumber,
+  };
   const briefMovements = [...execution.tokenMovements]
     .sort(
       (a, b) =>
@@ -578,13 +469,13 @@ export default async function TransactionDetailPage({
       const metadata = tokenMetadataByAddress.get(movement.token.toLowerCase());
       return {
         key: ["brief", movement.logIndex, movement.token].join(":"),
+        logIndex: movement.logIndex,
         direction: movement.direction,
         from: movement.from,
         to: movement.to,
         amount: groupDigits(
           formatTokenAmount(movement.amount, metadata?.decimals ?? null),
         ),
-        worth: siloShareValues.get(movement.logIndex) ?? null,
         symbol: resolveTokenPresentation(
           safe.data.chainId,
           movement.token,
@@ -658,17 +549,10 @@ export default async function TransactionDetailPage({
     currentSafe.threshold,
   );
   const summaryEndpoint = `/api/v1/safes/${safe.data.chainId}/${safe.data.address}/tx/${hash.data}/summary`;
-  const summaryEvidence: SummaryEvidenceWithoutExplorer = {
-    transaction: persisted,
-    activity,
-    contract: insight,
-    execution,
-    approvalRisk,
-    storageAnalysis,
-    baselineVerdict,
-    signerVerdict: effectiveEvidence,
-    tokenMetadata,
-    balanceChanges,
+  const progressiveEvidenceRequest = {
+    chainId: safe.data.chainId,
+    address: safe.data.address,
+    safeTxHash: hash.data,
   };
 
   return (
@@ -742,25 +626,11 @@ export default async function TransactionDetailPage({
                 {lifecycleStatus}
               </span>
             </div>
-            <Suspense
-              fallback={
-                <TransactionSummaryDialog
-                  canGenerate={Boolean(profileId)}
-                  endpoint={summaryEndpoint}
-                  initialSummary={null}
-                />
-              }
-            >
-              <DeferredTransactionSummary
-                canGenerate={Boolean(profileId)}
-                chainId={safe.data.chainId}
-                endpoint={summaryEndpoint}
-                evidence={summaryEvidence}
-                references={contractReferences}
-                safe={safe.data}
-                safeTxHash={hash.data}
-              />
-            </Suspense>
+            <TransactionSummaryDialog
+              canGenerate={Boolean(profileId)}
+              endpoint={summaryEndpoint}
+              initialSummary={null}
+            />
           </div>
         </header>
 
@@ -784,6 +654,7 @@ export default async function TransactionDetailPage({
           flow={briefFlow}
           knownLabels={briefLabels}
           safeAddress={persisted.safe.address}
+          siloShareLookup={siloShareLookup}
           stage={currentStage}
           totalMovements={briefFlow.length}
         >
@@ -1519,97 +1390,11 @@ export default async function TransactionDetailPage({
           </div>
         </section>
 
-        <section className="detail-panel">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">Token state changes</p>
-              <h2>Before and after balances</h2>
-            </div>
-            <span>
-              {balanceChanges.anchor.type === "exact-blocks"
-                ? `Blocks ${balanceChanges.anchor.beforeBlock} → ${balanceChanges.anchor.afterBlock}`
-                : balanceChanges.anchor.type === "latest-state-projection"
-                  ? "Pending projection"
-                  : "Unavailable"}
-            </span>
-          </div>
-          {balanceChanges.items.length === 0 ? (
-            <div className="panel-empty">
-              No token-account pairs were identified from Transfer-shaped event
-              evidence.
-            </div>
-          ) : (
-            balanceChanges.items.map((change, index) => {
-              const metadata = tokenMetadataByAddress.get(
-                change.token.toLowerCase(),
-              );
-              const before = humanTokenAmount(
-                change.before,
-                metadata?.decimals,
-                metadata?.symbol,
-              );
-              const after = humanTokenAmount(
-                change.after,
-                metadata?.decimals,
-                metadata?.symbol,
-              );
-              const delta = humanTokenAmount(
-                change.delta,
-                metadata?.decimals,
-                metadata?.symbol,
-              );
-
-              return (
-                <div
-                  className={`calldata balance-change balance-change-${change.status}`}
-                  key={`balance-change-${index}-${change.token}-${change.account}`}
-                >
-                  <span>
-                    {change.status.replaceAll("-", " ")}
-                    {change.consistentWithEvents === true
-                      ? " · matches Transfer events"
-                      : change.consistentWithEvents === false
-                        ? " · differs from Transfer events"
-                        : ""}
-                  </span>
-                  <TokenIdentity
-                    chainId={safe.data.chainId}
-                    symbol={metadata?.symbol}
-                    token={change.token}
-                  />
-                  <div className="approval-party">
-                    <span>Affected account</span>
-                    <AddressIdentity
-                      address={change.account}
-                      addressBook={addressBook}
-                      chainId={safe.data.chainId}
-                    />
-                  </div>
-                  <dl className="balance-change-values">
-                    <div>
-                      <dt>Before</dt>
-                      <dd>{before}</dd>
-                    </div>
-                    <div>
-                      <dt>After</dt>
-                      <dd>{after}</dd>
-                    </div>
-                    <div>
-                      <dt>Net change</dt>
-                      <dd>{delta}</dd>
-                    </div>
-                  </dl>
-                  {change.warning ? <code>{change.warning}</code> : null}
-                </div>
-              );
-            })
-          )}
-          {balanceChanges.warnings.map((warning) => (
-            <div className="panel-empty" key={warning}>
-              {warning}
-            </div>
-          ))}
-        </section>
+        <ProgressiveBalanceChangesPanel
+          addressBook={addressBook}
+          request={progressiveEvidenceRequest}
+          tokenMetadata={tokenMetadata.items}
+        />
 
         <section className="detail-panel" id="permission-changes">
           <div className="panel-heading">
@@ -1968,11 +1753,7 @@ export default async function TransactionDetailPage({
               <p className="eyebrow">Public source data</p>
               <h2>Raw transaction evidence</h2>
             </div>
-            <span>
-              {rawPayload
-                ? "Safe execution fields available"
-                : "Stored fields only"}
-            </span>
+            <ProgressiveRawPayloadStatus request={progressiveEvidenceRequest} />
           </div>
           <p className="trust-copy">
             These values are presented without reinterpretation. Missing Safe
@@ -2087,53 +1868,12 @@ export default async function TransactionDetailPage({
                 <code>{transaction.blockHash ?? "Unavailable"}</code>
               </dd>
             </div>
-            <div>
-              <dt>Safe transaction gas</dt>
-              <dd>{rawPayload?.safeTxGas.toString() ?? "Unavailable"}</dd>
-            </div>
-            <div>
-              <dt>Base gas</dt>
-              <dd>{rawPayload?.baseGas.toString() ?? "Unavailable"}</dd>
-            </div>
-            <div>
-              <dt>Gas price</dt>
-              <dd>{rawPayload?.gasPrice.toString() ?? "Unavailable"}</dd>
-            </div>
-            <div>
-              <dt>Gas token</dt>
-              <dd>
-                {rawPayload?.gasToken ? (
-                  <AddressIdentity
-                    address={rawPayload.gasToken}
-                    addressBook={addressBook}
-                    chainId={safe.data.chainId}
-                  />
-                ) : (
-                  "Native or unavailable"
-                )}
-              </dd>
-            </div>
-            <div>
-              <dt>Refund receiver</dt>
-              <dd>
-                {rawPayload?.refundReceiver ? (
-                  <AddressIdentity
-                    address={rawPayload.refundReceiver}
-                    addressBook={addressBook}
-                    chainId={safe.data.chainId}
-                  />
-                ) : (
-                  "Default or unavailable"
-                )}
-              </dd>
-            </div>
+            <ProgressiveRawPayloadFields
+              addressBook={addressBook}
+              request={progressiveEvidenceRequest}
+            />
           </dl>
-          {!rawPayload ? (
-            <div className="raw-evidence-warning">
-              The live Safe payload could not be read. Stored transaction fields
-              remain available above; unavailable gas fields are not inferred.
-            </div>
-          ) : null}
+          <ProgressiveRawPayloadWarning request={progressiveEvidenceRequest} />
           <div className="calldata">
             <span>Raw calldata · {transaction.data.length / 2 - 1} bytes</span>
             <code>{transaction.data || "0x"}</code>

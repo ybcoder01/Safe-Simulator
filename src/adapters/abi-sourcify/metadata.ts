@@ -23,6 +23,7 @@ const ZEPPELINOS_IMPLEMENTATION_SLOT =
   "0x7050c9e0f4ca769c69bd3a8ef740bc37934f8e2c036e5a723fd8ee048ed3f8c3" as Hex;
 const BEACON_IMPLEMENTATION_CALL = "0x5c60da1b" as Hex;
 const MAX_IMPLEMENTATION_DEPTH = 8;
+const PUBLIC_ABI_FETCH_TIMEOUT_MS = 750;
 
 type Fetcher = typeof fetch;
 type JsonRecord = Record<string, unknown>;
@@ -180,6 +181,11 @@ export function minimalProxyTarget(code: Hex): Address | null {
 }
 
 export class PublicAbiAdapter implements AbiPort {
+  private readonly implementationLookups = new Map<
+    string,
+    Promise<readonly Address[]>
+  >();
+
   constructor(
     private readonly chain: ChainPort,
     private readonly fetcher: Fetcher = fetch,
@@ -209,6 +215,34 @@ export class PublicAbiAdapter implements AbiPort {
   }
 
   async resolveImplementationChain(
+    chainId: ChainId,
+    address: Address,
+    blockNumber?: bigint,
+  ): Promise<readonly Address[]> {
+    const key = [
+      chainId,
+      address.toLowerCase(),
+      blockNumber?.toString() ?? "latest",
+    ].join(":");
+    const existing = this.implementationLookups.get(key);
+    if (existing) return existing;
+
+    const lookup = this.resolveImplementationChainUncached(
+      chainId,
+      address,
+      blockNumber,
+    );
+    this.implementationLookups.set(key, lookup);
+    try {
+      return await lookup;
+    } finally {
+      if (this.implementationLookups.get(key) === lookup) {
+        this.implementationLookups.delete(key);
+      }
+    }
+  }
+
+  private async resolveImplementationChainUncached(
     chainId: ChainId,
     address: Address,
     blockNumber?: bigint,
@@ -244,7 +278,10 @@ export class PublicAbiAdapter implements AbiPort {
     try {
       const response = await this.fetcher(
         `${SOURCIFY_SIGNATURE_API}?function=${selector.toLowerCase()}&filter=true`,
-        { cache: "force-cache" },
+        {
+          cache: "force-cache",
+          signal: AbortSignal.timeout(PUBLIC_ABI_FETCH_TIMEOUT_MS),
+        },
       );
       if (!response.ok) return null;
 
@@ -278,7 +315,10 @@ export class PublicAbiAdapter implements AbiPort {
     try {
       const response = await this.fetcher(
         `${SOURCIFY_CONTRACT_API}/${chainId}/${address}?fields=abi,compilation,storageLayout`,
-        { cache: "force-cache" },
+        {
+          cache: "force-cache",
+          signal: AbortSignal.timeout(PUBLIC_ABI_FETCH_TIMEOUT_MS),
+        },
       );
       if (!response.ok) return null;
 
@@ -310,8 +350,8 @@ export class PublicAbiAdapter implements AbiPort {
     address: Address,
     blockNumber?: bigint,
   ): Promise<Address | null> {
-    const direct = addressFromWord(
-      await this.chain
+    const [directWord, legacyWord, beaconWord] = await Promise.all([
+      this.chain
         .getStorageAt(
           chainId,
           address,
@@ -319,11 +359,7 @@ export class PublicAbiAdapter implements AbiPort {
           blockNumber,
         )
         .catch(() => "0x" as Hex),
-    );
-    if (direct) return direct;
-
-    const legacy = addressFromWord(
-      await this.chain
+      this.chain
         .getStorageAt(
           chainId,
           address,
@@ -331,14 +367,17 @@ export class PublicAbiAdapter implements AbiPort {
           blockNumber,
         )
         .catch(() => "0x" as Hex),
-    );
-    if (legacy) return legacy;
-
-    const beacon = addressFromWord(
-      await this.chain
+      this.chain
         .getStorageAt(chainId, address, EIP_1967_BEACON_SLOT, blockNumber)
         .catch(() => "0x" as Hex),
-    );
+    ]);
+    const direct = addressFromWord(directWord);
+    if (direct) return direct;
+
+    const legacy = addressFromWord(legacyWord);
+    if (legacy) return legacy;
+
+    const beacon = addressFromWord(beaconWord);
     if (!beacon)
       return this.resolveMinimalProxyTarget(chainId, address, blockNumber);
 

@@ -21,6 +21,11 @@ const CONTROL_CHANGE_CODES = new Set([
   "safe-implementation-change",
 ]);
 
+const PROXY_CHANGE_CODES = new Set([
+  "proxy-implementation-change",
+  "proxy-admin-change",
+]);
+
 const UNLIMITED_PERMISSION_CODES = new Set([
   "infinite-allowance",
   "requested-infinite-allowance",
@@ -44,6 +49,7 @@ const PROTOCOL_PATH_CODES = new Set([
 
 const CONSUMED_CODES = new Set([
   ...CONTROL_CHANGE_CODES,
+  ...PROXY_CHANGE_CODES,
   ...UNLIMITED_PERMISSION_CODES,
   ...BOUNDED_PERMISSION_CODES,
   ...PROTOCOL_PATH_CODES,
@@ -127,6 +133,21 @@ export function resolveUserFacingFindings(
         "This changes who can control the Safe",
         "The owner list, approval threshold, module, guard, fallback handler, or Safe implementation changes. Every signer should verify the exact before-and-after setting.",
         controlChanges.flatMap((item) => item.addresses),
+      ),
+    );
+  }
+
+  const proxyChanges = findings.filter((item) =>
+    PROXY_CHANGE_CODES.has(item.code),
+  );
+  if (proxyChanges.length > 0) {
+    result.push(
+      finding(
+        "proxy-control-change",
+        "critical",
+        "Contract code or upgrade authority will change",
+        "This transaction can replace executable contract code or its administrator. Verify the complete implementation, facet, and administrator addresses from an independent official source.",
+        proxyChanges.flatMap((item) => item.addresses),
       ),
     );
   }

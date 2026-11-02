@@ -866,10 +866,18 @@ export function evaluateEvidenceVerdict(
         ? "This verdict uses the target, decode provenance, direct-call outcome, traced call targets when available, authoritative registry records, and profile-specific trust records. Receipt events are unavailable."
         : "This verdict uses target metadata, decode provenance, authoritative registry records, and profile-specific trust records only. Execution behavior is unavailable.";
 
+  const incompleteContractTrace =
+    input.targetAccountType === "contract" && input.callTrace !== "complete";
+  const incompleteDelegateStorage =
+    input.operation === "delegatecall" && input.storageDiff !== "complete";
   findings.push({
     code: "partial-analysis-coverage",
-    severity: "info",
-    title: "Analysis coverage is bounded",
+    severity:
+      incompleteContractTrace || incompleteDelegateStorage ? "warning" : "info",
+    title:
+      incompleteContractTrace || incompleteDelegateStorage
+        ? "Execution coverage is incomplete"
+        : "Analysis coverage is bounded",
     detail: [evidenceDetail, traceDetail, storageDetail].join(" "),
     addresses: [],
   });

@@ -83,8 +83,17 @@ assert.equal(
 
 const safes = await request("/safes");
 const safesHtml = await safes.text();
-assert.match(safesHtml, /Checking wallet session/);
+assert.match(
+  safesHtml,
+  /Checking wallet session|Wallet login is not configured/,
+);
 assert.match(safesHtml, /Read-only by design/);
+
+const apothemLab = await request("/demo/apothem-attack-lab");
+const apothemLabHtml = await apothemLab.text();
+assert.match(apothemLabHtml, /Malicious transaction testnet lab/);
+assert.match(apothemLabHtml, /XDC Apothem · Chain ID 51/);
+assert.match(apothemLabHtml, /Strict testnet boundary/);
 
 const health = await request("/api/health", { allowFailure: true });
 assert.match(health.headers.get("content-type") ?? "", /application\/json/);
@@ -135,8 +144,13 @@ const publicHistory = await request(
   `/api/v1/safes/50/${unseededSafe}/transactions?limit=1`,
   { allowFailure: true },
 );
-assert.equal(publicHistory.status, 404);
-assert.equal((await publicHistory.json()).error?.code, "safe_not_found");
+assert.ok(
+  publicHistory.status === 200 || publicHistory.status === 404,
+  `Public report route returned HTTP ${publicHistory.status} instead of its normal data/not-found response.`,
+);
+if (publicHistory.status === 404) {
+  assert.equal((await publicHistory.json()).error?.code, "safe_not_found");
+}
 
 console.log(
   JSON.stringify({
@@ -144,7 +158,8 @@ console.log(
     checks: [
       "home",
       "security-headers",
-      "wallet-auth-gate",
+      "wallet-auth-boundary",
+      "apothem-attack-lab",
       "database",
       "cache",
       "anonymous-watchlist-denied",

@@ -117,6 +117,24 @@ describe("evaluateEvidenceVerdict", () => {
     ]);
   });
 
+  it("does not clear a contract when its internal trace is incomplete", () => {
+    const result = evaluateEvidenceVerdict(
+      input({
+        targetAccountType: "contract",
+        callTrace: "root-only",
+      }),
+    );
+
+    expect(result.verdict).toBe("unverified");
+    expect(result.findings).toContainEqual(
+      expect.objectContaining({
+        code: "partial-analysis-coverage",
+        severity: "warning",
+        title: "Execution coverage is incomplete",
+      }),
+    );
+  });
+
   it("marks unverified targets and signature-only decoding for review", () => {
     const result = evaluateEvidenceVerdict(
       input({

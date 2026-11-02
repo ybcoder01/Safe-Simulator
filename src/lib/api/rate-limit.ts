@@ -54,10 +54,28 @@ export const XDC_SOURCE_EVIDENCE_RATE_LIMIT: RateLimitPolicy = {
   windowSeconds: 10 * 60,
 };
 
+export const SILO_SHARE_VALUE_RATE_LIMIT: RateLimitPolicy = {
+  scope: "silo-share-value",
+  limit: 60,
+  windowSeconds: 10 * 60,
+};
+
+export const TRANSACTION_PROGRESSIVE_EVIDENCE_RATE_LIMIT: RateLimitPolicy = {
+  scope: "transaction-progressive-evidence",
+  limit: 60,
+  windowSeconds: 10 * 60,
+};
+
 export const MANUAL_SIMULATION_RATE_LIMIT: RateLimitPolicy = {
   scope: "manual-simulation",
   limit: 10,
   windowSeconds: 60 * 60,
+};
+
+export const APOTHEM_INSPECTION_RATE_LIMIT: RateLimitPolicy = {
+  scope: "apothem-inspection",
+  limit: 60,
+  windowSeconds: 10 * 60,
 };
 
 function requestIdentity(request: Request) {

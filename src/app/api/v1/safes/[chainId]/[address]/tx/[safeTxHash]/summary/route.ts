@@ -134,8 +134,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   const persistence = getPersistencePort();
   try {
-    const bookmarked = await persistence.listSafesForProfile(profileId);
-    if (!isSafeBookmarked(bookmarked, safe.data)) {
+    const [bookmarked, owned] = await Promise.all([
+      persistence.listSafesForProfile(profileId),
+      persistence.listSafesForOwner(session.walletAddress),
+    ]);
+    if (!isSafeBookmarked([...bookmarked, ...owned], safe.data)) {
       return error(
         "This Safe is not available in the current watchlist.",
         404,
