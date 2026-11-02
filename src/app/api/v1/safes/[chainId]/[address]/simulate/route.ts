@@ -19,7 +19,7 @@ import {
 } from "@/lib/api/rate-limit";
 import { authSessionFromRequest } from "@/lib/auth/session";
 import { safeRouteParamsSchema } from "@/lib/api/safe-details";
-import { isSafeBookmarked } from "@/lib/api/sync-refresh";
+import { isSafeAvailableToSession } from "@/lib/api/sync-refresh";
 
 interface RouteContext {
   readonly params: Promise<{ chainId: string; address: string }>;
@@ -108,8 +108,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   try {
     const persistence = getPersistencePort();
-    const bookmarked = await persistence.listSafesForProfile(profileId);
-    if (!isSafeBookmarked(bookmarked, safeRef.data)) {
+    if (
+      !(await isSafeAvailableToSession(persistence, session, safeRef.data))
+    ) {
       return error(
         "This Safe is not available in the current watchlist.",
         404,
