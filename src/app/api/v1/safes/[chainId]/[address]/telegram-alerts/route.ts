@@ -15,7 +15,7 @@ import {
 } from "@/lib/api/rate-limit";
 import { authSessionFromRequest } from "@/lib/auth/session";
 import { safeRouteParamsSchema } from "@/lib/api/safe-details";
-import { isSafeBookmarked } from "@/lib/api/sync-refresh";
+import { isSafeAvailableToSession } from "@/lib/api/sync-refresh";
 import { ensureTelegramWatch } from "@/lib/api/telegram-webhook";
 import { legacyTelegramWatchScheduleId } from "@/lib/api/telegram-schedule";
 import { invalidateTelegramWatchRegistry } from "@/lib/api/telegram-watch-cache";
@@ -85,8 +85,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   const persistence = getPersistencePort();
-  const bookmarked = await persistence.listSafesForProfile(profileId);
-  if (!isSafeBookmarked(bookmarked, safe.data)) {
+  if (!(await isSafeAvailableToSession(persistence, session, safe.data))) {
     return NextResponse.json(
       { error: { message: "This Safe is not in the current watchlist." } },
       { status: 404 },
