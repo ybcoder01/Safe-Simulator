@@ -110,7 +110,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload public deployment manifest
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: apothem-attack-lab-deployment
           path: testnet/apothem/deployment.json
