@@ -15,7 +15,7 @@ import {
   type ReanalysisRequestState,
 } from "@/lib/api/reanalysis-request";
 import {
-  isSafeBookmarked,
+  isSafeAvailableToSession,
   isQueueCapacityError,
   queueSafeRefresh,
   refreshSafeDirectly,
@@ -49,10 +49,10 @@ export async function requestSafeRefresh(
   }
 
   const cookieStore = await cookies();
-  const profileId = parseAuthSession(
+  const session = parseAuthSession(
     cookieStore.get(AUTH_SESSION_COOKIE)?.value,
-  )?.profileId;
-  if (!profileId) {
+  );
+  if (!session) {
     return {
       status: "error",
       message: "This Safe is not available in the current watchlist.",
@@ -62,8 +62,9 @@ export async function requestSafeRefresh(
 
   try {
     const persistence = getPersistencePort();
-    const bookmarkedSafes = await persistence.listSafesForProfile(profileId);
-    if (!isSafeBookmarked(bookmarkedSafes, parsed.data)) {
+    if (
+      !(await isSafeAvailableToSession(persistence, session, parsed.data))
+    ) {
       return {
         status: "error",
         message: "This Safe is not available in the current watchlist.",
@@ -182,10 +183,10 @@ export async function requestSafeReanalysis(
   }
 
   const cookieStore = await cookies();
-  const profileId = parseAuthSession(
+  const session = parseAuthSession(
     cookieStore.get(AUTH_SESSION_COOKIE)?.value,
-  )?.profileId;
-  if (!profileId) {
+  );
+  if (!session) {
     return {
       status: "error",
       message: "This Safe is not available in the current watchlist.",
@@ -193,9 +194,10 @@ export async function requestSafeReanalysis(
   }
 
   try {
-    const bookmarkedSafes =
-      await getPersistencePort().listSafesForProfile(profileId);
-    if (!isSafeBookmarked(bookmarkedSafes, parsed.data)) {
+    const persistence = getPersistencePort();
+    if (
+      !(await isSafeAvailableToSession(persistence, session, parsed.data))
+    ) {
       return {
         status: "error",
         message: "This Safe is not available in the current watchlist.",
@@ -248,10 +250,10 @@ export async function requestSafeModuleReanalysis(
   }
 
   const cookieStore = await cookies();
-  const profileId = parseAuthSession(
+  const session = parseAuthSession(
     cookieStore.get(AUTH_SESSION_COOKIE)?.value,
-  )?.profileId;
-  if (!profileId) {
+  );
+  if (!session) {
     return {
       status: "error",
       message: "This Safe is not available in the current watchlist.",
@@ -259,9 +261,10 @@ export async function requestSafeModuleReanalysis(
   }
 
   try {
-    const bookmarkedSafes =
-      await getPersistencePort().listSafesForProfile(profileId);
-    if (!isSafeBookmarked(bookmarkedSafes, parsed.data)) {
+    const persistence = getPersistencePort();
+    if (
+      !(await isSafeAvailableToSession(persistence, session, parsed.data))
+    ) {
       return {
         status: "error",
         message: "This Safe is not available in the current watchlist.",
