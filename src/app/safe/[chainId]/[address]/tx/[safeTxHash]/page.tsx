@@ -40,7 +40,6 @@ import { classifyTransactionActivity } from "@/core/analysis/decoding/activity";
 import { findContractRegistryEntry } from "@/core/analysis/trust/contract-registry";
 import { findTokenRegistryEntry } from "@/core/analysis/trust/token-registry";
 import { formatTokenAmount } from "@/core/analysis/tokens/metadata";
-import type { Address } from "@/core/domain";
 import { TRANSACTION_ANALYSIS_ENGINE_VERSION } from "@/lib/api/analysis-version";
 import { decodedAddressFields } from "@/lib/api/decoded-addresses";
 import { resolveEvidenceVerdict } from "@/lib/api/evidence-verdict";
