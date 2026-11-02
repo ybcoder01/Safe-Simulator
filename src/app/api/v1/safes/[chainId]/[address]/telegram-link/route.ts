@@ -9,7 +9,7 @@ import {
   TELEGRAM_LINK_RATE_LIMIT,
 } from "@/lib/api/rate-limit";
 import { safeRouteParamsSchema } from "@/lib/api/safe-details";
-import { isSafeBookmarked } from "@/lib/api/sync-refresh";
+import { isSafeAvailableToSession } from "@/lib/api/sync-refresh";
 import { createTelegramLink } from "@/lib/api/telegram-link";
 
 interface RouteContext {
@@ -61,8 +61,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   try {
     const persistence = getPersistencePort();
-    const bookmarked = await persistence.listSafesForProfile(profileId);
-    if (!isSafeBookmarked(bookmarked, parsed.data)) {
+    if (
+      !(await isSafeAvailableToSession(persistence, session, parsed.data))
+    ) {
       return NextResponse.json(
         {
           error: {
