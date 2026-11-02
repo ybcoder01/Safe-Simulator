@@ -1,5 +1,6 @@
 import type { SafeRef, SyncCursor } from "@/core/domain";
 import type { ChainPort, PersistencePort, QueuePort } from "@/core/ports";
+import type { AuthSession } from "@/lib/auth/session";
 import { runBackfillPage, type BackfillPorts } from "@/core/ingestion/backfill";
 import { refreshSafeSnapshot } from "@/core/ingestion/safe-snapshot";
 import { summarizeSyncCursors } from "@/lib/api/safe-details";
@@ -83,6 +84,24 @@ export function isSafeBookmarked(
       safe.chainId === target.chainId &&
       safe.address.toLowerCase() === target.address.toLowerCase(),
   );
+}
+
+type SafeAccessPersistence = Pick<
+  PersistencePort,
+  "listSafesForProfile" | "listSafesForOwner"
+>;
+type SafeAccessSession = Pick<AuthSession, "profileId" | "walletAddress">;
+
+export async function isSafeAvailableToSession(
+  persistence: SafeAccessPersistence,
+  session: SafeAccessSession,
+  target: SafeRef,
+): Promise<boolean> {
+  const [bookmarked, owned] = await Promise.all([
+    persistence.listSafesForProfile(session.profileId),
+    persistence.listSafesForOwner(session.walletAddress),
+  ]);
+  return isSafeBookmarked([...bookmarked, ...owned], target);
 }
 
 export function queuedRefreshCursors(
