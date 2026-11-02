@@ -41,27 +41,21 @@ import { findContractRegistryEntry } from "@/core/analysis/trust/contract-regist
 import { findTokenRegistryEntry } from "@/core/analysis/trust/token-registry";
 import { formatTokenAmount } from "@/core/analysis/tokens/metadata";
 import type { Address } from "@/core/domain";
-import { resolveApprovalRisk } from "@/lib/api/approval-risk";
 import { TRANSACTION_ANALYSIS_ENGINE_VERSION } from "@/lib/api/analysis-version";
-import { resolveContractInsight } from "@/lib/api/contract-insight";
 import { decodedAddressFields } from "@/lib/api/decoded-addresses";
 import { resolveEvidenceVerdict } from "@/lib/api/evidence-verdict";
 import { collectXdcContractReferences } from "@/lib/api/xdcscan-verification";
 import {
   EXECUTION_EVIDENCE_ENGINE_VERSION,
-  resolveExecutionInsight,
 } from "@/lib/api/execution-insight";
-import { resolveInternalProxyBoundaries } from "@/lib/api/internal-proxy-boundaries";
 import {
   isSiloRouteProven,
-  resolveProtocolRouteAttestation,
 } from "@/lib/api/protocol-route-attestation";
 import { AUTH_SESSION_COOKIE, parseAuthSession } from "@/lib/auth/session";
 import {
   attestedSiloMarkets,
   siloShareMovements,
 } from "@/lib/api/silo-share-values";
-import { resolveStorageChangeAnalysis } from "@/lib/api/storage-changes";
 import { plainAlertFindingCode } from "@/lib/api/telegram-alerts";
 import { verifyTelegramAlertReceipt } from "@/lib/api/telegram-alert-receipts";
 import {
@@ -76,7 +70,7 @@ import {
 } from "@/lib/alert-stage";
 import { buildTransactionBrief } from "@/lib/transaction-brief";
 import { resolveTransactionActionLabel } from "@/lib/transaction-action-label";
-import { resolveTargetRuntimeCodeEvidence } from "@/lib/api/transaction-analysis";
+import { resolveNeutralTransactionAnalysis } from "@/lib/api/transaction-analysis";
 import { resolveExecutionTokenMetadata } from "@/lib/api/token-metadata";
 import { explorerTransactionUrl } from "@/lib/explorer-links";
 import { PROTOCOL_LABELS } from "@/lib/protocol-directory";
@@ -162,9 +156,8 @@ export default async function TransactionDetailPage({
   const chain = getChainPort();
   const safeData = getSafeDataPort();
   const abi = getAbiPort();
-  // Start independent database, profile, runtime-code, and security reads together.
-  // The report still waits for every verdict-critical input, but slow Neon reads no
-  // longer delay the start of the RPC-backed analysis pipeline.
+  // Resolve the immutable, profile-neutral security projection once per engine
+  // version and mined block. Profile trust and history remain live per request.
   const reviewQueuePromise = reviewFilter.success
     ? persistence
         .listTransactions(safe.data, null, 25)
@@ -178,10 +171,6 @@ export default async function TransactionDetailPage({
   const addressBookPromise = profileId
     ? persistence.listAddressBookEntries(profileId, safe.data)
     : Promise.resolve([]);
-  const targetRuntimeCodePromise = resolveTargetRuntimeCodeEvidence(
-    persisted,
-    chain,
-  );
   const transactionHistoryPromise = persistence
     .listTransactions(safe.data, null, 250)
     .catch(() => null);
@@ -198,15 +187,51 @@ export default async function TransactionDetailPage({
     : Promise.resolve([]);
 
   const transaction = toTransactionView(persisted);
-  const [insight, execution] = await Promise.all([
-    resolveContractInsight(safeData, abi, persisted),
-    resolveExecutionInsight(
-      getSimulationPort(),
-      persisted,
-      { cache, persistence },
-      { chain, safeData },
+  const neutralAnalysisPromise = resolveNeutralTransactionAnalysis(persisted, {
+    abi,
+    cache,
+    chain,
+    persistence,
+    safeData,
+    simulation: getSimulationPort(),
+    now: unixNow,
+  });
+  const tokenMetadataPromise = neutralAnalysisPromise.then(({ execution }) =>
+    resolveExecutionTokenMetadata(
+      chain,
+      cache,
+      persisted.safe.chainId,
+      execution,
     ),
+  );
+  const [
+    analysis,
+    addressBook,
+    reviewQueue,
+    transactionHistoryPage,
+    transferHistoryPage,
+    alertReceipts,
+    addressBookReviews,
+    tokenMetadata,
+  ] = await Promise.all([
+    neutralAnalysisPromise,
+    addressBookPromise,
+    reviewQueuePromise,
+    transactionHistoryPromise,
+    transferHistoryPromise,
+    alertReceiptsPromise,
+    addressBookReviewsPromise,
+    tokenMetadataPromise,
   ]);
+  const {
+    contract: insight,
+    execution,
+    approvalRisk,
+    storageAnalysis,
+    targetRuntimeCode,
+    internalProxyBoundaries,
+    routeAttestation,
+  } = analysis;
   const decoded = insight.decoded;
   const nestedCalls =
     decoded?.parameters.flatMap((parameter) => parameter.nestedCalls) ?? [];
@@ -216,32 +241,6 @@ export default async function TransactionDetailPage({
         (field) => field.address,
       ),
     ) ?? [];
-  const [
-    approvalRisk,
-    tokenMetadata,
-    storageAnalysis,
-    internalProxyBoundaries,
-  ] = await Promise.all([
-    resolveApprovalRisk(chain, persisted, insight, execution),
-    resolveExecutionTokenMetadata(
-      chain,
-      cache,
-      persisted.safe.chainId,
-      execution,
-    ),
-    resolveStorageChangeAnalysis(abi, persisted.safe.chainId, execution),
-    resolveInternalProxyBoundaries(
-      abi,
-      persisted.safe.chainId,
-      execution.internalCalls,
-      [
-        persisted.safe.address,
-        persisted.to,
-        ...insight.implementationChain.map((address) => address as Address),
-      ],
-      persisted.blockNumber ?? undefined,
-    ),
-  ]);
   const contractReferences = collectXdcContractReferences({
     transactionTarget: persisted.to,
     decodedAddresses,
@@ -265,29 +264,6 @@ export default async function TransactionDetailPage({
       ]),
     ],
   });
-  const routeAttestation = await resolveProtocolRouteAttestation(
-    chain,
-    persisted,
-    execution,
-    internalProxyBoundaries,
-  );
-  const [
-    addressBook,
-    targetRuntimeCode,
-    reviewQueue,
-    transactionHistoryPage,
-    transferHistoryPage,
-    alertReceipts,
-    addressBookReviews,
-  ] = await Promise.all([
-    addressBookPromise,
-    targetRuntimeCodePromise,
-    reviewQueuePromise,
-    transactionHistoryPromise,
-    transferHistoryPromise,
-    alertReceiptsPromise,
-    addressBookReviewsPromise,
-  ]);
   const authenticAlertReceipts = alertReceipts.filter((receipt) =>
     verifyTelegramAlertReceipt(receipt),
   );
