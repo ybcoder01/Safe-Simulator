@@ -45,12 +45,8 @@ import { TRANSACTION_ANALYSIS_ENGINE_VERSION } from "@/lib/api/analysis-version"
 import { decodedAddressFields } from "@/lib/api/decoded-addresses";
 import { resolveEvidenceVerdict } from "@/lib/api/evidence-verdict";
 import { collectXdcContractReferences } from "@/lib/api/xdcscan-verification";
-import {
-  EXECUTION_EVIDENCE_ENGINE_VERSION,
-} from "@/lib/api/execution-insight";
-import {
-  isSiloRouteProven,
-} from "@/lib/api/protocol-route-attestation";
+import { EXECUTION_EVIDENCE_ENGINE_VERSION } from "@/lib/api/execution-insight";
+import { isSiloRouteProven } from "@/lib/api/protocol-route-attestation";
 import { AUTH_SESSION_COOKIE, parseAuthSession } from "@/lib/auth/session";
 import {
   attestedSiloMarkets,
