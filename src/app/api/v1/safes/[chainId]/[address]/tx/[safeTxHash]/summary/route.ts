@@ -130,8 +130,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
       "authentication_required",
     );
   }
-  const profileId = session.profileId;
-
   const persistence = getPersistencePort();
   try {
     if (!(await isSafeAvailableToSession(persistence, session, safe.data))) {
