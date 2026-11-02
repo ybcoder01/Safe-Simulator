@@ -12,7 +12,10 @@ import {
 } from "@/lib/api/rate-limit";
 import { authSessionFromRequest } from "@/lib/auth/session";
 import { safeRouteParamsSchema } from "@/lib/api/safe-details";
-import { isSafeBookmarked, queueSafeRefresh } from "@/lib/api/sync-refresh";
+import {
+  isSafeAvailableToSession,
+  queueSafeRefresh,
+} from "@/lib/api/sync-refresh";
 
 interface RouteContext {
   readonly params: Promise<{ chainId: string; address: string }>;
@@ -61,12 +64,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   const session = authSessionFromRequest(request);
   if (!session) return unavailableToProfile();
-  const profileId = session.profileId;
-
   try {
     const persistence = getPersistencePort();
-    const bookmarkedSafes = await persistence.listSafesForProfile(profileId);
-    if (!isSafeBookmarked(bookmarkedSafes, parsed.data)) {
+    if (
+      !(await isSafeAvailableToSession(persistence, session, parsed.data))
+    ) {
       return unavailableToProfile();
     }
 
