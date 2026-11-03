@@ -333,7 +333,11 @@ export default async function SafeDashboardPage({
           </div>
         </section>
 
-        <section className="draft-simulation-cta" role="region" aria-labelledby="first-signer-review">
+        <section
+          className="draft-simulation-cta"
+          role="region"
+          aria-labelledby="first-signer-review"
+        >
           <div>
             <p className="eyebrow">Before the first signature</p>
             <h2 id="first-signer-review">Review what you are about to sign</h2>
