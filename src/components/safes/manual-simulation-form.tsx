@@ -84,6 +84,14 @@ export function ManualSimulationForm({
   return (
     <>
       <form className="simulation-form" onSubmit={submit}>
+        <div className="form-notice" role="note">
+          <strong>Do this before the first owner signs.</strong>
+          <p>
+            Copy these three values from the transaction builder. Telegram
+            monitoring starts only after Safe publishes the first signed
+            proposal.
+          </p>
+        </div>
         <div className="simulation-field-grid">
           <label>
             Target contract
@@ -123,7 +131,7 @@ export function ManualSimulationForm({
           transfer. Maximum 32 KiB.
         </p>
         <button className="button" disabled={submitting} type="submit">
-          {submitting ? "Running read-only preview…" : "Simulate draft call"}
+          {submitting ? "Running read-only review…" : "Review before signing"}
         </button>
         {submitting ? (
           <p className="form-status" role="status">
@@ -240,9 +248,10 @@ export function ManualSimulationForm({
             <strong>Coverage boundary</strong>
             <p>
               This preview calls the target from the Safe address at latest
-              state. It does not validate signatures, nonce ordering, Safe
-              guards, or the complete execution wrapper. Re-run the full review
-              after a Safe proposal exists.
+              state. It checks the draft before the first signature, but cannot
+              validate signatures, nonce ordering, Safe guards, or the complete
+              execution wrapper until a proposal exists. Re-run the full report
+              after Safe publishes the proposal.
             </p>
           </div>
         </section>
