@@ -38,12 +38,12 @@ export default async function ManualSimulationPage({ params }: PageProps) {
           ← Safe overview
         </Link>
         <section className="simulation-hero">
-          <p className="eyebrow">Pre-submission review</p>
-          <h1>Simulate a draft call</h1>
+          <p className="eyebrow">First-signer security check</p>
+          <h1>Review before signing</h1>
           <p>
-            Preview a target call from this Safe against latest chain state
-            before creating a proposal. Nothing is signed, submitted, or
-            broadcast.
+            Safe cannot publish a proposal until one owner has already signed.
+            Review the exact draft here before opening the wallet confirmation.
+            Nothing is signed, submitted, or broadcast.
           </p>
           <code>{safe.address}</code>
         </section>
