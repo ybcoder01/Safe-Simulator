@@ -29,7 +29,7 @@
   "dependencies": {
     "@privy-io/node": "^0.36.0",
     "@privy-io/react-auth": "^3.51.0",
-    "@safe-global/api-kit": "5.0.2",
+    "@safe-global/api-kit": "5.0.4",
     "@upstash/qstash": "2.11.3",
     "@upstash/redis": "1.38.3",
     "drizzle-orm": "0.45.2",
