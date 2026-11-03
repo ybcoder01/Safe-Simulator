@@ -76,6 +76,7 @@ describe("on-demand synchronization refresh", () => {
       guard: null,
       modules: [],
       implementation: null,
+      observedAt: 20,
     };
     const session = {
       profileId: "profile-1",
