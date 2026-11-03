@@ -533,6 +533,111 @@ select {
   font-family: var(--font-geist-mono);
   font-size: 10px;
 }
+.trust-approval-notice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 18px;
+  margin-top: 32px;
+  padding: 22px;
+  border: 1px solid rgba(255, 190, 84, 0.42);
+  border-radius: 16px;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 190, 84, 0.1),
+    rgba(255, 255, 255, 0.012)
+  );
+}
+.trust-approval-notice-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid rgba(255, 190, 84, 0.58);
+  border-radius: 50%;
+  color: var(--amber);
+  font-size: 20px;
+  font-weight: 650;
+}
+.trust-approval-notice-content {
+  min-width: 0;
+}
+.trust-approval-notice-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 24px;
+}
+.trust-approval-notice-heading .eyebrow {
+  margin: 0 0 7px;
+  color: var(--amber);
+}
+.trust-approval-notice-heading h2 {
+  margin: 0;
+  font-size: 21px;
+  font-weight: 590;
+}
+.trust-approval-notice-heading p:last-child {
+  max-width: 720px;
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.trust-approval-count {
+  flex: 0 0 auto;
+  padding: 7px 10px;
+  border-radius: 99px;
+  color: var(--amber);
+  background: rgba(255, 190, 84, 0.1);
+  font-family: var(--font-geist-mono);
+  font-size: 10px;
+}
+.trust-approval-list {
+  display: grid;
+  gap: 9px;
+  margin-top: 18px;
+}
+.trust-approval-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 14px 15px;
+  border: 1px solid rgba(255, 190, 84, 0.18);
+  border-radius: 11px;
+  background: rgba(6, 16, 12, 0.48);
+}
+.trust-approval-row > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.trust-approval-row span,
+.trust-approval-row small {
+  color: var(--muted);
+  font-size: 11px;
+}
+.trust-approval-row strong {
+  font-family: var(--font-geist-mono);
+  font-size: 13px;
+  font-weight: 570;
+}
+@media (max-width: 700px) {
+  .trust-approval-notice {
+    grid-template-columns: 1fr;
+  }
+  .trust-approval-notice-heading,
+  .trust-approval-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .trust-approval-count {
+    align-self: start;
+  }
+  .trust-approval-row .button {
+    width: 100%;
+  }
+}
 .import-panel {
   margin-top: 50px;
   padding: 24px;

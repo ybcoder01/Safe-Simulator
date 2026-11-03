@@ -246,6 +246,14 @@ export function SafesClient({
     }
   }
 
+  const pendingReviewSafes = items.filter(
+    (safe) => safe.pendingTrustReviews > 0,
+  );
+  const pendingReviewCount = pendingReviewSafes.reduce(
+    (total, safe) => total + safe.pendingTrustReviews,
+    0,
+  );
+
   return (
     <div className="safes-content">
       <section className="safes-heading">
@@ -259,6 +267,64 @@ export function SafesClient({
         </div>
         <span className="scope-note">Ethereum · XDC</span>
       </section>
+
+      {!loading && pendingReviewCount > 0 ? (
+        <section
+          aria-labelledby="trust-approval-heading"
+          className="trust-approval-notice"
+          role="status"
+        >
+          <div className="trust-approval-notice-icon" aria-hidden="true">
+            !
+          </div>
+          <div className="trust-approval-notice-content">
+            <div className="trust-approval-notice-heading">
+              <div>
+                <p className="eyebrow">Action required</p>
+                <h2 id="trust-approval-heading">
+                  Trust approvals waiting for you
+                </h2>
+                <p>
+                  Another Safe owner proposed one or more trusted addresses.
+                  Review each request before it can count toward the Safe&apos;s
+                  approval threshold.
+                </p>
+              </div>
+              <span className="trust-approval-count">
+                {pendingReviewCount} pending
+              </span>
+            </div>
+            <div className="trust-approval-list">
+              {pendingReviewSafes.map((safe) => {
+                const key = `${safe.chainId}:${safe.address.toLowerCase()}`;
+                return (
+                  <div className="trust-approval-row" key={key}>
+                    <div>
+                      <span>
+                        {safe.chainId === 1 ? "Ethereum" : "XDC Network"} Safe
+                      </span>
+                      <strong>{shortenAddress(safe.address)}</strong>
+                      <small>
+                        {safe.pendingTrustReviews} trust{" "}
+                        {safe.pendingTrustReviews === 1
+                          ? "approval needs"
+                          : "approvals need"}{" "}
+                        your review
+                      </small>
+                    </div>
+                    <Link
+                      className="button button-small"
+                      href={`/safe/${safe.chainId}/${safe.address.toLowerCase()}#address-book`}
+                    >
+                      Review approvals <span aria-hidden="true">→</span>
+                    </Link>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       {reviewForm}
 
