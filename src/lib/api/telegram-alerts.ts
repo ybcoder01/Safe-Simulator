@@ -701,12 +701,23 @@ export function formatTelegramAlert(
     stage.id === "collecting-signatures"
       ? "Before another owner signs"
       : "What to do now";
+  const firstObservableSignature =
+    stage.id === "collecting-signatures" &&
+    transaction.confirmations.length === 1;
 
   return [
     alertHeading(transaction, brief.signal),
     "",
     brief.heading,
     stage.label,
+    ...(firstObservableSignature
+      ? [
+          "",
+          "First signer notice",
+          "• Safe could not publish this proposal until one owner signed it.",
+          "• If that was you, review this report now and ask the other owners not to sign until every concern is resolved.",
+        ]
+      : []),
     "",
     "What this transaction does",
     ...transactionDetails(transaction),
