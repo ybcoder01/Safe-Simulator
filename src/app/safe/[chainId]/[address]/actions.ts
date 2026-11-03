@@ -49,9 +49,7 @@ export async function requestSafeRefresh(
   }
 
   const cookieStore = await cookies();
-  const session = parseAuthSession(
-    cookieStore.get(AUTH_SESSION_COOKIE)?.value,
-  );
+  const session = parseAuthSession(cookieStore.get(AUTH_SESSION_COOKIE)?.value);
   if (!session) {
     return {
       status: "error",
@@ -181,9 +179,7 @@ export async function requestSafeReanalysis(
   }
 
   const cookieStore = await cookies();
-  const session = parseAuthSession(
-    cookieStore.get(AUTH_SESSION_COOKIE)?.value,
-  );
+  const session = parseAuthSession(cookieStore.get(AUTH_SESSION_COOKIE)?.value);
   if (!session) {
     return {
       status: "error",
@@ -246,9 +242,7 @@ export async function requestSafeModuleReanalysis(
   }
 
   const cookieStore = await cookies();
-  const session = parseAuthSession(
-    cookieStore.get(AUTH_SESSION_COOKIE)?.value,
-  );
+  const session = parseAuthSession(cookieStore.get(AUTH_SESSION_COOKIE)?.value);
   if (!session) {
     return {
       status: "error",
