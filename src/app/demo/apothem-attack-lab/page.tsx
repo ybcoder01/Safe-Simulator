@@ -138,7 +138,7 @@ export default async function ApothemAttackLabPage({
           <div className="attack-lab-index">
             {SCENARIOS.map((scenario) => (
               <Link
-                href={`/demo/apothem-attack-lab?tx=${scenario.hash}`}
+                href={`/demo/apothem-attack-lab?tx=${scenario.hash}#apothem-inspector-title`}
                 key={scenario.hash}
               >
                 <span>Open testnet transaction</span>
