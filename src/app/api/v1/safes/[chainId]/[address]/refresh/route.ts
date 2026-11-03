@@ -66,9 +66,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   if (!session) return unavailableToProfile();
   try {
     const persistence = getPersistencePort();
-    if (
-      !(await isSafeAvailableToSession(persistence, session, parsed.data))
-    ) {
+    if (!(await isSafeAvailableToSession(persistence, session, parsed.data))) {
       return unavailableToProfile();
     }
 
