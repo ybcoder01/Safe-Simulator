@@ -3,6 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
+import { WalletAuthProvider } from "@/components/auth/wallet-auth-provider";
+import { WalletSessionBridge } from "@/components/auth/wallet-session-bridge";
 import { MessageHistory } from "@/components/safes/message-history";
 import { ModuleActivity } from "@/components/safes/module-activity";
 import { ReanalysisControl } from "@/components/safes/reanalysis-control";
@@ -240,9 +242,13 @@ export default async function SafeDashboardPage({
     null,
     actionInput,
   );
+  const privyAppId = process.env.NEXT_PUBLIC_PRIVY_APP_ID;
 
   return (
     <main className="workspace shell">
+      <WalletAuthProvider appId={privyAppId}>
+        {privyAppId ? <WalletSessionBridge /> : null}
+      </WalletAuthProvider>
       <header className="workspace-header">
         <Link className="brand" href="/">
           <span className="brand-mark" aria-hidden="true">

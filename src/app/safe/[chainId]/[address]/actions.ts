@@ -53,7 +53,8 @@ export async function requestSafeRefresh(
   if (!session) {
     return {
       status: "error",
-      message: "This Safe is not available in the current watchlist.",
+      message:
+        "Your wallet session expired. Return to Your Safes to sign in again.",
       requestedAt,
     };
   }
@@ -183,7 +184,8 @@ export async function requestSafeReanalysis(
   if (!session) {
     return {
       status: "error",
-      message: "This Safe is not available in the current watchlist.",
+      message:
+        "Your wallet session expired. Return to Your Safes to sign in again.",
     };
   }
 
@@ -246,7 +248,8 @@ export async function requestSafeModuleReanalysis(
   if (!session) {
     return {
       status: "error",
-      message: "This Safe is not available in the current watchlist.",
+      message:
+        "Your wallet session expired. Return to Your Safes to sign in again.",
     };
   }
 
