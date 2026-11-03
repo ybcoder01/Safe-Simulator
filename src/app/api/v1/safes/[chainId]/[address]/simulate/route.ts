@@ -108,9 +108,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   try {
     const persistence = getPersistencePort();
-    if (
-      !(await isSafeAvailableToSession(persistence, session, safeRef.data))
-    ) {
+    if (!(await isSafeAvailableToSession(persistence, session, safeRef.data))) {
       return error(
         "This Safe is not available in the current watchlist.",
         404,
