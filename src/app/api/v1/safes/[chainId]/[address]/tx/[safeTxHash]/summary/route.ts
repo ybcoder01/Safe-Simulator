@@ -27,7 +27,7 @@ import {
   safeRouteParamsSchema,
   safeTransactionHashSchema,
 } from "@/lib/api/safe-details";
-import { isSafeBookmarked } from "@/lib/api/sync-refresh";
+import { isSafeAvailableToSession } from "@/lib/api/sync-refresh";
 import { resolveTokenBalanceChanges } from "@/lib/api/token-balance-changes";
 import { resolveExecutionTokenMetadata } from "@/lib/api/token-metadata";
 import { resolveNeutralTransactionAnalysis } from "@/lib/api/transaction-analysis";
@@ -130,15 +130,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
       "authentication_required",
     );
   }
-  const profileId = session.profileId;
-
   const persistence = getPersistencePort();
   try {
-    const [bookmarked, owned] = await Promise.all([
-      persistence.listSafesForProfile(profileId),
-      persistence.listSafesForOwner(session.walletAddress),
-    ]);
-    if (!isSafeBookmarked([...bookmarked, ...owned], safe.data)) {
+    if (!(await isSafeAvailableToSession(persistence, session, safe.data))) {
       return error(
         "This Safe is not available in the current watchlist.",
         404,
