@@ -333,6 +333,28 @@ export default async function SafeDashboardPage({
           </div>
         </section>
 
+        <section
+          className="draft-simulation-cta"
+          role="region"
+          aria-labelledby="first-signer-review"
+        >
+          <div>
+            <p className="eyebrow">Before the first signature</p>
+            <h2 id="first-signer-review">Review what you are about to sign</h2>
+            <p>
+              Safe publishes a proposal only after an owner signs it. Paste the
+              exact target, value, and calldata here first so every signer gets
+              the security review before the wallet confirmation.
+            </p>
+          </div>
+          <Link
+            className="button"
+            href={`/safe/${safe.chainId}/${safe.address}/simulate`}
+          >
+            Review before signing
+          </Link>
+        </section>
+
         {pendingTrustReviews.length > 0 ? (
           <section className="form-notice" role="status">
             <strong>Your approval is needed.</strong>{" "}
@@ -490,23 +512,6 @@ export default async function SafeDashboardPage({
             )}
           </section>
         </div>
-
-        <section className="draft-simulation-cta">
-          <div>
-            <p className="eyebrow">Before you propose</p>
-            <h2>Preview a draft contract call</h2>
-            <p>
-              Enter a target, value, and calldata to inspect execution behavior
-              and permission risk against latest chain state.
-            </p>
-          </div>
-          <Link
-            className="button"
-            href={`/safe/${safe.chainId}/${safe.address}/simulate`}
-          >
-            Simulate a draft
-          </Link>
-        </section>
 
         <TelegramAlertsCard
           address={safe.address}

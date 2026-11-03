@@ -123,6 +123,18 @@ describe("Telegram transaction alerts", () => {
     expect(text).not.toContain("NO KNOWN WARNING FOUND");
   });
 
+  it("warns the first signer when the first published proposal appears", () => {
+    const text = formatTelegramAlert(transaction(), 2, analysis);
+
+    expect(text).toContain("First signer notice");
+    expect(text).toContain(
+      "Safe could not publish this proposal until one owner signed it.",
+    );
+    expect(text).toContain(
+      "If that was you, review this report now and ask the other owners not to sign",
+    );
+  });
+
   it("shows a novice-first pending alert without raw technical identifiers", () => {
     const text = formatTelegramAlert(transaction(), 2, analysis);
 
