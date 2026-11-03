@@ -66,7 +66,7 @@ describe("on-demand synchronization refresh", () => {
   });
 
   it("authorizes a Safe bookmarked by the profile or owned by its wallet", async () => {
-    const owner = "0x1111111111111111111111111111111111111111";
+    const owner = "0x1111111111111111111111111111111111111111" as const;
     const snapshot: SafeSnapshot = {
       ...safe,
       owners: [owner],
@@ -76,7 +76,6 @@ describe("on-demand synchronization refresh", () => {
       guard: null,
       modules: [],
       implementation: null,
-      updatedAt: 20,
     };
     const session = {
       profileId: "profile-1",
