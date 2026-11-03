@@ -62,9 +62,7 @@ export async function requestSafeRefresh(
 
   try {
     const persistence = getPersistencePort();
-    if (
-      !(await isSafeAvailableToSession(persistence, session, parsed.data))
-    ) {
+    if (!(await isSafeAvailableToSession(persistence, session, parsed.data))) {
       return {
         status: "error",
         message: "This Safe is not available in the current watchlist.",
@@ -195,9 +193,7 @@ export async function requestSafeReanalysis(
 
   try {
     const persistence = getPersistencePort();
-    if (
-      !(await isSafeAvailableToSession(persistence, session, parsed.data))
-    ) {
+    if (!(await isSafeAvailableToSession(persistence, session, parsed.data))) {
       return {
         status: "error",
         message: "This Safe is not available in the current watchlist.",
@@ -262,9 +258,7 @@ export async function requestSafeModuleReanalysis(
 
   try {
     const persistence = getPersistencePort();
-    if (
-      !(await isSafeAvailableToSession(persistence, session, parsed.data))
-    ) {
+    if (!(await isSafeAvailableToSession(persistence, session, parsed.data))) {
       return {
         status: "error",
         message: "This Safe is not available in the current watchlist.",
