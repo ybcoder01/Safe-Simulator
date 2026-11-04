@@ -19,6 +19,7 @@ import {
 } from "react";
 
 import { EvidenceFindings } from "@/components/shared/evidence-findings";
+import styles from "./safe-app-review.module.css";
 import type { ManualSimulationView } from "@/lib/api/manual-simulation";
 
 interface SafeContext {
@@ -576,9 +577,9 @@ export function SafeAppReview() {
         </p>
       </section>
 
-      <section className="safe-app-gateway" aria-live="polite">
+      <section className={styles.gateway} aria-live="polite">
         {connectedDapp ? (
-          <div className="safe-app-connected">
+          <div className={styles.connected}>
             {connectedDapp.icon ? (
               <img alt="" height={44} src={connectedDapp.icon} width={44} />
             ) : null}
@@ -587,14 +588,14 @@ export function SafeAppReview() {
               <strong>{connectedDapp.name}</strong>
               {connectedDapp.url ? <small>{connectedDapp.url}</small> : null}
             </div>
-            <span className="safe-app-live">
+            <span className={styles.live}>
               {waitingForRequest
                 ? "Waiting for a transaction"
                 : "Transaction captured"}
             </span>
           </div>
         ) : REOWN_PROJECT_ID ? (
-          <form className="safe-app-pairing" onSubmit={pairDapp}>
+          <form className={styles.pairing} onSubmit={pairDapp}>
             <label>
               WalletConnect pairing link
               <input
@@ -619,7 +620,7 @@ export function SafeAppReview() {
             </p>
           </div>
         )}
-        <p className="safe-app-gateway-note">
+        <p className={styles.note}>
           Safe Inspector accepts only <code>eth_sendTransaction</code> for the
           Safe and network shown above. It never receives a private key.
         </p>
@@ -710,7 +711,7 @@ export function SafeAppReview() {
                   </span>
                 </label>
               ) : null}
-              <div className="safe-app-actions">
+              <div className={styles.actions}>
                 <button
                   className="button"
                   disabled={proposing || (needsAcknowledgement && !acknowledged)}
@@ -748,7 +749,7 @@ export function SafeAppReview() {
         </section>
       ) : null}
 
-      <details className="safe-app-manual">
+      <details className={styles.manual}>
         <summary>Advanced: review a transaction manually</summary>
         <p>
           Use this fallback only when a treasury system cannot connect through
