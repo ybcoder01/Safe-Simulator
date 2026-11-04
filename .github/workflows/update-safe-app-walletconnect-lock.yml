@@ -1,18 +1,19 @@
-name: Update Safe App WalletConnect lockfile
+name: Format Safe App WalletConnect files
 
 on:
   push:
     branches:
       - feat/safe-app-preview
     paths:
-      - package.json
+      - src/components/safes/safe-app-review.tsx
+      - src/components/safes/safe-app-review.module.css
       - .github/workflows/update-safe-app-walletconnect-lock.yml
 
 permissions:
   contents: write
 
 jobs:
-  lockfile:
+  format:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
@@ -26,12 +27,13 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-      - run: pnpm install --lockfile-only
-      - name: Commit lockfile
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec prettier --write src/components/safes/safe-app-review.tsx src/components/safes/safe-app-review.module.css
+      - name: Commit formatting
         run: |
-          if git diff --quiet -- pnpm-lock.yaml; then exit 0; fi
+          if git diff --quiet; then exit 0; fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add pnpm-lock.yaml
-          git commit -m "Update WalletConnect lockfile"
+          git add src/components/safes/safe-app-review.tsx src/components/safes/safe-app-review.module.css
+          git commit -m "Format automated Safe App review flow"
           git push origin HEAD:feat/safe-app-preview
