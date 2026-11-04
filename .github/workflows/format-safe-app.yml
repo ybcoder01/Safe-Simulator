@@ -1,0 +1,36 @@
+name: Format Safe App WalletConnect implementation
+
+on:
+  push:
+    branches:
+      - feat/safe-app-preview
+    paths:
+      - .github/workflows/format-safe-app.yml
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/safe-app-preview
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec prettier --write src/components/safes/safe-app-review.tsx
+      - name: Commit formatting
+        run: |
+          if git diff --quiet; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/components/safes/safe-app-review.tsx
+          git commit -m "Format Safe App WalletConnect implementation"
+          git push origin HEAD:feat/safe-app-preview
