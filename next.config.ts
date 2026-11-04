@@ -1,6 +1,6 @@
 import type { NextConfig } from "next";
 
-export const contentSecurityPolicy = [
+const commonContentSecurityDirectives = [
   "default-src 'self'",
   "base-uri 'self'",
   [
@@ -11,7 +11,6 @@ export const contentSecurityPolicy = [
   ].join(" "),
   "font-src 'self'",
   "form-action 'self'",
-  "frame-ancestors 'none'",
   "img-src 'self' data:",
   "manifest-src 'self'",
   "object-src 'none'",
@@ -19,12 +18,19 @@ export const contentSecurityPolicy = [
   "script-src-attr 'none'",
   "style-src 'self' 'unsafe-inline'",
   "upgrade-insecure-requests",
+];
+
+export const contentSecurityPolicy = [
+  ...commonContentSecurityDirectives,
+  "frame-ancestors 'none'",
 ].join("; ");
 
-export const securityHeaders = [
-  { key: "Content-Security-Policy", value: contentSecurityPolicy },
-  { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
-  { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
+export const safeAppContentSecurityPolicy = [
+  ...commonContentSecurityDirectives,
+  "frame-ancestors https://app.safe.global",
+].join("; ");
+
+const commonSecurityHeaders = [
   {
     key: "Permissions-Policy",
     value: "camera=(), geolocation=(), microphone=(), payment=(), usb=()",
@@ -35,12 +41,31 @@ export const securityHeaders = [
     value: "max-age=63072000; includeSubDomains; preload",
   },
   { key: "X-Content-Type-Options", value: "nosniff" },
+];
+
+export const securityHeaders = [
+  { key: "Content-Security-Policy", value: contentSecurityPolicy },
+  { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+  { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
+  ...commonSecurityHeaders,
   { key: "X-Frame-Options", value: "DENY" },
+];
+
+export const safeAppSecurityHeaders = [
+  { key: "Content-Security-Policy", value: safeAppContentSecurityPolicy },
+  { key: "Cross-Origin-Resource-Policy", value: "cross-origin" },
+  ...commonSecurityHeaders,
 ];
 
 const nextConfig: NextConfig = {
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/safe-app/:path*", headers: safeAppSecurityHeaders },
+      {
+        source: "/:path((?!safe-app(?:/|$)).*)",
+        headers: securityHeaders,
+      },
+    ];
   },
   poweredByHeader: false,
   reactStrictMode: true,
