@@ -2,10 +2,7 @@
 
 import SafeAppsSDK from "@safe-global/safe-apps-sdk";
 import { Core } from "@walletconnect/core";
-import {
-  buildApprovedNamespaces,
-  getSdkError,
-} from "@walletconnect/utils";
+import { buildApprovedNamespaces, getSdkError } from "@walletconnect/utils";
 import { WalletKit } from "@reown/walletkit";
 import { parseUnits } from "viem";
 import {
