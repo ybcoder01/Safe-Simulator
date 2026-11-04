@@ -264,7 +264,7 @@ export function SafeAppReview() {
   useEffect(() => {
     if (!safe || !REOWN_PROJECT_ID) return;
     let active = true;
-    let kit: Awaited<ReturnType<typeof WalletKit.init>> | null = null;
+    let removeListeners = () => {};
 
     void getWalletKit()
       .then((initializedKit) => {
