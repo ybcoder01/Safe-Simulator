@@ -269,14 +269,15 @@ export function SafeAppReview() {
     void getWalletKit()
       .then((initializedKit) => {
         if (!active) return;
-        kit = initializedKit;
         walletKitRef.current = initializedKit;
 
         const sessions = Object.values(initializedKit.getActiveSessions());
         const session = sessions.find((candidate) =>
           Object.values(candidate.namespaces).some((namespace) =>
-            namespace.accounts?.includes(
-              `eip155:${safe.chainId}:${safe.address.toLowerCase()}`,
+            namespace.accounts?.some(
+              (account) =>
+                account.toLowerCase() ===
+                `eip155:${safe.chainId}:${safe.address.toLowerCase()}`,
             ),
           ),
         );
@@ -407,7 +408,7 @@ export function SafeAppReview() {
         initializedKit.on("session_request", handleRequest);
         initializedKit.on("session_delete", handleDelete);
 
-        return () => {
+        removeListeners = () => {
           initializedKit.off("session_proposal", handleProposal);
           initializedKit.off("session_request", handleRequest);
           initializedKit.off("session_delete", handleDelete);
@@ -424,9 +425,7 @@ export function SafeAppReview() {
 
     return () => {
       active = false;
-      if (kit) {
-        walletKitRef.current = kit;
-      }
+      removeListeners();
     };
   }, [analyzeTransaction, safe]);
 
