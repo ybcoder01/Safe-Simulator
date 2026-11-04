@@ -22,9 +22,7 @@ interface ApiResponse {
 const SAFE_CONTEXT_TIMEOUT_MS = 8_000;
 
 function shorten(value: string) {
-  return value.length > 20
-    ? `${value.slice(0, 10)}…${value.slice(-8)}`
-    : value;
+  return value.length > 20 ? `${value.slice(0, 10)}…${value.slice(-8)}` : value;
 }
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
@@ -200,7 +198,9 @@ export function SafeAppReview() {
         </div>
         <div>
           <span>Network</span>
-          <strong>{safe.chainId === 50 ? "XDC Network" : `Chain ${safe.chainId}`}</strong>
+          <strong>
+            {safe.chainId === 50 ? "XDC Network" : `Chain ${safe.chainId}`}
+          </strong>
         </div>
         <div>
           <span>Signing policy</span>
@@ -289,7 +289,9 @@ export function SafeAppReview() {
           <div className="simulation-metrics">
             <div>
               <span>Target</span>
-              <strong>{result.target.label ?? shorten(result.request.to)}</strong>
+              <strong>
+                {result.target.label ?? shorten(result.request.to)}
+              </strong>
             </div>
             <div>
               <span>Action</span>
@@ -332,9 +334,7 @@ export function SafeAppReview() {
               ) : null}
               <button
                 className="button"
-                disabled={
-                  proposing || (needsAcknowledgement && !acknowledged)
-                }
+                disabled={proposing || (needsAcknowledgement && !acknowledged)}
                 onClick={propose}
                 type="button"
               >

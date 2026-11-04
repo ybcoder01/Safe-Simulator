@@ -5879,7 +5879,6 @@ select {
   }
 }
 
-
 /* Preview-only Safe Global app */
 .safe-app-shell {
   width: min(72rem, calc(100% - 2rem));

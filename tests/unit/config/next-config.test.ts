@@ -35,7 +35,9 @@ describe("security response headers", () => {
     expect(safeAppContentSecurityPolicy).toContain(
       "frame-ancestors https://app.safe.global",
     );
-    expect(safeAppContentSecurityPolicy).not.toContain("frame-ancestors 'none'");
+    expect(safeAppContentSecurityPolicy).not.toContain(
+      "frame-ancestors 'none'",
+    );
     expect(safeAppSecurityHeaders).not.toContainEqual(
       expect.objectContaining({ key: "X-Frame-Options" }),
     );
