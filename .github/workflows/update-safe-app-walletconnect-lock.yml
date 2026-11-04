@@ -1,4 +1,4 @@
-name: Update Safe App WalletConnect lockfile
+name: Align Safe App WalletConnect lockfile
 
 on:
   push:
