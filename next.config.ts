@@ -52,6 +52,10 @@ export const securityHeaders = [
 ];
 
 export const safeAppSecurityHeaders = [
+  {
+    key: "Access-Control-Allow-Origin",
+    value: "https://app.safe.global",
+  },
   { key: "Content-Security-Policy", value: safeAppContentSecurityPolicy },
   { key: "Cross-Origin-Resource-Policy", value: "cross-origin" },
   ...commonSecurityHeaders,
