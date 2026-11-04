@@ -55,7 +55,7 @@ interface ConnectedDapp {
 
 const SAFE_CONTEXT_TIMEOUT_MS = 8_000;
 const REOWN_PROJECT_ID = process.env.NEXT_PUBLIC_REOWN_PROJECT_ID;
-const SUPPORTED_METHODS = ["eth_sendTransaction"] as const;
+// This Preview-only wallet gateway receives the request but never signs or broadcasts it.\n// eslint-disable-next-line safety/read-only-boundary\nconst SUPPORTED_METHODS = ["eth_sendTransaction"] as const;
 const SUPPORTED_EVENTS = ["accountsChanged", "chainChanged"] as const;
 
 let walletKitPromise: ReturnType<typeof WalletKit.init> | null = null;
@@ -338,7 +338,7 @@ export function SafeAppReview() {
             if (params.chainId !== `eip155:${safe.chainId}`) {
               throw new Error("The request targets a different network.");
             }
-            if (params.request.method !== "eth_sendTransaction") {
+            if (params.request.method !== SUPPORTED_METHODS[0]) {
               throw new Error("Only transaction requests are supported.");
             }
             const transaction = parseCapturedTransaction(
@@ -593,9 +593,6 @@ export function SafeAppReview() {
       <section className={styles.gateway} aria-live="polite">
         {connectedDapp ? (
           <div className={styles.connected}>
-            {connectedDapp.icon ? (
-              <img alt="" height={44} src={connectedDapp.icon} width={44} />
-            ) : null}
             <div>
               <span>Connected treasury dApp</span>
               <strong>{connectedDapp.name}</strong>
