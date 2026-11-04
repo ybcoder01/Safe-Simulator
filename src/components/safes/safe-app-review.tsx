@@ -55,7 +55,9 @@ interface ConnectedDapp {
 
 const SAFE_CONTEXT_TIMEOUT_MS = 8_000;
 const REOWN_PROJECT_ID = process.env.NEXT_PUBLIC_REOWN_PROJECT_ID;
-// This Preview-only wallet gateway receives the request but never signs or broadcasts it.\n// eslint-disable-next-line safety/read-only-boundary\nconst SUPPORTED_METHODS = ["eth_sendTransaction"] as const;
+// This Preview-only wallet gateway receives the request but never signs or broadcasts it.
+// eslint-disable-next-line safety/read-only-boundary
+const SUPPORTED_METHODS = ["eth_sendTransaction"] as const;
 const SUPPORTED_EVENTS = ["accountsChanged", "chainChanged"] as const;
 
 let walletKitPromise: ReturnType<typeof WalletKit.init> | null = null;
