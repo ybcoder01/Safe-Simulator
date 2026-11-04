@@ -1,0 +1,128 @@
+.gateway {
+  display: grid;
+  gap: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background:
+    radial-gradient(circle at 90% 10%, rgba(93, 237, 173, 0.08), transparent 30%),
+    rgba(9, 28, 22, 0.55);
+  padding: clamp(1rem, 3vw, 1.5rem);
+}
+
+.pairing {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.8rem;
+  align-items: end;
+}
+
+.pairing label {
+  display: grid;
+  gap: 0.45rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.pairing input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 0.7rem;
+  background: #06130f;
+  color: var(--foreground);
+  padding: 0.8rem 0.9rem;
+  font: 0.85rem var(--font-mono);
+}
+
+.connected {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.85rem;
+  align-items: center;
+}
+
+.connected img {
+  border-radius: 0.65rem;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.connected div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.connected span,
+.connected small,
+.note {
+  color: var(--muted);
+}
+
+.connected strong {
+  font-size: 1.05rem;
+}
+
+.connected small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.live {
+  border: 1px solid rgba(93, 237, 173, 0.35);
+  border-radius: 999px;
+  padding: 0.4rem 0.65rem;
+  color: var(--accent) !important;
+  font: 0.7rem var(--font-mono);
+  text-transform: uppercase;
+}
+
+.note {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.note code {
+  color: var(--foreground);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.manual {
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: rgba(9, 28, 22, 0.35);
+  padding: 1rem;
+}
+
+.manual summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.manual > p {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+@media (max-width: 680px) {
+  .pairing,
+  .connected {
+    grid-template-columns: 1fr;
+  }
+
+  .pairing button,
+  .actions button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .live {
+    justify-self: start;
+  }
+}
