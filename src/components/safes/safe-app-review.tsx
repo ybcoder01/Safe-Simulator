@@ -104,8 +104,13 @@ function parseCapturedTransaction(value: unknown): CapturedTransaction {
     throw new Error("The connected app sent an invalid transaction.");
   }
   const candidate = value as Record<string, unknown>;
-  if (typeof candidate.to !== "string" || !/^0x[a-fA-F0-9]{40}$/.test(candidate.to)) {
-    throw new Error("The connected app did not provide a valid target address.");
+  if (
+    typeof candidate.to !== "string" ||
+    !/^0x[a-fA-F0-9]{40}$/.test(candidate.to)
+  ) {
+    throw new Error(
+      "The connected app did not provide a valid target address.",
+    );
   }
   const rawValue =
     typeof candidate.value === "string" && candidate.value.length > 0
@@ -150,15 +155,17 @@ function dappFromSession(session: {
 
 export function SafeAppReview() {
   const sdkRef = useRef<SafeAppsSDK | null>(null);
-  const walletKitRef = useRef<Awaited<ReturnType<typeof WalletKit.init>> | null>(
-    null,
-  );
+  const walletKitRef = useRef<Awaited<
+    ReturnType<typeof WalletKit.init>
+  > | null>(null);
   const pendingRequestRef = useRef<PendingWalletRequest | null>(null);
   const [safe, setSafe] = useState<SafeContext | null>(null);
   const [contextError, setContextError] = useState<string | null>(null);
   const [pairingUri, setPairingUri] = useState("");
   const [pairing, setPairing] = useState(false);
-  const [connectedDapp, setConnectedDapp] = useState<ConnectedDapp | null>(null);
+  const [connectedDapp, setConnectedDapp] = useState<ConnectedDapp | null>(
+    null,
+  );
   const [waitingForRequest, setWaitingForRequest] = useState(false);
   const [pendingRequest, setPendingRequest] =
     useState<PendingWalletRequest | null>(null);
@@ -202,7 +209,11 @@ export function SafeAppReview() {
   }, []);
 
   const analyzeTransaction = useCallback(
-    async (transaction: CapturedTransaction, chainId: number, safeAddress: string) => {
+    async (
+      transaction: CapturedTransaction,
+      chainId: number,
+      safeAddress: string,
+    ) => {
       setReviewing(true);
       setResult(null);
       setAcknowledged(false);
@@ -434,7 +445,9 @@ export function SafeAppReview() {
     } catch (cause) {
       setPairing(false);
       setError(
-        cause instanceof Error ? cause.message : "The dApp could not be paired.",
+        cause instanceof Error
+          ? cause.message
+          : "The dApp could not be paired.",
       );
     }
   }
@@ -714,7 +727,9 @@ export function SafeAppReview() {
               <div className={styles.actions}>
                 <button
                   className="button"
-                  disabled={proposing || (needsAcknowledgement && !acknowledged)}
+                  disabled={
+                    proposing || (needsAcknowledgement && !acknowledged)
+                  }
                   onClick={propose}
                   type="button"
                 >
