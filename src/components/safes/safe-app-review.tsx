@@ -84,7 +84,9 @@ function getWalletKit() {
     );
   }
   walletKitPromise ??= WalletKit.init({
-    core: new Core({ projectId: REOWN_PROJECT_ID }) as Parameters<\n      typeof WalletKit.init\n    >[0]["core"],
+    core: new Core({ projectId: REOWN_PROJECT_ID }) as Parameters<
+      typeof WalletKit.init
+    >[0]["core"],
     metadata: {
       name: "Safe Inspector",
       description:
