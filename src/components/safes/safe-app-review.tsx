@@ -4,8 +4,6 @@ import SafeAppsSDK from "@safe-global/safe-apps-sdk";
 import { Core } from "@walletconnect/core";
 import {
   buildApprovedNamespaces,
-  formatJsonRpcError,
-  formatJsonRpcResult,
   getSdkError,
 } from "@walletconnect/utils";
 import { WalletKit } from "@reown/walletkit";
@@ -138,6 +136,18 @@ function parseCapturedTransaction(value: unknown): CapturedTransaction {
   };
 }
 
+function jsonRpcResult(id: number, result: unknown) {
+  return { id, jsonrpc: "2.0" as const, result };
+}
+
+function jsonRpcError(id: number, message: string) {
+  return {
+    id,
+    jsonrpc: "2.0" as const,
+    error: { code: 5000, message },
+  };
+}
+
 function dappFromSession(session: {
   readonly peer?: {
     readonly metadata?: {
@@ -150,8 +160,8 @@ function dappFromSession(session: {
   const metadata = session.peer?.metadata;
   return {
     name: metadata?.name ?? "Connected treasury app",
-    url: metadata?.url,
-    icon: metadata?.icons?.[0],
+    ...(metadata?.url ? { url: metadata.url } : {}),
+    ...(metadata?.icons?.[0] ? { icon: metadata.icons[0] } : {}),
   };
 }
 
@@ -329,7 +339,7 @@ export function SafeAppReview() {
           if (pendingRequestRef.current) {
             await initializedKit.respondSessionRequest({
               topic,
-              response: formatJsonRpcError(
+              response: jsonRpcError(
                 id,
                 "Another transaction is already awaiting review.",
               ),
@@ -379,7 +389,7 @@ export function SafeAppReview() {
                 : "The wallet request could not be reviewed.";
             await initializedKit.respondSessionRequest({
               topic,
-              response: formatJsonRpcError(id, message),
+              response: jsonRpcError(id, message),
             });
             if (!active) return;
             setError(message);
@@ -477,7 +487,7 @@ export function SafeAppReview() {
     if (!request || !kit) return;
     await kit.respondSessionRequest({
       topic: request.topic,
-      response: formatJsonRpcError(
+      response: jsonRpcError(
         request.id,
         "Transaction rejected by Safe Inspector user.",
       ),
@@ -518,7 +528,7 @@ export function SafeAppReview() {
       if (request && kit) {
         await kit.respondSessionRequest({
           topic: request.topic,
-          response: formatJsonRpcResult(request.id, response.safeTxHash),
+          response: jsonRpcResult(request.id, response.safeTxHash),
         });
         pendingRequestRef.current = null;
         setPendingRequest(null);
