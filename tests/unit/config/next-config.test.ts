@@ -20,9 +20,17 @@ describe("security response headers", () => {
 
   it("restricts executable and embeddable content to the application", () => {
     expect(contentSecurityPolicy).toContain("default-src 'self'");
+    expect(contentSecurityPolicy).toContain("connect-src 'self'");
     expect(contentSecurityPolicy).toContain(
-      "connect-src 'self' https://auth.privy.io https://explorer-api.walletconnect.com wss://relay.walletconnect.com",
+      "https://explorer-api.walletconnect.com",
     );
+    expect(contentSecurityPolicy).toContain(
+      "https://verify.walletconnect.org",
+    );
+    expect(contentSecurityPolicy).toContain("https://pulse.walletconnect.org");
+    expect(contentSecurityPolicy).toContain("https://echo.walletconnect.com");
+    expect(contentSecurityPolicy).toContain("wss://relay.walletconnect.com");
+    expect(contentSecurityPolicy).toContain("wss://relay.walletconnect.org");
     expect(contentSecurityPolicy).toContain("frame-ancestors 'none'");
     expect(contentSecurityPolicy).toContain("object-src 'none'");
     expect(contentSecurityPolicy).toContain("script-src-attr 'none'");
