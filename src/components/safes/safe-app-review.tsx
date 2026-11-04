@@ -1,8 +1,22 @@
 "use client";
 
 import SafeAppsSDK from "@safe-global/safe-apps-sdk";
+import { Core } from "@walletconnect/core";
+import {
+  buildApprovedNamespaces,
+  formatJsonRpcError,
+  formatJsonRpcResult,
+  getSdkError,
+} from "@walletconnect/utils";
+import { WalletKit } from "@reown/walletkit";
 import { parseUnits } from "viem";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 
 import { EvidenceFindings } from "@/components/shared/evidence-findings";
 import type { ManualSimulationView } from "@/lib/api/manual-simulation";
@@ -19,7 +33,31 @@ interface ApiResponse {
   readonly error?: { readonly message?: string };
 }
 
+interface CapturedTransaction {
+  readonly to: string;
+  readonly value: string;
+  readonly data: string;
+}
+
+interface PendingWalletRequest {
+  readonly topic: string;
+  readonly id: number;
+  readonly chainId: string;
+  readonly transaction: CapturedTransaction;
+}
+
+interface ConnectedDapp {
+  readonly name: string;
+  readonly url?: string;
+  readonly icon?: string;
+}
+
 const SAFE_CONTEXT_TIMEOUT_MS = 8_000;
+const REOWN_PROJECT_ID = process.env.NEXT_PUBLIC_REOWN_PROJECT_ID;
+const SUPPORTED_METHODS = ["eth_sendTransaction"] as const;
+const SUPPORTED_EVENTS = ["accountsChanged", "chainChanged"] as const;
+
+let walletKitPromise: ReturnType<typeof WalletKit.init> | null = null;
 
 function shorten(value: string) {
   return value.length > 20 ? `${value.slice(0, 10)}…${value.slice(-8)}` : value;
@@ -41,10 +79,88 @@ function nativeSymbol(chainId: number) {
   return chainId === 1 ? "ETH" : chainId === 50 ? "XDC" : "native token";
 }
 
+function getWalletKit() {
+  if (!REOWN_PROJECT_ID) {
+    throw new Error(
+      "WalletConnect is not configured for this Preview deployment.",
+    );
+  }
+  walletKitPromise ??= WalletKit.init({
+    core: new Core({ projectId: REOWN_PROJECT_ID }),
+    metadata: {
+      name: "Safe Inspector",
+      description:
+        "Review treasury transactions before opening Safe confirmation.",
+      url: window.location.origin,
+      icons: [`${window.location.origin}/icon.png`],
+    },
+  });
+  return walletKitPromise;
+}
+
+function parseCapturedTransaction(value: unknown): CapturedTransaction {
+  if (!value || typeof value !== "object") {
+    throw new Error("The connected app sent an invalid transaction.");
+  }
+  const candidate = value as Record<string, unknown>;
+  if (typeof candidate.to !== "string" || !/^0x[a-fA-F0-9]{40}$/.test(candidate.to)) {
+    throw new Error("The connected app did not provide a valid target address.");
+  }
+  const rawValue =
+    typeof candidate.value === "string" && candidate.value.length > 0
+      ? candidate.value
+      : "0x0";
+  let normalizedValue: string;
+  try {
+    normalizedValue = BigInt(rawValue).toString();
+  } catch {
+    throw new Error("The connected app provided an invalid native value.");
+  }
+  const data =
+    typeof candidate.data === "string" && candidate.data.length > 0
+      ? candidate.data
+      : "0x";
+  if (!/^0x(?:[a-fA-F0-9]{2})*$/.test(data)) {
+    throw new Error("The connected app provided invalid calldata.");
+  }
+  return {
+    to: candidate.to,
+    value: normalizedValue,
+    data,
+  };
+}
+
+function dappFromSession(session: {
+  readonly peer?: {
+    readonly metadata?: {
+      readonly name?: string;
+      readonly url?: string;
+      readonly icons?: readonly string[];
+    };
+  };
+}): ConnectedDapp {
+  const metadata = session.peer?.metadata;
+  return {
+    name: metadata?.name ?? "Connected treasury app",
+    url: metadata?.url,
+    icon: metadata?.icons?.[0],
+  };
+}
+
 export function SafeAppReview() {
   const sdkRef = useRef<SafeAppsSDK | null>(null);
+  const walletKitRef = useRef<Awaited<ReturnType<typeof WalletKit.init>> | null>(
+    null,
+  );
+  const pendingRequestRef = useRef<PendingWalletRequest | null>(null);
   const [safe, setSafe] = useState<SafeContext | null>(null);
   const [contextError, setContextError] = useState<string | null>(null);
+  const [pairingUri, setPairingUri] = useState("");
+  const [pairing, setPairing] = useState(false);
+  const [connectedDapp, setConnectedDapp] = useState<ConnectedDapp | null>(null);
+  const [waitingForRequest, setWaitingForRequest] = useState(false);
+  const [pendingRequest, setPendingRequest] =
+    useState<PendingWalletRequest | null>(null);
   const [to, setTo] = useState("");
   const [nativeValue, setNativeValue] = useState("0");
   const [data, setData] = useState("0x");
@@ -84,6 +200,213 @@ export function SafeAppReview() {
     };
   }, []);
 
+  const analyzeTransaction = useCallback(
+    async (transaction: CapturedTransaction, chainId: number, safeAddress: string) => {
+      setReviewing(true);
+      setResult(null);
+      setAcknowledged(false);
+      setProposalHash(null);
+      setError(null);
+
+      try {
+        const response = await fetch("/api/v1/safe-app/review", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chainId,
+            safeAddress,
+            to: transaction.to,
+            value: transaction.value,
+            data: transaction.data,
+          }),
+        });
+        const body = (await response.json()) as ApiResponse;
+        if (!response.ok || !body.data) {
+          throw new Error(body.error?.message ?? "The draft review failed.");
+        }
+        setResult(body.data);
+      } catch (cause) {
+        setError(
+          cause instanceof Error
+            ? cause.message
+            : "The draft review is temporarily unavailable.",
+        );
+      } finally {
+        setReviewing(false);
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!safe || !REOWN_PROJECT_ID) return;
+    let active = true;
+    let kit: Awaited<ReturnType<typeof WalletKit.init>> | null = null;
+
+    void getWalletKit()
+      .then((initializedKit) => {
+        if (!active) return;
+        kit = initializedKit;
+        walletKitRef.current = initializedKit;
+
+        const sessions = Object.values(initializedKit.getActiveSessions());
+        const session = sessions.find((candidate) =>
+          Object.values(candidate.namespaces).some((namespace) =>
+            namespace.accounts?.includes(
+              `eip155:${safe.chainId}:${safe.address.toLowerCase()}`,
+            ),
+          ),
+        );
+        if (session) {
+          setConnectedDapp(dappFromSession(session));
+          setWaitingForRequest(true);
+        }
+
+        const handleProposal = async (
+          proposal: Parameters<
+            Parameters<typeof initializedKit.on<"session_proposal">>[1]
+          >[0],
+        ) => {
+          try {
+            const chain = `eip155:${safe.chainId}`;
+            const account = `${chain}:${safe.address.toLowerCase()}`;
+            const namespaces = buildApprovedNamespaces({
+              proposal: proposal.params,
+              supportedNamespaces: {
+                eip155: {
+                  chains: [chain],
+                  methods: [...SUPPORTED_METHODS],
+                  events: [...SUPPORTED_EVENTS],
+                  accounts: [account],
+                },
+              },
+            });
+            const session = await initializedKit.approveSession({
+              id: proposal.id,
+              namespaces,
+            });
+            if (!active) return;
+            setConnectedDapp(dappFromSession(session));
+            setWaitingForRequest(true);
+            setPairing(false);
+            setPairingUri("");
+            setError(null);
+          } catch (cause) {
+            await initializedKit.rejectSession({
+              id: proposal.id,
+              reason: getSdkError("USER_REJECTED_METHODS"),
+            });
+            if (!active) return;
+            setPairing(false);
+            setError(
+              cause instanceof Error
+                ? cause.message
+                : "The dApp requested unsupported wallet permissions.",
+            );
+          }
+        };
+
+        const handleRequest = async (
+          event: Parameters<
+            Parameters<typeof initializedKit.on<"session_request">>[1]
+          >[0],
+        ) => {
+          const { topic, params, id } = event;
+          if (pendingRequestRef.current) {
+            await initializedKit.respondSessionRequest({
+              topic,
+              response: formatJsonRpcError(
+                id,
+                "Another transaction is already awaiting review.",
+              ),
+            });
+            return;
+          }
+          try {
+            if (params.chainId !== `eip155:${safe.chainId}`) {
+              throw new Error("The request targets a different network.");
+            }
+            if (params.request.method !== "eth_sendTransaction") {
+              throw new Error("Only transaction requests are supported.");
+            }
+            const transaction = parseCapturedTransaction(
+              Array.isArray(params.request.params)
+                ? params.request.params[0]
+                : undefined,
+            );
+            const raw = params.request.params as readonly unknown[];
+            const sender =
+              raw[0] && typeof raw[0] === "object"
+                ? (raw[0] as Record<string, unknown>).from
+                : undefined;
+            if (
+              typeof sender !== "string" ||
+              sender.toLowerCase() !== safe.address.toLowerCase()
+            ) {
+              throw new Error(
+                "The transaction sender is not the Safe currently open.",
+              );
+            }
+            const request = {
+              topic,
+              id,
+              chainId: params.chainId,
+              transaction,
+            };
+            pendingRequestRef.current = request;
+            if (!active) return;
+            setPendingRequest(request);
+            setWaitingForRequest(false);
+            await analyzeTransaction(transaction, safe.chainId, safe.address);
+          } catch (cause) {
+            const message =
+              cause instanceof Error
+                ? cause.message
+                : "The wallet request could not be reviewed.";
+            await initializedKit.respondSessionRequest({
+              topic,
+              response: formatJsonRpcError(id, message),
+            });
+            if (!active) return;
+            setError(message);
+          }
+        };
+
+        const handleDelete = () => {
+          if (!active) return;
+          setConnectedDapp(null);
+          setWaitingForRequest(false);
+          setPendingRequest(null);
+          pendingRequestRef.current = null;
+        };
+
+        initializedKit.on("session_proposal", handleProposal);
+        initializedKit.on("session_request", handleRequest);
+        initializedKit.on("session_delete", handleDelete);
+
+        return () => {
+          initializedKit.off("session_proposal", handleProposal);
+          initializedKit.off("session_request", handleRequest);
+          initializedKit.off("session_delete", handleDelete);
+        };
+      })
+      .catch((cause) => {
+        if (!active) return;
+        setError(
+          cause instanceof Error
+            ? cause.message
+            : "WalletConnect could not be initialized.",
+        );
+      });
+
+    return () => {
+      active = false;
+      if (kit) {
+        walletKitRef.current = kit;
+      }
+    };
+  }, [analyzeTransaction, safe]);
+
   function invalidateReview() {
     setResult(null);
     setAcknowledged(false);
@@ -91,43 +414,64 @@ export function SafeAppReview() {
     setError(null);
   }
 
-  async function review(event: FormEvent<HTMLFormElement>) {
+  async function pairDapp(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const kit = walletKitRef.current;
+    if (!kit) {
+      setError("WalletConnect is not ready yet.");
+      return;
+    }
+    const uri = pairingUri.trim();
+    if (!uri.startsWith("wc:")) {
+      setError("Paste a valid WalletConnect pairing link.");
+      return;
+    }
+    setPairing(true);
+    setError(null);
+    try {
+      await kit.pair({ uri });
+    } catch (cause) {
+      setPairing(false);
+      setError(
+        cause instanceof Error ? cause.message : "The dApp could not be paired.",
+      );
+    }
+  }
+
+  async function reviewManual(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!safe) return;
-
-    setReviewing(true);
-    setResult(null);
-    setAcknowledged(false);
-    setProposalHash(null);
-    setError(null);
-
     try {
       const value = parseUnits(nativeValue.trim() || "0", 18).toString();
-      const response = await fetch("/api/v1/safe-app/review", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chainId: safe.chainId,
-          safeAddress: safe.address,
-          to: to.trim(),
-          value,
-          data: data.trim(),
-        }),
-      });
-      const body = (await response.json()) as ApiResponse;
-      if (!response.ok || !body.data) {
-        throw new Error(body.error?.message ?? "The draft review failed.");
-      }
-      setResult(body.data);
+      await analyzeTransaction(
+        { to: to.trim(), value, data: data.trim() },
+        safe.chainId,
+        safe.address,
+      );
     } catch (cause) {
       setError(
-        cause instanceof Error
-          ? cause.message
-          : "The draft review is temporarily unavailable.",
+        cause instanceof Error ? cause.message : "The draft review failed.",
       );
-    } finally {
-      setReviewing(false);
     }
+  }
+
+  async function rejectPendingRequest() {
+    const request = pendingRequestRef.current;
+    const kit = walletKitRef.current;
+    if (!request || !kit) return;
+    await kit.respondSessionRequest({
+      topic: request.topic,
+      response: formatJsonRpcError(
+        request.id,
+        "Transaction rejected by Safe Inspector user.",
+      ),
+    });
+    pendingRequestRef.current = null;
+    setPendingRequest(null);
+    setResult(null);
+    setAcknowledged(false);
+    setWaitingForRequest(true);
+    setError(null);
   }
 
   async function propose() {
@@ -152,6 +496,18 @@ export function SafeAppReview() {
         ],
       });
       setProposalHash(response.safeTxHash);
+
+      const request = pendingRequestRef.current;
+      const kit = walletKitRef.current;
+      if (request && kit) {
+        await kit.respondSessionRequest({
+          topic: request.topic,
+          response: formatJsonRpcResult(request.id, response.safeTxHash),
+        });
+        pendingRequestRef.current = null;
+        setPendingRequest(null);
+        setWaitingForRequest(true);
+      }
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -211,60 +567,71 @@ export function SafeAppReview() {
       </section>
 
       <section className="safe-app-intro">
-        <p className="eyebrow">Before the first signature</p>
-        <h1>Review and propose</h1>
+        <p className="eyebrow">Automatic pre-signature review</p>
+        <h1>Connect your treasury dApp once</h1>
         <p>
-          Paste the exact transaction created by your treasury workflow. Safe
-          Inspector reviews it first; Safe opens its normal confirmation only
-          after this review.
+          Choose WalletConnect in the dApp that creates the transaction and
+          paste its pairing link here once. Future transaction requests arrive
+          with the target, value, and calldata already attached.
         </p>
       </section>
 
-      <form className="safe-app-form" onSubmit={review}>
-        <label>
-          Target address
-          <input
-            autoComplete="off"
-            onChange={(event) => {
-              setTo(event.target.value);
-              invalidateReview();
-            }}
-            placeholder="0x…"
-            required
-            spellCheck={false}
-            value={to}
-          />
-        </label>
-        <label>
-          Native value ({nativeSymbol(safe.chainId)})
-          <input
-            inputMode="decimal"
-            onChange={(event) => {
-              setNativeValue(event.target.value);
-              invalidateReview();
-            }}
-            placeholder="0"
-            required
-            value={nativeValue}
-          />
-        </label>
-        <label>
-          Calldata
-          <textarea
-            onChange={(event) => {
-              setData(event.target.value);
-              invalidateReview();
-            }}
-            required
-            rows={6}
-            spellCheck={false}
-            value={data}
-          />
-        </label>
-        <button className="button" disabled={reviewing} type="submit">
-          {reviewing ? "Running security review…" : "Review transaction"}
-        </button>
-      </form>
+      <section className="safe-app-gateway" aria-live="polite">
+        {connectedDapp ? (
+          <div className="safe-app-connected">
+            {connectedDapp.icon ? (
+              <img alt="" height={44} src={connectedDapp.icon} width={44} />
+            ) : null}
+            <div>
+              <span>Connected treasury dApp</span>
+              <strong>{connectedDapp.name}</strong>
+              {connectedDapp.url ? <small>{connectedDapp.url}</small> : null}
+            </div>
+            <span className="safe-app-live">
+              {waitingForRequest
+                ? "Waiting for a transaction"
+                : "Transaction captured"}
+            </span>
+          </div>
+        ) : REOWN_PROJECT_ID ? (
+          <form className="safe-app-pairing" onSubmit={pairDapp}>
+            <label>
+              WalletConnect pairing link
+              <input
+                autoComplete="off"
+                onChange={(event) => setPairingUri(event.target.value)}
+                placeholder="wc:…"
+                required
+                spellCheck={false}
+                value={pairingUri}
+              />
+            </label>
+            <button className="button" disabled={pairing} type="submit">
+              {pairing ? "Pairing…" : "Connect dApp"}
+            </button>
+          </form>
+        ) : (
+          <div className="safe-app-stop" role="alert">
+            <strong>WalletConnect needs one Preview setting.</strong>
+            <p>
+              Add NEXT_PUBLIC_REOWN_PROJECT_ID to the Preview environment, then
+              redeploy this branch.
+            </p>
+          </div>
+        )}
+        <p className="safe-app-gateway-note">
+          Safe Inspector accepts only <code>eth_sendTransaction</code> for the
+          Safe and network shown above. It never receives a private key.
+        </p>
+      </section>
+
+      {reviewing ? (
+        <section className="safe-app-state" role="status">
+          <p className="eyebrow">Transaction captured</p>
+          <h2>Running the security review…</h2>
+          <p>Nothing has been sent to Safe for signature yet.</p>
+        </section>
+      ) : null}
 
       {error ? (
         <p className="form-error" role="alert">
@@ -276,7 +643,9 @@ export function SafeAppReview() {
         <section className="safe-app-result" aria-live="polite">
           <div className="safe-app-result-heading">
             <div>
-              <p className="eyebrow">Deterministic review</p>
+              <p className="eyebrow">
+                {pendingRequest ? "Captured automatically" : "Manual fallback"}
+              </p>
               <h2>{result.verdict.headline}</h2>
             </div>
             <span
@@ -316,6 +685,15 @@ export function SafeAppReview() {
                 Critical evidence must be resolved before Safe Inspector will
                 hand this draft to Safe.
               </p>
+              {pendingRequest ? (
+                <button
+                  className="button button-secondary"
+                  onClick={rejectPendingRequest}
+                  type="button"
+                >
+                  Reject dApp request
+                </button>
+              ) : null}
             </div>
           ) : (
             <div className="safe-app-propose">
@@ -332,16 +710,28 @@ export function SafeAppReview() {
                   </span>
                 </label>
               ) : null}
-              <button
-                className="button"
-                disabled={proposing || (needsAcknowledgement && !acknowledged)}
-                onClick={propose}
-                type="button"
-              >
-                {proposing
-                  ? "Opening Safe confirmation…"
-                  : "Continue to Safe confirmation"}
-              </button>
+              <div className="safe-app-actions">
+                <button
+                  className="button"
+                  disabled={proposing || (needsAcknowledgement && !acknowledged)}
+                  onClick={propose}
+                  type="button"
+                >
+                  {proposing
+                    ? "Opening Safe confirmation…"
+                    : "Continue to Safe confirmation"}
+                </button>
+                {pendingRequest ? (
+                  <button
+                    className="button button-secondary"
+                    disabled={proposing}
+                    onClick={rejectPendingRequest}
+                    type="button"
+                  >
+                    Reject request
+                  </button>
+                ) : null}
+              </div>
               <p>
                 Safe Inspector does not sign. Safe Global will show the final
                 native confirmation and collect owner signatures.
@@ -357,6 +747,59 @@ export function SafeAppReview() {
           ) : null}
         </section>
       ) : null}
+
+      <details className="safe-app-manual">
+        <summary>Advanced: review a transaction manually</summary>
+        <p>
+          Use this fallback only when a treasury system cannot connect through
+          WalletConnect.
+        </p>
+        <form className="safe-app-form" onSubmit={reviewManual}>
+          <label>
+            Target address
+            <input
+              autoComplete="off"
+              onChange={(event) => {
+                setTo(event.target.value);
+                invalidateReview();
+              }}
+              placeholder="0x…"
+              required
+              spellCheck={false}
+              value={to}
+            />
+          </label>
+          <label>
+            Native value ({nativeSymbol(safe.chainId)})
+            <input
+              inputMode="decimal"
+              onChange={(event) => {
+                setNativeValue(event.target.value);
+                invalidateReview();
+              }}
+              placeholder="0"
+              required
+              value={nativeValue}
+            />
+          </label>
+          <label>
+            Calldata
+            <textarea
+              onChange={(event) => {
+                setData(event.target.value);
+                invalidateReview();
+              }}
+              required
+              rows={6}
+              spellCheck={false}
+              value={data}
+            />
+          </label>
+          <button className="button" disabled={reviewing} type="submit">
+            {reviewing ? "Running security review…" : "Review transaction"}
+          </button>
+        </form>
+      </details>
     </div>
   );
 }
