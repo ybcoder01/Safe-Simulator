@@ -112,8 +112,8 @@ export function SafeAppReportRedirect({
         </div>
       </div>
       <p>
-        Safe Inspector is synchronizing the transaction activity. This page
-        will become the full report automatically.
+        Safe Inspector is synchronizing the transaction activity. This page will
+        become the full report automatically.
       </p>
       <p>
         Transaction: <code>{safeTxHash}</code>
