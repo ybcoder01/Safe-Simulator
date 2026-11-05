@@ -8,18 +8,15 @@ import nextConfig, {
 } from "../../../next.config";
 
 describe("security response headers", () => {
-  it(
-    "keeps the public application unframeable and isolates the Safe App route",
-    async () => {
-      await expect(nextConfig.headers?.()).resolves.toEqual([
-        { source: "/safe-app/:path*", headers: safeAppSecurityHeaders },
-        {
-          source: "/:path((?!safe-app(?:/|$)).*)",
-          headers: securityHeaders,
-        },
-      ]);
-    },
-  );
+  it("keeps the public application unframeable and isolates the Safe App route", async () => {
+    await expect(nextConfig.headers?.()).resolves.toEqual([
+      { source: "/safe-app/:path*", headers: safeAppSecurityHeaders },
+      {
+        source: "/:path((?!safe-app(?:/|$)).*)",
+        headers: securityHeaders,
+      },
+    ]);
+  });
 
   it("restricts executable and embeddable content to the application", () => {
     expect(contentSecurityPolicy).toContain("default-src 'self'");
@@ -27,9 +24,7 @@ describe("security response headers", () => {
     expect(contentSecurityPolicy).toContain(
       "https://explorer-api.walletconnect.com",
     );
-    expect(contentSecurityPolicy).toContain(
-      "https://verify.walletconnect.org",
-    );
+    expect(contentSecurityPolicy).toContain("https://verify.walletconnect.org");
     expect(contentSecurityPolicy).toContain("https://pulse.walletconnect.org");
     expect(contentSecurityPolicy).toContain("https://echo.walletconnect.com");
     expect(contentSecurityPolicy).toContain("wss://relay.walletconnect.com");
