@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Safe Inspector">
+  <rect width="128" height="128" rx="28" fill="#071611"/>
+  <rect x="16" y="16" width="96" height="96" rx="22" fill="none" stroke="#5dedad" stroke-width="5"/>
+  <path d="M82 43c-5-6-12-9-21-9-14 0-24 8-24 20 0 10 6 16 21 20 10 3 13 5 13 10 0 5-5 8-12 8-9 0-17-4-23-11l-9 11c8 9 19 14 32 14 16 0 27-9 27-23 0-11-7-17-23-22-9-3-12-5-12-9 0-4 4-7 10-7 7 0 13 3 18 8z" fill="#5dedad"/>
+</svg>

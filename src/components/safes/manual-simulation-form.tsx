@@ -182,6 +182,23 @@ export function ManualSimulationForm({
 
           <dl className="simulation-details">
             <div>
+              <dt>
+                {result.protocols.length === 1 ? "Protocol" : "Protocols"}
+              </dt>
+              <dd>
+                {result.protocols.length > 0
+                  ? result.protocols.map((protocol) => (
+                      <span key={protocol.key}>
+                        <strong>{protocol.label}</strong>
+                        {protocol.reviewed
+                          ? " · reviewed deployment"
+                          : " · identity only"}
+                      </span>
+                    ))
+                  : "No verified protocol match"}
+              </dd>
+            </div>
+            <div>
               <dt>Target</dt>
               <dd>
                 {result.target.label ? (
@@ -227,9 +244,24 @@ export function ManualSimulationForm({
                       ? "Unlimited"
                       : (approval.amount ?? "Unknown amount")}
                   </span>
-                  {approval.spender
-                    ? addressLink(chainId, approval.spender)
-                    : null}
+                  {approval.spender ? (
+                    <span>
+                      {approval.spenderLabel ? (
+                        <strong>{approval.spenderLabel}</strong>
+                      ) : null}
+                      {approval.spenderProtocol ? (
+                        <>
+                          {" · "}
+                          {approval.spenderProtocol}
+                          {approval.spenderReviewed
+                            ? " · reviewed"
+                            : " · identity only"}
+                        </>
+                      ) : null}
+                      {" · "}
+                      {addressLink(chainId, approval.spender)}
+                    </span>
+                  ) : null}
                   {approval.newSpenderAtAnchor === true ? (
                     <em>New spender at latest state</em>
                   ) : null}

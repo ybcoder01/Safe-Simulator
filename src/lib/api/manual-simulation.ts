@@ -1,6 +1,10 @@
 import { getAddress, keccak256, stringToHex } from "viem";
 import { z } from "zod";
 
+import {
+  findContractRegistryEntry,
+  type ContractRegistryEntry,
+} from "@/core/analysis/trust/contract-registry";
 import type {
   Address,
   AddressBookEntry,
@@ -24,6 +28,7 @@ import {
 import { resolveInternalProxyBoundaries } from "@/lib/api/internal-proxy-boundaries";
 import { resolveProtocolRouteAttestation } from "@/lib/api/protocol-route-attestation";
 import { resolveStorageChangeAnalysis } from "@/lib/api/storage-changes";
+import { PROTOCOL_LABELS } from "@/lib/protocol-directory";
 
 const MAX_CALLDATA_HEX_CHARACTERS = 65_536;
 const UINT256_MAX = (1n << 256n) - 1n;
@@ -82,6 +87,16 @@ export interface ManualSimulationView {
       readonly value: string;
     }[];
   } | null;
+  readonly protocols: readonly {
+    readonly key: string;
+    readonly label: string;
+    readonly reviewed: boolean;
+    readonly contracts: readonly {
+      readonly address: Address;
+      readonly label: string;
+      readonly role: string;
+    }[];
+  }[];
   readonly execution: {
     readonly success: boolean | null;
     readonly error: string | null;
@@ -99,7 +114,11 @@ export interface ManualSimulationView {
     readonly method: string;
     readonly standard: string;
     readonly token: Address | null;
+    readonly tokenLabel: string | null;
     readonly spender: Address | null;
+    readonly spenderLabel: string | null;
+    readonly spenderProtocol: string | null;
+    readonly spenderReviewed: boolean;
     readonly amount: string | null;
     readonly infinite: boolean | null;
     readonly priorAmount: string | null;
@@ -107,6 +126,62 @@ export interface ManualSimulationView {
     readonly warning: string | null;
   }[];
   readonly verdict: ReturnType<typeof resolveEvidenceVerdict>;
+}
+
+function protocolLabel(entry: ContractRegistryEntry | null): string | null {
+  if (!entry || entry.category !== "protocol") return null;
+  return PROTOCOL_LABELS[entry.protocol] ?? entry.protocol;
+}
+
+function protocolIdentities(
+  chainId: SafeSnapshot["chainId"],
+  addresses: readonly Address[],
+): ManualSimulationView["protocols"] {
+  const groups = new Map<
+    string,
+    {
+      label: string;
+      reviewed: boolean;
+      contracts: Map<string, ContractRegistryEntry>;
+    }
+  >();
+
+  for (const address of addresses) {
+    const entry = findContractRegistryEntry(chainId, address);
+    if (
+      !entry ||
+      entry.category !== "protocol" ||
+      entry.lifecycle !== "active"
+    ) {
+      continue;
+    }
+
+    const group = groups.get(entry.protocol) ?? {
+      label: PROTOCOL_LABELS[entry.protocol] ?? entry.protocol,
+      reviewed: false,
+      contracts: new Map<string, ContractRegistryEntry>(),
+    };
+    group.reviewed ||= entry.trustPolicy === "protocol-whitelist";
+    group.contracts.set(entry.address.toLowerCase(), entry);
+    groups.set(entry.protocol, group);
+  }
+
+  return [...groups.entries()]
+    .map(([key, group]) => ({
+      key,
+      label: group.label,
+      reviewed: group.reviewed,
+      contracts: [...group.contracts.values()].map((entry) => ({
+        address: entry.address,
+        label: entry.label,
+        role: entry.role,
+      })),
+    }))
+    .sort(
+      (left, right) =>
+        Number(right.reviewed) - Number(left.reviewed) ||
+        left.label.localeCompare(right.label),
+    );
 }
 
 function draftTransaction(
@@ -181,6 +256,16 @@ export async function resolveManualSimulation(
     execution,
     internalProxyBoundaries,
   );
+  const participantAddresses = [
+    transaction.to,
+    ...approvals.requests.flatMap((approval) =>
+      [approval.token, approval.spender].filter(
+        (address): address is Address => address !== null,
+      ),
+    ),
+    ...execution.internalCalls.map((call) => call.to as Address),
+  ];
+  const protocols = protocolIdentities(safe.chainId, participantAddresses);
   const verdict = resolveEvidenceVerdict(
     transaction,
     contract,
@@ -208,6 +293,7 @@ export async function resolveManualSimulation(
       source: contract.metadata.source,
       implementationChain: contract.implementationChain,
     },
+    protocols,
     decoded: contract.decoded
       ? {
           method: contract.decoded.method,
@@ -239,17 +325,31 @@ export async function resolveManualSimulation(
         ...approvals.warnings,
       ],
     },
-    approvals: approvals.requests.map((approval) => ({
-      method: approval.method,
-      standard: approval.standard,
-      token: approval.token,
-      spender: approval.spender,
-      amount: approval.resultingAmount ?? approval.amount,
-      infinite: approval.infinite,
-      priorAmount: approval.priorAmount,
-      newSpenderAtAnchor: approval.newSpenderAtAnchor,
-      warning: approval.warning,
-    })),
+    approvals: approvals.requests.map((approval) => {
+      const tokenEntry = approval.token
+        ? findContractRegistryEntry(safe.chainId, approval.token)
+        : null;
+      const spenderEntry = approval.spender
+        ? findContractRegistryEntry(safe.chainId, approval.spender)
+        : null;
+      return {
+        method: approval.method,
+        standard: approval.standard,
+        token: approval.token,
+        tokenLabel: tokenEntry?.label ?? null,
+        spender: approval.spender,
+        spenderLabel: spenderEntry?.label ?? null,
+        spenderProtocol: protocolLabel(spenderEntry),
+        spenderReviewed:
+          spenderEntry?.trustPolicy === "protocol-whitelist" &&
+          spenderEntry.lifecycle === "active",
+        amount: approval.resultingAmount ?? approval.amount,
+        infinite: approval.infinite,
+        priorAmount: approval.priorAmount,
+        newSpenderAtAnchor: approval.newSpenderAtAnchor,
+        warning: approval.warning,
+      };
+    }),
     verdict,
   };
 }
