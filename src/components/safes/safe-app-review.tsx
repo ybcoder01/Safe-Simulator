@@ -44,6 +44,7 @@ interface PendingWalletRequest {
 }
 
 interface ConnectedDapp {
+  readonly topic: string;
   readonly name: string;
   readonly url?: string;
   readonly icon?: string;
@@ -90,8 +91,7 @@ function getWalletKit() {
     >[0]["core"],
     metadata: {
       name: "Safe Inspector",
-      description:
-        "Review treasury transactions before opening Safe confirmation.",
+      description: "Review transactions before opening Safe confirmation.",
       url: window.location.origin,
       icons: [`${window.location.origin}/icon.png`],
     },
@@ -149,6 +149,7 @@ function jsonRpcError(id: number, message: string) {
 }
 
 function dappFromSession(session: {
+  readonly topic: string;
   readonly peer?: {
     readonly metadata?: {
       readonly name?: string;
@@ -159,7 +160,8 @@ function dappFromSession(session: {
 }): ConnectedDapp {
   const metadata = session.peer?.metadata;
   return {
-    name: metadata?.name ?? "Connected treasury app",
+    topic: session.topic,
+    name: metadata?.name ?? "Connected dApp",
     ...(metadata?.url ? { url: metadata.url } : {}),
     ...(metadata?.icons?.[0] ? { icon: metadata.icons[0] } : {}),
   };
@@ -179,6 +181,7 @@ export function SafeAppReview() {
     null,
   );
   const [waitingForRequest, setWaitingForRequest] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
   const [pendingRequest, setPendingRequest] =
     useState<PendingWalletRequest | null>(null);
   const [to, setTo] = useState("");
@@ -403,6 +406,11 @@ export function SafeAppReview() {
           setWaitingForRequest(false);
           setPendingRequest(null);
           pendingRequestRef.current = null;
+          setResult(null);
+          setAcknowledged(false);
+          setProposalHash(null);
+          setPairingUri("");
+          setDisconnecting(false);
         };
 
         initializedKit.on("session_proposal", handleProposal);
@@ -460,6 +468,53 @@ export function SafeAppReview() {
           ? cause.message
           : "The dApp could not be paired.",
       );
+    }
+  }
+
+  async function disconnectDapp() {
+    const kit = walletKitRef.current;
+    if (!kit || !connectedDapp) return;
+
+    setDisconnecting(true);
+    setError(null);
+    const request = pendingRequestRef.current;
+
+    try {
+      if (request?.topic === connectedDapp.topic) {
+        try {
+          await kit.respondSessionRequest({
+            topic: request.topic,
+            response: jsonRpcError(
+              request.id,
+              "The dApp was disconnected before this transaction was approved.",
+            ),
+          });
+        } catch {
+          // The peer may already have closed the request or session.
+        }
+      }
+
+      await kit.disconnectSession({
+        topic: connectedDapp.topic,
+        reason: getSdkError("USER_DISCONNECTED"),
+      });
+
+      pendingRequestRef.current = null;
+      setPendingRequest(null);
+      setConnectedDapp(null);
+      setWaitingForRequest(false);
+      setResult(null);
+      setAcknowledged(false);
+      setProposalHash(null);
+      setPairingUri("");
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "The dApp could not be disconnected.",
+      );
+    } finally {
+      setDisconnecting(false);
     }
   }
 
@@ -606,7 +661,7 @@ export function SafeAppReview() {
 
       <section className="safe-app-intro">
         <p className="eyebrow">Automatic pre-signature review</p>
-        <h1>Connect your treasury dApp once</h1>
+        <h1>Connect a dApp once</h1>
         <p>
           Choose WalletConnect in the dApp that creates the transaction and
           paste its pairing link here once. Future transaction requests arrive
@@ -618,15 +673,25 @@ export function SafeAppReview() {
         {connectedDapp ? (
           <div className={styles.connected}>
             <div>
-              <span>Connected treasury dApp</span>
+              <span>Connected dApp</span>
               <strong>{connectedDapp.name}</strong>
               {connectedDapp.url ? <small>{connectedDapp.url}</small> : null}
             </div>
-            <span className={styles.live}>
-              {waitingForRequest
-                ? "Waiting for a transaction"
-                : "Transaction captured"}
-            </span>
+            <div className={styles.sessionActions}>
+              <span className={styles.live}>
+                {waitingForRequest
+                  ? "Waiting for a transaction"
+                  : "Transaction captured"}
+              </span>
+              <button
+                className="button button-secondary"
+                disabled={disconnecting}
+                onClick={disconnectDapp}
+                type="button"
+              >
+                {disconnecting ? "Disconnecting…" : "Disconnect dApp"}
+              </button>
+            </div>
           </div>
         ) : REOWN_PROJECT_ID ? (
           <form className={styles.pairing} onSubmit={pairDapp}>
@@ -657,6 +722,13 @@ export function SafeAppReview() {
         <p className={styles.note}>
           Safe Inspector accepts only <code>eth_sendTransaction</code> for the
           Safe and network shown above. It never receives a private key.
+          {connectedDapp ? (
+            <>
+              {" "}
+              After Safe opens its signing screen, reopen Safe Inspector from
+              Apps → My custom apps; this dApp connection resumes automatically.
+            </>
+          ) : null}
         </p>
       </section>
 
@@ -788,8 +860,8 @@ export function SafeAppReview() {
       <details className={styles.manual}>
         <summary>Advanced: review a transaction manually</summary>
         <p>
-          Use this fallback only when a treasury system cannot connect through
-          WalletConnect.
+          Use this fallback only when a transaction source cannot connect
+          through WalletConnect.
         </p>
         <form className="safe-app-form" onSubmit={reviewManual}>
           <label>
