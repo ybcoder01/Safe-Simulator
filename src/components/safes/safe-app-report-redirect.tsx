@@ -4,18 +4,26 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 interface SafeAppReportRedirectProps {
+  readonly action: string;
   readonly chainId: number;
+  readonly headline: string;
+  readonly protocol: string;
   readonly safeAddress: string;
   readonly safeTxHash: string;
+  readonly verdict: string;
 }
 
 const POLL_INTERVAL_MS = 2_000;
 const MAX_POLL_ATTEMPTS = 60;
 
 export function SafeAppReportRedirect({
+  action,
   chainId,
+  headline,
+  protocol,
   safeAddress,
   safeTxHash,
+  verdict,
 }: SafeAppReportRedirectProps) {
   const [attempt, setAttempt] = useState(0);
   const [stopped, setStopped] = useState(false);
@@ -88,11 +96,24 @@ export function SafeAppReportRedirect({
   return (
     <section className="safe-app-state" role="status">
       <p className="eyebrow">Safe transaction received</p>
-      <h1>Preparing your transaction report</h1>
+      <h1>{headline}</h1>
+      <div className="simulation-metrics">
+        <div>
+          <span>Protocol</span>
+          <strong>{protocol}</strong>
+        </div>
+        <div>
+          <span>Action</span>
+          <strong>{action}</strong>
+        </div>
+        <div>
+          <span>Verdict</span>
+          <strong>{verdict}</strong>
+        </div>
+      </div>
       <p>
-        Safe Inspector is waiting for the transaction to appear in the
-        synchronized Safe activity. This page will open the full report
-        automatically.
+        Safe Inspector is synchronizing the transaction activity. This page
+        will become the full report automatically.
       </p>
       <p>
         Transaction: <code>{safeTxHash}</code>
