@@ -40,7 +40,7 @@
 
 .connected {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.85rem;
   align-items: center;
 }
@@ -69,6 +69,20 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.sessionActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  align-items: center;
+}
+
+.sessionActions button {
+  min-height: auto;
+  padding: 0.55rem 0.8rem;
+  font-size: 0.78rem;
 }
 
 .live {
@@ -124,6 +138,14 @@
   .actions button {
     width: 100%;
     justify-content: center;
+  }
+
+  .sessionActions {
+    justify-content: flex-start;
+  }
+
+  .sessionActions button {
+    width: auto;
   }
 
   .live {
