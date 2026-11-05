@@ -231,6 +231,7 @@ export function SafeAppReview() {
   const [reviewing, setReviewing] = useState(false);
   const [proposing, setProposing] = useState(false);
   const [proposalHash, setProposalHash] = useState<string | null>(null);
+  const [reportPath, setReportPath] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -272,6 +273,7 @@ export function SafeAppReview() {
       setResult(null);
       setAcknowledged(false);
       setProposalHash(null);
+      setReportPath(null);
       setError(null);
 
       try {
@@ -448,6 +450,7 @@ export function SafeAppReview() {
           setResult(null);
           setAcknowledged(false);
           setProposalHash(null);
+          setReportPath(null);
           setPairingUri("");
           setDisconnecting(false);
         };
@@ -481,6 +484,7 @@ export function SafeAppReview() {
     setResult(null);
     setAcknowledged(false);
     setProposalHash(null);
+    setReportPath(null);
     setError(null);
   }
 
@@ -545,6 +549,7 @@ export function SafeAppReview() {
       setResult(null);
       setAcknowledged(false);
       setProposalHash(null);
+      setReportPath(null);
       setPairingUri("");
     } catch (cause) {
       setError(
@@ -594,7 +599,12 @@ export function SafeAppReview() {
   }
 
   async function propose() {
-    if (!result || !sdkRef.current || result.verdict.verdict === "flagged") {
+    if (
+      !safe ||
+      !result ||
+      !sdkRef.current ||
+      result.verdict.verdict === "flagged"
+    ) {
       return;
     }
     if (result.verdict.verdict === "unverified" && !acknowledged) {
@@ -602,7 +612,16 @@ export function SafeAppReview() {
       return;
     }
 
+    const reportWindow = window.open(
+      "/safe-app/report",
+      "safe-inspector-transaction-report",
+    );
+    reportWindow?.blur();
+    window.focus();
+
+    let handedToSafe = false;
     setProposing(true);
+    setReportPath(null);
     setError(null);
     try {
       const response = await sdkRef.current.txs.send({
@@ -614,7 +633,18 @@ export function SafeAppReview() {
           },
         ],
       });
+      handedToSafe = true;
       setProposalHash(response.safeTxHash);
+
+      const nextReportPath = `/safe-app/report?${new URLSearchParams({
+        chainId: String(safe.chainId),
+        address: safe.address,
+        safeTxHash: response.safeTxHash,
+      })}`;
+      setReportPath(nextReportPath);
+      if (reportWindow && !reportWindow.closed) {
+        reportWindow.location.replace(nextReportPath);
+      }
 
       const request = pendingRequestRef.current;
       const kit = walletKitRef.current;
@@ -628,6 +658,9 @@ export function SafeAppReview() {
         setWaitingForRequest(true);
       }
     } catch (cause) {
+      if (!handedToSafe && reportWindow && !reportWindow.closed) {
+        reportWindow.close();
+      }
       setError(
         cause instanceof Error
           ? cause.message
@@ -898,10 +931,25 @@ export function SafeAppReview() {
           )}
 
           {proposalHash ? (
-            <p className="form-status" role="status">
-              Draft handed to Safe. Safe transaction:{" "}
-              <code>{shorten(proposalHash)}</code>
-            </p>
+            <div className="form-status" role="status">
+              <p>
+                Draft handed to Safe. Safe transaction:{" "}
+                <code>{shorten(proposalHash)}</code>
+              </p>
+              <p>
+                The report tab will open automatically after Safe Inspector
+                synchronizes this transaction.
+              </p>
+              {reportPath ? (
+                <Link
+                  className="text-link"
+                  href={reportPath}
+                  target="_blank"
+                >
+                  Open Safe Inspector report
+                </Link>
+              ) : null}
+            </div>
           ) : null}
         </section>
       ) : null}
