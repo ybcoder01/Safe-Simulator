@@ -182,13 +182,17 @@ export function ManualSimulationForm({
 
           <dl className="simulation-details">
             <div>
-              <dt>{result.protocols.length === 1 ? "Protocol" : "Protocols"}</dt>
+              <dt>
+                {result.protocols.length === 1 ? "Protocol" : "Protocols"}
+              </dt>
               <dd>
                 {result.protocols.length > 0
                   ? result.protocols.map((protocol) => (
                       <span key={protocol.key}>
                         <strong>{protocol.label}</strong>
-                        {protocol.reviewed ? " · reviewed deployment" : " · identity only"}
+                        {protocol.reviewed
+                          ? " · reviewed deployment"
+                          : " · identity only"}
                       </span>
                     ))
                   : "No verified protocol match"}
@@ -249,7 +253,9 @@ export function ManualSimulationForm({
                         <>
                           {" · "}
                           {approval.spenderProtocol}
-                          {approval.spenderReviewed ? " · reviewed" : " · identity only"}
+                          {approval.spenderReviewed
+                            ? " · reviewed"
+                            : " · identity only"}
                         </>
                       ) : null}
                       {" · "}
