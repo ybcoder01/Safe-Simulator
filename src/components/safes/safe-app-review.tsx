@@ -448,7 +448,7 @@ export function SafeAppReview() {
           setResult(null);
           setAcknowledged(false);
           setProposalHash(null);
-              setPairingUri("");
+          setPairingUri("");
           setDisconnecting(false);
         };
 
