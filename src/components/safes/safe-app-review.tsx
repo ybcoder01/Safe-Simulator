@@ -167,6 +167,45 @@ function dappFromSession(session: {
   };
 }
 
+function findingAddressLabels(
+  result: ManualSimulationView,
+): Readonly<Record<string, string>> {
+  const labels: Record<string, string> = {};
+
+  if (result.target.label) {
+    labels[result.request.to.toLowerCase()] = result.target.label;
+  }
+
+  for (const protocol of result.protocols) {
+    for (const contract of protocol.contracts) {
+      labels[contract.address.toLowerCase()] = [
+        contract.label,
+        protocol.label,
+        protocol.reviewed ? "reviewed deployment" : null,
+      ]
+        .filter(Boolean)
+        .join(" · ");
+    }
+  }
+
+  for (const approval of result.approvals) {
+    if (approval.token && approval.tokenLabel) {
+      labels[approval.token.toLowerCase()] = approval.tokenLabel;
+    }
+    if (approval.spender && approval.spenderLabel) {
+      labels[approval.spender.toLowerCase()] = [
+        approval.spenderLabel,
+        approval.spenderProtocol,
+        approval.spenderReviewed ? "reviewed deployment" : null,
+      ]
+        .filter(Boolean)
+        .join(" · ");
+    }
+  }
+
+  return labels;
+}
+
 export function SafeAppReview() {
   const sdkRef = useRef<SafeAppsSDK | null>(null);
   const walletKitRef = useRef<Awaited<
@@ -789,7 +828,11 @@ export function SafeAppReview() {
             </div>
           </div>
 
-          <EvidenceFindings findings={result.verdict.findings} showAddresses />
+          <EvidenceFindings
+            addressLabels={findingAddressLabels(result)}
+            findings={result.verdict.findings}
+            showAddresses
+          />
 
           {blocked ? (
             <div className="safe-app-stop" role="alert">
