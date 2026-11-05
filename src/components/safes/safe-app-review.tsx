@@ -4,6 +4,7 @@ import SafeAppsSDK from "@safe-global/safe-apps-sdk";
 import { Core } from "@walletconnect/core";
 import { buildApprovedNamespaces, getSdkError } from "@walletconnect/utils";
 import { WalletKit } from "@reown/walletkit";
+import Link from "next/link";
 import { parseUnits } from "viem";
 import {
   useCallback,
@@ -550,9 +551,22 @@ export function SafeAppReview() {
         <h1>Open this page inside Safe Global</h1>
         <p>{contextError}</p>
         <p>
-          In Safe, choose Apps → My custom apps → Add custom Safe App, then
-          paste this Preview URL.
+          Automatic review needs the Safe account context supplied by Safe
+          Global. The manual Inspector remains available in any browser.
         </p>
+        <div className={styles.actions}>
+          <Link className="button" href="/safe-app/manual">
+            Open manual Inspector
+          </Link>
+          <a
+            className="button button-secondary"
+            href="https://app.safe.global/"
+            rel="noreferrer"
+            target="_blank"
+          >
+            Open Safe Global
+          </a>
+        </div>
       </section>
     );
   }
