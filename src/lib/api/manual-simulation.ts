@@ -333,22 +333,22 @@ export async function resolveManualSimulation(
         ? findContractRegistryEntry(safe.chainId, approval.spender)
         : null;
       return {
-      method: approval.method,
-      standard: approval.standard,
-      token: approval.token,
-      tokenLabel: tokenEntry?.label ?? null,
-      spender: approval.spender,
-      spenderLabel: spenderEntry?.label ?? null,
-      spenderProtocol: protocolLabel(spenderEntry),
-      spenderReviewed:
-        spenderEntry?.trustPolicy === "protocol-whitelist" &&
-        spenderEntry.lifecycle === "active",
-      amount: approval.resultingAmount ?? approval.amount,
-      infinite: approval.infinite,
-      priorAmount: approval.priorAmount,
-      newSpenderAtAnchor: approval.newSpenderAtAnchor,
-      warning: approval.warning,
-    };
+        method: approval.method,
+        standard: approval.standard,
+        token: approval.token,
+        tokenLabel: tokenEntry?.label ?? null,
+        spender: approval.spender,
+        spenderLabel: spenderEntry?.label ?? null,
+        spenderProtocol: protocolLabel(spenderEntry),
+        spenderReviewed:
+          spenderEntry?.trustPolicy === "protocol-whitelist" &&
+          spenderEntry.lifecycle === "active",
+        amount: approval.resultingAmount ?? approval.amount,
+        infinite: approval.infinite,
+        priorAmount: approval.priorAmount,
+        newSpenderAtAnchor: approval.newSpenderAtAnchor,
+        warning: approval.warning,
+      };
     }),
     verdict,
   };
