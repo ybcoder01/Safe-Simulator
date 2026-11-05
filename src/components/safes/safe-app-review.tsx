@@ -231,7 +231,6 @@ export function SafeAppReview() {
   const [reviewing, setReviewing] = useState(false);
   const [proposing, setProposing] = useState(false);
   const [proposalHash, setProposalHash] = useState<string | null>(null);
-  const [reportPath, setReportPath] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -273,7 +272,6 @@ export function SafeAppReview() {
       setResult(null);
       setAcknowledged(false);
       setProposalHash(null);
-      setReportPath(null);
       setError(null);
 
       try {
@@ -450,8 +448,7 @@ export function SafeAppReview() {
           setResult(null);
           setAcknowledged(false);
           setProposalHash(null);
-          setReportPath(null);
-          setPairingUri("");
+              setPairingUri("");
           setDisconnecting(false);
         };
 
@@ -484,7 +481,6 @@ export function SafeAppReview() {
     setResult(null);
     setAcknowledged(false);
     setProposalHash(null);
-    setReportPath(null);
     setError(null);
   }
 
@@ -549,7 +545,6 @@ export function SafeAppReview() {
       setResult(null);
       setAcknowledged(false);
       setProposalHash(null);
-      setReportPath(null);
       setPairingUri("");
     } catch (cause) {
       setError(
@@ -599,12 +594,7 @@ export function SafeAppReview() {
   }
 
   async function propose() {
-    if (
-      !safe ||
-      !result ||
-      !sdkRef.current ||
-      result.verdict.verdict === "flagged"
-    ) {
+    if (!result || !sdkRef.current || result.verdict.verdict === "flagged") {
       return;
     }
     if (result.verdict.verdict === "unverified" && !acknowledged) {
@@ -612,27 +602,7 @@ export function SafeAppReview() {
       return;
     }
 
-    const reviewParams = new URLSearchParams({
-      chainId: String(safe.chainId),
-      address: safe.address,
-      protocol:
-        result.protocols.length > 0
-          ? result.protocols.map((protocol) => protocol.label).join(", ")
-          : (result.target.label ?? shorten(result.request.to)),
-      action: result.decoded?.method ?? "Raw calldata",
-      verdict: result.verdict.verdict,
-      headline: result.verdict.headline,
-    });
-    const reportWindow = window.open(
-      `/safe-app/report?${reviewParams}`,
-      "safe-inspector-transaction-report",
-    );
-    reportWindow?.blur();
-    window.focus();
-
-    let handedToSafe = false;
     setProposing(true);
-    setReportPath(null);
     setError(null);
     try {
       const response = await sdkRef.current.txs.send({
@@ -644,15 +614,7 @@ export function SafeAppReview() {
           },
         ],
       });
-      handedToSafe = true;
       setProposalHash(response.safeTxHash);
-
-      reviewParams.set("safeTxHash", response.safeTxHash);
-      const nextReportPath = `/safe-app/report?${reviewParams}`;
-      setReportPath(nextReportPath);
-      if (reportWindow && !reportWindow.closed) {
-        reportWindow.location.replace(nextReportPath);
-      }
 
       const request = pendingRequestRef.current;
       const kit = walletKitRef.current;
@@ -666,9 +628,6 @@ export function SafeAppReview() {
         setWaitingForRequest(true);
       }
     } catch (cause) {
-      if (!handedToSafe && reportWindow && !reportWindow.closed) {
-        reportWindow.close();
-      }
       setError(
         cause instanceof Error
           ? cause.message
@@ -939,21 +898,10 @@ export function SafeAppReview() {
           )}
 
           {proposalHash ? (
-            <div className="form-status" role="status">
-              <p>
-                Draft handed to Safe. Safe transaction:{" "}
-                <code>{shorten(proposalHash)}</code>
-              </p>
-              <p>
-                The report tab will open automatically after Safe Inspector
-                synchronizes this transaction.
-              </p>
-              {reportPath ? (
-                <Link className="text-link" href={reportPath} target="_blank">
-                  Open Safe Inspector report
-                </Link>
-              ) : null}
-            </div>
+            <p className="form-status" role="status">
+              Draft handed to Safe. Safe transaction:{" "}
+              <code>{shorten(proposalHash)}</code>
+            </p>
           ) : null}
         </section>
       ) : null}
