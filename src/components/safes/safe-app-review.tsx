@@ -941,11 +941,7 @@ export function SafeAppReview() {
                 synchronizes this transaction.
               </p>
               {reportPath ? (
-                <Link
-                  className="text-link"
-                  href={reportPath}
-                  target="_blank"
-                >
+                <Link className="text-link" href={reportPath} target="_blank">
                   Open Safe Inspector report
                 </Link>
               ) : null}
