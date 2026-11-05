@@ -769,7 +769,9 @@ export function SafeAppReview() {
               </span>
               <strong>
                 {result.protocols.length > 0
-                  ? result.protocols.map((protocol) => protocol.label).join(", ")
+                  ? result.protocols
+                      .map((protocol) => protocol.label)
+                      .join(", ")
                   : (result.target.label ?? shorten(result.request.to))}
               </strong>
             </div>
