@@ -612,8 +612,19 @@ export function SafeAppReview() {
       return;
     }
 
+    const reviewParams = new URLSearchParams({
+      chainId: String(safe.chainId),
+      address: safe.address,
+      protocol:
+        result.protocols.length > 0
+          ? result.protocols.map((protocol) => protocol.label).join(", ")
+          : (result.target.label ?? shorten(result.request.to)),
+      action: result.decoded?.method ?? "Raw calldata",
+      verdict: result.verdict.verdict,
+      headline: result.verdict.headline,
+    });
     const reportWindow = window.open(
-      "/safe-app/report",
+      `/safe-app/report?${reviewParams}`,
       "safe-inspector-transaction-report",
     );
     reportWindow?.blur();
@@ -636,11 +647,8 @@ export function SafeAppReview() {
       handedToSafe = true;
       setProposalHash(response.safeTxHash);
 
-      const nextReportPath = `/safe-app/report?${new URLSearchParams({
-        chainId: String(safe.chainId),
-        address: safe.address,
-        safeTxHash: response.safeTxHash,
-      })}`;
+      reviewParams.set("safeTxHash", response.safeTxHash);
+      const nextReportPath = `/safe-app/report?${reviewParams}`;
       setReportPath(nextReportPath);
       if (reportWindow && !reportWindow.closed) {
         reportWindow.location.replace(nextReportPath);
