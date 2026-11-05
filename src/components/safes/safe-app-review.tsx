@@ -764,11 +764,13 @@ export function SafeAppReview() {
 
           <div className="simulation-metrics">
             <div>
-              <span>{result.protocols.length === 1 ? "Protocol" : "Protocols"}</span>
+              <span>
+                {result.protocols.length === 1 ? "Protocol" : "Protocols"}
+              </span>
               <strong>
                 {result.protocols.length > 0
                   ? result.protocols.map((protocol) => protocol.label).join(", ")
-                  : (result.target.label ?? shorten(result.request.to))}
+                  : result.target.label ?? shorten(result.request.to)}
               </strong>
             </div>
             <div>
