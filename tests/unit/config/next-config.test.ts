@@ -8,15 +8,18 @@ import nextConfig, {
 } from "../../../next.config";
 
 describe("security response headers", () => {
-  it("keeps the public application unframeable and isolates the Safe App route", async () => {
-    await expect(nextConfig.headers?.()).resolves.toEqual([
-      { source: "/safe-app/:path*", headers: safeAppSecurityHeaders },
-      {
-        source: "/:path((?!safe-app(?:/|$)).*)",
-        headers: securityHeaders,
-      },
-    ]);
-  });
+  it(
+    "keeps the public application unframeable and isolates the Safe App route",
+    async () => {
+      await expect(nextConfig.headers?.()).resolves.toEqual([
+        { source: "/safe-app/:path*", headers: safeAppSecurityHeaders },
+        {
+          source: "/:path((?!safe-app(?:/|$)).*)",
+          headers: securityHeaders,
+        },
+      ]);
+    },
+  );
 
   it("restricts executable and embeddable content to the application", () => {
     expect(contentSecurityPolicy).toContain("default-src 'self'");
