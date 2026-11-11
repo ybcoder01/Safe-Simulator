@@ -74,6 +74,7 @@ interface ConnectedDapp {
 }
 
 const SAFE_CONTEXT_TIMEOUT_MS = 8_000;
+const WALLETCONNECT_HANDSHAKE_TIMEOUT_MS = 20_000;
 const REOWN_PROJECT_ID = process.env.NEXT_PUBLIC_REOWN_PROJECT_ID;
 // This Preview-only wallet gateway receives the request but never signs or broadcasts it.
 // eslint-disable-next-line safety/read-only-boundary
@@ -109,9 +110,11 @@ function getWalletKit() {
     );
   }
   walletKitPromise ??= WalletKit.init({
-    core: new Core({ projectId: REOWN_PROJECT_ID }) as Parameters<
-      typeof WalletKit.init
-    >[0]["core"],
+    core: new Core({
+      projectId: REOWN_PROJECT_ID,
+      customStoragePrefix: "safe-inspector-preview-v1",
+    }) as Parameters<typeof WalletKit.init>[0]["core"],
+    name: "safe-inspector-preview",
     metadata: {
       name: "Safe Inspector",
       description: "Review transactions before opening Safe confirmation.",
@@ -235,11 +238,13 @@ export function SafeAppReview() {
     ReturnType<typeof WalletKit.init>
   > | null>(null);
   const pendingRequestRef = useRef<PendingWalletRequest | null>(null);
+  const pairingTimeoutRef = useRef<number | null>(null);
   const summaryRequestRef = useRef(0);
   const [safe, setSafe] = useState<SafeContext | null>(null);
   const [contextError, setContextError] = useState<string | null>(null);
   const [pairingUri, setPairingUri] = useState("");
   const [pairing, setPairing] = useState(false);
+  const [waitingForProposal, setWaitingForProposal] = useState(false);
   const [connectedDapp, setConnectedDapp] = useState<ConnectedDapp | null>(
     null,
   );
@@ -266,6 +271,19 @@ export function SafeAppReview() {
     setSummaryError(null);
     setSummaryLoading(false);
   }, []);
+
+  const clearPairingTimeout = useCallback(() => {
+    if (pairingTimeoutRef.current !== null) {
+      window.clearTimeout(pairingTimeoutRef.current);
+      pairingTimeoutRef.current = null;
+    }
+  }, []);
+
+  const finishPairingAttempt = useCallback(() => {
+    clearPairingTimeout();
+    setPairing(false);
+    setWaitingForProposal(false);
+  }, [clearPairingTimeout]);
 
   useEffect(() => {
     let active = true;
@@ -438,7 +456,7 @@ export function SafeAppReview() {
             if (!active) return;
             setConnectedDapp(dappFromSession(session));
             setWaitingForRequest(true);
-            setPairing(false);
+            finishPairingAttempt();
             setPairingUri("");
             setError(null);
           } catch (cause) {
@@ -447,7 +465,7 @@ export function SafeAppReview() {
               reason: getSdkError("USER_REJECTED_METHODS"),
             });
             if (!active) return;
-            setPairing(false);
+            finishPairingAttempt();
             setError(
               cause instanceof Error
                 ? cause.message
@@ -557,9 +575,16 @@ export function SafeAppReview() {
 
     return () => {
       active = false;
+      clearPairingTimeout();
       removeListeners();
     };
-  }, [analyzeTransaction, resetSummary, safe]);
+  }, [
+    analyzeTransaction,
+    clearPairingTimeout,
+    finishPairingAttempt,
+    resetSummary,
+    safe,
+  ]);
 
   function invalidateReview() {
     setResult(null);
@@ -584,12 +609,27 @@ export function SafeAppReview() {
       return;
     }
 
+    clearPairingTimeout();
     setPairing(true);
+    setWaitingForProposal(false);
     setError(null);
+    pairingTimeoutRef.current = window.setTimeout(() => {
+      pairingTimeoutRef.current = null;
+      setPairing(false);
+      setWaitingForProposal(false);
+      setPairingUri("");
+      setError(
+        "The dApp did not complete the WalletConnect handshake. Keep its WalletConnect window open, generate a fresh pairing link, and try again.",
+      );
+    }, WALLETCONNECT_HANDSHAKE_TIMEOUT_MS);
+
     try {
       await kit.pair({ uri });
+      if (pairingTimeoutRef.current !== null) {
+        setWaitingForProposal(true);
+      }
     } catch (cause) {
-      setPairing(false);
+      finishPairingAttempt();
       setPairingUri("");
       setError(walletConnectPairingFailureMessage(cause));
     }
@@ -835,7 +875,11 @@ export function SafeAppReview() {
               />
             </label>
             <button className="button" disabled={pairing} type="submit">
-              {pairing ? "Pairing…" : "Connect dApp"}
+              {waitingForProposal
+                ? "Waiting for dApp…"
+                : pairing
+                  ? "Connecting to relay…"
+                  : "Connect dApp"}
             </button>
           </form>
         ) : (
