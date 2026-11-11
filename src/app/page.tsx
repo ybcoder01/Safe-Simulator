@@ -17,16 +17,16 @@ const protections = [
 
 const safeWorkflowSteps = [
   [
-    "Add Safe Inspector",
-    "Open the Preview integration from Safe Apps for the Safe you want to protect.",
+    "Copy the app link",
+    "Safe Inspector uses one reusable custom-app URL for every Safe.",
   ],
   [
-    "Connect the dApp",
-    "Pair the application creating the transaction once through WalletConnect.",
+    "Add it in Safe Global",
+    "Select a Safe, then paste the link under Apps → My custom apps.",
   ],
   [
     "Review before signing",
-    "See the target, protocol, permissions, recipients, and warnings before Safe asks for a signature.",
+    "Connect the transaction source and review its target, protocol, permissions, and recipients.",
   ],
 ] as const;
 
@@ -73,9 +73,9 @@ export default function HomePage() {
           </Link>
           <Link
             className="button button-small button-secondary"
-            href="/safe-app"
+            href="/use-with-safe"
           >
-            Set up in Safe
+            Use with Safe
           </Link>
           <Link className="button button-small" href="/safes">
             Inspect transaction
@@ -97,8 +97,8 @@ export default function HomePage() {
             <Link className="button" href="/safes">
               Inspect a transaction <span aria-hidden="true">→</span>
             </Link>
-            <Link className="button button-secondary" href="/safe-app">
-              Set up in Safe
+            <Link className="button button-secondary" href="/use-with-safe">
+              Use with Safe
             </Link>
             <Link
               className="text-link"
@@ -176,13 +176,13 @@ export default function HomePage() {
       <section className="safe-workflow shell" id="safe-integration">
         <div className="safe-workflow-heading">
           <div>
-            <p className="eyebrow">Review before anyone signs</p>
-            <h2>Put Safe Inspector in the signing path.</h2>
+            <p className="eyebrow">Optional Safe integration</p>
+            <h2>Review transactions before anyone signs.</h2>
           </div>
           <p>
-            Keep using the dApps your treasury already relies on. Safe Inspector
-            reviews each proposed transaction before Safe opens its native
-            confirmation screen.
+            Add Safe Inspector as a custom app using one link. Safe Global
+            supplies the Safe you currently have selected, and Safe Inspector
+            reviews the proposed transaction before confirmation.
           </p>
         </div>
         <div className="safe-workflow-grid">
@@ -195,8 +195,8 @@ export default function HomePage() {
           ))}
         </div>
         <div className="safe-workflow-cta">
-          <Link className="button" href="/safe-app">
-            Set up in Safe <span aria-hidden="true">→</span>
+          <Link className="button" href="/use-with-safe">
+            Get Safe app link <span aria-hidden="true">→</span>
           </Link>
           <p>
             Preview only. Safe Inspector never receives a private key and cannot
