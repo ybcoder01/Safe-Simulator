@@ -18,6 +18,10 @@ import { EvidenceFindings } from "@/components/shared/evidence-findings";
 import styles from "./safe-app-review.module.css";
 import type { ManualSimulationView } from "@/lib/api/manual-simulation";
 import { findingReviewSummary } from "@/lib/finding-guidance";
+import {
+  normalizeWalletConnectPairingUri,
+  walletConnectPairingFailureMessage,
+} from "@/lib/walletconnect-pairing";
 
 interface SafeContext {
   readonly address: string;
@@ -572,22 +576,22 @@ export function SafeAppReview() {
       setError("WalletConnect is not ready yet.");
       return;
     }
-    const uri = pairingUri.trim();
-    if (!uri.startsWith("wc:")) {
-      setError("Paste a valid WalletConnect pairing link.");
+    let uri: string;
+    try {
+      uri = normalizeWalletConnectPairingUri(pairingUri);
+    } catch (cause) {
+      setError(walletConnectPairingFailureMessage(cause));
       return;
     }
+
     setPairing(true);
     setError(null);
     try {
       await kit.pair({ uri });
     } catch (cause) {
       setPairing(false);
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : "The dApp could not be paired.",
-      );
+      setPairingUri("");
+      setError(walletConnectPairingFailureMessage(cause));
     }
   }
 
