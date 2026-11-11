@@ -46,9 +46,6 @@ function sameOrigin(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  if (process.env.VERCEL_ENV !== "preview") {
-    return error("This preview feature is not available.", 404, "not_found");
-  }
   if (!sameOrigin(request)) {
     return error(
       "Cross-origin Safe App summary requests are rejected.",
