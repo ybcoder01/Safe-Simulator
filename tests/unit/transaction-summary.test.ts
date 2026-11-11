@@ -1,11 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  buildManualSimulationSummaryEvidence,
   TRANSACTION_SUMMARY_PROMPT_VERSION,
   requestTransactionSummary,
   sanitizePublicTransactionEvidence,
   TransactionSummaryProviderError,
 } from "@/lib/api/transaction-summary";
+import type { ManualSimulationView } from "@/lib/api/manual-simulation";
 
 const validSummary = {
   headline: "Review this approval",
@@ -44,6 +46,72 @@ function providerResponse(
 }
 
 describe("transaction summary privacy and provider boundary", () => {
+  it("builds bounded Safe App evidence without raw approval amounts", () => {
+    const evidence = buildManualSimulationSummaryEvidence({
+      request: {
+        safe: "0x0000000000000000000000000000000000000001",
+        to: "0x0000000000000000000000000000000000000002",
+        value: "0",
+        data: "0x095ea7b3",
+      },
+      target: {
+        label: "Fathom Pool",
+        verified: true,
+        source: "registry",
+        implementationChain: [],
+      },
+      decoded: null,
+      protocols: [],
+      execution: {
+        success: true,
+        error: null,
+        gasUsed: null,
+        blockNumber: null,
+        blockHash: null,
+        internalCallCount: 0,
+        delegateCallCount: 0,
+        storageChangeCount: 0,
+        namedStorageChangeCount: 0,
+        coverage: "complete",
+        warnings: [],
+      },
+      approvals: [
+        {
+          method: "approve",
+          standard: "erc20",
+          token: "0x0000000000000000000000000000000000000003",
+          tokenLabel: "USDC",
+          spender: "0x0000000000000000000000000000000000000004",
+          spenderLabel: "Fathom Pool",
+          spenderProtocol: "Fathom",
+          spenderReviewed: true,
+          amount: "50000",
+          infinite: false,
+          priorAmount: "0",
+          newSpenderAtAnchor: true,
+          warning: null,
+        },
+      ],
+      verdict: {
+        verdict: "unverified",
+        headline: "Review the token approval",
+        findings: [],
+        coverage: {
+          complete: true,
+          missing: [],
+        },
+        trustBoundary: [],
+      },
+    } as unknown as ManualSimulationView);
+
+    const serialized = JSON.stringify(evidence);
+    expect(serialized).toContain("Fathom Pool");
+    expect(serialized).toContain("Fathom");
+    expect(serialized).not.toContain('"amount"');
+    expect(serialized).not.toContain('"priorAmount"');
+    expect(serialized).not.toContain("50000");
+  });
+
   it("removes signing and profile fields while bounding public values", () => {
     const evidence = sanitizePublicTransactionEvidence({
       calldata: "0x" + "ab".repeat(2_000),
