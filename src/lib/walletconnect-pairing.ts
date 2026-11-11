@@ -45,12 +45,7 @@ export function normalizeWalletConnectPairingUri(
   const topic = match[1];
   const version = match[2];
   const query = match[3];
-  if (
-    !topic ||
-    !query ||
-    version !== "2" ||
-    !TOPIC_PATTERN.test(topic)
-  ) {
+  if (!topic || !query || version !== "2" || !TOPIC_PATTERN.test(topic)) {
     throw new WalletConnectPairingError(
       "invalid",
       "Paste a valid WalletConnect v2 pairing link.",
