@@ -15,6 +15,21 @@ const protections = [
   ],
 ] as const;
 
+const safeWorkflowSteps = [
+  [
+    "Add Safe Inspector",
+    "Open the Preview integration from Safe Apps for the Safe you want to protect.",
+  ],
+  [
+    "Connect the dApp",
+    "Pair the application creating the transaction once through WalletConnect.",
+  ],
+  [
+    "Review before signing",
+    "See the target, protocol, permissions, recipients, and warnings before Safe asks for a signature.",
+  ],
+] as const;
+
 const transactionRows = [
   {
     action: "Swap 24,000 USDC → WETH",
@@ -51,13 +66,19 @@ export default function HomePage() {
             <i aria-hidden="true" /> Read-only by design
           </span>
           <Link
-            className="button button-small button-secondary"
+            className="text-link nav-link"
             href="/demo/malicious-transaction"
           >
-            Attack demo
+            Attack lab
+          </Link>
+          <Link
+            className="button button-small button-secondary"
+            href="/safe-app"
+          >
+            Set up in Safe
           </Link>
           <Link className="button button-small" href="/safes">
-            Open inspector
+            Inspect transaction
           </Link>
         </div>
       </nav>
@@ -74,7 +95,10 @@ export default function HomePage() {
           </p>
           <div className="hero-actions">
             <Link className="button" href="/safes">
-              Inspect a Safe <span aria-hidden="true">→</span>
+              Inspect a transaction <span aria-hidden="true">→</span>
+            </Link>
+            <Link className="button button-secondary" href="/safe-app">
+              Set up in Safe
             </Link>
             <Link
               className="text-link"
@@ -82,9 +106,6 @@ export default function HomePage() {
             >
               Try a live example
             </Link>
-            <a className="text-link" href="#how-it-works">
-              How analysis works
-            </a>
           </div>
           <p className="assurance">
             <span aria-hidden="true">◇</span> Public-chain reads only · No
@@ -149,6 +170,38 @@ export default function HomePage() {
               ))}
             </div>
           </div>
+        </div>
+      </section>
+
+      <section className="safe-workflow shell" id="safe-integration">
+        <div className="safe-workflow-heading">
+          <div>
+            <p className="eyebrow">Review before anyone signs</p>
+            <h2>Put Safe Inspector in the signing path.</h2>
+          </div>
+          <p>
+            Keep using the dApps your treasury already relies on. Safe Inspector
+            reviews each proposed transaction before Safe opens its native
+            confirmation screen.
+          </p>
+        </div>
+        <div className="safe-workflow-grid">
+          {safeWorkflowSteps.map(([title, body], index) => (
+            <article key={title}>
+              <span>0{index + 1}</span>
+              <h3>{title}</h3>
+              <p>{body}</p>
+            </article>
+          ))}
+        </div>
+        <div className="safe-workflow-cta">
+          <Link className="button" href="/safe-app">
+            Set up in Safe <span aria-hidden="true">→</span>
+          </Link>
+          <p>
+            Preview only. Safe Inspector never receives a private key and cannot
+            sign a transaction.
+          </p>
         </div>
       </section>
 
