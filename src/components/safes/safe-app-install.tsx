@@ -1,19 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import styles from "./safe-app-install.module.css";
 
-export function SafeAppInstall() {
-  const [appUrl, setAppUrl] = useState("");
+export function SafeAppInstall({ appUrl }: { appUrl: string }) {
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    setAppUrl(`${window.location.origin}/safe-app`);
-  }, []);
-
   async function copyAppUrl() {
-    if (!appUrl) return;
     await navigator.clipboard.writeText(appUrl);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 2_000);
@@ -34,14 +28,9 @@ export function SafeAppInstall() {
       <div className={styles.card}>
         <div className={styles.linkBlock}>
           <span>Safe Inspector app link</span>
-          <code>{appUrl || "Preparing app link…"}</code>
+          <code>{appUrl}</code>
           <div className={styles.actions}>
-            <button
-              className="button"
-              disabled={!appUrl}
-              onClick={copyAppUrl}
-              type="button"
-            >
+            <button className="button" onClick={copyAppUrl} type="button">
               {copied ? "Copied" : "Copy app link"}
             </button>
             <a
