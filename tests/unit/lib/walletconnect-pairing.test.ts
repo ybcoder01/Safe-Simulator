@@ -48,6 +48,15 @@ describe("WalletConnect pairing links", () => {
     expect(() => normalize(incompleteUri)).toThrow(WalletConnectPairingError);
   });
 
+  it("keeps timeout messages actionable", () => {
+    const timeout = new WalletConnectPairingError(
+      "timeout",
+      "The dApp did not complete the WalletConnect handshake.",
+    );
+
+    expect(walletConnectPairingFailureMessage(timeout)).toBe(timeout.message);
+  });
+
   it("does not expose relay topics or symmetric keys in connection errors", () => {
     const rawError = new Error(
       `Subscribing to ${topic}?symKey=${symmetricKey} failed, please try again`,
