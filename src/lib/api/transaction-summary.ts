@@ -17,6 +17,7 @@ import type { StorageChangeAnalysis } from "@/lib/api/storage-changes";
 import type { TokenBalanceChangeResult } from "@/lib/api/token-balance-changes";
 import type { TokenMetadataResult } from "@/lib/api/token-metadata";
 import type { XdcContractVerificationResult } from "@/lib/api/xdcscan-verification";
+import type { ManualSimulationView } from "@/lib/api/manual-simulation";
 
 export const TRANSACTION_SUMMARY_PROMPT_VERSION = "transaction-summary-v7";
 export const DEFAULT_OPENROUTER_MODEL = "openai/gpt-5.4-mini";
@@ -353,6 +354,34 @@ export function buildTransactionSummaryEvidence(
     tokenMetadata: input.tokenMetadata,
     balanceChanges: input.balanceChanges,
     sourceVerification: input.contractVerification,
+  });
+}
+
+export function buildManualSimulationSummaryEvidence(
+  result: ManualSimulationView,
+): Readonly<Record<string, unknown>> {
+  return sanitizePublicTransactionEvidence({
+    scope:
+      "Preview-only, read-only Safe transaction review before the first signature.",
+    transaction: result.request,
+    targetContract: result.target,
+    decodedCall: result.decoded,
+    identifiedProtocols: result.protocols,
+    execution: result.execution,
+    approvals: result.approvals.map((approval) => ({
+      method: approval.method,
+      standard: approval.standard,
+      token: approval.token,
+      tokenLabel: approval.tokenLabel,
+      spender: approval.spender,
+      spenderLabel: approval.spenderLabel,
+      spenderProtocol: approval.spenderProtocol,
+      spenderReviewed: approval.spenderReviewed,
+      infinite: approval.infinite,
+      newSpenderAtAnchor: approval.newSpenderAtAnchor,
+      warning: approval.warning,
+    })),
+    deterministicVerdict: result.verdict,
   });
 }
 

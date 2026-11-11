@@ -17,6 +17,7 @@ import {
 import { EvidenceFindings } from "@/components/shared/evidence-findings";
 import styles from "./safe-app-review.module.css";
 import type { ManualSimulationView } from "@/lib/api/manual-simulation";
+import { findingReviewSummary } from "@/lib/finding-guidance";
 
 interface SafeContext {
   readonly address: string;
@@ -27,6 +28,24 @@ interface SafeContext {
 
 interface ApiResponse {
   readonly data?: ManualSimulationView;
+  readonly error?: { readonly message?: string };
+}
+
+interface AiSummary {
+  readonly headline: string;
+  readonly plainLanguage: string;
+  readonly stance: "avoid" | "manual-review" | "appears-consistent";
+  readonly keyActions: readonly string[];
+  readonly risks: readonly string[];
+  readonly checksBeforeSigning: readonly string[];
+  readonly limitations: readonly string[];
+}
+
+interface SummaryApiResponse {
+  readonly data?: {
+    readonly model: string;
+    readonly summary: AiSummary;
+  };
   readonly error?: { readonly message?: string };
 }
 
@@ -212,6 +231,7 @@ export function SafeAppReview() {
     ReturnType<typeof WalletKit.init>
   > | null>(null);
   const pendingRequestRef = useRef<PendingWalletRequest | null>(null);
+  const summaryRequestRef = useRef(0);
   const [safe, setSafe] = useState<SafeContext | null>(null);
   const [contextError, setContextError] = useState<string | null>(null);
   const [pairingUri, setPairingUri] = useState("");
@@ -227,11 +247,21 @@ export function SafeAppReview() {
   const [nativeValue, setNativeValue] = useState("0");
   const [data, setData] = useState("0x");
   const [result, setResult] = useState<ManualSimulationView | null>(null);
+  const [aiSummary, setAiSummary] = useState<AiSummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
   const [acknowledged, setAcknowledged] = useState(false);
   const [reviewing, setReviewing] = useState(false);
   const [proposing, setProposing] = useState(false);
   const [proposalHash, setProposalHash] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const resetSummary = useCallback(() => {
+    summaryRequestRef.current += 1;
+    setAiSummary(null);
+    setSummaryError(null);
+    setSummaryLoading(false);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -262,6 +292,52 @@ export function SafeAppReview() {
     };
   }, []);
 
+  const generateSummary = useCallback(
+    async (payload: {
+      readonly chainId: number;
+      readonly safeAddress: string;
+      readonly to: string;
+      readonly value: string;
+      readonly data: string;
+    }) => {
+      const requestId = summaryRequestRef.current + 1;
+      summaryRequestRef.current = requestId;
+      setAiSummary(null);
+      setSummaryError(null);
+      setSummaryLoading(true);
+
+      try {
+        const response = await fetch("/api/v1/safe-app/summary", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const body = (await response.json()) as SummaryApiResponse;
+        if (!response.ok || !body.data?.summary) {
+          throw new Error(
+            body.error?.message ?? "The AI explanation could not be generated.",
+          );
+        }
+        if (summaryRequestRef.current === requestId) {
+          setAiSummary(body.data.summary);
+        }
+      } catch (cause) {
+        if (summaryRequestRef.current === requestId) {
+          setSummaryError(
+            cause instanceof Error
+              ? cause.message
+              : "The AI explanation is temporarily unavailable.",
+          );
+        }
+      } finally {
+        if (summaryRequestRef.current === requestId) {
+          setSummaryLoading(false);
+        }
+      }
+    },
+    [],
+  );
+
   const analyzeTransaction = useCallback(
     async (
       transaction: CapturedTransaction,
@@ -270,27 +346,30 @@ export function SafeAppReview() {
     ) => {
       setReviewing(true);
       setResult(null);
+      resetSummary();
       setAcknowledged(false);
       setProposalHash(null);
       setError(null);
 
       try {
+        const payload = {
+          chainId,
+          safeAddress,
+          to: transaction.to,
+          value: transaction.value,
+          data: transaction.data,
+        };
         const response = await fetch("/api/v1/safe-app/review", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            chainId,
-            safeAddress,
-            to: transaction.to,
-            value: transaction.value,
-            data: transaction.data,
-          }),
+          body: JSON.stringify(payload),
         });
         const body = (await response.json()) as ApiResponse;
         if (!response.ok || !body.data) {
           throw new Error(body.error?.message ?? "The draft review failed.");
         }
         setResult(body.data);
+        void generateSummary(payload);
       } catch (cause) {
         setError(
           cause instanceof Error
@@ -301,7 +380,7 @@ export function SafeAppReview() {
         setReviewing(false);
       }
     },
-    [],
+    [generateSummary, resetSummary],
   );
 
   useEffect(() => {
@@ -446,6 +525,7 @@ export function SafeAppReview() {
           setPendingRequest(null);
           pendingRequestRef.current = null;
           setResult(null);
+          resetSummary();
           setAcknowledged(false);
           setProposalHash(null);
           setPairingUri("");
@@ -475,10 +555,11 @@ export function SafeAppReview() {
       active = false;
       removeListeners();
     };
-  }, [analyzeTransaction, safe]);
+  }, [analyzeTransaction, resetSummary, safe]);
 
   function invalidateReview() {
     setResult(null);
+    resetSummary();
     setAcknowledged(false);
     setProposalHash(null);
     setError(null);
@@ -543,6 +624,7 @@ export function SafeAppReview() {
       setConnectedDapp(null);
       setWaitingForRequest(false);
       setResult(null);
+      resetSummary();
       setAcknowledged(false);
       setProposalHash(null);
       setPairingUri("");
@@ -588,6 +670,7 @@ export function SafeAppReview() {
     pendingRequestRef.current = null;
     setPendingRequest(null);
     setResult(null);
+    resetSummary();
     setAcknowledged(false);
     setWaitingForRequest(true);
     setError(null);
@@ -675,6 +758,9 @@ export function SafeAppReview() {
 
   const blocked = result?.verdict.verdict === "flagged";
   const needsAcknowledgement = result?.verdict.verdict === "unverified";
+  const decision = result
+    ? findingReviewSummary(result.verdict.findings, { executed: false })
+    : null;
 
   return (
     <div className="safe-app-layout">
@@ -800,38 +886,118 @@ export function SafeAppReview() {
             </span>
           </div>
 
-          <div className="simulation-metrics">
-            <div>
-              <span>
-                {result.protocols.length === 1 ? "Protocol" : "Protocols"}
-              </span>
-              <strong>
-                {result.protocols.length > 0
-                  ? result.protocols
-                      .map((protocol) => protocol.label)
-                      .join(", ")
-                  : (result.target.label ?? shorten(result.request.to))}
-              </strong>
+          {decision ? (
+            <div className={`review-guidance review-guidance-${decision.tone}`}>
+              <span>Decision</span>
+              <div>
+                <strong>{decision.title}</strong>
+                <p>{decision.detail}</p>
+              </div>
             </div>
-            <div>
-              <span>Action</span>
-              <strong>{result.decoded?.method ?? "Raw calldata"}</strong>
-            </div>
-            <div>
-              <span>Internal calls</span>
-              <strong>{result.execution.internalCallCount}</strong>
-            </div>
-            <div>
-              <span>Delegate calls</span>
-              <strong>{result.execution.delegateCallCount}</strong>
-            </div>
-          </div>
+          ) : null}
 
-          <EvidenceFindings
-            addressLabels={findingAddressLabels(result)}
-            findings={result.verdict.findings}
-            showAddresses
-          />
+          <section className={styles.summaryCard} aria-busy={summaryLoading}>
+            <div className={styles.summaryHeading}>
+              <div>
+                <span>Plain-language explanation</span>
+                <h3>AI summary</h3>
+              </div>
+              <span className={styles.advisoryBadge}>Advisory</span>
+            </div>
+
+            {summaryLoading ? (
+              <p className={styles.summaryStatus} role="status">
+                Explaining what this transaction does…
+              </p>
+            ) : aiSummary ? (
+              <div className={styles.summaryBody}>
+                <h4>{aiSummary.headline}</h4>
+                <p>{aiSummary.plainLanguage}</p>
+                {aiSummary.checksBeforeSigning.length > 0 ? (
+                  <div className={styles.summaryChecks}>
+                    <strong>Before you continue</strong>
+                    <ul>
+                      {aiSummary.checksBeforeSigning
+                        .slice(0, 3)
+                        .map((check) => (
+                          <li key={check}>{check}</li>
+                        ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <div className={styles.summaryUnavailable} role="status">
+                <strong>AI explanation unavailable</strong>
+                <p>
+                  {summaryError ??
+                    "The deterministic security review above is still complete."}
+                </p>
+                <button
+                  className="button button-secondary"
+                  onClick={() =>
+                    void generateSummary({
+                      chainId: safe.chainId,
+                      safeAddress: safe.address,
+                      to: result.request.to,
+                      value: result.request.value,
+                      data: result.request.data,
+                    })
+                  }
+                  type="button"
+                >
+                  Try AI summary again
+                </button>
+              </div>
+            )}
+
+            <p className={styles.summaryAdvisory}>
+              AI explains the result but cannot change it. The deterministic
+              decision above controls whether this transaction can continue.
+            </p>
+          </section>
+
+          <details className={styles.technicalDetails}>
+            <summary>
+              <span>View technical details</span>
+              <small>Calldata, calls, approvals, and analysis coverage</small>
+            </summary>
+            <div className={styles.technicalContent}>
+              <div className="simulation-metrics">
+                <div>
+                  <span>
+                    {result.protocols.length === 1 ? "Protocol" : "Protocols"}
+                  </span>
+                  <strong>
+                    {result.protocols.length > 0
+                      ? result.protocols
+                          .map((protocol) => protocol.label)
+                          .join(", ")
+                      : (result.target.label ?? shorten(result.request.to))}
+                  </strong>
+                </div>
+                <div>
+                  <span>Action</span>
+                  <strong>{result.decoded?.method ?? "Raw calldata"}</strong>
+                </div>
+                <div>
+                  <span>Internal calls</span>
+                  <strong>{result.execution.internalCallCount}</strong>
+                </div>
+                <div>
+                  <span>Delegate calls</span>
+                  <strong>{result.execution.delegateCallCount}</strong>
+                </div>
+              </div>
+
+              <EvidenceFindings
+                addressLabels={findingAddressLabels(result)}
+                findings={result.verdict.findings}
+                showAddresses
+                showRecommendation={false}
+              />
+            </div>
+          </details>
 
           {blocked ? (
             <div className="safe-app-stop" role="alert">
