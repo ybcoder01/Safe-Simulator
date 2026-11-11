@@ -25,9 +25,9 @@ export function SafeAppInstall() {
         <p className="eyebrow">Optional Safe integration</p>
         <h1>Review transactions before anyone signs.</h1>
         <p>
-          Add Safe Inspector as a custom app in Safe Global. Safe Global supplies
-          the Safe you currently have selected, so there is no second account
-          selector and no wallet connection on this page.
+          Add Safe Inspector as a custom app in Safe Global. Safe Global
+          supplies the Safe you currently have selected, so there is no second
+          account selector and no wallet connection on this page.
         </p>
       </div>
 
