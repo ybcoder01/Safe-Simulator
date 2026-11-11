@@ -1,7 +1,8 @@
 export type WalletConnectPairingErrorCode =
   | "invalid"
   | "expired"
-  | "nearly-expired";
+  | "nearly-expired"
+  | "timeout";
 
 export class WalletConnectPairingError extends Error {
   readonly code: WalletConnectPairingErrorCode;
@@ -88,10 +89,13 @@ export function normalizeWalletConnectPairingUri(
 }
 
 export function walletConnectPairingFailureMessage(cause: unknown): string {
+  if (cause instanceof WalletConnectPairingError) {
+    return cause.message;
+  }
+
   if (
-    cause instanceof WalletConnectPairingError ||
-    (cause instanceof Error &&
-      /expired|pairing already exists|proposal expired/i.test(cause.message))
+    cause instanceof Error &&
+    /expired|pairing already exists|proposal expired/i.test(cause.message)
   ) {
     return cause.message;
   }
