@@ -15,55 +15,47 @@ function pairingUri(expiryTimestamp = NOW_SECONDS + 300) {
   return `wc:${topic}@2?expiryTimestamp=${expiryTimestamp}&relay-protocol=irn&symKey=${symmetricKey}`;
 }
 
+function normalize(uri: string) {
+  return normalizeWalletConnectPairingUri(uri, NOW_MS);
+}
+
 describe("WalletConnect pairing links", () => {
   it("accepts a complete v2 link and strips pasted whitespace", () => {
-    expect(
-      normalizeWalletConnectPairingUri(`  ${pairingUri()}\n`, NOW_MS),
-    ).toBe(pairingUri());
+    expect(normalize(`  ${pairingUri()}\n`)).toBe(pairingUri());
   });
 
   it("accepts a percent-encoded pairing link", () => {
-    expect(
-      normalizeWalletConnectPairingUri(
-        encodeURIComponent(pairingUri()),
-        NOW_MS,
-      ),
-    ).toBe(pairingUri());
+    const encodedUri = encodeURIComponent(pairingUri());
+
+    expect(normalize(encodedUri)).toBe(pairingUri());
   });
 
   it("rejects expired and nearly expired one-time links", () => {
-    expect(() =>
-      normalizeWalletConnectPairingUri(pairingUri(NOW_SECONDS), NOW_MS),
-    ).toThrowError("This WalletConnect link has expired");
+    const expiredUri = pairingUri(NOW_SECONDS);
+    const nearlyExpiredUri = pairingUri(NOW_SECONDS + 5);
 
-    expect(() =>
-      normalizeWalletConnectPairingUri(
-        pairingUri(NOW_SECONDS + 5),
-        NOW_MS,
-      ),
-    ).toThrowError("This WalletConnect link is about to expire");
+    expect(() => normalize(expiredUri)).toThrowError(
+      "This WalletConnect link has expired",
+    );
+    expect(() => normalize(nearlyExpiredUri)).toThrowError(
+      "This WalletConnect link is about to expire",
+    );
   });
 
   it("rejects incomplete links before they reach the relay", () => {
-    expect(() =>
-      normalizeWalletConnectPairingUri(
-        `wc:${topic}@2?relay-protocol=irn`,
-        NOW_MS,
-      ),
-    ).toThrow(WalletConnectPairingError);
+    const incompleteUri = `wc:${topic}@2?relay-protocol=irn`;
+
+    expect(() => normalize(incompleteUri)).toThrow(WalletConnectPairingError);
   });
 
   it("does not expose relay topics or symmetric keys in connection errors", () => {
     const rawError = new Error(
       `Subscribing to ${topic}?symKey=${symmetricKey} failed, please try again`,
     );
+    const message = walletConnectPairingFailureMessage(rawError);
 
-    expect(walletConnectPairingFailureMessage(rawError)).not.toContain(topic);
-    expect(walletConnectPairingFailureMessage(rawError)).not.toContain(
-      symmetricKey,
-    );
-    expect(walletConnectPairingFailureMessage(rawError)).toContain(
-      "Generate a fresh pairing link",
-    );
+    expect(message).not.toContain(topic);
+    expect(message).not.toContain(symmetricKey);
+    expect(message).toContain("Generate a fresh pairing link");
   });
 });
