@@ -6,6 +6,7 @@ interface EvidenceFindingsProps {
   readonly showRecommendation?: boolean;
   readonly showAddresses?: boolean;
   readonly executed?: boolean;
+  readonly addressLabels?: Readonly<Record<string, string>>;
 }
 
 export function EvidenceFindings({
@@ -13,6 +14,7 @@ export function EvidenceFindings({
   showRecommendation = true,
   showAddresses = false,
   executed = false,
+  addressLabels = {},
 }: EvidenceFindingsProps) {
   const summary = findingReviewSummary(findings, { executed });
 
@@ -39,7 +41,18 @@ export function EvidenceFindings({
                 <strong>{finding.title}</strong>
                 <p>{finding.detail}</p>
                 {showAddresses && finding.addresses.length > 0 ? (
-                  <code>{finding.addresses.join(" · ")}</code>
+                  <code>
+                    {finding.addresses
+                      .map((address) => {
+                        const label = addressLabels[address.toLowerCase()];
+                        const shortened =
+                          address.length > 20
+                            ? `${address.slice(0, 10)}…${address.slice(-8)}`
+                            : address;
+                        return label ? `${label} (${shortened})` : address;
+                      })
+                      .join(" · ")}
+                  </code>
                 ) : null}
                 <div className="finding-next-step">
                   <span>{guidance.label}</span>

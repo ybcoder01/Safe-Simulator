@@ -15,6 +15,21 @@ const protections = [
   ],
 ] as const;
 
+const safeWorkflowSteps = [
+  [
+    "Copy the app link",
+    "Safe Inspector uses one reusable custom-app URL for every Safe.",
+  ],
+  [
+    "Add it in Safe Global",
+    "Select a Safe, then paste the link under Apps → My custom apps.",
+  ],
+  [
+    "Review before signing",
+    "Connect the transaction source and review its target, protocol, permissions, and recipients.",
+  ],
+] as const;
+
 const transactionRows = [
   {
     action: "Swap 24,000 USDC → WETH",
@@ -50,15 +65,6 @@ export default function HomePage() {
           <span className="read-only-pill">
             <i aria-hidden="true" /> Read-only by design
           </span>
-          <Link
-            className="button button-small button-secondary"
-            href="/demo/malicious-transaction"
-          >
-            Attack demo
-          </Link>
-          <Link className="button button-small" href="/safes">
-            Open inspector
-          </Link>
         </div>
       </nav>
 
@@ -74,17 +80,11 @@ export default function HomePage() {
           </p>
           <div className="hero-actions">
             <Link className="button" href="/safes">
-              Inspect a Safe <span aria-hidden="true">→</span>
+              Inspect a transaction <span aria-hidden="true">→</span>
             </Link>
-            <Link
-              className="text-link"
-              href="/safe/50/0x7ae1ef2979b0de85d7dea7f6a5582417d4a98c55/tx/0x0856c4f2890b3828981c29e6e09f4e475c6439ae2045837bcb38900b5249a633"
-            >
-              Try a live example
+            <Link className="button button-secondary" href="/use-with-safe">
+              Use with Safe
             </Link>
-            <a className="text-link" href="#how-it-works">
-              How analysis works
-            </a>
           </div>
           <p className="assurance">
             <span aria-hidden="true">◇</span> Public-chain reads only · No
@@ -152,6 +152,38 @@ export default function HomePage() {
         </div>
       </section>
 
+      <section className="safe-workflow shell" id="safe-integration">
+        <div className="safe-workflow-heading">
+          <div>
+            <p className="eyebrow">Optional Safe integration</p>
+            <h2>Review transactions before anyone signs.</h2>
+          </div>
+          <p>
+            Add Safe Inspector as a custom app using one link. Safe Global
+            supplies the Safe you currently have selected, and Safe Inspector
+            reviews the proposed transaction before confirmation.
+          </p>
+        </div>
+        <div className="safe-workflow-grid">
+          {safeWorkflowSteps.map(([title, body], index) => (
+            <article key={title}>
+              <span>0{index + 1}</span>
+              <h3>{title}</h3>
+              <p>{body}</p>
+            </article>
+          ))}
+        </div>
+        <div className="safe-workflow-cta">
+          <Link className="button" href="/use-with-safe">
+            Get Safe app link <span aria-hidden="true">→</span>
+          </Link>
+          <p>
+            Preview only. Safe Inspector never receives a private key and cannot
+            sign a transaction.
+          </p>
+        </div>
+      </section>
+
       <section className="proof shell" id="how-it-works">
         <div className="section-intro">
           <p className="eyebrow">Built for consequential decisions</p>
@@ -169,6 +201,33 @@ export default function HomePage() {
               <p>{body}</p>
             </article>
           ))}
+        </div>
+      </section>
+
+      <section className="safe-workflow shell" aria-labelledby="explore-title">
+        <div className="safe-workflow-heading">
+          <div>
+            <p className="eyebrow">Explore</p>
+            <h2 id="explore-title">See the analysis in action.</h2>
+          </div>
+          <p>
+            Open a completed transaction report or explore controlled attack
+            scenarios after you understand the main review workflow.
+          </p>
+        </div>
+        <div className="safe-workflow-cta">
+          <Link
+            className="button"
+            href="/safe/50/0x7ae1ef2979b0de85d7dea7f6a5582417d4a98c55/tx/0x0856c4f2890b3828981c29e6e09f4e475c6439ae2045837bcb38900b5249a633"
+          >
+            Try a live example <span aria-hidden="true">→</span>
+          </Link>
+          <Link
+            className="button button-secondary"
+            href="/demo/malicious-transaction"
+          >
+            Open attack lab
+          </Link>
         </div>
       </section>
     </main>
