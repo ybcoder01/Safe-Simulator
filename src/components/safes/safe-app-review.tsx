@@ -641,25 +641,24 @@ export function SafeAppReview() {
   if (contextError) {
     return (
       <section className="safe-app-state" role="alert">
-        <p className="eyebrow">Safe context unavailable</p>
-        <h1>Open this page inside Safe Global</h1>
-        <p>{contextError}</p>
+        <p className="eyebrow">Review before signing</p>
+        <h1>Open Safe Inspector from Safe</h1>
         <p>
-          Automatic review needs the Safe account context supplied by Safe
-          Global. The manual Inspector remains available in any browser.
+          This pre-signature review uses the Safe account currently selected in
+          Safe Global. Open Safe Inspector from Safe Apps to continue.
         </p>
         <div className={styles.actions}>
-          <Link className="button" href="/safe-app/manual">
-            Open manual Inspector
-          </Link>
           <a
-            className="button button-secondary"
+            className="button"
             href="https://app.safe.global/"
             rel="noreferrer"
             target="_blank"
           >
             Open Safe Global
           </a>
+          <Link className="button button-secondary" href="/safes">
+            Go to Safe Inspector
+          </Link>
         </div>
       </section>
     );
@@ -699,7 +698,7 @@ export function SafeAppReview() {
       </section>
 
       <section className="safe-app-intro">
-        <p className="eyebrow">Automatic pre-signature review</p>
+        <p className="eyebrow">Review before signing</p>
         <h1>Connect a dApp once</h1>
         <p>
           Choose WalletConnect in the dApp that creates the transaction and
@@ -790,7 +789,7 @@ export function SafeAppReview() {
           <div className="safe-app-result-heading">
             <div>
               <p className="eyebrow">
-                {pendingRequest ? "Captured automatically" : "Manual fallback"}
+                {pendingRequest ? "Transaction received" : "Direct review"}
               </p>
               <h2>{result.verdict.headline}</h2>
             </div>
@@ -907,7 +906,7 @@ export function SafeAppReview() {
       ) : null}
 
       <details className={styles.manual}>
-        <summary>Advanced: review a transaction manually</summary>
+        <summary>Advanced: enter transaction details</summary>
         <p>
           Use this fallback only when a transaction source cannot connect
           through WalletConnect.
