@@ -1,6 +1,6 @@
 import type { Address, ChainId } from "../../domain";
 
-export const TOKEN_REGISTRY_VERSION = "2026-09-04.1";
+export const TOKEN_REGISTRY_VERSION = "2026-11-12.1";
 
 export type TokenKind = "fungible" | "liquidity-position" | "unknown";
 export type TokenLogoKey =
@@ -82,7 +82,7 @@ const entries: readonly TokenRegistryEntry[] = [
   {
     chainId: 50,
     address: "0xfA2958CB79b0491CC627c1557F441eF849Ca8eb1" as Address,
-    name: "Fathom USDC Underlying",
+    name: "USDC",
     symbol: "USDC",
     decimals: 6,
     kind: "fungible",

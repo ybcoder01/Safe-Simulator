@@ -183,7 +183,7 @@ describe("Telegram transaction alerts", () => {
     expect(text).toContain(
       "Confirm the complete spender address and the exact amount your team intended",
     );
-    expect(text).toContain("With: Fathom USDC Underlying");
+    expect(text).toContain("With: USDC");
     expect(text).not.toContain("A new address can spend");
   });
 
