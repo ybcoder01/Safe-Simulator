@@ -182,7 +182,7 @@ export default function HomePage() {
             transaction.
           </p>
         </div>
-        </section>
+      </section>
 
       <section className="proof shell" id="how-it-works">
         <div className="section-intro">
