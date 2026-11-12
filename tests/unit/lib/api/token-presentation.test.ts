@@ -49,7 +49,7 @@ describe("token presentation", () => {
     });
   });
 
-  it("renders the reviewed Fathom USDC identity instead of a fallback", () => {
+  it("renders USDC without assigning it to a borrowing protocol", () => {
     expect(
       resolveTokenPresentation(
         50,
@@ -57,7 +57,7 @@ describe("token presentation", () => {
         "Untrusted symbol",
       ),
     ).toMatchObject({
-      name: "Fathom USDC Underlying",
+      name: "USDC",
       symbol: "USDC",
       kind: "fungible",
       logoKey: "usdc",

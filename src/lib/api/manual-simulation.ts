@@ -5,6 +5,7 @@ import {
   findContractRegistryEntry,
   type ContractRegistryEntry,
 } from "@/core/analysis/trust/contract-registry";
+import { findTokenRegistryEntry } from "@/core/analysis/trust/token-registry";
 import type {
   Address,
   AddressBookEntry,
@@ -329,6 +330,9 @@ export async function resolveManualSimulation(
       const tokenEntry = approval.token
         ? findContractRegistryEntry(safe.chainId, approval.token)
         : null;
+      const tokenIdentity = approval.token
+        ? findTokenRegistryEntry(safe.chainId, approval.token)
+        : null;
       const spenderEntry = approval.spender
         ? findContractRegistryEntry(safe.chainId, approval.spender)
         : null;
@@ -336,7 +340,7 @@ export async function resolveManualSimulation(
         method: approval.method,
         standard: approval.standard,
         token: approval.token,
-        tokenLabel: tokenEntry?.label ?? null,
+        tokenLabel: tokenIdentity?.name ?? tokenEntry?.label ?? null,
         spender: approval.spender,
         spenderLabel: spenderEntry?.label ?? null,
         spenderProtocol: protocolLabel(spenderEntry),

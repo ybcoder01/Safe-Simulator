@@ -9,7 +9,7 @@ import {
 import type { Address } from "../../../../../src/core/domain";
 
 const wxdc = "0x951857744785E80e2De051c32EE7b25f9c458C42" as Address;
-const fathomUsdc = "0xfA2958CB79b0491CC627c1557F441eF849Ca8eb1" as Address;
+const usdc = "0xfA2958CB79b0491CC627c1557F441eF849Ca8eb1" as Address;
 const ynRWAx = "0x7054f74d6cB418e987b73c9f3c23e5cEc18217b2" as Address;
 const wsrUsd = "0x4809010926aec940b550D34a46A52739f996D75D" as Address;
 const unknown = "0x0000000000000000000000000000000000000042" as Address;
@@ -28,8 +28,8 @@ describe("token identity registry", () => {
   });
 
   it("includes the publisher-confirmed XDC token identities", () => {
-    expect(findTokenRegistryEntry(50, fathomUsdc)).toMatchObject({
-      name: "Fathom USDC Underlying",
+    expect(findTokenRegistryEntry(50, usdc)).toMatchObject({
+      name: "USDC",
       symbol: "USDC",
       decimals: 6,
       logoKey: "usdc",
