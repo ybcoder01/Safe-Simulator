@@ -178,8 +178,8 @@ export default function HomePage() {
             Get Safe app link <span aria-hidden="true">→</span>
           </Link>
           <p>
-            Preview only. Safe Inspector never receives a private key and cannot
-            sign a transaction.
+            Safe Inspector never receives a private key and cannot sign a
+            transaction.
           </p>
         </div>
       </section>

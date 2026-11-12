@@ -1,19 +1,17 @@
 import Link from "next/link";
 import { headers } from "next/headers";
-import { notFound } from "next/navigation";
-
 import { SafeAppInstall } from "@/components/safes/safe-app-install";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Use with Safe · Safe Inspector Preview",
+  title: "Use with Safe · Safe Inspector",
   description:
     "Add Safe Inspector as a custom Safe App to review transactions before signing.",
 };
 
 export default async function UseWithSafePage() {
-  if (process.env.VERCEL_ENV !== "preview") notFound();
+  const isPreview = process.env.VERCEL_ENV === "preview";
 
   const requestHeaders = await headers();
   const host =
@@ -30,7 +28,7 @@ export default async function UseWithSafePage() {
           </span>
           <span>Safe Inspector</span>
         </Link>
-        <span className="preview-pill">Preview only</span>
+        {isPreview ? <span className="preview-pill">Preview only</span> : null}
       </header>
 
       <SafeAppInstall appUrl={appUrl} />
