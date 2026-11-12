@@ -1,17 +1,15 @@
-import { notFound } from "next/navigation";
-
 import { SafeAppReview } from "@/components/safes/safe-app-review";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Review before signing · Safe Inspector Preview",
+  title: "Review before signing · Safe Inspector",
   description:
     "Review an unsigned Safe transaction before opening Safe's confirmation screen.",
 };
 
 export default function SafeAppPage() {
-  if (process.env.VERCEL_ENV !== "preview") notFound();
+  const isPreview = process.env.VERCEL_ENV === "preview";
 
   return (
     <main className="safe-app-shell">
@@ -22,7 +20,7 @@ export default function SafeAppPage() {
           </span>
           <span>Safe Inspector</span>
         </div>
-        <span className="preview-pill">Preview only</span>
+        {isPreview ? <span className="preview-pill">Preview only</span> : null}
       </header>
       <SafeAppReview />
       <footer className="safe-app-footer">
