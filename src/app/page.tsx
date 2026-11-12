@@ -52,6 +52,8 @@ const transactionRows = [
 ] as const;
 
 export default function HomePage() {
+  const safeIntegrationEnabled = process.env.VERCEL_ENV === "preview";
+
   return (
     <main>
       <nav className="nav shell" aria-label="Primary navigation">
@@ -82,9 +84,11 @@ export default function HomePage() {
             <Link className="button" href="/safes">
               Inspect a transaction <span aria-hidden="true">→</span>
             </Link>
-            <Link className="button button-secondary" href="/use-with-safe">
-              Use with Safe
-            </Link>
+            {safeIntegrationEnabled ? (
+              <Link className="button button-secondary" href="/use-with-safe">
+                Use with Safe
+              </Link>
+            ) : null}
           </div>
           <p className="assurance">
             <span aria-hidden="true">◇</span> Public-chain reads only · No
@@ -152,37 +156,39 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="safe-workflow shell" id="safe-integration">
-        <div className="safe-workflow-heading">
-          <div>
-            <p className="eyebrow">Optional Safe integration</p>
-            <h2>Review transactions before anyone signs.</h2>
+      {safeIntegrationEnabled ? (
+        <section className="safe-workflow shell" id="safe-integration">
+          <div className="safe-workflow-heading">
+            <div>
+              <p className="eyebrow">Optional Safe integration</p>
+              <h2>Review transactions before anyone signs.</h2>
+            </div>
+            <p>
+              Add Safe Inspector as a custom app using one link. Safe Global
+              supplies the Safe you currently have selected, and Safe Inspector
+              reviews the proposed transaction before confirmation.
+            </p>
           </div>
-          <p>
-            Add Safe Inspector as a custom app using one link. Safe Global
-            supplies the Safe you currently have selected, and Safe Inspector
-            reviews the proposed transaction before confirmation.
-          </p>
-        </div>
-        <div className="safe-workflow-grid">
-          {safeWorkflowSteps.map(([title, body], index) => (
-            <article key={title}>
-              <span>0{index + 1}</span>
-              <h3>{title}</h3>
-              <p>{body}</p>
-            </article>
-          ))}
-        </div>
-        <div className="safe-workflow-cta">
-          <Link className="button" href="/use-with-safe">
-            Get Safe app link <span aria-hidden="true">→</span>
-          </Link>
-          <p>
-            Preview only. Safe Inspector never receives a private key and cannot
-            sign a transaction.
-          </p>
-        </div>
-      </section>
+          <div className="safe-workflow-grid">
+            {safeWorkflowSteps.map(([title, body], index) => (
+              <article key={title}>
+                <span>0{index + 1}</span>
+                <h3>{title}</h3>
+                <p>{body}</p>
+              </article>
+            ))}
+          </div>
+          <div className="safe-workflow-cta">
+            <Link className="button" href="/use-with-safe">
+              Get Safe app link <span aria-hidden="true">→</span>
+            </Link>
+            <p>
+              Preview only. Safe Inspector never receives a private key and cannot
+              sign a transaction.
+            </p>
+          </div>
+        </section>
+      ) : null}
 
       <section className="proof shell" id="how-it-works">
         <div className="section-intro">
