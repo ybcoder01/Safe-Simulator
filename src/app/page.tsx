@@ -153,35 +153,35 @@ export default function HomePage() {
       </section>
 
       <section className="safe-workflow shell" id="safe-integration">
-          <div className="safe-workflow-heading">
-            <div>
-              <p className="eyebrow">Optional Safe integration</p>
-              <h2>Review transactions before anyone signs.</h2>
-            </div>
-            <p>
-              Add Safe Inspector as a custom app using one link. Safe Global
-              supplies the Safe you currently have selected, and Safe Inspector
-              reviews the proposed transaction before confirmation.
-            </p>
+        <div className="safe-workflow-heading">
+          <div>
+            <p className="eyebrow">Optional Safe integration</p>
+            <h2>Review transactions before anyone signs.</h2>
           </div>
-          <div className="safe-workflow-grid">
-            {safeWorkflowSteps.map(([title, body], index) => (
-              <article key={title}>
-                <span>0{index + 1}</span>
-                <h3>{title}</h3>
-                <p>{body}</p>
-              </article>
-            ))}
-          </div>
-          <div className="safe-workflow-cta">
-            <Link className="button" href="/use-with-safe">
-              Get Safe app link <span aria-hidden="true">→</span>
-            </Link>
-            <p>
-              Safe Inspector never receives a private key and cannot sign a
-              transaction.
-            </p>
-          </div>
+          <p>
+            Add Safe Inspector as a custom app using one link. Safe Global
+            supplies the Safe you currently have selected, and Safe Inspector
+            reviews the proposed transaction before confirmation.
+          </p>
+        </div>
+        <div className="safe-workflow-grid">
+          {safeWorkflowSteps.map(([title, body], index) => (
+            <article key={title}>
+              <span>0{index + 1}</span>
+              <h3>{title}</h3>
+              <p>{body}</p>
+            </article>
+          ))}
+        </div>
+        <div className="safe-workflow-cta">
+          <Link className="button" href="/use-with-safe">
+            Get Safe app link <span aria-hidden="true">→</span>
+          </Link>
+          <p>
+            Safe Inspector never receives a private key and cannot sign a
+            transaction.
+          </p>
+        </div>
         </section>
 
       <section className="proof shell" id="how-it-works">
