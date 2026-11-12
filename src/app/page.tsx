@@ -52,8 +52,6 @@ const transactionRows = [
 ] as const;
 
 export default function HomePage() {
-  const safeIntegrationEnabled = process.env.VERCEL_ENV === "preview";
-
   return (
     <main>
       <nav className="nav shell" aria-label="Primary navigation">
@@ -84,11 +82,9 @@ export default function HomePage() {
             <Link className="button" href="/safes">
               Inspect a transaction <span aria-hidden="true">→</span>
             </Link>
-            {safeIntegrationEnabled ? (
-              <Link className="button button-secondary" href="/use-with-safe">
-                Use with Safe
-              </Link>
-            ) : null}
+            <Link className="button button-secondary" href="/use-with-safe">
+              Use with Safe
+            </Link>
           </div>
           <p className="assurance">
             <span aria-hidden="true">◇</span> Public-chain reads only · No
@@ -156,8 +152,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {safeIntegrationEnabled ? (
-        <section className="safe-workflow shell" id="safe-integration">
+      <section className="safe-workflow shell" id="safe-integration">
           <div className="safe-workflow-heading">
             <div>
               <p className="eyebrow">Optional Safe integration</p>
@@ -183,12 +178,11 @@ export default function HomePage() {
               Get Safe app link <span aria-hidden="true">→</span>
             </Link>
             <p>
-              Preview only. Safe Inspector never receives a private key and
-              cannot sign a transaction.
+              Safe Inspector never receives a private key and cannot sign a
+              transaction.
             </p>
           </div>
         </section>
-      ) : null}
 
       <section className="proof shell" id="how-it-works">
         <div className="section-intro">
