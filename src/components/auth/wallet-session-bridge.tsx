@@ -18,8 +18,8 @@ interface SessionErrorResponse {
  * Keeps the app's short-lived server session aligned with Privy's longer-lived
  * wallet session without making public Safe reports login-only.
  */
-export function WalletSessionBridge() {
-  const { authenticated, getAccessToken, ready, user } = usePrivy();
+function AuthenticatedWalletSessionBridge() {
+  const { getAccessToken, user } = usePrivy();
   const { wallet: activeWallet } = useActiveWallet();
   const walletAddress = resolveSessionWalletAddress(
     activeWallet?.address,
@@ -27,7 +27,7 @@ export function WalletSessionBridge() {
   );
 
   useEffect(() => {
-    if (!ready || !authenticated || !walletAddress) return;
+    if (!walletAddress) return;
 
     let active = true;
 
@@ -74,7 +74,15 @@ export function WalletSessionBridge() {
     return () => {
       active = false;
     };
-  }, [authenticated, getAccessToken, ready, walletAddress]);
+  }, [getAccessToken, walletAddress]);
 
   return null;
+}
+
+export function WalletSessionBridge() {
+  const { authenticated, ready } = usePrivy();
+
+  if (!ready || !authenticated) return null;
+
+  return <AuthenticatedWalletSessionBridge />;
 }
