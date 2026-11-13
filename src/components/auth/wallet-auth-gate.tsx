@@ -1,7 +1,9 @@
 "use client";
 
-import { usePrivy } from "@privy-io/react-auth";
+import { useActiveWallet, usePrivy } from "@privy-io/react-auth";
 import { useEffect, useState, type ReactNode } from "react";
+
+import { resolveSessionWalletAddress } from "@/lib/auth/wallet-session";
 
 interface SessionErrorBody {
   readonly error?: { readonly message?: string };
@@ -10,7 +12,11 @@ interface SessionErrorBody {
 function WalletGate({ children }: { readonly children: ReactNode }) {
   const { ready, authenticated, login, logout, user, getAccessToken } =
     usePrivy();
-  const walletAddress = user?.wallet?.address;
+  const { wallet: activeWallet } = useActiveWallet();
+  const walletAddress = resolveSessionWalletAddress(
+    activeWallet?.address,
+    user?.wallet?.address,
+  );
   const [sessionState, setSessionState] = useState<{
     readonly walletAddress: string | null;
     readonly error: string | null;
