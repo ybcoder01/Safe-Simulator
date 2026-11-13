@@ -9,9 +9,12 @@ interface SessionErrorBody {
   readonly error?: { readonly message?: string };
 }
 
-function WalletGate({ children }: { readonly children: ReactNode }) {
-  const { ready, authenticated, login, logout, user, getAccessToken } =
-    usePrivy();
+function AuthenticatedWalletGate({
+  children,
+}: {
+  readonly children: ReactNode;
+}) {
+  const { logout, user, getAccessToken } = usePrivy();
   const { wallet: activeWallet } = useActiveWallet();
   const walletAddress = resolveSessionWalletAddress(
     activeWallet?.address,
@@ -26,7 +29,7 @@ function WalletGate({ children }: { readonly children: ReactNode }) {
     sessionState.walletAddress === walletAddress?.toLowerCase();
 
   useEffect(() => {
-    if (!ready || !authenticated || !walletAddress) {
+    if (!walletAddress) {
       return;
     }
 
@@ -66,32 +69,12 @@ function WalletGate({ children }: { readonly children: ReactNode }) {
     return () => {
       active = false;
     };
-  }, [authenticated, getAccessToken, ready, walletAddress]);
+  }, [getAccessToken, walletAddress]);
 
   async function signOut() {
     await fetch("/api/v1/auth/session", { method: "DELETE" });
     await logout();
     setSessionState({ walletAddress: null, error: null });
-  }
-
-  if (!ready) {
-    return <div className="auth-state">Checking wallet session…</div>;
-  }
-
-  if (!authenticated) {
-    return (
-      <section className="auth-gate" aria-labelledby="wallet-login-title">
-        <span className="eyebrow">Wallet-only access</span>
-        <h1 id="wallet-login-title">Sign in to manage your Safes</h1>
-        <p>
-          Your wallet proves who you are. Safe Inspector cannot sign, submit, or
-          approve transactions and will not create an embedded wallet.
-        </p>
-        <button className="button" type="button" onClick={login}>
-          Sign in with wallet
-        </button>
-      </section>
-    );
   }
 
   if (!sessionReady) {
@@ -127,6 +110,32 @@ function WalletGate({ children }: { readonly children: ReactNode }) {
       {children}
     </>
   );
+}
+
+function WalletGate({ children }: { readonly children: ReactNode }) {
+  const { ready, authenticated, login } = usePrivy();
+
+  if (!ready) {
+    return <div className="auth-state">Checking wallet session…</div>;
+  }
+
+  if (!authenticated) {
+    return (
+      <section className="auth-gate" aria-labelledby="wallet-login-title">
+        <span className="eyebrow">Wallet-only access</span>
+        <h1 id="wallet-login-title">Sign in to manage your Safes</h1>
+        <p>
+          Your wallet proves who you are. Safe Inspector cannot sign, submit, or
+          approve transactions and will not create an embedded wallet.
+        </p>
+        <button className="button" type="button" onClick={login}>
+          Sign in with wallet
+        </button>
+      </section>
+    );
+  }
+
+  return <AuthenticatedWalletGate>{children}</AuthenticatedWalletGate>;
 }
 
 export function WalletAuthGate({
