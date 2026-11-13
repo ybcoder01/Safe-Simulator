@@ -1,7 +1,9 @@
 "use client";
 
-import { usePrivy } from "@privy-io/react-auth";
+import { useActiveWallet, usePrivy } from "@privy-io/react-auth";
 import { useEffect } from "react";
+
+import { resolveSessionWalletAddress } from "@/lib/auth/wallet-session";
 
 interface SessionResponse {
   readonly authenticated?: boolean;
@@ -18,7 +20,11 @@ interface SessionErrorResponse {
  */
 export function WalletSessionBridge() {
   const { authenticated, getAccessToken, ready, user } = usePrivy();
-  const walletAddress = user?.wallet?.address;
+  const { wallet: activeWallet } = useActiveWallet();
+  const walletAddress = resolveSessionWalletAddress(
+    activeWallet?.address,
+    user?.wallet?.address,
+  );
 
   useEffect(() => {
     if (!ready || !authenticated || !walletAddress) return;

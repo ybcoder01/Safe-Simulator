@@ -5,6 +5,7 @@ import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 
 import type { DiscoveredSafeView } from "@/lib/api/safe-discovery";
 import { withoutSafe, type SafeView } from "@/lib/api/safes";
+import { safeAddressBookPath } from "@/lib/navigation";
 
 interface ChainOption {
   readonly id: number;
@@ -314,7 +315,7 @@ export function SafesClient({
                     </div>
                     <Link
                       className="button button-small"
-                      href={`/safe/${safe.chainId}/${safe.address.toLowerCase()}#address-book`}
+                      href={safeAddressBookPath(safe.chainId, safe.address)}
                     >
                       Review approvals <span aria-hidden="true">→</span>
                     </Link>
