@@ -3,11 +3,13 @@ import { describe, expect, it, vi } from "vitest";
 import type {
   QueueJob,
   SafeRef,
+  SafeSnapshot,
   SyncCursor,
 } from "../../../../src/core/domain";
 import {
   hasRefreshRequestSettled,
   isRefreshActive,
+  isSafeAvailableToSession,
   isSafeBookmarked,
   isQueueCapacityError,
   queuedRefreshCursors,
@@ -61,6 +63,58 @@ describe("on-demand synchronization refresh", () => {
         safe,
       ),
     ).toBe(false);
+  });
+
+  it("authorizes a Safe bookmarked by the profile or owned by its wallet", async () => {
+    const owner = "0x1111111111111111111111111111111111111111" as const;
+    const snapshot: SafeSnapshot = {
+      ...safe,
+      owners: [owner],
+      threshold: 1,
+      nonce: 16n,
+      version: "1.5.0",
+      guard: null,
+      modules: [],
+      implementation: null,
+      observedAt: 20,
+    };
+    const session = {
+      profileId: "profile-1",
+      walletAddress: owner,
+    };
+
+    await expect(
+      isSafeAvailableToSession(
+        {
+          listSafesForProfile: vi.fn().mockResolvedValue([]),
+          listSafesForOwner: vi.fn().mockResolvedValue([snapshot]),
+        },
+        session,
+        safe,
+      ),
+    ).resolves.toBe(true);
+
+    await expect(
+      isSafeAvailableToSession(
+        {
+          listSafesForProfile: vi.fn().mockResolvedValue([snapshot]),
+          listSafesForOwner: vi.fn().mockResolvedValue([]),
+        },
+        session,
+        safe,
+      ),
+    ).resolves.toBe(true);
+
+    await expect(
+      isSafeAvailableToSession(
+        {
+          listSafesForProfile: vi.fn().mockResolvedValue([]),
+          listSafesForOwner: vi.fn().mockResolvedValue([]),
+        },
+        session,
+        safe,
+      ),
+    ).resolves.toBe(false);
   });
 
   it("records every stream as queued without discarding its cursor", () => {

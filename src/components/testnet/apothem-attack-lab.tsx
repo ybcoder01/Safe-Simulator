@@ -19,12 +19,14 @@ export function ApothemAttackLabInspector({
   const [transactionHash, setTransactionHash] = useState(
     initialTransactionHash,
   );
-  const autoInspectionStarted = useRef(false);
+  const lastAutoInspectedHash = useRef("");
+  const inspectionRequest = useRef(0);
   const [inspection, setInspection] = useState<ApothemInspection | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const inspectHash = useCallback(async (hash: string) => {
+    const requestId = ++inspectionRequest.current;
     setPending(true);
     setError(null);
     setInspection(null);
@@ -41,27 +43,34 @@ export function ApothemAttackLabInspector({
             "The Apothem transaction could not be inspected.",
         );
       }
-      setInspection(body.data);
+      if (inspectionRequest.current === requestId) {
+        setInspection(body.data);
+      }
     } catch (caught) {
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : "The Apothem transaction could not be inspected.",
-      );
+      if (inspectionRequest.current === requestId) {
+        setError(
+          caught instanceof Error
+            ? caught.message
+            : "The Apothem transaction could not be inspected.",
+        );
+      }
     } finally {
-      setPending(false);
+      if (inspectionRequest.current === requestId) {
+        setPending(false);
+      }
     }
   }, []);
 
   useEffect(() => {
     if (
-      autoInspectionStarted.current ||
-      !/^0x[0-9a-fA-F]{64}$/.test(initialTransactionHash)
+      !/^0x[0-9a-fA-F]{64}$/.test(initialTransactionHash) ||
+      lastAutoInspectedHash.current === initialTransactionHash
     ) {
       return;
     }
 
-    autoInspectionStarted.current = true;
+    lastAutoInspectedHash.current = initialTransactionHash;
+    setTransactionHash(initialTransactionHash);
     void inspectHash(initialTransactionHash);
   }, [initialTransactionHash, inspectHash]);
 

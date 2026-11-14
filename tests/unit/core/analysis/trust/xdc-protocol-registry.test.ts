@@ -42,4 +42,25 @@ describe("XDC protocol registry labels", () => {
       )?.label,
     ).toBe("Silo Router V2");
   });
+
+  it("identifies the Yield Network USDC vault as Morpho without assigning USDC to Fathom", () => {
+    expect(
+      findContractRegistryEntry(
+        50,
+        "0x1ac19bEc163b445fbd4B8Ddc616e4002126Efa5A",
+      ),
+    ).toMatchObject({
+      label: "Morpho Yield Network USDC Vault",
+      protocol: "morpho",
+      role: "vault",
+      trustPolicy: "protocol-whitelist",
+      lifecycle: "active",
+    });
+    expect(
+      findContractRegistryEntry(
+        50,
+        "0xfA2958CB79b0491CC627c1557F441eF849Ca8eb1",
+      ),
+    ).toBeNull();
+  });
 });

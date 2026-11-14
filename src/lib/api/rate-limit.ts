@@ -48,6 +48,12 @@ export const TRANSACTION_SUMMARY_DAILY_LIMIT: RateLimitPolicy = {
   windowSeconds: 24 * 60 * 60,
 };
 
+export const SAFE_APP_SUMMARY_RATE_LIMIT: RateLimitPolicy = {
+  scope: "safe-app-summary",
+  limit: 10,
+  windowSeconds: 24 * 60 * 60,
+};
+
 export const XDC_SOURCE_EVIDENCE_RATE_LIMIT: RateLimitPolicy = {
   scope: "xdc-source-evidence",
   limit: 60,

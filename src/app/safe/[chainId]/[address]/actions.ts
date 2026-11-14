@@ -15,7 +15,7 @@ import {
   type ReanalysisRequestState,
 } from "@/lib/api/reanalysis-request";
 import {
-  isSafeBookmarked,
+  isSafeAvailableToSession,
   isQueueCapacityError,
   queueSafeRefresh,
   refreshSafeDirectly,
@@ -49,21 +49,19 @@ export async function requestSafeRefresh(
   }
 
   const cookieStore = await cookies();
-  const profileId = parseAuthSession(
-    cookieStore.get(AUTH_SESSION_COOKIE)?.value,
-  )?.profileId;
-  if (!profileId) {
+  const session = parseAuthSession(cookieStore.get(AUTH_SESSION_COOKIE)?.value);
+  if (!session) {
     return {
       status: "error",
-      message: "This Safe is not available in the current watchlist.",
+      message:
+        "Your wallet session expired. Return to Your Safes to sign in again.",
       requestedAt,
     };
   }
 
   try {
     const persistence = getPersistencePort();
-    const bookmarkedSafes = await persistence.listSafesForProfile(profileId);
-    if (!isSafeBookmarked(bookmarkedSafes, parsed.data)) {
+    if (!(await isSafeAvailableToSession(persistence, session, parsed.data))) {
       return {
         status: "error",
         message: "This Safe is not available in the current watchlist.",
@@ -182,20 +180,18 @@ export async function requestSafeReanalysis(
   }
 
   const cookieStore = await cookies();
-  const profileId = parseAuthSession(
-    cookieStore.get(AUTH_SESSION_COOKIE)?.value,
-  )?.profileId;
-  if (!profileId) {
+  const session = parseAuthSession(cookieStore.get(AUTH_SESSION_COOKIE)?.value);
+  if (!session) {
     return {
       status: "error",
-      message: "This Safe is not available in the current watchlist.",
+      message:
+        "Your wallet session expired. Return to Your Safes to sign in again.",
     };
   }
 
   try {
-    const bookmarkedSafes =
-      await getPersistencePort().listSafesForProfile(profileId);
-    if (!isSafeBookmarked(bookmarkedSafes, parsed.data)) {
+    const persistence = getPersistencePort();
+    if (!(await isSafeAvailableToSession(persistence, session, parsed.data))) {
       return {
         status: "error",
         message: "This Safe is not available in the current watchlist.",
@@ -248,20 +244,18 @@ export async function requestSafeModuleReanalysis(
   }
 
   const cookieStore = await cookies();
-  const profileId = parseAuthSession(
-    cookieStore.get(AUTH_SESSION_COOKIE)?.value,
-  )?.profileId;
-  if (!profileId) {
+  const session = parseAuthSession(cookieStore.get(AUTH_SESSION_COOKIE)?.value);
+  if (!session) {
     return {
       status: "error",
-      message: "This Safe is not available in the current watchlist.",
+      message:
+        "Your wallet session expired. Return to Your Safes to sign in again.",
     };
   }
 
   try {
-    const bookmarkedSafes =
-      await getPersistencePort().listSafesForProfile(profileId);
-    if (!isSafeBookmarked(bookmarkedSafes, parsed.data)) {
+    const persistence = getPersistencePort();
+    if (!(await isSafeAvailableToSession(persistence, session, parsed.data))) {
       return {
         status: "error",
         message: "This Safe is not available in the current watchlist.",

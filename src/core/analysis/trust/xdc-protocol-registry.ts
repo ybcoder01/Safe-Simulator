@@ -312,6 +312,13 @@ const groups: readonly ProtocolDeploymentGroup[] = [
         "active",
       ],
       [
+        "0x1ac19bEc163b445fbd4B8Ddc616e4002126Efa5A",
+        "Morpho Yield Network USDC Vault",
+        "vault",
+        "protocol-whitelist",
+        "active",
+      ],
+      [
         "0x5C00c99F2235439725417E9f037B7D38FfF35d31",
         "Morpho Market V1 Adapter V2 Factory",
         "adapter-factory",
@@ -1121,13 +1128,6 @@ const groups: readonly ProtocolDeploymentGroup[] = [
         "oracle",
         "identity-only",
         "internal",
-      ],
-      [
-        "0xfA2958CB79b0491CC627c1557F441eF849Ca8eb1",
-        "Fathom USDC Underlying",
-        "helper",
-        "protocol-whitelist",
-        "active",
       ],
       [
         "0xfc751eef339555950A8cb443bb1e3FdD6a3A77eC",

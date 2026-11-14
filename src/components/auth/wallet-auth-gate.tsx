@@ -1,7 +1,13 @@
 "use client";
 
-import { usePrivy } from "@privy-io/react-auth";
-import { useEffect, useState, type ReactNode } from "react";
+import { useActiveWallet, usePrivy } from "@privy-io/react-auth";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+
+import { useLiveWalletAccount } from "@/components/auth/use-live-wallet-account";
+import {
+  resolveSessionWalletAddress,
+  walletAddressesMatch,
+} from "@/lib/auth/wallet-session";
 
 interface SessionErrorBody {
   readonly error?: { readonly message?: string };
@@ -10,7 +16,17 @@ interface SessionErrorBody {
 function WalletGate({ children }: { readonly children: ReactNode }) {
   const { ready, authenticated, login, logout, user, getAccessToken } =
     usePrivy();
-  const walletAddress = user?.wallet?.address;
+  const { wallet: activeWallet } = useActiveWallet();
+  const walletAddress = resolveSessionWalletAddress(
+    activeWallet?.address,
+    user?.wallet?.address,
+  );
+  const liveWallet = useLiveWalletAccount(activeWallet);
+  const [walletChange, setWalletChange] = useState<{
+    readonly previousAddress: string;
+    readonly nextAddress: string;
+  } | null>(null);
+  const handledWalletChange = useRef<string | null>(null);
   const [sessionState, setSessionState] = useState<{
     readonly walletAddress: string | null;
     readonly error: string | null;
@@ -18,9 +34,53 @@ function WalletGate({ children }: { readonly children: ReactNode }) {
   const sessionReady =
     Boolean(walletAddress) &&
     sessionState.walletAddress === walletAddress?.toLowerCase();
+  const providerWalletChanged =
+    Boolean(walletAddress) &&
+    liveWallet.checked &&
+    Boolean(liveWallet.address) &&
+    !walletAddressesMatch(walletAddress, liveWallet.address);
 
   useEffect(() => {
-    if (!ready || !authenticated || !walletAddress) {
+    if (
+      !ready ||
+      !authenticated ||
+      !walletAddress ||
+      !liveWallet.address ||
+      !providerWalletChanged
+    ) {
+      return;
+    }
+
+    const changeKey = `${walletAddress.toLowerCase()}:${liveWallet.address.toLowerCase()}`;
+    if (handledWalletChange.current === changeKey) return;
+    handledWalletChange.current = changeKey;
+
+    setWalletChange({
+      previousAddress: walletAddress,
+      nextAddress: liveWallet.address,
+    });
+    setSessionState({ walletAddress: null, error: null });
+
+    void fetch("/api/v1/auth/session", { method: "DELETE" }).finally(() => {
+      void logout();
+    });
+  }, [
+    authenticated,
+    liveWallet.address,
+    logout,
+    providerWalletChanged,
+    ready,
+    walletAddress,
+  ]);
+
+  useEffect(() => {
+    if (
+      !ready ||
+      !authenticated ||
+      !walletAddress ||
+      providerWalletChanged ||
+      walletChange
+    ) {
       return;
     }
 
@@ -60,16 +120,54 @@ function WalletGate({ children }: { readonly children: ReactNode }) {
     return () => {
       active = false;
     };
-  }, [authenticated, getAccessToken, ready, walletAddress]);
+  }, [
+    authenticated,
+    getAccessToken,
+    providerWalletChanged,
+    ready,
+    walletAddress,
+    walletChange,
+  ]);
 
   async function signOut() {
     await fetch("/api/v1/auth/session", { method: "DELETE" });
     await logout();
+    handledWalletChange.current = null;
+    setWalletChange(null);
     setSessionState({ walletAddress: null, error: null });
+  }
+
+  function signInAfterWalletChange() {
+    handledWalletChange.current = null;
+    setWalletChange(null);
+    login();
   }
 
   if (!ready) {
     return <div className="auth-state">Checking wallet session…</div>;
+  }
+
+  if (walletChange) {
+    return (
+      <section className="auth-gate" aria-labelledby="wallet-changed-title">
+        <span className="eyebrow">Wallet changed</span>
+        <h1 id="wallet-changed-title">Sign in with the selected wallet</h1>
+        <p>
+          Your wallet changed from {walletChange.previousAddress.slice(0, 8)}…
+          {walletChange.previousAddress.slice(-6)} to{" "}
+          {walletChange.nextAddress.slice(0, 8)}…
+          {walletChange.nextAddress.slice(-6)}. Sign in again so one signer
+          cannot inherit another signer&apos;s Safe Inspector session.
+        </p>
+        <button
+          className="button"
+          type="button"
+          onClick={signInAfterWalletChange}
+        >
+          Sign in with selected wallet
+        </button>
+      </section>
+    );
   }
 
   if (!authenticated) {

@@ -5,6 +5,7 @@ import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 
 import type { DiscoveredSafeView } from "@/lib/api/safe-discovery";
 import { withoutSafe, type SafeView } from "@/lib/api/safes";
+import { safeAddressBookPath } from "@/lib/navigation";
 
 interface ChainOption {
   readonly id: number;
@@ -58,8 +59,9 @@ export function SafesClient({
   useEffect(() => {
     let active = true;
 
-    void fetch("/api/v1/safes", { cache: "no-store" })
-      .then(async (response) => {
+    const loadSafes = async () => {
+      try {
+        const response = await fetch("/api/v1/safes", { cache: "no-store" });
         const body = (await response.json()) as {
           data?: readonly SafeView[];
         } & ApiErrorBody;
@@ -69,20 +71,30 @@ export function SafesClient({
           setItems(body.data ?? []);
           setError(null);
         }
-      })
-      .catch((cause: unknown) => {
+      } catch (cause) {
         if (active) {
           setError(
             cause instanceof Error ? cause.message : "Could not load Safes.",
           );
         }
-      })
-      .finally(() => {
+      } finally {
         if (active) setLoading(false);
-      });
+      }
+    };
+
+    void loadSafes();
+    const refreshInterval = window.setInterval(() => {
+      if (document.visibilityState === "visible") void loadSafes();
+    }, 30_000);
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") void loadSafes();
+    };
+    document.addEventListener("visibilitychange", refreshWhenVisible);
 
     return () => {
       active = false;
+      window.clearInterval(refreshInterval);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
     };
   }, []);
 
@@ -246,6 +258,18 @@ export function SafesClient({
     }
   }
 
+  const pendingReviewSafes = items.filter(
+    (safe) => safe.pendingTrustReviews > 0,
+  );
+  const pendingReviewCount = pendingReviewSafes.reduce(
+    (total, safe) => total + safe.pendingTrustReviews,
+    0,
+  );
+  const actionableReviewCount = pendingReviewSafes.reduce(
+    (total, safe) => total + safe.actionableTrustReviews,
+    0,
+  );
+
   return (
     <div className="safes-content">
       <section className="safes-heading">
@@ -259,6 +283,79 @@ export function SafesClient({
         </div>
         <span className="scope-note">Ethereum · XDC</span>
       </section>
+
+      {!loading && pendingReviewCount > 0 ? (
+        <section
+          aria-labelledby="trust-approval-heading"
+          className="trust-approval-notice"
+          role="status"
+        >
+          <div className="trust-approval-notice-icon" aria-hidden="true">
+            !
+          </div>
+          <div className="trust-approval-notice-content">
+            <div className="trust-approval-notice-heading">
+              <div>
+                <p className="eyebrow">
+                  {actionableReviewCount > 0
+                    ? "Action required"
+                    : "Approval pending"}
+                </p>
+                <h2 id="trust-approval-heading">
+                  {actionableReviewCount > 0
+                    ? "Trust approvals waiting for you"
+                    : "Trust approval awaiting another owner"}
+                </h2>
+                <p>
+                  {actionableReviewCount > 0
+                    ? "Another Safe owner proposed one or more trusted addresses. Review each request before it can count toward the Safe's approval threshold."
+                    : "You already reviewed this request. It remains visible until enough Safe owners approve it or an owner flags it."}
+                </p>
+              </div>
+              <span className="trust-approval-count">
+                {pendingReviewCount} pending
+              </span>
+            </div>
+            <div className="trust-approval-list">
+              {pendingReviewSafes.map((safe) => {
+                const key = `${safe.chainId}:${safe.address.toLowerCase()}`;
+                return (
+                  <div className="trust-approval-row" key={key}>
+                    <div>
+                      <span>
+                        {safe.chainId === 1 ? "Ethereum" : "XDC Network"} Safe
+                      </span>
+                      <strong>{shortenAddress(safe.address)}</strong>
+                      <small>
+                        {safe.actionableTrustReviews > 0
+                          ? `${safe.actionableTrustReviews} trust ${
+                              safe.actionableTrustReviews === 1
+                                ? "approval needs"
+                                : "approvals need"
+                            } your review`
+                          : `${safe.pendingTrustReviews} trust ${
+                              safe.pendingTrustReviews === 1
+                                ? "approval is"
+                                : "approvals are"
+                            } waiting for another owner`}
+                      </small>
+                    </div>
+                    <Link
+                      className="button button-small"
+                      href={safeAddressBookPath(safe.chainId, safe.address)}
+                    >
+                      {safe.actionableTrustReviews > 0
+                        ? "Review approvals"
+                        : "View approval"}{" "}
+                      <span aria-hidden="true">→</span>
+                    </Link>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       {reviewForm}
 

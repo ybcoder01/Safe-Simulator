@@ -33,7 +33,7 @@ vi.mock("@/lib/api/storage-changes", () => ({
 
 const safeAddress = "0x1111111111111111111111111111111111111111" as Address;
 const target = "0x2222222222222222222222222222222222222222" as Address;
-const spender = "0x3333333333333333333333333333333333333333" as Address;
+const spender = "0x70d8005E3c8C7e383FE35Fa40156042F3393449F" as Address;
 const blockHash =
   "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" as Hex;
 
@@ -207,6 +207,20 @@ describe("resolveManualSimulation", () => {
     expect(result).toMatchObject({
       target: { label: "Example token", verified: true },
       decoded: { method: "approve", provenance: "verified-abi" },
+      protocols: [
+        {
+          key: "fathom",
+          label: "Fathom",
+          reviewed: true,
+          contracts: [
+            {
+              address: spender,
+              label: "Fathom Pool",
+              role: "lending-pool",
+            },
+          ],
+        },
+      ],
       execution: {
         success: true,
         blockNumber: "100",
@@ -217,6 +231,9 @@ describe("resolveManualSimulation", () => {
         {
           method: "approve",
           spender,
+          spenderLabel: "Fathom Pool",
+          spenderProtocol: "Fathom",
+          spenderReviewed: true,
           amount: "5",
           newSpenderAtAnchor: true,
         },

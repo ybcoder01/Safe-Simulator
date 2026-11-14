@@ -1,0 +1,5 @@
+{
+  "name": "Safe Inspector Preview",
+  "description": "Review an unsigned Safe transaction before opening Safe's native confirmation.",
+  "iconPath": "safe-app-icon.svg"
+}

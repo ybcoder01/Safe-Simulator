@@ -15,31 +15,37 @@ const SCENARIOS = [
     title: "Unlimited token approval",
     detail:
       "Approve the UnknownSpender for the maximum uint256 value, then verify that the inspector warns about future token access.",
+    hash: "0xf453df6ede66cb11dfe33910c23817ec60b2f0d71aa14ce99857b1bcbb98de6e",
   },
   {
     title: "Injected recipient",
     detail:
       "Call the training router with a recipient that differs from the independently approved address.",
+    hash: "0x54622599c56a6b2dcd31f995a5812eef030c49245514ea582ed7730fb1928f2a",
   },
   {
     title: "Delegatecall storage risk",
     detail:
       "Create a disposable Safe transaction with operation 1 targeting DelegateMutation. Do not use a production Safe.",
+    hash: "0x5a533922d8084926f30d4f33589e66b6f7f5507f967446b61d9b93f0721cc60a",
   },
   {
     title: "Hidden nested transfer",
     detail:
       "Put sendNative inside multicall(bytes[]) and confirm the nested batch is presented for review.",
+    hash: "0xc8db1e9fab6cd81090a07672f1da8e82bb870ae94dada20c39b86f8852987ed4",
   },
   {
     title: "Proxy implementation change",
     detail:
       "Call upgradeToAndCall on the training proxy and verify the address is not treated as trusted after code changes.",
+    hash: "0x065c3279da0242dfdc77f958254913470bbd65fdadac962e42ee73ea47f77625",
   },
   {
     title: "Safe security-control change",
     detail:
       "Use a Safe security selector such as enableModule and confirm that a new execution path is treated as critical.",
+    hash: "0xecd79f621da4cbb94ebb282ec67bb570bb05892f4570e9cb1dbeb0117575187a",
   },
 ] as const;
 
@@ -123,19 +129,25 @@ export default async function ApothemAttackLabPage({
               <p className="eyebrow">Controlled attack fixtures</p>
               <h2 id="apothem-scenarios">Scenarios to exercise</h2>
               <p>
-                Each fixture is intentionally suspicious and restricted to chain
-                51. A successful execution is expected and does not mean the
-                action is safe.
+                Select any verified testnet transaction below to load its real
+                chain-51 evidence. A successful execution is expected and does
+                not mean the action is safe.
               </p>
             </div>
           </div>
           <div className="attack-lab-index">
             {SCENARIOS.map((scenario) => (
-              <article key={scenario.title}>
-                <span>Apothem training</span>
+              <Link
+                href={`/demo/apothem-attack-lab?tx=${scenario.hash}#apothem-inspector-title`}
+                key={scenario.hash}
+              >
+                <span>Open testnet transaction</span>
                 <strong>{scenario.title}</strong>
                 <p>{scenario.detail}</p>
-              </article>
+                <div className="transaction-hash-actions">
+                  <code>{scenario.hash}</code>
+                </div>
+              </Link>
             ))}
           </div>
         </section>
