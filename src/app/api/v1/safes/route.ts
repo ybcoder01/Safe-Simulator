@@ -15,7 +15,11 @@ import {
 } from "@/lib/api/rate-limit";
 import { PROFILE_COOKIE, PROFILE_MAX_AGE } from "@/lib/api/profile";
 import { authSessionFromRequest } from "@/lib/auth/session";
-import { importSafeInputSchema, toSafeView } from "@/lib/api/safes";
+import {
+  importSafeInputSchema,
+  summarizePendingTrustReviews,
+  toSafeView,
+} from "@/lib/api/safes";
 
 function errorResponse(
   message: string,
@@ -87,17 +91,18 @@ export async function GET(request: NextRequest) {
               ? "syncing"
               : "queued";
         const key = `${safe.chainId}:${safe.address.toLowerCase()}`;
+        const trustReviews = summarizePendingTrustReviews(reviews);
         return toSafeView(safe, syncStatus, {
           bookmarked: bookmarkedKeys.has(key),
-          pendingTrustReviews: reviews.filter(
-            (review) =>
-              review.status === "pending" &&
-              review.currentUserDecision === null,
-          ).length,
+          pendingTrustReviews: trustReviews.pending,
+          actionableTrustReviews: trustReviews.actionable,
         });
       }),
     );
-    return NextResponse.json({ data, chains: supportedChainSummaries });
+    return NextResponse.json(
+      { data, chains: supportedChainSummaries },
+      { headers: { "Cache-Control": "private, no-store" } },
+    );
   } catch (error) {
     return infrastructureError(error);
   }
