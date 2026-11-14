@@ -1,7 +1,7 @@
 import { getAddress } from "viem";
 import { z } from "zod";
 
-import type { Address, SafeSnapshot } from "@/core/domain";
+import type { Address, AddressBookReview, SafeSnapshot } from "@/core/domain";
 
 export const importSafeInputSchema = z.object({
   chainId: z
@@ -39,6 +39,26 @@ export interface SafeView {
   readonly syncStatus: "queued" | "syncing" | "complete" | "failed";
   readonly bookmarked: boolean;
   readonly pendingTrustReviews: number;
+  readonly actionableTrustReviews: number;
+}
+
+export interface PendingTrustReviewSummary {
+  readonly pending: number;
+  readonly actionable: number;
+}
+
+export function summarizePendingTrustReviews(
+  reviews: readonly AddressBookReview[],
+): PendingTrustReviewSummary {
+  const pendingReviews = reviews.filter(
+    (review) => review.status === "pending",
+  );
+  return {
+    pending: pendingReviews.length,
+    actionable: pendingReviews.filter(
+      (review) => review.currentUserDecision === null,
+    ).length,
+  };
 }
 
 export function toSafeView(
@@ -47,6 +67,7 @@ export function toSafeView(
   options: {
     readonly bookmarked?: boolean;
     readonly pendingTrustReviews?: number;
+    readonly actionableTrustReviews?: number;
   } = {},
 ): SafeView {
   return {
@@ -55,6 +76,7 @@ export function toSafeView(
     syncStatus,
     bookmarked: options.bookmarked ?? true,
     pendingTrustReviews: options.pendingTrustReviews ?? 0,
+    actionableTrustReviews: options.actionableTrustReviews ?? 0,
   };
 }
 
