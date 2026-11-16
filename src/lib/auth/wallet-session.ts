@@ -34,3 +34,20 @@ export function firstWalletAccount(accounts: unknown) {
   );
   return first?.trim() ?? null;
 }
+
+export type LiveWalletAccountStatus =
+  | "unchecked"
+  | "connected"
+  | "disconnected"
+  | "unavailable";
+
+export function liveWalletRequiresReauthentication(
+  authenticatedAddress: string | null | undefined,
+  liveAddress: string | null | undefined,
+  status: LiveWalletAccountStatus,
+) {
+  if (!normalizeWalletAddress(authenticatedAddress)) return false;
+  if (status === "disconnected") return true;
+  if (status !== "connected") return false;
+  return !walletAddressesMatch(authenticatedAddress, liveAddress);
+}

@@ -5,8 +5,8 @@ import { useEffect } from "react";
 
 import { useLiveWalletAccount } from "@/components/auth/use-live-wallet-account";
 import {
+  liveWalletRequiresReauthentication,
   resolveSessionWalletAddress,
-  walletAddressesMatch,
 } from "@/lib/auth/wallet-session";
 
 interface SessionResponse {
@@ -30,11 +30,11 @@ export function WalletSessionBridge() {
     user?.wallet?.address,
   );
   const liveWallet = useLiveWalletAccount(activeWallet);
-  const providerWalletChanged =
-    Boolean(walletAddress) &&
-    liveWallet.checked &&
-    Boolean(liveWallet.address) &&
-    !walletAddressesMatch(walletAddress, liveWallet.address);
+  const providerWalletChanged = liveWalletRequiresReauthentication(
+    walletAddress,
+    liveWallet.address,
+    liveWallet.status,
+  );
 
   useEffect(() => {
     if (!ready || !authenticated || !providerWalletChanged) return;

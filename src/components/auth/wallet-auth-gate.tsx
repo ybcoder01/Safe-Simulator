@@ -5,10 +5,9 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { useLiveWalletAccount } from "@/components/auth/use-live-wallet-account";
 import {
+  liveWalletRequiresReauthentication,
   resolveSessionWalletAddress,
-  walletAddressesMatch,
 } from "@/lib/auth/wallet-session";
-
 interface SessionErrorBody {
   readonly error?: { readonly message?: string };
 }
@@ -24,7 +23,7 @@ function WalletGate({ children }: { readonly children: ReactNode }) {
   const liveWallet = useLiveWalletAccount(activeWallet);
   const [walletChange, setWalletChange] = useState<{
     readonly previousAddress: string;
-    readonly nextAddress: string;
+    readonly nextAddress: string | null;
   } | null>(null);
   const handledWalletChange = useRef<string | null>(null);
   const [sessionState, setSessionState] = useState<{
@@ -34,24 +33,18 @@ function WalletGate({ children }: { readonly children: ReactNode }) {
   const sessionReady =
     Boolean(walletAddress) &&
     sessionState.walletAddress === walletAddress?.toLowerCase();
-  const providerWalletChanged =
-    Boolean(walletAddress) &&
-    liveWallet.checked &&
-    Boolean(liveWallet.address) &&
-    !walletAddressesMatch(walletAddress, liveWallet.address);
+  const providerWalletChanged = liveWalletRequiresReauthentication(
+    walletAddress,
+    liveWallet.address,
+    liveWallet.status,
+  );
 
   useEffect(() => {
-    if (
-      !ready ||
-      !authenticated ||
-      !walletAddress ||
-      !liveWallet.address ||
-      !providerWalletChanged
-    ) {
+    if (!ready || !authenticated || !walletAddress || !providerWalletChanged) {
       return;
     }
 
-    const changeKey = `${walletAddress.toLowerCase()}:${liveWallet.address.toLowerCase()}`;
+    const changeKey = `${walletAddress.toLowerCase()}:${liveWallet.address?.toLowerCase() ?? "disconnected"}`;
     if (handledWalletChange.current === changeKey) return;
     handledWalletChange.current = changeKey;
 
@@ -154,10 +147,17 @@ function WalletGate({ children }: { readonly children: ReactNode }) {
         <h1 id="wallet-changed-title">Sign in with the selected wallet</h1>
         <p>
           Your wallet changed from {walletChange.previousAddress.slice(0, 8)}…
-          {walletChange.previousAddress.slice(-6)} to{" "}
-          {walletChange.nextAddress.slice(0, 8)}…
-          {walletChange.nextAddress.slice(-6)}. Sign in again so one signer
-          cannot inherit another signer&apos;s Safe Inspector session.
+          {walletChange.previousAddress.slice(-6)}.{" "}
+          {walletChange.nextAddress ? (
+            <>
+              The selected account is now {walletChange.nextAddress.slice(0, 8)}
+              …{walletChange.nextAddress.slice(-6)}.
+            </>
+          ) : (
+            <>The connected wallet no longer exposes that account.</>
+          )}{" "}
+          Sign in again so one signer cannot inherit another signer&apos;s Safe
+          Inspector session.
         </p>
         <button
           className="button"

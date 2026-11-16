@@ -6,11 +6,14 @@ import type {
 } from "@privy-io/react-auth";
 import { useEffect, useState } from "react";
 
-import { firstWalletAccount } from "@/lib/auth/wallet-session";
+import {
+  firstWalletAccount,
+  type LiveWalletAccountStatus,
+} from "@/lib/auth/wallet-session";
 
 interface LiveWalletAccount {
   readonly address: string | null;
-  readonly checked: boolean;
+  readonly status: LiveWalletAccountStatus;
 }
 
 interface ObservedWalletAccount extends LiveWalletAccount {
@@ -19,7 +22,7 @@ interface ObservedWalletAccount extends LiveWalletAccount {
 
 const uncheckedAccount: LiveWalletAccount = {
   address: null,
-  checked: false,
+  status: "unchecked",
 };
 
 /**
@@ -48,33 +51,69 @@ export function useLiveWalletAccount(
     void wallet
       .getEthereumProvider()
       .then(async (provider) => {
-        const handleAccountsChanged = (accounts: string[]) => {
+        const applyAccounts = (accounts: unknown) => {
           if (!active) return;
+          const address = firstWalletAccount(accounts);
           setAccount({
-            address: firstWalletAccount(accounts),
-            checked: true,
+            address,
+            status: address ? "connected" : "disconnected",
             walletKey,
           });
         };
 
-        provider.on("accountsChanged", handleAccountsChanged);
-        cleanup = () =>
-          provider.removeListener("accountsChanged", handleAccountsChanged);
+        const refreshAccount = async () => {
+          try {
+            const accounts = await provider.request({ method: "eth_accounts" });
+            applyAccounts(accounts);
+          } catch {
+            if (active) {
+              // A provider outage is not evidence that the signer changed.
+              setAccount({
+                address: null,
+                status: "unavailable",
+                walletKey,
+              });
+            }
+          }
+        };
 
-        const accounts = await provider.request({ method: "eth_accounts" });
-        if (active) {
+        const handleAccountsChanged = (accounts: string[]) => {
+          applyAccounts(accounts);
+        };
+        const handleDisconnect = () => {
+          if (!active) return;
           setAccount({
-            address: firstWalletAccount(accounts),
-            checked: true,
+            address: null,
+            status: "disconnected",
             walletKey,
           });
-        }
+        };
+        const handleFocus = () => void refreshAccount();
+        const handleVisibilityChange = () => {
+          if (document.visibilityState === "visible") void refreshAccount();
+        };
+
+        provider.on("accountsChanged", handleAccountsChanged);
+        provider.on("disconnect", handleDisconnect);
+        window.addEventListener("focus", handleFocus);
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+        cleanup = () => {
+          provider.removeListener("accountsChanged", handleAccountsChanged);
+          provider.removeListener("disconnect", handleDisconnect);
+          window.removeEventListener("focus", handleFocus);
+          document.removeEventListener(
+            "visibilitychange",
+            handleVisibilityChange,
+          );
+        };
+
+        await refreshAccount();
       })
       .catch(() => {
         if (active) {
           // If the provider cannot be queried, keep using Privy's authenticated
           // account. We do not infer an account switch from a provider outage.
-          setAccount({ address: null, checked: true, walletKey });
+          setAccount({ address: null, status: "unavailable", walletKey });
         }
       });
 
