@@ -833,6 +833,13 @@ export function SafeAppReview() {
 
   const blocked = result?.verdict.verdict === "flagged";
   const needsAcknowledgement = result?.verdict.verdict === "unverified";
+  const hasReviewedUnlimitedAllowance =
+    result?.verdict.findings.some(
+      (finding) =>
+        (finding.code === "requested-infinite-allowance" ||
+          finding.code === "infinite-allowance") &&
+        finding.severity === "warning",
+    ) ?? false;
   const decision = result
     ? findingReviewSummary(result.verdict.findings, { executed: false })
     : null;
@@ -1105,8 +1112,9 @@ export function SafeAppReview() {
                     type="checkbox"
                   />
                   <span>
-                    I reviewed the unresolved checks and independently confirmed
-                    the intended target and recipients.
+                    {hasReviewedUnlimitedAllowance
+                      ? "I understand this grants persistent unlimited token spending access, and I independently confirmed the token, reviewed protocol contract, and intended action."
+                      : "I reviewed the unresolved checks and independently confirmed the intended target and recipients."}
                   </span>
                 </label>
               ) : null}

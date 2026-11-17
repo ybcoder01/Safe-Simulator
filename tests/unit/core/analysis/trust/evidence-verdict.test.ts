@@ -851,6 +851,47 @@ describe("evaluateEvidenceVerdict", () => {
     );
   });
 
+  it("treats an emitted unlimited allowance to a reviewed protocol as a warning", () => {
+    const result = evaluateEvidenceVerdict(
+      input({
+        allowances: [
+          {
+            token,
+            spender,
+            amount: ((1n << 256n) - 1n).toString(),
+            infinite: true,
+          },
+        ],
+        registry: [
+          {
+            chainId: 50,
+            address: spender,
+            label: "Reviewed protocol vault",
+            protocol: "morpho",
+            category: "protocol",
+            role: "vault",
+            source: "protocol-documentation",
+            reference: "https://example.com/protocol-deployments",
+            verification: "publisher-documented",
+            reviewedAt: "2026-11-17",
+            logoKey: "morpho",
+            executionRole: null,
+            trustPolicy: "protocol-whitelist",
+            lifecycle: "active",
+          },
+        ],
+      }),
+    );
+
+    expect(result.verdict).toBe("unverified");
+    expect(result.findings).toContainEqual(
+      expect.objectContaining({
+        code: "infinite-allowance",
+        severity: "warning",
+      }),
+    );
+  });
+
   it("keeps full operator access critical even for a known operator", () => {
     const result = evaluateEvidenceVerdict(
       input({
