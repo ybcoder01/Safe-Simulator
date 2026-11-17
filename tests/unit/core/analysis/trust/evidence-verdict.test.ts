@@ -614,7 +614,7 @@ describe("evaluateEvidenceVerdict", () => {
     );
   });
 
-  it("keeps the observed Fathom supply execution aligned with its clean pre-sign result", () => {
+  it("keeps the observed Fathom supply execution unverified when its token identities are unresolved", () => {
     const pool = "0x70d8005E3c8C7e383FE35Fa40156042F3393449F" as Address;
     const poolImplementation =
       "0x5c756ACD4Cb26a9cA6De7abF9765cE84B5Be9322" as Address;
@@ -673,13 +673,21 @@ describe("evaluateEvidenceVerdict", () => {
       }),
     );
 
-    expect(result.verdict).toBe("known");
+    expect(result.verdict).toBe("unverified");
     expect(
       result.findings.filter(
         (finding) =>
-          finding.severity === "critical" || finding.severity === "warning",
+          finding.severity === "critical" ||
+          (finding.severity === "warning" &&
+            finding.code !== "movement-trust-unresolved"),
       ),
     ).toEqual([]);
+    expect(result.findings).toContainEqual(
+      expect.objectContaining({
+        code: "movement-trust-unresolved",
+        severity: "warning",
+      }),
+    );
   });
 
   it("keeps bounded approvals unverified until spender trust exists", () => {
