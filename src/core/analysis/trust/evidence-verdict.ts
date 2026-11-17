@@ -128,6 +128,27 @@ function uniqueAddresses(addresses: readonly Address[]): readonly Address[] {
   return [...new Set(addresses.map(addressKey))] as Address[];
 }
 
+function reviewedProtocolSpender(
+  input: EvidenceVerdictInput,
+  spender: Address | null,
+): ContractRegistryEntry | null {
+  if (!spender) return null;
+
+  return (
+    input.registry?.find(
+      (entry) =>
+        entry.chainId === input.chainId &&
+        addressKey(entry.address) === addressKey(spender) &&
+        entry.category === "protocol" &&
+        entry.source === "protocol-documentation" &&
+        (entry.verification === "publisher-documented" ||
+          entry.verification === "publisher-documented-bytecode-present") &&
+        entry.trustPolicy === "protocol-whitelist" &&
+        entry.lifecycle === "active",
+    ) ?? null
+  );
+}
+
 function isExpectedSafeBatchDelegation(input: EvidenceVerdictInput): boolean {
   if (input.operation !== "delegatecall" || !input.targetRuntimeCodeHash) {
     return false;
@@ -557,11 +578,16 @@ export function evaluateEvidenceVerdict(
   }
 
   for (const allowance of input.allowances.filter((item) => item.infinite)) {
+    const reviewedSpender = reviewedProtocolSpender(input, allowance.spender);
     findings.push({
       code: "infinite-allowance",
-      severity: "critical",
-      title: "Infinite token allowance emitted",
-      detail: `Token ${allowance.token} emitted a maximum-value allowance for spender ${allowance.spender}.`,
+      severity: reviewedSpender ? "warning" : "critical",
+      title: reviewedSpender
+        ? "Reviewed protocol received an unlimited token allowance"
+        : "Infinite token allowance emitted",
+      detail: reviewedSpender
+        ? `${reviewedSpender.label} matches an active, publisher-documented protocol deployment. The allowance is still unlimited and remains active until it is replaced or revoked.`
+        : `Token ${allowance.token} emitted a maximum-value allowance for spender ${allowance.spender}.`,
       addresses: [allowance.token, allowance.spender],
     });
   }
@@ -576,12 +602,19 @@ export function evaluateEvidenceVerdict(
     const involved = [approval.token, approval.spender].filter(
       (address): address is Address => address !== null,
     );
+    const reviewedSpender =
+      approval.standard === "erc20"
+        ? reviewedProtocolSpender(input, approval.spender)
+        : null;
     findings.push({
       code: "requested-infinite-allowance",
-      severity: "critical",
-      title: "Calldata requests an infinite token allowance",
-      detail:
-        approval.standard === "permit2-allowance"
+      severity: reviewedSpender ? "warning" : "critical",
+      title: reviewedSpender
+        ? "Reviewed protocol requests an unlimited token allowance"
+        : "Calldata requests an infinite token allowance",
+      detail: reviewedSpender
+        ? `${reviewedSpender.label} matches an active, publisher-documented protocol deployment. This approval is still unlimited and remains active until it is replaced or revoked; confirm the token and intended protocol action before signing.`
+        : approval.standard === "permit2-allowance"
           ? "The transaction requests a maximum Permit2 allowance. Calldata proves the request; receipt evidence separately proves any emitted change."
           : "The transaction requests a maximum ERC-20 allowance. Calldata proves the request; receipt evidence separately proves any emitted change.",
       addresses: uniqueAddresses(involved),
