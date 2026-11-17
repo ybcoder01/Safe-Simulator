@@ -22,6 +22,10 @@ import {
   normalizeWalletConnectPairingUri,
   walletConnectPairingFailureMessage,
 } from "@/lib/walletconnect-pairing";
+import {
+  selectWalletConnectSession,
+  walletConnectSessionStorageKey,
+} from "@/lib/walletconnect-session";
 
 interface SafeContext {
   readonly address: string;
@@ -238,6 +242,7 @@ export function SafeAppReview() {
     ReturnType<typeof WalletKit.init>
   > | null>(null);
   const pendingRequestRef = useRef<PendingWalletRequest | null>(null);
+  const activeTopicRef = useRef<string | null>(null);
   const pairingTimeoutRef = useRef<number | null>(null);
   const summaryRequestRef = useRef(0);
   const [safe, setSafe] = useState<SafeContext | null>(null);
@@ -415,19 +420,23 @@ export function SafeAppReview() {
         if (!active) return;
         walletKitRef.current = initializedKit;
 
-        const sessions = Object.values(initializedKit.getActiveSessions());
-        const session = sessions.find((candidate) =>
-          Object.values(candidate.namespaces).some((namespace) =>
-            namespace.accounts?.some(
-              (account) =>
-                account.toLowerCase() ===
-                `eip155:${safe.chainId}:${safe.address.toLowerCase()}`,
-            ),
-          ),
+        const sessionStorageKey = walletConnectSessionStorageKey(safe);
+        const persistedTopic = window.localStorage.getItem(sessionStorageKey);
+        const session = selectWalletConnectSession(
+          Object.values(initializedKit.getActiveSessions()),
+          persistedTopic,
+          safe,
         );
         if (session) {
+          activeTopicRef.current = session.topic;
+          window.localStorage.setItem(sessionStorageKey, session.topic);
           setConnectedDapp(dappFromSession(session));
           setWaitingForRequest(true);
+        } else {
+          activeTopicRef.current = null;
+          if (persistedTopic) {
+            window.localStorage.removeItem(sessionStorageKey);
+          }
         }
 
         const handleProposal = async (
@@ -454,6 +463,8 @@ export function SafeAppReview() {
               namespaces,
             });
             if (!active) return;
+            activeTopicRef.current = session.topic;
+            window.localStorage.setItem(sessionStorageKey, session.topic);
             setConnectedDapp(dappFromSession(session));
             setWaitingForRequest(true);
             finishPairingAttempt();
@@ -480,6 +491,16 @@ export function SafeAppReview() {
           >[0],
         ) => {
           const { topic, params, id } = event;
+          if (topic !== activeTopicRef.current) {
+            await initializedKit.respondSessionRequest({
+              topic,
+              response: jsonRpcError(
+                id,
+                "This transaction belongs to a different dApp session. Reconnect that dApp to Safe Inspector.",
+              ),
+            });
+            return;
+          }
           if (pendingRequestRef.current) {
             await initializedKit.respondSessionRequest({
               topic,
@@ -540,8 +561,14 @@ export function SafeAppReview() {
           }
         };
 
-        const handleDelete = () => {
-          if (!active) return;
+        const handleDelete = (
+          event: Parameters<
+            Parameters<typeof initializedKit.on<"session_delete">>[1]
+          >[0],
+        ) => {
+          if (!active || event.topic !== activeTopicRef.current) return;
+          activeTopicRef.current = null;
+          window.localStorage.removeItem(sessionStorageKey);
           setConnectedDapp(null);
           setWaitingForRequest(false);
           setPendingRequest(null);
@@ -663,6 +690,10 @@ export function SafeAppReview() {
         reason: getSdkError("USER_DISCONNECTED"),
       });
 
+      activeTopicRef.current = null;
+      if (safe) {
+        window.localStorage.removeItem(walletConnectSessionStorageKey(safe));
+      }
       pendingRequestRef.current = null;
       setPendingRequest(null);
       setConnectedDapp(null);
