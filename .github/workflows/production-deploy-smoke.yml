@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     env:
-      SOAK_BASE_URL: https://safe-simulator.vercel.app
+      SOAK_BASE_URL: https://safe-inspector.vercel.app
       SOAK_ENVIRONMENT: production
       SOAK_DURATION_MINUTES: "5"
     steps:

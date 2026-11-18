@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 
+import liveExample from "../src/lib/public-live-example.json" with { type: "json" };
+
 const baseUrl = process.env.SMOKE_BASE_URL;
 const environment = process.env.SMOKE_ENVIRONMENT;
 const oidcToken = process.env.VERCEL_TRUSTED_OIDC_TOKEN;
 const timeoutMs = 30_000;
 
-const unseededSafe = "0xc8bae80ca5c2c9ec3bd4ac16c422220a33b6b173";
+const liveExamplePath = `/safe/${liveExample.chainId}/${liveExample.safe}/tx/${liveExample.safeTxHash}`;
 
 assert.equal(
   environment,
@@ -137,20 +139,22 @@ assert.equal(
   "authentication_required",
 );
 
-// Public report routes must remain outside the wallet-auth boundary. Preview
-// databases are intentionally unseeded, so this request should reach the
-// public route and return its normal not-found response rather than a 401.
-const publicHistory = await request(
-  `/api/v1/safes/50/${unseededSafe}/transactions?limit=1`,
-  { allowFailure: true },
+// The homepage's signed-out demo is a product boundary, not merely a link.
+// Require both the public API and rendered report so a stale fixture cannot
+// silently ship as a visitor-facing 404.
+const publicReportApi = await request(
+  `/api/v1/safes/${liveExample.chainId}/${liveExample.safe}/tx/${liveExample.safeTxHash}`,
 );
-assert.ok(
-  publicHistory.status === 200 || publicHistory.status === 404,
-  `Public report route returned HTTP ${publicHistory.status} instead of its normal data/not-found response.`,
-);
-if (publicHistory.status === 404) {
-  assert.equal((await publicHistory.json()).error?.code, "safe_not_found");
-}
+const publicReport = (await publicReportApi.json()).data;
+assert.equal(publicReport?.safeTxHash, liveExample.safeTxHash);
+assert.equal(publicReport?.to, liveExample.target);
+assert.equal(publicReport?.status, "executed");
+assert.equal(publicReport?.activity?.label, "Supply to lending market");
+
+const publicReportPage = await request(liveExamplePath);
+const publicReportHtml = await publicReportPage.text();
+assert.match(publicReportHtml, new RegExp(liveExample.safeTxHash));
+assert.match(publicReportHtml, /Supply to lending market/);
 
 console.log(
   JSON.stringify({
@@ -164,7 +168,8 @@ console.log(
       "cache",
       "anonymous-watchlist-denied",
       "anonymous-import-denied",
-      "public-report-route",
+      "public-live-example-api",
+      "public-live-example-page",
     ],
     status: "ok",
   }),

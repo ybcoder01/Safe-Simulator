@@ -5,11 +5,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 
+import liveExample from "../src/lib/public-live-example.json" with { type: "json" };
+
 const baseUrl = process.env.SMOKE_BASE_URL;
 const environment = process.env.SMOKE_ENVIRONMENT;
 const oidcToken = process.env.VERCEL_TRUSTED_OIDC_TOKEN;
 const navigationTimeoutMs = 30_000;
 const defaultRenderTimeoutMs = 30_000;
+const liveExamplePath = `/safe/${liveExample.chainId}/${liveExample.safe}/tx/${liveExample.safeTxHash}`;
 
 assert.equal(
   environment,
@@ -50,6 +53,11 @@ const pages = [
     // the acceptance boundary; uncaught exceptions and failed documents are
     // still fatal below.
     allowConsoleErrors: true,
+  },
+  {
+    name: "public live example",
+    path: liveExamplePath,
+    expected: ["Supply to lending market", "Trust is not fully established"],
   },
 ];
 

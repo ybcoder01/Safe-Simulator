@@ -1,5 +1,9 @@
 import Link from "next/link";
 
+import liveExample from "@/lib/public-live-example.json";
+
+const liveExamplePath = `/safe/${liveExample.chainId}/${liveExample.safe}/tx/${liveExample.safeTxHash}`;
+
 const protections = [
   [
     "No signing surface",
@@ -216,10 +220,7 @@ export default function HomePage() {
           </p>
         </div>
         <div className="safe-workflow-cta">
-          <Link
-            className="button"
-            href="/safe/50/0x7ae1ef2979b0de85d7dea7f6a5582417d4a98c55/tx/0x0856c4f2890b3828981c29e6e09f4e475c6439ae2045837bcb38900b5249a633"
-          >
+          <Link className="button" href={liveExamplePath}>
             Try a live example <span aria-hidden="true">→</span>
           </Link>
           <Link

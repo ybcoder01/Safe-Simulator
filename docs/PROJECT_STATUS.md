@@ -1,7 +1,7 @@
 # Safe Inspector: living project status
 
 Last updated: 2026-10-08
-Production: <https://safe-simulator.vercel.app>  
+Production: <https://safe-inspector.vercel.app>
 Repository: <https://github.com/ybcoder01/Safe-Simulator>  
 Telegram bot: `@safealerts_bot`
 
@@ -510,7 +510,7 @@ Implemented hardening and remaining operational controls:
    with the canonical Safe transaction hash and exact analyzed payload digest.
 2. Telegram contains one **Open verified safety report** button and no approval
    or signing action. The ID and full technical fields remain in the report.
-3. A signer verifies the official `safe-simulator.vercel.app` domain, or opens
+3. A signer verifies the official `safe-inspector.vercel.app` domain, or opens
    a bookmarked Safe Inspector and checks the same transaction independently.
 4. The official verification page confirms whether the alert was emitted by
    Safe Inspector and displays the canonical fields again.
