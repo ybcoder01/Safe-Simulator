@@ -634,22 +634,45 @@ function transactionDetails(transaction: SafeTransaction): readonly string[] {
 
   return [
     `• Action: ${decoded ?? actionSummary(transaction)}`,
-    `• With: ${targetSummary(transaction)}`,
+    `• With: ${targetSummary(transaction).text}`,
   ];
 }
 
-function targetSummary(transaction: SafeTransaction): string {
+interface TelegramTargetSummary {
+  readonly text: string;
+  readonly recognized: boolean;
+}
+
+function targetSummary(transaction: SafeTransaction): TelegramTargetSummary {
   const registryEntry = findContractRegistryEntry(
     transaction.safe.chainId,
     transaction.to,
   );
   if (registryEntry) {
-    return `${registryEntry.label} (${shortAddress(transaction.to)})`;
+    return {
+      text: `${registryEntry.label} (${shortAddress(transaction.to)})`,
+      recognized: true,
+    };
   }
+
+  const tokenEntry = findTokenRegistryEntry(
+    transaction.safe.chainId,
+    transaction.to,
+  );
+  if (tokenEntry) {
+    return {
+      text: `${tokenEntry.symbol} (${shortAddress(transaction.to)})`,
+      recognized: true,
+    };
+  }
+
   const activity = classifyTransactionActivity(transaction);
   const description =
     activity.type === "transfer" ? "Recipient" : "Unrecognized address";
-  return `${description} (${shortAddress(transaction.to)})`;
+  return {
+    text: `${description} (${shortAddress(transaction.to)})`,
+    recognized: false,
+  };
 }
 
 function latestEventTime(transaction: SafeTransaction): number {
@@ -724,7 +747,7 @@ export function formatTelegramAlert(
     `• Approved by: ${transaction.confirmations.length} of ${threshold} owners`,
     "",
     "Quick checks",
-    `• ${findContractRegistryEntry(transaction.safe.chainId, transaction.to) ? "✓" : "?"} Who you're dealing with: ${target}`,
+    `• ${target.recognized ? "✓" : "?"} Who you're dealing with: ${target.text}`,
     `• ${recipientNeedsCheck ? "!" : "✓"} Who gets the money: ${recipientNeedsCheck ? "Confirm the full recipient address" : "No unexpected recipient found"}`,
     `• ${permissionNeedsCheck ? "!" : "✓"} What it can access: ${permissionNeedsCheck ? "Confirm the spender and amount" : "No unexpected permission found"}`,
     `• ${simulationText}`,

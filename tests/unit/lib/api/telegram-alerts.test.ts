@@ -157,7 +157,7 @@ describe("Telegram transaction alerts", () => {
     expect(text).not.toContain("Alert verification ID");
   });
 
-  it("names a recognized protocol when an approval enables spending access", () => {
+  it("names a recognized token when an approval enables spending access", () => {
     const fathomPool = "0x70d8005E3c8C7e383FE35Fa40156042F3393449F" as Address;
     const text = formatTelegramAlert(
       transaction(1, {
@@ -184,6 +184,8 @@ describe("Telegram transaction alerts", () => {
       "Confirm the complete spender address and the exact amount your team intended",
     );
     expect(text).toContain("With: USDC");
+    expect(text).toContain("✓ Who you're dealing with: USDC");
+    expect(text).not.toContain("Unrecognized address");
     expect(text).not.toContain("A new address can spend");
   });
 
