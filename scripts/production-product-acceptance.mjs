@@ -1,17 +1,11 @@
 import assert from "node:assert/strict";
 
-const requiredOrigin = "https://safe-simulator.vercel.app";
+import reference from "../src/lib/public-live-example.json" with { type: "json" };
+
+const requiredOrigin = "https://safe-inspector.vercel.app";
 const environment = process.env.SOAK_ENVIRONMENT;
 const baseUrl = process.env.SOAK_BASE_URL;
 const requestTimeoutMs = 10_000;
-
-const reference = {
-  chainId: 50,
-  safe: "0x7ae1ef2979b0de85d7dea7f6a5582417d4a98c55",
-  safeTxHash:
-    "0x0856c4f2890b3828981c29e6e09f4e475c6439ae2045837bcb38900b5249a633",
-  target: "0x9641d764fc13c8b624c04430c7356c1c7c8102e2",
-};
 
 assert.equal(
   environment,
@@ -72,7 +66,8 @@ const checks = [
       assert.equal(transaction?.safeTxHash, reference.safeTxHash);
       assert.equal(transaction?.to, reference.target);
       assert.equal(transaction?.status, "executed");
-      assert.equal(transaction?.operation, "delegatecall");
+      assert.equal(transaction?.operation, "call");
+      assert.equal(transaction?.activity?.label, "Supply to lending market");
       assert.equal(transaction?.execution?.mode, "executed-replay");
       assert.equal(transaction?.execution?.success, true);
       assert.equal(
@@ -82,10 +77,10 @@ const checks = [
       assert.equal(transaction?.execution?.coverage?.callTrace, "complete");
       assert.equal(transaction?.execution?.coverage?.eventLogs, "complete");
       assert.equal(transaction?.execution?.coverage?.storageDiff, "complete");
-      assert.equal(transaction?.verdict?.verdict, "flagged");
+      assert.equal(transaction?.verdict?.verdict, "unverified");
       assert.equal(
         transaction?.verdict?.headline,
-        "Critical evidence requires review",
+        "Trust is not fully established",
       );
     },
   },
@@ -109,8 +104,8 @@ const checks = [
       assert.match(response.headers.get("content-type") ?? "", /text\/html/);
       const body = await response.text();
       assert.match(body, new RegExp(reference.safeTxHash));
-      assert.match(body, /Safe batch/);
-      assert.match(body, /Critical evidence requires review/);
+      assert.match(body, /Supply to lending market/);
+      assert.match(body, /Trust is not fully established/);
       assert.match(body, /Read-only by design/);
     },
   },

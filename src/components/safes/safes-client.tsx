@@ -6,6 +6,9 @@ import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import type { DiscoveredSafeView } from "@/lib/api/safe-discovery";
 import { withoutSafe, type SafeView } from "@/lib/api/safes";
 import { safeAddressBookPath } from "@/lib/navigation";
+import liveExample from "@/lib/public-live-example.json";
+
+const liveExamplePath = `/safe/${liveExample.chainId}/${liveExample.safe}/tx/${liveExample.safeTxHash}`;
 
 interface ChainOption {
   readonly id: number;
@@ -527,10 +530,7 @@ export function SafesClient({
               Enter a contract address above or inspect a real public
               transaction without importing anything first.
             </p>
-            <Link
-              className="button button-small"
-              href="/safe/50/0x7ae1ef2979b0de85d7dea7f6a5582417d4a98c55/tx/0x0856c4f2890b3828981c29e6e09f4e475c6439ae2045837bcb38900b5249a633"
-            >
+            <Link className="button button-small" href={liveExamplePath}>
               Open live example <span aria-hidden="true">→</span>
             </Link>
           </div>

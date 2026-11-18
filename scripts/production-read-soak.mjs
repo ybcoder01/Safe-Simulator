@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-const requiredOrigin = "https://safe-simulator.vercel.app";
+const requiredOrigin = "https://safe-inspector.vercel.app";
 const environment = process.env.SOAK_ENVIRONMENT;
 const baseUrl = process.env.SOAK_BASE_URL;
 const durationMinutes = Number(process.env.SOAK_DURATION_MINUTES ?? "15");

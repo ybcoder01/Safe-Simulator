@@ -387,7 +387,7 @@ After rollback:
 
 1. Confirm the production domain points to the intended deployment.
 2. Check `/api/health`.
-3. Run `SOAK_BASE_URL=https://safe-simulator.vercel.app SOAK_ENVIRONMENT=production node scripts/production-product-acceptance.mjs` from the rollback-compatible revision.
+3. Run `SOAK_BASE_URL=https://safe-inspector.vercel.app SOAK_ENVIRONMENT=production node scripts/production-product-acceptance.mjs` from the rollback-compatible revision.
 4. Verify watchlist and refresh queue behavior from an existing browser profile.
 5. Review whether any forward database migration remains active.
 6. Open a corrective pull request rather than editing production source state.

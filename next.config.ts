@@ -1,5 +1,12 @@
 import type { NextConfig } from "next";
 
+import liveExample from "./src/lib/public-live-example.json";
+
+export const legacyLiveExamplePath =
+  "/safe/50/0x7ae1ef2979b0de85d7dea7f6a5582417d4a98c55/tx/0x0856c4f2890b3828981c29e6e09f4e475c6439ae2045837bcb38900b5249a633";
+
+export const liveExamplePath = `/safe/${liveExample.chainId}/${liveExample.safe}/tx/${liveExample.safeTxHash}`;
+
 const commonContentSecurityDirectives = [
   "default-src 'self'",
   "base-uri 'self'",
@@ -66,12 +73,24 @@ export const safeAppSecurityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  experimental: {
+    agentUpgrade: "security",
+  },
   async headers() {
     return [
       { source: "/safe-app/:path*", headers: safeAppSecurityHeaders },
       {
         source: "/:path((?!safe-app(?:/|$)).*)",
         headers: securityHeaders,
+      },
+    ];
+  },
+  async redirects() {
+    return [
+      {
+        source: legacyLiveExamplePath,
+        destination: liveExamplePath,
+        permanent: true,
       },
     ];
   },
