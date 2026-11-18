@@ -2,12 +2,24 @@ import { describe, expect, it } from "vitest";
 
 import nextConfig, {
   contentSecurityPolicy,
+  legacyLiveExamplePath,
+  liveExamplePath,
   safeAppContentSecurityPolicy,
   safeAppSecurityHeaders,
   securityHeaders,
 } from "../../../next.config";
 
 describe("security response headers", () => {
+  it("redirects the retired public demo to the current live example", async () => {
+    await expect(nextConfig.redirects?.()).resolves.toEqual([
+      {
+        source: legacyLiveExamplePath,
+        destination: liveExamplePath,
+        permanent: true,
+      },
+    ]);
+  });
+
   it("keeps the public application unframeable and isolates the Safe App route", async () => {
     await expect(nextConfig.headers?.()).resolves.toEqual([
       { source: "/safe-app/:path*", headers: safeAppSecurityHeaders },
