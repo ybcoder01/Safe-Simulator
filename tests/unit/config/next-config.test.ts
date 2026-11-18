@@ -10,6 +10,10 @@ import nextConfig, {
 } from "../../../next.config";
 
 describe("security response headers", () => {
+  it("records that the framework received its security upgrade", () => {
+    expect(nextConfig.experimental?.agentUpgrade).toBe("security");
+  });
+
   it("redirects the retired public demo to the current live example", async () => {
     await expect(nextConfig.redirects?.()).resolves.toEqual([
       {
