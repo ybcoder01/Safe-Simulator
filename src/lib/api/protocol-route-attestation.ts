@@ -10,6 +10,7 @@ import {
   findContractRegistryEntry,
 } from "@/core/analysis/trust/contract-registry";
 import type { ContractRegistryProtocol } from "@/core/analysis/trust/contract-registry";
+import { tokenRegistryEntriesForChain } from "@/core/analysis/trust/token-registry";
 import type { Address, Finding, SafeTransaction } from "@/core/domain";
 import type { ChainPort } from "@/core/ports";
 import type { ExecutionInsight } from "@/lib/api/execution-insight";
@@ -701,12 +702,24 @@ async function attestDocumentedProtocolRoute(
 ): Promise<ProtocolRouteAttestation> {
   const label = protocolLabel(targetProtocol);
   const registry = contractRegistryEntriesForChain(50);
-  const documented = registry
-    .filter(
-      (entry) =>
-        entry.protocol === targetProtocol && entry.lifecycle !== "deprecated",
-    )
-    .map((entry) => ({ address: entry.address, label: entry.label }));
+  const tracedKeys = new Set(
+    execution.internalCalls.flatMap((call) => [
+      addressKey(call.from),
+      addressKey(call.to),
+    ]),
+  );
+  const documentedTokens = tokenRegistryEntriesForChain(50)
+    .filter((entry) => tracedKeys.has(addressKey(entry.address)))
+    .map((entry) => ({ address: entry.address, label: entry.name }));
+  const documented = [
+    ...registry
+      .filter(
+        (entry) =>
+          entry.protocol === targetProtocol && entry.lifecycle !== "deprecated",
+      )
+      .map((entry) => ({ address: entry.address, label: entry.label })),
+    ...documentedTokens,
+  ];
   const documentedKeys = new Set(
     documented.map((item) => addressKey(item.address)),
   );
@@ -759,9 +772,12 @@ async function attestDocumentedProtocolRoute(
     attested.map((item) => addressKey(item.address)),
   );
   const independentlyNamedKeys = new Set(
-    registry
-      .filter((entry) => entry.lifecycle !== "deprecated")
-      .map((entry) => addressKey(entry.address)),
+    [
+      ...registry
+        .filter((entry) => entry.lifecycle !== "deprecated")
+        .map((entry) => entry.address),
+      ...tokenRegistryEntriesForChain(50).map((entry) => entry.address),
+    ].map(addressKey),
   );
   const unknownTargets = [
     ...new Map(

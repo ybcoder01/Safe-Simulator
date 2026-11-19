@@ -39,6 +39,9 @@ const fathomSupplyLogic =
   "0xA8f477530036cF1391E5A76A723635be7b28Eff3" as Address;
 const fathomRateStrategy =
   "0xB131Df2d2F2e042f79A09981DB7F9aDf578291a8" as Address;
+const usdc = "0xfA2958CB79b0491CC627c1557F441eF849Ca8eb1" as Address;
+const usdcImplementation =
+  "0x9DdB959f04b7075AacCd28e2e5c5c113469c534b" as Address;
 const zero = "0x0000000000000000000000000000000000000000" as Address;
 
 const factoryAbi = parseAbi([
@@ -385,8 +388,29 @@ describe("resolveProtocolRouteAttestation", () => {
             reverted: false,
             error: null,
           },
+          {
+            depth: 4,
+            from: fathomPool,
+            to: usdc,
+            input: "0x" as Hex,
+            value: "0",
+            operation: "call",
+            reverted: false,
+            error: null,
+          },
+          {
+            depth: 5,
+            from: usdc,
+            to: usdcImplementation,
+            input: "0x" as Hex,
+            value: "0",
+            operation: "delegatecall",
+            reverted: false,
+            error: null,
+          },
         ],
       },
+      [{ proxy: usdc, implementation: usdcImplementation }],
     );
 
     expect(result).toEqual(
@@ -397,6 +421,7 @@ describe("resolveProtocolRouteAttestation", () => {
       expect.arrayContaining([
         { proxy: fathomPool, implementation: fathomPoolImplementation },
         { proxy: fathomPool, implementation: fathomSupplyLogic },
+        { proxy: usdc, implementation: usdcImplementation },
       ]),
     );
   });
