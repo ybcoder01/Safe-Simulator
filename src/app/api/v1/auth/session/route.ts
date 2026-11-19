@@ -78,7 +78,15 @@ export async function POST(request: NextRequest) {
         : "Wallet login could not be verified.";
     const status = message.includes("not configured") ? 503 : 401;
     return NextResponse.json(
-      { error: { code: "authentication_failed", message } },
+      {
+        error: {
+          code: "authentication_failed",
+          message:
+            status === 503
+              ? "Wallet login is temporarily unavailable."
+              : "Wallet login could not be verified.",
+        },
+      },
       { status },
     );
   }

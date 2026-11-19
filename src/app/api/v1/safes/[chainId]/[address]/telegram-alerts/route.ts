@@ -74,6 +74,16 @@ export async function POST(request: NextRequest, context: RouteContext) {
     request,
     TELEGRAM_LINK_RATE_LIMIT,
   );
+  if (rateLimit.degraded) {
+    return NextResponse.json(
+      {
+        error: {
+          message: "Telegram alert controls are temporarily unavailable.",
+        },
+      },
+      { status: 503 },
+    );
+  }
   if (!rateLimit.allowed) {
     return NextResponse.json(
       { error: { message: "Too many alert requests. Try again later." } },

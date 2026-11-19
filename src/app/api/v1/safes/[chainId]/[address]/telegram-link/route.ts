@@ -44,6 +44,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
     request,
     TELEGRAM_LINK_RATE_LIMIT,
   );
+  if (rateLimit.degraded) {
+    return NextResponse.json(
+      {
+        error: {
+          code: "rate_limit_unavailable",
+          message: "Telegram linking is temporarily unavailable.",
+        },
+      },
+      { status: 503 },
+    );
+  }
   if (!rateLimit.allowed) {
     return NextResponse.json(
       {

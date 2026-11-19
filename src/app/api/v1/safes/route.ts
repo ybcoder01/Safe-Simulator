@@ -37,7 +37,7 @@ function infrastructureError(error: unknown) {
     message.includes("not configured") || message.includes("DATABASE_URL");
   return errorResponse(
     missingConfiguration
-      ? message
+      ? "Safe Inspector infrastructure is temporarily unavailable."
       : "The Safe could not be read or persisted right now.",
     missingConfiguration ? 503 : 502,
     missingConfiguration
@@ -122,6 +122,13 @@ export async function POST(request: NextRequest) {
     request,
     SAFE_IMPORT_RATE_LIMIT,
   );
+  if (rateLimit.degraded) {
+    return errorResponse(
+      "Safe import is temporarily unavailable. Try again shortly.",
+      503,
+      "rate_limit_unavailable",
+    );
+  }
   if (!rateLimit.allowed) {
     return NextResponse.json(
       {

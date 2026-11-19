@@ -7,40 +7,6 @@ export const legacyLiveExamplePath =
 
 export const liveExamplePath = `/safe/${liveExample.chainId}/${liveExample.safe}/tx/${liveExample.safeTxHash}`;
 
-const commonContentSecurityDirectives = [
-  "default-src 'self'",
-  "base-uri 'self'",
-  [
-    "connect-src 'self'",
-    "https://auth.privy.io",
-    "https://explorer-api.walletconnect.com",
-    "https://verify.walletconnect.org",
-    "https://pulse.walletconnect.org",
-    "https://echo.walletconnect.com",
-    "wss://relay.walletconnect.com",
-    "wss://relay.walletconnect.org",
-  ].join(" "),
-  "font-src 'self'",
-  "form-action 'self'",
-  "img-src 'self' data:",
-  "manifest-src 'self'",
-  "object-src 'none'",
-  "script-src 'self' 'unsafe-inline'",
-  "script-src-attr 'none'",
-  "style-src 'self' 'unsafe-inline'",
-  "upgrade-insecure-requests",
-];
-
-export const contentSecurityPolicy = [
-  ...commonContentSecurityDirectives,
-  "frame-ancestors 'none'",
-].join("; ");
-
-export const safeAppContentSecurityPolicy = [
-  ...commonContentSecurityDirectives,
-  "frame-ancestors https://app.safe.global",
-].join("; ");
-
 const commonSecurityHeaders = [
   {
     key: "Permissions-Policy",
@@ -55,7 +21,6 @@ const commonSecurityHeaders = [
 ];
 
 export const securityHeaders = [
-  { key: "Content-Security-Policy", value: contentSecurityPolicy },
   { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
   { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
   ...commonSecurityHeaders,
@@ -67,7 +32,6 @@ export const safeAppSecurityHeaders = [
     key: "Access-Control-Allow-Origin",
     value: "https://app.safe.global",
   },
-  { key: "Content-Security-Policy", value: safeAppContentSecurityPolicy },
   { key: "Cross-Origin-Resource-Policy", value: "cross-origin" },
   ...commonSecurityHeaders,
 ];

@@ -74,6 +74,12 @@ export async function POST(request: NextRequest) {
     request,
     APOTHEM_INSPECTION_RATE_LIMIT,
   );
+  if (rateLimit.degraded) {
+    return NextResponse.json(
+      { error: { message: "Testnet inspection is temporarily unavailable." } },
+      { status: 503 },
+    );
+  }
   if (!rateLimit.allowed) {
     return NextResponse.json(
       { error: { message: "Too many testnet inspections. Try again later." } },

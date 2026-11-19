@@ -123,9 +123,9 @@ export async function PUT(request: NextRequest, route: RouteContext) {
       );
     }
     return error(
-      cause instanceof Error ? cause.message : "Could not save trust record.",
-      403,
-      "trust_record_rejected",
+      "The trust record could not be saved right now.",
+      502,
+      "trust_record_unavailable",
     );
   }
 }

@@ -33,8 +33,8 @@ import {
 
 function errorDetails(error: unknown) {
   return error instanceof Error
-    ? { name: error.name, message: error.message, stack: error.stack }
-    : { message: String(error) };
+    ? { name: error.name }
+    : { name: "UnknownError" };
 }
 
 export async function POST(request: Request) {

@@ -47,6 +47,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
     request,
     SAFE_REFRESH_RATE_LIMIT,
   );
+  if (rateLimit.degraded) {
+    return NextResponse.json(
+      {
+        error: {
+          code: "rate_limit_unavailable",
+          message: "Safe refresh is temporarily unavailable.",
+        },
+      },
+      { status: 503 },
+    );
+  }
   if (!rateLimit.allowed) {
     return NextResponse.json(
       {

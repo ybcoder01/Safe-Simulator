@@ -26,9 +26,9 @@ jobs:
       run:
         working-directory: testnet/apothem
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: foundry-rs/foundry-toolchain@v1
+      - uses: foundry-rs/foundry-toolchain@dba66c27052e63476d886f22216e119ba7e615bf # v1
         with:
           version: stable
 
@@ -51,9 +51,9 @@ jobs:
       APOTHEM_DEPLOYER_PRIVATE_KEY: ${{ secrets.APOTHEM_DEPLOYER_PRIVATE_KEY }}
       INSPECTOR_URL: https://safe-simulator.vercel.app/demo/apothem-attack-lab
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: foundry-rs/foundry-toolchain@v1
+      - uses: foundry-rs/foundry-toolchain@dba66c27052e63476d886f22216e119ba7e615bf # v1
         with:
           version: stable
 
@@ -226,7 +226,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload public demo manifest
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: apothem-attack-demo-transactions
           path: testnet/apothem/demo-transactions.json
