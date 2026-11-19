@@ -65,8 +65,12 @@ const endpoints = [
       const body = await response.json();
       assert.equal(body.service, "safe-inspector");
       assert.equal(body.status, "ok");
-      assert.equal(body.checks?.database, "ok");
-      assert.equal(body.checks?.cache, "ok");
+      assert.equal(typeof body.timestamp, "string");
+      assert.equal(
+        Object.hasOwn(body, "checks"),
+        false,
+        "Public health output must not expose dependency diagnostics.",
+      );
     },
   },
 ];

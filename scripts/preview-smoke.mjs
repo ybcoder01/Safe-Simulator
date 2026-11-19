@@ -110,8 +110,12 @@ assert.equal(
 );
 assert.equal(healthBody.service, "safe-inspector");
 assert.equal(healthBody.status, "ok");
-assert.equal(healthBody.checks?.database, "ok");
-assert.equal(healthBody.checks?.cache, "ok");
+assert.equal(typeof healthBody.timestamp, "string");
+assert.equal(
+  Object.hasOwn(healthBody, "checks"),
+  false,
+  "Public health output must not expose dependency diagnostics.",
+);
 
 // Personal Safe data is wallet-authenticated now. The smoke test intentionally
 // has no wallet and must prove that the server boundary rejects both reads and
@@ -164,8 +168,7 @@ console.log(
       "security-headers",
       "wallet-auth-boundary",
       "apothem-attack-lab",
-      "database",
-      "cache",
+      "non-leaking-health",
       "anonymous-watchlist-denied",
       "anonymous-import-denied",
       "public-live-example-api",
