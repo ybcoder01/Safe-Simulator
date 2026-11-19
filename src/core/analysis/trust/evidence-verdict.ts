@@ -384,6 +384,19 @@ function assessAddresses(
       item,
     ]),
   );
+  for (const [index, implementation] of (
+    input.implementationChain ?? []
+  ).entries()) {
+    const key = addressKey(implementation);
+    if (attestations.has(key)) continue;
+    attestations.set(key, {
+      address: implementation,
+      label:
+        index === 0
+          ? "Resolved target implementation"
+          : `Resolved target implementation level ${index + 1}`,
+    });
+  }
 
   return [...roles.values()].map(({ address, roles: addressRoles }) => {
     const record = records.get(addressKey(address));
