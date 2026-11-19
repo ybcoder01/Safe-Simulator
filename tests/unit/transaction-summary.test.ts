@@ -81,6 +81,8 @@ describe("transaction summary privacy and provider boundary", () => {
           standard: "erc20",
           token: "0x0000000000000000000000000000000000000003",
           tokenLabel: "USDC",
+          tokenSymbol: "USDC",
+          tokenDecimals: 6,
           spender: "0x0000000000000000000000000000000000000004",
           spenderLabel: "Fathom Pool",
           spenderProtocol: "Fathom",
@@ -109,7 +111,14 @@ describe("transaction summary privacy and provider boundary", () => {
     expect(serialized).toContain("Fathom");
     expect(serialized).not.toContain('"amount"');
     expect(serialized).not.toContain('"priorAmount"');
-    expect(serialized).not.toContain("50000");
+    expect(evidence.deterministicApprovalAmounts).toEqual([
+      expect.objectContaining({
+        baseUnits: "50000",
+        decimals: 6,
+        displayAmount: "0.05",
+        displayLabel: "0.05 USDC",
+      }),
+    ]);
   });
 
   it("removes signing and profile fields while bounding public values", () => {
@@ -295,7 +304,7 @@ describe("transaction summary privacy and provider boundary", () => {
   });
 
   it("uses a new prompt version for the consolidated signer verdict", () => {
-    expect(TRANSACTION_SUMMARY_PROMPT_VERSION).toBe("transaction-summary-v7");
+    expect(TRANSACTION_SUMMARY_PROMPT_VERSION).toBe("transaction-summary-v8");
   });
 
   it("rejects raw base units mislabeled as whole-token units", async () => {
