@@ -8,6 +8,7 @@ import type {
   Verdict,
 } from "../../domain";
 import type { ContractRegistryEntry } from "./contract-registry";
+import { findTokenRegistryEntry } from "./token-registry";
 import type { SafeConfigurationChange } from "../safes/event-facts";
 
 export type DecodeConfidence = "verified" | "service" | "signature" | "raw";
@@ -387,6 +388,7 @@ function assessAddresses(
   return [...roles.values()].map(({ address, roles: addressRoles }) => {
     const record = records.get(addressKey(address));
     const registryEntry = registry.get(addressKey(address));
+    const tokenRegistryEntry = findTokenRegistryEntry(input.chainId, address);
     const attestation = attestations.get(addressKey(address));
     const isVerifiedTarget =
       addressRoles.has("target") &&
@@ -396,15 +398,19 @@ function assessAddresses(
     return {
       address,
       label:
-        record?.label ?? registryEntry?.label ?? attestation?.label ?? null,
+        record?.label ??
+        registryEntry?.label ??
+        tokenRegistryEntry?.name ??
+        attestation?.label ??
+        null,
       status:
         record?.trust ??
-        (registryEntry || attestation || isVerifiedTarget
+        (registryEntry || tokenRegistryEntry || attestation || isVerifiedTarget
           ? "known"
           : "unverified"),
       source: record
         ? "profile"
-        : registryEntry
+        : registryEntry || tokenRegistryEntry
           ? "registry"
           : attestation
             ? "attestation"

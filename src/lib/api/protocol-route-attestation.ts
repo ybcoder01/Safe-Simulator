@@ -9,6 +9,7 @@ import {
   contractRegistryEntriesForChain,
   findContractRegistryEntry,
 } from "@/core/analysis/trust/contract-registry";
+import type { ContractRegistryProtocol } from "@/core/analysis/trust/contract-registry";
 import type { Address, Finding, SafeTransaction } from "@/core/domain";
 import type { ChainPort } from "@/core/ports";
 import type { ExecutionInsight } from "@/lib/api/execution-insight";
@@ -69,7 +70,7 @@ export interface ProtocolVerificationCheck {
 }
 
 export interface ProtocolRouteAttestation {
-  readonly protocol: "silo" | null;
+  readonly protocol: ContractRegistryProtocol | null;
   readonly status: "not-applicable" | "verified" | "review" | "unavailable";
   readonly title: string;
   readonly detail: string;
@@ -523,6 +524,7 @@ function notApplicable(): ProtocolRouteAttestation {
 function expandAttestedProxyGraph(
   addresses: readonly AttestedProtocolAddress[],
   boundaries: readonly InternalProxyBoundary[],
+  protocolLabel = "protocol",
 ): readonly AttestedProtocolAddress[] {
   const expanded = [...addresses];
   const known = new Set(addresses.map((item) => addressKey(item.address)));
@@ -537,7 +539,7 @@ function expandAttestedProxyGraph(
       ) {
         expanded.push({
           address: boundary.implementation,
-          label: "Verified implementation used by the Silo route",
+          label: `Verified implementation used by the ${protocolLabel} route`,
         });
         known.add(addressKey(boundary.implementation));
         changed = true;
@@ -574,6 +576,7 @@ async function proveLinkedLibraries(
   execution: Pick<ExecutionInsight, "internalCalls">,
   attested: readonly AttestedProtocolAddress[],
   boundaries: readonly InternalProxyBoundary[],
+  protocolLabel = "protocol",
 ): Promise<{
   readonly addresses: readonly AttestedProtocolAddress[];
   readonly boundaries: readonly InternalProxyBoundary[];
@@ -663,13 +666,174 @@ async function proveLinkedLibraries(
     addresses: uniqueAddresses(
       proven.map(({ library }) => ({
         address: library,
-        label: "Library linked into the Silo market implementation",
+        label: `Library linked into the ${protocolLabel} implementation`,
       })),
     ),
     boundaries: proven.map(({ proxy, library }) => ({
       proxy,
       implementation: library,
     })),
+  };
+}
+
+function protocolLabel(protocol: ContractRegistryProtocol): string {
+  return protocol
+    .split("-")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+/**
+ * Accounts for the executed graph of every publisher-documented XDC protocol.
+ *
+ * This is deliberately narrower than "same protocol means safe": a static
+ * deployment record proves identity only. Dynamic implementations must be
+ * connected by a proxy boundary resolved at the analysis block, and linked
+ * libraries must be embedded in the resolved implementation bytecode. Any
+ * other traced contract stays outside the graph and keeps the route in review.
+ */
+async function attestDocumentedProtocolRoute(
+  chain: ChainPort,
+  transaction: SafeTransaction,
+  execution: Pick<ExecutionInsight, "internalCalls">,
+  targetProtocol: ContractRegistryProtocol,
+  resolvedProxyBoundaries: readonly InternalProxyBoundary[],
+): Promise<ProtocolRouteAttestation> {
+  const label = protocolLabel(targetProtocol);
+  const registry = contractRegistryEntriesForChain(50);
+  const documented = registry
+    .filter(
+      (entry) =>
+        entry.protocol === targetProtocol && entry.lifecycle !== "deprecated",
+    )
+    .map((entry) => ({ address: entry.address, label: entry.label }));
+  const documentedKeys = new Set(
+    documented.map((item) => addressKey(item.address)),
+  );
+
+  const proxyAttested = expandAttestedProxyGraph(
+    documented,
+    resolvedProxyBoundaries,
+    label,
+  );
+  const proxyAttestedKeys = new Set(
+    proxyAttested.map((item) => addressKey(item.address)),
+  );
+  const documentedDelegateTargets = new Set(
+    registry
+      .filter(
+        (entry) =>
+          entry.protocol === targetProtocol &&
+          entry.lifecycle === "internal" &&
+          entry.trustPolicy === "identity-only" &&
+          (entry.role === "implementation" || entry.role === "library"),
+      )
+      .map((entry) => addressKey(entry.address)),
+  );
+  const documentedBoundaries = execution.internalCalls
+    .filter(
+      (call) =>
+        call.operation === "delegatecall" &&
+        isAddress(call.from) &&
+        isAddress(call.to) &&
+        proxyAttestedKeys.has(addressKey(call.from)) &&
+        documentedDelegateTargets.has(addressKey(call.to)),
+    )
+    .map((call) => ({
+      proxy: getAddress(call.from) as Address,
+      implementation: getAddress(call.to) as Address,
+    }));
+  const linkedLibraries = await proveLinkedLibraries(
+    chain,
+    transaction,
+    execution,
+    proxyAttested,
+    [...resolvedProxyBoundaries, ...documentedBoundaries],
+    label,
+  );
+  const attested = uniqueAddresses([
+    ...proxyAttested,
+    ...linkedLibraries.addresses,
+  ]);
+  const attestedKeys = new Set(
+    attested.map((item) => addressKey(item.address)),
+  );
+  const independentlyNamedKeys = new Set(
+    registry
+      .filter((entry) => entry.lifecycle !== "deprecated")
+      .map((entry) => addressKey(entry.address)),
+  );
+  const unknownTargets = [
+    ...new Map(
+      execution.internalCalls
+        .map((call) => call.to)
+        .filter(isAddress)
+        .map((address) => getAddress(address) as Address)
+        .filter(
+          (address) =>
+            addressKey(address) !== addressKey(transaction.safe.address) &&
+            addressKey(address) !== ZERO_ADDRESS &&
+            !isPrecompile(address) &&
+            !attestedKeys.has(addressKey(address)) &&
+            !independentlyNamedKeys.has(addressKey(address)),
+        )
+        .map((address) => [addressKey(address), address]),
+    ).values(),
+  ];
+  const proxyBoundaries = uniqueBoundaries([
+    ...linkedLibraries.boundaries,
+    ...documentedBoundaries,
+    ...resolvedProxyBoundaries.filter(
+      (boundary) =>
+        (documentedKeys.has(addressKey(boundary.proxy)) ||
+          attestedKeys.has(addressKey(boundary.proxy))) &&
+        attestedKeys.has(addressKey(boundary.implementation)),
+    ),
+  ]);
+  const complete = unknownTargets.length === 0;
+
+  return {
+    protocol: targetProtocol,
+    status: complete ? "verified" : "review",
+    title: complete
+      ? `${label} executed route accounted for`
+      : `${label} route is only partly verified`,
+    detail: complete
+      ? "Every traced contract is publisher-documented, independently named, or connected by a proxy or linked-library proof at the analysis block."
+      : "At least one traced contract remains outside the publisher-documented and independently proven execution graph.",
+    addresses: attested,
+    proxyBoundaries,
+    checks: [
+      {
+        key: "destination",
+        status: "pass",
+        title: `Official ${label} destination`,
+        detail:
+          "The transaction destination matches a current publisher-documented deployment record.",
+      },
+      {
+        key: "route",
+        status: complete ? "pass" : "review",
+        title: complete
+          ? "All traced contracts accounted for"
+          : `${unknownTargets.length} connected contract${unknownTargets.length === 1 ? "" : "s"} still unconfirmed`,
+        detail: complete
+          ? "No unexplained contract appeared in the traced execution graph."
+          : "The unresolved contracts are preserved for signer review and are not inferred to belong to the protocol.",
+      },
+    ],
+    findings: complete
+      ? []
+      : [
+          {
+            code: "protocol-route-attestation-incomplete",
+            severity: "warning",
+            title: `Part of the ${label} route is still unresolved`,
+            detail:
+              "Safe Inspector recognized the documented deployment and independently proven proxy or library relationships, but at least one traced address remains outside that graph.",
+            addresses: unknownTargets,
+          },
+        ],
   };
 }
 
@@ -688,8 +852,23 @@ export async function resolveProtocolRouteAttestation(
     transaction.safe.chainId,
     transaction.to,
   );
-  if (target?.protocol !== "silo" || transaction.safe.chainId !== 50) {
+  if (
+    transaction.safe.chainId !== 50 ||
+    !target ||
+    target.category !== "protocol" ||
+    target.lifecycle !== "active" ||
+    target.trustPolicy !== "protocol-whitelist"
+  ) {
     return notApplicable();
+  }
+  if (target.protocol !== "silo") {
+    return attestDocumentedProtocolRoute(
+      chain,
+      transaction,
+      execution,
+      target.protocol,
+      resolvedProxyBoundaries,
+    );
   }
 
   const staticSiloAddresses = contractRegistryEntriesForChain(50)
@@ -781,6 +960,7 @@ export async function resolveProtocolRouteAttestation(
   const proxyAttested = expandAttestedProxyGraph(
     baseAttested,
     resolvedProxyBoundaries,
+    "Silo",
   );
   const staticDelegateTargets = new Set(
     contractRegistryEntriesForChain(50)
@@ -814,6 +994,7 @@ export async function resolveProtocolRouteAttestation(
     execution,
     proxyAttested,
     [...resolvedProxyBoundaries, ...staticBoundaries],
+    "Silo",
   );
   const attested = uniqueAddresses([
     ...proxyAttested,
