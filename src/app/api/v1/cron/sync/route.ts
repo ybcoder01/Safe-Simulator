@@ -7,7 +7,7 @@ export async function GET(request: Request) {
       {
         error: {
           code: "cron_not_configured",
-          message: "CRON_SECRET is not configured.",
+          message: "Scheduled synchronization is temporarily unavailable.",
         },
       },
       { status: 503 },

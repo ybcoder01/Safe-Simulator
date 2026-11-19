@@ -1,10 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import nextConfig, {
-  contentSecurityPolicy,
   legacyLiveExamplePath,
   liveExamplePath,
-  safeAppContentSecurityPolicy,
   safeAppSecurityHeaders,
   securityHeaders,
 } from "../../../next.config";
@@ -34,32 +32,7 @@ describe("security response headers", () => {
     ]);
   });
 
-  it("restricts executable and embeddable content to the application", () => {
-    expect(contentSecurityPolicy).toContain("default-src 'self'");
-    expect(contentSecurityPolicy).toContain("connect-src 'self'");
-    expect(contentSecurityPolicy).toContain(
-      "https://explorer-api.walletconnect.com",
-    );
-    expect(contentSecurityPolicy).toContain("https://verify.walletconnect.org");
-    expect(contentSecurityPolicy).toContain("https://pulse.walletconnect.org");
-    expect(contentSecurityPolicy).toContain("https://echo.walletconnect.com");
-    expect(contentSecurityPolicy).toContain("wss://relay.walletconnect.com");
-    expect(contentSecurityPolicy).toContain("wss://relay.walletconnect.org");
-    expect(contentSecurityPolicy).toContain("frame-ancestors 'none'");
-    expect(contentSecurityPolicy).toContain("object-src 'none'");
-    expect(contentSecurityPolicy).toContain("script-src-attr 'none'");
-    expect(contentSecurityPolicy).not.toContain("unsafe-eval");
-    expect(contentSecurityPolicy).not.toContain("http:");
-    expect(contentSecurityPolicy).not.toContain("connect-src *");
-  });
-
-  it("allows only Safe Global to frame the preview Safe App", () => {
-    expect(safeAppContentSecurityPolicy).toContain(
-      "frame-ancestors https://app.safe.global",
-    );
-    expect(safeAppContentSecurityPolicy).not.toContain(
-      "frame-ancestors 'none'",
-    );
+  it("allows the Safe App route to be framed only through its nonce CSP", () => {
     expect(safeAppSecurityHeaders).not.toContainEqual(
       expect.objectContaining({ key: "X-Frame-Options" }),
     );
@@ -68,7 +41,6 @@ describe("security response headers", () => {
         safeAppSecurityHeaders.map(({ key, value }) => [key, value]),
       ),
     ).toMatchObject({
-      "Content-Security-Policy": safeAppContentSecurityPolicy,
       "Cross-Origin-Resource-Policy": "cross-origin",
       "X-Content-Type-Options": "nosniff",
     });
@@ -78,7 +50,6 @@ describe("security response headers", () => {
     expect(
       Object.fromEntries(securityHeaders.map(({ key, value }) => [key, value])),
     ).toMatchObject({
-      "Content-Security-Policy": contentSecurityPolicy,
       "Cross-Origin-Opener-Policy": "same-origin",
       "Cross-Origin-Resource-Policy": "same-origin",
       "Permissions-Policy":

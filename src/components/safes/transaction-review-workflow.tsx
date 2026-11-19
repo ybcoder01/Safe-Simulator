@@ -8,10 +8,12 @@ import { explorerAddressUrl } from "@/lib/explorer-links";
 import { findingGuidance, findingReviewSummary } from "@/lib/finding-guidance";
 import {
   createTransactionReviewRecord,
+  deleteTransactionReviewRecord,
   findingCheckKey,
   loadTransactionReviewRecord,
   reviewRecordKey,
   reviewRecordMatchesEvidence,
+  REVIEW_RECORD_RETENTION_DAYS,
   reviewReportFilename,
   saveTransactionReviewRecord,
   serializeReviewReport,
@@ -165,6 +167,22 @@ export function TransactionReviewWorkflow({
     URL.revokeObjectURL(url);
   }
 
+  function clearReview() {
+    if (!deleteTransactionReviewRecord(localStorage, storageKey)) {
+      setStatus("unavailable");
+      setError(
+        "The saved review record could not be cleared from this browser.",
+      );
+      return;
+    }
+    setCompletedChecks(new Set());
+    setDecision("");
+    setNotes("");
+    setSavedRecord(null);
+    setStatus("idle");
+    setError(null);
+  }
+
   return (
     <section className="detail-panel review-workflow" id="review-workflow">
       <div className="panel-heading">
@@ -178,7 +196,8 @@ export function TransactionReviewWorkflow({
       </div>
       <p className="review-workflow-intro">
         This record is saved only in this browser profile. It documents the
-        review; it cannot approve, sign, or execute the Safe transaction.
+        review; it cannot approve, sign, or execute the Safe transaction. Saved
+        records expire after {REVIEW_RECORD_RETENTION_DAYS} days.
       </p>
 
       <div className={`review-guidance review-guidance-${summary.tone}`}>
@@ -297,6 +316,14 @@ export function TransactionReviewWorkflow({
             type="button"
           >
             Export JSON report
+          </button>
+          <button
+            className="button button-secondary"
+            disabled={!savedRecord}
+            onClick={clearReview}
+            type="button"
+          >
+            Clear saved review
           </button>
           <span aria-live="polite">
             {status === "saved"

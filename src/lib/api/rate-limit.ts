@@ -114,9 +114,9 @@ export async function checkRequestRateLimit(
   } catch (error) {
     console.error("Rate-limit check unavailable.", error);
     return {
-      allowed: true,
-      remaining: policy.limit,
-      retryAfterSeconds: 0,
+      allowed: false,
+      remaining: 0,
+      retryAfterSeconds: 60,
       degraded: true,
     };
   }

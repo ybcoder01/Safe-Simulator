@@ -2,6 +2,9 @@ import type { Finding, FindingSeverity } from "@/core/domain";
 import { findingGuidance } from "@/lib/finding-guidance";
 
 const REVIEW_RECORD_VERSION = 1;
+export const REVIEW_RECORD_RETENTION_DAYS = 30;
+const REVIEW_RECORD_RETENTION_MS =
+  REVIEW_RECORD_RETENTION_DAYS * 24 * 60 * 60 * 1_000;
 const ADDRESS_PATTERN = /^0x[0-9a-f]{40}$/;
 const HASH_PATTERN = /^0x[0-9a-f]{64}$/;
 
@@ -9,6 +12,7 @@ export type ReviewDecision = "proceed" | "investigate" | "reject";
 
 interface ReviewRecordStorage {
   getItem(key: string): string | null;
+  removeItem(key: string): void;
   setItem(key: string, value: string): void;
 }
 
@@ -121,6 +125,7 @@ function isReviewCheckSnapshot(value: unknown): value is ReviewCheckSnapshot {
 export function loadTransactionReviewRecord(
   storage: ReviewRecordStorage,
   key: string,
+  now = Date.now(),
 ): TransactionReviewRecord | null {
   try {
     const raw = storage.getItem(key);
@@ -143,11 +148,28 @@ export function loadTransactionReviewRecord(
       typeof record.reviewedAt !== "string" ||
       Number.isNaN(Date.parse(record.reviewedAt))
     ) {
+      storage.removeItem(key);
+      return null;
+    }
+    if (now - Date.parse(record.reviewedAt) > REVIEW_RECORD_RETENTION_MS) {
+      storage.removeItem(key);
       return null;
     }
     return record as TransactionReviewRecord;
   } catch {
     return null;
+  }
+}
+
+export function deleteTransactionReviewRecord(
+  storage: ReviewRecordStorage,
+  key: string,
+): boolean {
+  try {
+    storage.removeItem(key);
+    return true;
+  } catch {
+    return false;
   }
 }
 

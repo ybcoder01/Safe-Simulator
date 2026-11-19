@@ -6,6 +6,8 @@ const baseUrl = process.env.SMOKE_BASE_URL;
 const environment = process.env.SMOKE_ENVIRONMENT;
 const oidcToken = process.env.VERCEL_TRUSTED_OIDC_TOKEN;
 const timeoutMs = 30_000;
+const stablePreviewOrigin = "https://safe-simulator.vercel.app";
+const productionOrigin = "https://safe-inspector.vercel.app";
 
 const liveExamplePath = `/safe/${liveExample.chainId}/${liveExample.safe}/tx/${liveExample.safeTxHash}`;
 
@@ -15,7 +17,6 @@ assert.equal(
   "Refusing to run unless SMOKE_ENVIRONMENT is exactly preview.",
 );
 assert.ok(baseUrl, "SMOKE_BASE_URL is required.");
-assert.ok(oidcToken, "VERCEL_TRUSTED_OIDC_TOKEN is required.");
 
 const base = new URL(baseUrl);
 assert.equal(base.protocol, "https:", "Preview smoke tests require HTTPS.");
@@ -24,9 +25,13 @@ assert.ok(
   "Preview smoke tests only accept a vercel.app deployment URL.",
 );
 assert.notEqual(
-  base.hostname,
-  "safe-simulator.vercel.app",
-  "Refusing to run against the production domain.",
+  base.origin,
+  productionOrigin,
+  "Refusing to run in production.",
+);
+assert.ok(
+  oidcToken || base.origin === stablePreviewOrigin,
+  "VERCEL_TRUSTED_OIDC_TOKEN is required for protected Preview deployments.",
 );
 
 async function request(
@@ -34,10 +39,8 @@ async function request(
   { allowFailure = false, method = "GET", json } = {},
 ) {
   const url = new URL(pathname, base);
-  const headers = {
-    "User-Agent": "safe-inspector-preview-smoke",
-    "x-vercel-trusted-oidc-idp-token": oidcToken,
-  };
+  const headers = { "User-Agent": "safe-inspector-preview-smoke" };
+  if (oidcToken) headers["x-vercel-trusted-oidc-idp-token"] = oidcToken;
   if (json !== undefined) headers["Content-Type"] = "application/json";
 
   const response = await fetch(url, {
@@ -110,8 +113,12 @@ assert.equal(
 );
 assert.equal(healthBody.service, "safe-inspector");
 assert.equal(healthBody.status, "ok");
-assert.equal(healthBody.checks?.database, "ok");
-assert.equal(healthBody.checks?.cache, "ok");
+assert.equal(typeof healthBody.timestamp, "string");
+assert.equal(
+  Object.hasOwn(healthBody, "checks"),
+  false,
+  "Public health output must not expose dependency diagnostics.",
+);
 
 // Personal Safe data is wallet-authenticated now. The smoke test intentionally
 // has no wallet and must prove that the server boundary rejects both reads and
@@ -164,8 +171,7 @@ console.log(
       "security-headers",
       "wallet-auth-boundary",
       "apothem-attack-lab",
-      "database",
-      "cache",
+      "non-leaking-health",
       "anonymous-watchlist-denied",
       "anonymous-import-denied",
       "public-live-example-api",

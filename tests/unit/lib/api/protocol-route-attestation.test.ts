@@ -12,6 +12,7 @@ import type {
   SafeTransaction,
 } from "../../../../src/core/domain";
 import type { ChainPort } from "../../../../src/core/ports";
+import { contractRegistryEntriesForChain } from "../../../../src/core/analysis/trust/contract-registry";
 import type { ExecutionInsight } from "../../../../src/lib/api/execution-insight";
 import {
   isSiloRouteProven,
@@ -31,6 +32,16 @@ const share0 = "0x7777777777777777777777777777777777777777" as Address;
 const share1 = "0x8888888888888888888888888888888888888888" as Address;
 const unknown = "0x9999999999999999999999999999999999999999" as Address;
 const safeSingleton = "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762" as Address;
+const fathomPool = "0x70d8005E3c8C7e383FE35Fa40156042F3393449F" as Address;
+const fathomPoolImplementation =
+  "0x5c756ACD4Cb26a9cA6De7abF9765cE84B5Be9322" as Address;
+const fathomSupplyLogic =
+  "0xA8f477530036cF1391E5A76A723635be7b28Eff3" as Address;
+const fathomRateStrategy =
+  "0xB131Df2d2F2e042f79A09981DB7F9aDf578291a8" as Address;
+const usdc = "0xfA2958CB79b0491CC627c1557F441eF849Ca8eb1" as Address;
+const usdcImplementation =
+  "0x9DdB959f04b7075AacCd28e2e5c5c113469c534b" as Address;
 const zero = "0x0000000000000000000000000000000000000000" as Address;
 
 const factoryAbi = parseAbi([
@@ -296,6 +307,152 @@ describe("resolveProtocolRouteAttestation", () => {
 
     expect(result.status).toBe("not-applicable");
     expect(chain.call).not.toHaveBeenCalled();
+  });
+
+  it("enables documented-route attestation for every registered XDC protocol", async () => {
+    const targetsByProtocol = new Map(
+      contractRegistryEntriesForChain(50)
+        .filter(
+          (entry) =>
+            entry.category === "protocol" &&
+            entry.protocol !== "silo" &&
+            entry.lifecycle === "active" &&
+            entry.trustPolicy === "protocol-whitelist",
+        )
+        .map((entry) => [entry.protocol, entry.address]),
+    );
+
+    const results = await Promise.all(
+      [...targetsByProtocol].map(async ([protocol, target]) => ({
+        protocol,
+        result: await resolveProtocolRouteAttestation(
+          chainPort(),
+          transaction(target),
+          { internalCalls: [] },
+        ),
+      })),
+    );
+
+    expect(results.length).toBeGreaterThan(0);
+    for (const { protocol, result } of results) {
+      expect(result).toEqual(
+        expect.objectContaining({ protocol, status: "verified" }),
+      );
+    }
+  });
+
+  it("accounts for the documented Fathom execution graph", async () => {
+    const chain = chainPort();
+    const result = await resolveProtocolRouteAttestation(
+      chain,
+      transaction(fathomPool),
+      {
+        internalCalls: [
+          {
+            depth: 1,
+            from: safe,
+            to: fathomPool,
+            input: "0x" as Hex,
+            value: "0",
+            operation: "call",
+            reverted: false,
+            error: null,
+          },
+          {
+            depth: 2,
+            from: fathomPool,
+            to: fathomPoolImplementation,
+            input: "0x" as Hex,
+            value: "0",
+            operation: "delegatecall",
+            reverted: false,
+            error: null,
+          },
+          {
+            depth: 3,
+            from: fathomPool,
+            to: fathomSupplyLogic,
+            input: "0x" as Hex,
+            value: "0",
+            operation: "delegatecall",
+            reverted: false,
+            error: null,
+          },
+          {
+            depth: 4,
+            from: fathomPool,
+            to: fathomRateStrategy,
+            input: "0x" as Hex,
+            value: "0",
+            operation: "call",
+            reverted: false,
+            error: null,
+          },
+          {
+            depth: 4,
+            from: fathomPool,
+            to: usdc,
+            input: "0x" as Hex,
+            value: "0",
+            operation: "call",
+            reverted: false,
+            error: null,
+          },
+          {
+            depth: 5,
+            from: usdc,
+            to: usdcImplementation,
+            input: "0x" as Hex,
+            value: "0",
+            operation: "delegatecall",
+            reverted: false,
+            error: null,
+          },
+        ],
+      },
+      [{ proxy: usdc, implementation: usdcImplementation }],
+    );
+
+    expect(result).toEqual(
+      expect.objectContaining({ protocol: "fathom", status: "verified" }),
+    );
+    expect(result.findings).toEqual([]);
+    expect(result.proxyBoundaries).toEqual(
+      expect.arrayContaining([
+        { proxy: fathomPool, implementation: fathomPoolImplementation },
+        { proxy: fathomPool, implementation: fathomSupplyLogic },
+        { proxy: usdc, implementation: usdcImplementation },
+      ]),
+    );
+  });
+
+  it("keeps an undocumented contract outside a documented protocol graph", async () => {
+    const result = await resolveProtocolRouteAttestation(
+      chainPort(),
+      transaction(fathomPool),
+      {
+        internalCalls: [
+          {
+            depth: 1,
+            from: fathomPool,
+            to: unknown,
+            input: "0x" as Hex,
+            value: "0",
+            operation: "call",
+            reverted: false,
+            error: null,
+          },
+        ],
+      },
+    );
+
+    expect(result.status).toBe("review");
+    expect(result.findings).toContainEqual(
+      expect.objectContaining({
+        code: "protocol-route-attestation-incomplete",
+        addresses: [unknown],
+      }),
+    );
   });
 
   it("proves factory lineage and the complete live market graph", async () => {

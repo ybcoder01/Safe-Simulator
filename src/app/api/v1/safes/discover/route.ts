@@ -32,6 +32,17 @@ export async function GET(request: NextRequest) {
     request,
     SAFE_DISCOVERY_RATE_LIMIT,
   );
+  if (rateLimit.degraded) {
+    return NextResponse.json(
+      {
+        error: {
+          code: "rate_limit_unavailable",
+          message: "Safe discovery is temporarily unavailable.",
+        },
+      },
+      { status: 503 },
+    );
+  }
   if (!rateLimit.allowed) {
     return NextResponse.json(
       {

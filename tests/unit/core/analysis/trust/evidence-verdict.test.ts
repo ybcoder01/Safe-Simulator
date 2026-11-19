@@ -423,6 +423,14 @@ describe("evaluateEvidenceVerdict", () => {
     expect(result.findings.map((finding) => finding.code)).not.toContain(
       "internal-delegatecall",
     );
+    expect(result.addresses).toContainEqual(
+      expect.objectContaining({
+        address: spender,
+        label: "Resolved target implementation",
+        status: "known",
+        source: "attestation",
+      }),
+    );
   });
 
   it("keeps a delegate call that skips an implementation-chain link critical", () => {

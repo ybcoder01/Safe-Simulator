@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { Finding } from "../../../src/core/domain";
 import {
   createTransactionReviewRecord,
+  deleteTransactionReviewRecord,
   findingCheckKey,
   loadTransactionReviewRecord,
   reviewRecordKey,
@@ -16,6 +17,7 @@ function memoryStorage(initial: Record<string, string> = {}) {
   const values = new Map(Object.entries(initial));
   return {
     getItem: (key: string) => values.get(key) ?? null,
+    removeItem: (key: string) => values.delete(key),
     setItem: (key: string, value: string) => values.set(key, value),
   };
 }
@@ -82,13 +84,51 @@ describe("browser-local transaction review records", () => {
     );
 
     expect(saveTransactionReviewRecord(storage, key, record)).toBe(true);
-    expect(loadTransactionReviewRecord(storage, key)).toEqual(record);
+    expect(
+      loadTransactionReviewRecord(
+        storage,
+        key,
+        Date.parse("2026-09-21T12:00:00.000Z"),
+      ),
+    ).toEqual(record);
     expect(
       loadTransactionReviewRecord(
         memoryStorage({ [key]: '{"version":2,"decision":"proceed"}' }),
         key,
       ),
     ).toBeNull();
+  });
+
+  it("expires browser-local review notes after 30 days and allows explicit deletion", () => {
+    const storage = memoryStorage();
+    const key = reviewRecordKey(50, safeAddress, safeTxHash);
+    const record = createTransactionReviewRecord(
+      {
+        chainId: 50,
+        safeAddress,
+        safeTxHash,
+        evidenceVersion: "v1",
+        decision: "investigate",
+        notes: "Sensitive reviewer note",
+        completedChecks: new Set(),
+        findings: [finding],
+      },
+      "2026-09-20T12:00:00.000Z",
+    );
+
+    expect(saveTransactionReviewRecord(storage, key, record)).toBe(true);
+    expect(
+      loadTransactionReviewRecord(
+        storage,
+        key,
+        Date.parse("2026-10-21T12:00:00.000Z"),
+      ),
+    ).toBeNull();
+    expect(storage.getItem(key)).toBeNull();
+
+    expect(saveTransactionReviewRecord(storage, key, record)).toBe(true);
+    expect(deleteTransactionReviewRecord(storage, key)).toBe(true);
+    expect(storage.getItem(key)).toBeNull();
   });
 
   it("exports a stable human-readable report", () => {

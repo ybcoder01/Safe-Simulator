@@ -48,7 +48,7 @@ describe("checkRequestRateLimit", () => {
     expect(consume.mock.calls[0]?.[0]).not.toContain(requestAddress);
   });
 
-  it("fails open when the limiter backend is unavailable", async () => {
+  it("fails closed when the limiter backend is unavailable", async () => {
     const port: RateLimitPort = {
       consume: vi.fn().mockRejectedValue(new Error("unavailable")),
     };
@@ -63,9 +63,9 @@ describe("checkRequestRateLimit", () => {
         policy,
       ),
     ).resolves.toEqual({
-      allowed: true,
-      remaining: 4,
-      retryAfterSeconds: 0,
+      allowed: false,
+      remaining: 0,
+      retryAfterSeconds: 60,
       degraded: true,
     });
     expect(consoleError).toHaveBeenCalledOnce();

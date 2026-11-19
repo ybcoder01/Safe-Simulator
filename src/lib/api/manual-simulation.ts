@@ -116,6 +116,8 @@ export interface ManualSimulationView {
     readonly standard: string;
     readonly token: Address | null;
     readonly tokenLabel: string | null;
+    readonly tokenSymbol: string | null;
+    readonly tokenDecimals: number | null;
     readonly spender: Address | null;
     readonly spenderLabel: string | null;
     readonly spenderProtocol: string | null;
@@ -341,6 +343,8 @@ export async function resolveManualSimulation(
         standard: approval.standard,
         token: approval.token,
         tokenLabel: tokenIdentity?.name ?? tokenEntry?.label ?? null,
+        tokenSymbol: tokenIdentity?.symbol ?? null,
+        tokenDecimals: tokenIdentity?.decimals ?? null,
         spender: approval.spender,
         spenderLabel: spenderEntry?.label ?? null,
         spenderProtocol: protocolLabel(spenderEntry),

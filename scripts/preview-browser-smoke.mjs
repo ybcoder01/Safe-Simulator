@@ -12,6 +12,8 @@ const environment = process.env.SMOKE_ENVIRONMENT;
 const oidcToken = process.env.VERCEL_TRUSTED_OIDC_TOKEN;
 const navigationTimeoutMs = 30_000;
 const defaultRenderTimeoutMs = 30_000;
+const stablePreviewOrigin = "https://safe-simulator.vercel.app";
+const productionOrigin = "https://safe-inspector.vercel.app";
 const liveExamplePath = `/safe/${liveExample.chainId}/${liveExample.safe}/tx/${liveExample.safeTxHash}`;
 
 assert.equal(
@@ -20,7 +22,6 @@ assert.equal(
   "Refusing to run unless SMOKE_ENVIRONMENT is exactly preview.",
 );
 assert.ok(baseUrl, "SMOKE_BASE_URL is required.");
-assert.ok(oidcToken, "VERCEL_TRUSTED_OIDC_TOKEN is required.");
 
 const base = new URL(baseUrl);
 assert.equal(base.protocol, "https:", "Browser checks require HTTPS.");
@@ -29,9 +30,13 @@ assert.ok(
   "Browser checks only accept a vercel.app deployment URL.",
 );
 assert.notEqual(
-  base.hostname,
-  "safe-simulator.vercel.app",
-  "Refusing to run browser checks against the production domain.",
+  base.origin,
+  productionOrigin,
+  "Refusing to run in production.",
+);
+assert.ok(
+  oidcToken || base.origin === stablePreviewOrigin,
+  "VERCEL_TRUSTED_OIDC_TOKEN is required for protected Preview deployments.",
 );
 
 const pages = [
@@ -57,7 +62,10 @@ const pages = [
   {
     name: "public live example",
     path: liveExamplePath,
-    expected: ["Supply to lending market", "Trust is not fully established"],
+    expected: [
+      "SUPPLY TO LENDING MARKET",
+      "Fathom recognized; route needs review",
+    ],
   },
 ];
 
@@ -156,13 +164,13 @@ async function connect(webSocketUrl) {
   return new CdpConnection(socket);
 }
 
-async function waitForText(during, timeoutMs, failureMessage) {
+async function waitForText(during, accepts, timeoutMs, failureMessage) {
   const deadline = Date.now() + timeoutMs;
   let lastValue = "";
 
   while (Date.now() < deadline) {
     lastValue = await during();
-    if (lastValue) return lastValue;
+    if (accepts(lastValue)) return lastValue;
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
 
@@ -228,15 +236,17 @@ try {
     cdp.send("Runtime.enable", {}, sessionId),
     cdp.send("Network.enable", {}, sessionId),
   ]);
-  await cdp.send(
-    "Network.setExtraHTTPHeaders",
-    {
-      headers: {
-        "x-vercel-trusted-oidc-idp-token": oidcToken,
+  if (oidcToken) {
+    await cdp.send(
+      "Network.setExtraHTTPHeaders",
+      {
+        headers: {
+          "x-vercel-trusted-oidc-idp-token": oidcToken,
+        },
       },
-    },
-    sessionId,
-  );
+      sessionId,
+    );
+  }
 
   let pageFailures = [];
   const stopListening = cdp.listen((message) => {
@@ -295,13 +305,13 @@ try {
     await loaded;
 
     const bodyText = await waitForText(
-      async () => {
-        const value = await evaluate("document.body?.innerText || ''");
+      () => evaluate("document.body?.innerText || ''"),
+      (value) => {
         const hasExpected = page.expected.every((text) => value.includes(text));
         const hasExpectedAlternative =
           !page.expectedAny ||
           page.expectedAny.some((text) => value.includes(text));
-        return hasExpected && hasExpectedAlternative ? value : "";
+        return hasExpected && hasExpectedAlternative;
       },
       page.timeoutMs ?? defaultRenderTimeoutMs,
       `${page.name} did not render its acceptance text.`,
