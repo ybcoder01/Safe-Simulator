@@ -62,8 +62,10 @@ const pages = [
   {
     name: "public live example",
     path: liveExamplePath,
-    expected: ["Supply to lending market", "Trust is not fully established"],
-    timeoutMs: 60_000,
+    expected: [
+      "Supply to lending market",
+      "Fathom recognized; route needs review",
+    ],
   },
 ];
 
