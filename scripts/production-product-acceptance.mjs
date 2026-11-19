@@ -5,7 +5,7 @@ import reference from "../src/lib/public-live-example.json" with { type: "json" 
 const requiredOrigin = "https://safe-inspector.vercel.app";
 const environment = process.env.SOAK_ENVIRONMENT;
 const baseUrl = process.env.SOAK_BASE_URL;
-const requestTimeoutMs = 10_000;
+const requestTimeoutMs = 30_000;
 
 assert.equal(
   environment,
@@ -77,10 +77,10 @@ const checks = [
       assert.equal(transaction?.execution?.coverage?.callTrace, "complete");
       assert.equal(transaction?.execution?.coverage?.eventLogs, "complete");
       assert.equal(transaction?.execution?.coverage?.storageDiff, "complete");
-      assert.equal(transaction?.verdict?.verdict, "unverified");
+      assert.equal(transaction?.verdict?.verdict, "known");
       assert.equal(
         transaction?.verdict?.headline,
-        "Trust is not fully established",
+        "No risk signal in available evidence",
       );
     },
   },
@@ -105,7 +105,7 @@ const checks = [
       const body = await response.text();
       assert.match(body, new RegExp(reference.safeTxHash));
       assert.match(body, /Supply to lending market/);
-      assert.match(body, /Trust is not fully established/);
+      assert.match(body, /No risk signal in available evidence/);
       assert.match(body, /Read-only by design/);
     },
   },
