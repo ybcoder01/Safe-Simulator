@@ -63,7 +63,7 @@ const pages = [
     name: "public live example",
     path: liveExamplePath,
     expected: [
-      "Supply to lending market",
+      "SUPPLY TO LENDING MARKET",
       "Fathom recognized; route needs review",
     ],
   },
