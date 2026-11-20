@@ -26,6 +26,7 @@ import {
 } from "@/lib/api/telegram-alerts";
 import { applicationUrl } from "@/adapters/queue-qstash/queue";
 import {
+  LEGACY_TELEGRAM_SWEEP_SCHEDULE_IDS,
   legacyTelegramWatchScheduleId,
   TELEGRAM_SWEEP_CRON,
   TELEGRAM_SWEEP_SCHEDULE_ID,
@@ -133,9 +134,16 @@ export async function POST(request: Request) {
               cron: TELEGRAM_SWEEP_CRON,
             },
           );
-          await queue.deleteSchedule(
+          for (const scheduleId of [
+            ...LEGACY_TELEGRAM_SWEEP_SCHEDULE_IDS,
             legacyTelegramWatchScheduleId(job.safe.chainId, job.safe.address),
-          );
+          ]) {
+            try {
+              await queue.deleteSchedule(scheduleId);
+            } catch {
+              // Missing legacy schedules are already migrated.
+            }
+          }
         } catch (error) {
           console.error("[telegram-watch] schedule migration deferred", {
             chainId: job.safe.chainId,

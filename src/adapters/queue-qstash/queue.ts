@@ -40,13 +40,16 @@ function createReceiver() {
 export function applicationUrl(
   environment: NodeJS.ProcessEnv = process.env,
 ): string {
+  // APP_BASE_URL is the stable, explicitly configured callback origin. Preview
+  // deployments are immutable and their VERCEL_URL changes on every push, so
+  // pinning recurring jobs to it silently strands existing schedules.
+  const explicitUrl = environment.APP_BASE_URL?.replace(/\/$/, "");
+  if (explicitUrl) return explicitUrl;
+
   const deploymentUrl = environment.VERCEL_URL?.replace(/\/$/, "");
   if (environment.VERCEL_ENV === "preview" && deploymentUrl) {
     return `https://${deploymentUrl}`;
   }
-
-  const explicitUrl = environment.APP_BASE_URL?.replace(/\/$/, "");
-  if (explicitUrl) return explicitUrl;
   if (environment.VERCEL_PROJECT_PRODUCTION_URL) {
     return `https://${environment.VERCEL_PROJECT_PRODUCTION_URL.replace(/\/$/, "")}`;
   }

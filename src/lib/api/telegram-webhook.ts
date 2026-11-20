@@ -7,6 +7,7 @@ import type {
 } from "@/core/ports";
 import { hashTelegramLinkToken } from "@/lib/api/telegram-link";
 import {
+  LEGACY_TELEGRAM_SWEEP_SCHEDULE_IDS,
   legacyTelegramWatchScheduleId,
   TELEGRAM_SWEEP_CRON,
   TELEGRAM_SWEEP_SCHEDULE_ID,
@@ -42,12 +43,15 @@ export async function ensureTelegramWatch(
       cron: TELEGRAM_SWEEP_CRON,
     },
   );
-  try {
-    await ports.queue.deleteSchedule(
-      legacyTelegramWatchScheduleId(safe.chainId, safe.address),
-    );
-  } catch {
-    // A missing legacy schedule is the desired end state.
+  for (const scheduleId of [
+    ...LEGACY_TELEGRAM_SWEEP_SCHEDULE_IDS,
+    legacyTelegramWatchScheduleId(safe.chainId, safe.address),
+  ]) {
+    try {
+      await ports.queue.deleteSchedule(scheduleId);
+    } catch {
+      // A missing legacy schedule is the desired end state.
+    }
   }
   try {
     await ports.queue.enqueue(job, {

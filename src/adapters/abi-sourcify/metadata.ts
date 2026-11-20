@@ -23,7 +23,11 @@ const ZEPPELINOS_IMPLEMENTATION_SLOT =
   "0x7050c9e0f4ca769c69bd3a8ef740bc37934f8e2c036e5a723fd8ee048ed3f8c3" as Hex;
 const BEACON_IMPLEMENTATION_CALL = "0x5c60da1b" as Hex;
 const MAX_IMPLEMENTATION_DEPTH = 8;
-const PUBLIC_ABI_FETCH_TIMEOUT_MS = 750;
+// Contract metadata is authoritative evidence and Sourcify's XDC responses
+// regularly take around one second. Keep signature guesses on a shorter leash,
+// but allow verified metadata enough time to arrive before degrading evidence.
+const CONTRACT_METADATA_FETCH_TIMEOUT_MS = 4_000;
+const SIGNATURE_LOOKUP_TIMEOUT_MS = 1_500;
 
 type Fetcher = typeof fetch;
 type JsonRecord = Record<string, unknown>;
@@ -280,7 +284,7 @@ export class PublicAbiAdapter implements AbiPort {
         `${SOURCIFY_SIGNATURE_API}?function=${selector.toLowerCase()}&filter=true`,
         {
           cache: "force-cache",
-          signal: AbortSignal.timeout(PUBLIC_ABI_FETCH_TIMEOUT_MS),
+          signal: AbortSignal.timeout(SIGNATURE_LOOKUP_TIMEOUT_MS),
         },
       );
       if (!response.ok) return null;
@@ -317,7 +321,7 @@ export class PublicAbiAdapter implements AbiPort {
         `${SOURCIFY_CONTRACT_API}/${chainId}/${address}?fields=abi,compilation,storageLayout`,
         {
           cache: "force-cache",
-          signal: AbortSignal.timeout(PUBLIC_ABI_FETCH_TIMEOUT_MS),
+          signal: AbortSignal.timeout(CONTRACT_METADATA_FETCH_TIMEOUT_MS),
         },
       );
       if (!response.ok) return null;

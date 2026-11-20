@@ -119,6 +119,11 @@ describe("transaction summary privacy and provider boundary", () => {
         displayLabel: "0.05 USDC",
       }),
     ]);
+    expect(evidence.decodedCall).toBeNull();
+    expect(evidence.evidencePolicy).toMatchObject({
+      currentDecodeIsConfirmed: false,
+      observedEffectsAreConfirmed: false,
+    });
   });
 
   it("removes signing and profile fields while bounding public values", () => {
@@ -167,6 +172,10 @@ describe("transaction summary privacy and provider boundary", () => {
         );
         expect(body.messages[0]?.content).toContain(
           "the zero address normally means minting or burning",
+        );
+        expect(body.messages[0]?.content).toContain("Never guess");
+        expect(body.messages[0]?.content).toContain(
+          "safe-service and signature-database decodes are unverified hints",
         );
         expect(init?.signal).toBeInstanceOf(AbortSignal);
 
@@ -304,7 +313,7 @@ describe("transaction summary privacy and provider boundary", () => {
   });
 
   it("uses a new prompt version for the consolidated signer verdict", () => {
-    expect(TRANSACTION_SUMMARY_PROMPT_VERSION).toBe("transaction-summary-v9");
+    expect(TRANSACTION_SUMMARY_PROMPT_VERSION).toBe("transaction-summary-v10");
   });
 
   it("rejects raw base units mislabeled as whole-token units", async () => {

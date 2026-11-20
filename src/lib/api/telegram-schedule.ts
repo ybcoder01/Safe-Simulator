@@ -1,7 +1,10 @@
 import { createHash } from "node:crypto";
 
 export const TELEGRAM_SWEEP_CRON = "*/2 * * * *";
-export const TELEGRAM_SWEEP_SCHEDULE_ID = "telegram-watch-shared-v1";
+export const TELEGRAM_SWEEP_SCHEDULE_ID = "telegram-watch-shared-v2";
+export const LEGACY_TELEGRAM_SWEEP_SCHEDULE_IDS = [
+  "telegram-watch-shared-v1",
+] as const;
 
 export function legacyTelegramWatchScheduleId(
   chainId: number,

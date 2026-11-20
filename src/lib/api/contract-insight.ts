@@ -148,16 +148,8 @@ export async function resolveContractInsight(
     resolveSafeDecodedCall(safeData, transaction),
   ]);
 
-  if (safeDecoded) {
-    return {
-      metadata,
-      implementationChain,
-      decoded: safeDecoded,
-      provenance: "safe-service",
-      signature: null,
-    };
-  }
-
+  // A verified ABI is independently reproducible evidence. Safe's decoded
+  // payload is useful as a fallback, but must never override that evidence.
   if (metadata.verified && metadata.abi) {
     const decoded = normalizedCall(transaction, metadata.abi);
     if (decoded) {
@@ -169,6 +161,16 @@ export async function resolveContractInsight(
         signature: null,
       };
     }
+  }
+
+  if (safeDecoded) {
+    return {
+      metadata,
+      implementationChain,
+      decoded: safeDecoded,
+      provenance: "safe-service",
+      signature: null,
+    };
   }
 
   const selector = transaction.data.slice(0, 10) as `0x${string}`;
