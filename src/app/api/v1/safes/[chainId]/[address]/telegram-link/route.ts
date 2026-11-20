@@ -84,6 +84,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
       );
     }
 
+    // Owner access makes the Safe available to the session, but Telegram link
+    // tokens are intentionally scoped to a persisted profile bookmark. Make
+    // those two authorization paths consistent before creating the token.
+    await persistence.bookmarkSafe(profileId, parsed.data);
+
     const link = await createTelegramLink(persistence, {
       profileId,
       safe: parsed.data,
@@ -93,11 +98,18 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ data: link }, { status: 201 });
   } catch (error) {
     console.error("Telegram linking is unavailable.", error);
+    const configurationMissing =
+      error instanceof Error &&
+      /^TELEGRAM_[A-Z_]+ is not configured\.$/.test(error.message);
     return NextResponse.json(
       {
         error: {
-          code: "telegram_unavailable",
-          message: "Telegram alerts are not configured yet.",
+          code: configurationMissing
+            ? "telegram_not_configured"
+            : "telegram_unavailable",
+          message: configurationMissing
+            ? "Telegram alerts are not configured yet."
+            : "Telegram linking is temporarily unavailable. Try again.",
         },
       },
       { status: 503 },
