@@ -47,6 +47,63 @@ interface PersistedPage {
   readonly scheduledAnalyses: number;
 }
 
+const PENDING_CURSOR_PREFIX = "pending:";
+const HISTORY_CURSOR_PREFIX = "history:";
+
+function multisigCursor(cursor: string | null): {
+  readonly phase: "pending" | "history";
+  readonly upstreamCursor: string | null;
+} {
+  if (cursor === null) return { phase: "pending", upstreamCursor: null };
+  if (cursor.startsWith(PENDING_CURSOR_PREFIX)) {
+    return {
+      phase: "pending",
+      upstreamCursor: cursor.slice(PENDING_CURSOR_PREFIX.length),
+    };
+  }
+  if (cursor.startsWith(HISTORY_CURSOR_PREFIX)) {
+    return {
+      phase: "history",
+      upstreamCursor: cursor.slice(HISTORY_CURSOR_PREFIX.length),
+    };
+  }
+  // Cursors saved before the Queue Service migration resume executed history.
+  return { phase: "history", upstreamCursor: cursor };
+}
+
+async function readMultisigPage(
+  safe: SafeRef,
+  cursor: string | null,
+  safeData: SafeDataPort,
+): Promise<Page<SafeTransaction>> {
+  const state = multisigCursor(cursor);
+  if (state.phase === "pending") {
+    const page = await safeData.listPendingMultisigTransactions(
+      safe,
+      state.upstreamCursor,
+      PAGE_SIZE,
+    );
+    return {
+      ...page,
+      nextCursor: page.nextCursor
+        ? `${PENDING_CURSOR_PREFIX}${page.nextCursor}`
+        : `${HISTORY_CURSOR_PREFIX}0`,
+    };
+  }
+
+  const page = await safeData.listMultisigTransactions(
+    safe,
+    state.upstreamCursor,
+    PAGE_SIZE,
+  );
+  return {
+    ...page,
+    nextCursor: page.nextCursor
+      ? `${HISTORY_CURSOR_PREFIX}${page.nextCursor}`
+      : null,
+  };
+}
+
 async function enqueueMissingFirstPageAnalyses(
   job: BackfillJob,
   cursor: string | null,
@@ -161,11 +218,7 @@ async function readAndPersistPage(
 ): Promise<PersistedPage> {
   switch (job.stream) {
     case "multisig": {
-      const page = await ports.safeData.listMultisigTransactions(
-        job.safe,
-        cursor,
-        PAGE_SIZE,
-      );
+      const page = await readMultisigPage(job.safe, cursor, ports.safeData);
       await ports.persistence.upsertTransactions(page.items);
       const scheduledAnalyses =
         options.enqueueAnalyses === false

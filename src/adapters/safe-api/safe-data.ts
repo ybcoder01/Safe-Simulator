@@ -1,5 +1,5 @@
 import SafeApiKit from "@safe-global/api-kit";
-import { getAddress } from "viem";
+import { getAddress, zeroAddress } from "viem";
 
 import type {
   Address,
@@ -28,6 +28,25 @@ export interface TransactionServiceConfig {
   readonly apiKey?: string;
   readonly serviceBaseUrl: string;
   readonly txServiceUrl?: string;
+}
+
+export interface QueueServiceConfig {
+  readonly apiKey?: string;
+  readonly serviceBaseUrl: string;
+}
+
+const DEFAULT_QUEUE_SERVICE_URL = "https://api.safe.global/queue";
+
+export function queueServiceConfig(
+  environment: NodeJS.ProcessEnv = process.env,
+): QueueServiceConfig {
+  const apiKey = environment.SAFE_API_KEY;
+  return {
+    ...(apiKey ? { apiKey } : {}),
+    serviceBaseUrl: stripApiSuffix(
+      environment.SAFE_QUEUE_SERVICE_URL ?? DEFAULT_QUEUE_SERVICE_URL,
+    ),
+  };
 }
 
 const stripApiSuffix = (url: string) =>
@@ -143,6 +162,87 @@ interface BalanceResponse {
   } | null;
 }
 
+interface QueueConfirmation {
+  readonly owner: string;
+  readonly signature: string;
+  readonly created: string;
+}
+
+interface QueueMultisigTransaction {
+  readonly safeTxHash: string;
+  readonly chainId: string;
+  readonly safe: string;
+  readonly nonce: string;
+  readonly to: string | null;
+  readonly value: string;
+  readonly data: string | null;
+  readonly operation: number;
+  readonly safeTxGas: string;
+  readonly baseGas: string;
+  readonly gasPrice: string;
+  readonly gasToken: string | null;
+  readonly refundReceiver: string | null;
+  readonly failed: boolean;
+  readonly txHash: string | null;
+  readonly created: string;
+  readonly confirmations: readonly QueueConfirmation[];
+}
+
+interface QueueMessage {
+  readonly messageHash: string;
+  readonly message: unknown;
+  readonly created: string;
+  readonly confirmations: readonly QueueConfirmation[];
+}
+
+interface QueuePage<T> {
+  readonly count: number;
+  readonly next: string | null;
+  readonly results: readonly T[];
+}
+
+class SafeQueueRequestError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly retryAfter: string | null,
+  ) {
+    super(message);
+  }
+}
+
+function queueConfirmations(
+  confirmations: readonly QueueConfirmation[],
+): readonly Confirmation[] {
+  return confirmations.map((confirmation) => ({
+    owner: asAddress(confirmation.owner),
+    signature: confirmation.signature as Hex,
+    signedAt: asUnixTime(confirmation.created),
+  }));
+}
+
+export function normalizeQueueTransaction(
+  safe: SafeRef,
+  item: QueueMultisigTransaction,
+): SafeTransaction {
+  return {
+    safe,
+    safeTxHash: item.safeTxHash as Hex,
+    nonce: BigInt(item.nonce),
+    to: asAddress(item.to ?? zeroAddress),
+    value: BigInt(item.value),
+    data: asHex(item.data),
+    operation: operation(item.operation),
+    status: item.txHash ? (item.failed ? "failed" : "executed") : "pending",
+    confirmations: queueConfirmations(item.confirmations),
+    proposedAt: asUnixTime(item.created),
+    executedAt: null,
+    executedTxHash: item.txHash as Hex | null,
+    blockNumber: null,
+    blockHash: null,
+  };
+}
+
 interface SafeDecodedData {
   readonly method: string;
   readonly parameters: readonly SafeDecodedParameter[];
@@ -252,6 +352,56 @@ export class SafeApiAdapter implements SafeDataPort {
     return client;
   }
 
+  private async queueRequest<T>(path: string): Promise<T> {
+    const { apiKey, serviceBaseUrl } = queueServiceConfig();
+    return withSafeApiRetry(async () => {
+      const response = await fetch(`${serviceBaseUrl}${path}`, {
+        headers: {
+          Accept: "application/json",
+          ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+        },
+        signal: AbortSignal.timeout(12_000),
+      });
+      if (!response.ok) {
+        throw new SafeQueueRequestError(
+          `Safe Queue Service request failed with status ${response.status}.`,
+          response.status,
+          response.headers.get("retry-after"),
+        );
+      }
+      return (await response.json()) as T;
+    });
+  }
+
+  private async queueTransactionPage(
+    safe: SafeRef,
+    cursor: string | null,
+    limit: number,
+    executableOnly: boolean,
+  ): Promise<Page<SafeTransaction>> {
+    const offset = offsetFromCursor(cursor);
+    const params = new URLSearchParams({
+      limit: String(Math.min(limit, 100)),
+      offset: String(offset),
+      nonceOrder: executableOnly ? "asc" : "desc",
+    });
+    const path = executableOnly
+      ? `/api/v1/multisig-transactions/queue?safes=${getAddress(safe.address)}:${safe.chainId}&${params}`
+      : `/api/v1/safes/${getAddress(safe.address)}/multisig-transactions?chainId=${safe.chainId}&${params}`;
+    const response = await this.queueRequest<
+      QueuePage<QueueMultisigTransaction>
+    >(path);
+    return {
+      items: response.results.map((item) =>
+        normalizeQueueTransaction(safe, item),
+      ),
+      nextCursor: response.next
+        ? String(offset + response.results.length)
+        : null,
+      total: response.count,
+    };
+  }
+
   async discoverSafesByOwner(
     chainId: ChainId,
     owner: Address,
@@ -270,6 +420,7 @@ export class SafeApiAdapter implements SafeDataPort {
     const offset = offsetFromCursor(cursor);
     const response = await withSafeApiRetry(() =>
       this.getClient(safe.chainId).getMultisigTransactions(safe.address, {
+        executed: true,
         limit,
         offset,
         ordering: "-created",
@@ -311,10 +462,59 @@ export class SafeApiAdapter implements SafeDataPort {
     };
   }
 
+  async listPendingMultisigTransactions(
+    safe: SafeRef,
+    cursor: string | null,
+    limit: number,
+  ): Promise<Page<SafeTransaction>> {
+    return this.queueTransactionPage(safe, cursor, limit, true);
+  }
+
+  async listQueuedMultisigTransactions(
+    safe: SafeRef,
+    cursor: string | null,
+    limit: number,
+  ): Promise<Page<SafeTransaction>> {
+    return this.queueTransactionPage(safe, cursor, limit, false);
+  }
+
   async getMultisigTransaction(
     safe: SafeRef,
     safeTxHash: Hex,
   ): Promise<SafeExecutionPayload | null> {
+    try {
+      const item = await this.queueRequest<QueueMultisigTransaction>(
+        `/api/v1/multisig-transactions/${safeTxHash}`,
+      );
+      if (
+        asAddress(item.safe) !== asAddress(safe.address) ||
+        Number(item.chainId) !== safe.chainId
+      ) {
+        return null;
+      }
+      return {
+        safe,
+        safeTxHash: item.safeTxHash as Hex,
+        nonce: BigInt(item.nonce),
+        to: asAddress(item.to ?? zeroAddress),
+        value: BigInt(item.value),
+        data: asHex(item.data),
+        operation: operation(item.operation),
+        safeTxGas: BigInt(item.safeTxGas),
+        baseGas: BigInt(item.baseGas),
+        gasPrice: BigInt(item.gasPrice),
+        gasToken: item.gasToken ? asAddress(item.gasToken) : null,
+        refundReceiver: item.refundReceiver
+          ? asAddress(item.refundReceiver)
+          : null,
+        confirmations: queueConfirmations(item.confirmations),
+      };
+    } catch (error) {
+      if (!(error instanceof SafeQueueRequestError) || error.status !== 404) {
+        throw error;
+      }
+    }
+
     const item = await withSafeApiRetry(() =>
       this.getClient(safe.chainId).getTransaction(safeTxHash),
     );
@@ -420,12 +620,13 @@ export class SafeApiAdapter implements SafeDataPort {
     limit: number,
   ): Promise<Page<SafeMessage>> {
     const offset = offsetFromCursor(cursor);
-    const response = await withSafeApiRetry(() =>
-      this.getClient(safe.chainId).getMessages(safe.address, {
-        limit,
-        offset,
-        ordering: "-created",
-      }),
+    const params = new URLSearchParams({
+      chainId: String(safe.chainId),
+      limit: String(Math.min(limit, 100)),
+      offset: String(offset),
+    });
+    const response = await this.queueRequest<QueuePage<QueueMessage>>(
+      `/api/v1/safes/${getAddress(safe.address)}/messages?${params}`,
     );
 
     return {
@@ -435,7 +636,7 @@ export class SafeApiAdapter implements SafeDataPort {
         payload:
           typeof item.message === "string"
             ? item.message
-            : JSON.stringify(item.message),
+            : (JSON.stringify(item.message) ?? "null"),
         confirmations: item.confirmations.map((confirmation) => ({
           owner: asAddress(confirmation.owner),
           signature: confirmation.signature as Hex,

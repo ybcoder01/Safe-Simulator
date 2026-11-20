@@ -36,7 +36,7 @@ import {
   type TelegramWatchRegistryPage,
 } from "@/lib/api/telegram-watch-cache";
 
-const WATCH_PAGE_SIZE = 50;
+const WATCH_PAGE_SIZE = 100;
 const ANALYSIS_WAIT_SECONDS = 12;
 const MAX_ALERT_ATTEMPTS = 4;
 const TELEGRAM_SWEEP_PAGE_SIZE = 20;
@@ -57,7 +57,7 @@ interface WatchPorts {
     | "upsertTransactions"
   >;
   readonly queue: QueuePort;
-  readonly safeData: Pick<SafeDataPort, "listMultisigTransactions">;
+  readonly safeData: Pick<SafeDataPort, "listQueuedMultisigTransactions">;
   readonly now: () => number;
 }
 
@@ -173,7 +173,7 @@ export async function runTelegramWatchJob(
 
     const page =
       prefetchedPage ??
-      (await ports.safeData.listMultisigTransactions(
+      (await ports.safeData.listQueuedMultisigTransactions(
         job.safe,
         null,
         WATCH_PAGE_SIZE,
@@ -268,7 +268,7 @@ export async function runTelegramSweepJob(job: SweepJob, ports: SweepPorts) {
   let failed = 0;
   for (const safe of page.items) {
     try {
-      const transactionPage = await ports.safeData.listMultisigTransactions(
+      const transactionPage = await ports.safeData.listQueuedMultisigTransactions(
         safe,
         null,
         WATCH_PAGE_SIZE,

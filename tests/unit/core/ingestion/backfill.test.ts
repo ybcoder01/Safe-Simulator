@@ -117,6 +117,12 @@ function makePorts(
   const safeData = {
     discoverSafesByOwner: vi.fn(),
     getMultisigTransaction: vi.fn(),
+    listPendingMultisigTransactions: vi.fn().mockResolvedValue({
+      items: options.items ?? [transaction],
+      nextCursor: options.nextCursor ?? null,
+      total: 1,
+    }),
+    listQueuedMultisigTransactions: vi.fn(),
     listMultisigTransactions: vi.fn().mockResolvedValue({
       items: options.items ?? [transaction],
       nextCursor: options.nextCursor ?? null,
@@ -181,7 +187,7 @@ describe("runBackfillPage", () => {
     ).resolves.toEqual({
       processed: 1,
       scheduledAnalyses: 1,
-      nextCursor: "100",
+      nextCursor: "pending:100",
       status: "running",
     });
     expect(persistence.upsertTransactions).toHaveBeenCalledWith([transaction]);
@@ -191,7 +197,7 @@ describe("runBackfillPage", () => {
       engineVersion,
     );
     expect(persistence.saveSyncCursor).toHaveBeenLastCalledWith(
-      expect.objectContaining({ cursor: "100", status: "running" }),
+      expect.objectContaining({ cursor: "pending:100", status: "running" }),
     );
     expect(queue.enqueue).toHaveBeenCalledTimes(2);
     expect(queue.enqueue).toHaveBeenCalledWith(
@@ -245,11 +251,17 @@ describe("runBackfillPage", () => {
     ).resolves.toEqual({
       processed: 1,
       scheduledAnalyses: 0,
-      nextCursor: null,
-      status: "complete",
+      nextCursor: "history:0",
+      status: "running",
     });
     expect(persistence.findAnalyses).toHaveBeenCalledOnce();
-    expect(queue.enqueue).not.toHaveBeenCalled();
+    expect(queue.enqueue).toHaveBeenCalledOnce();
+    expect(queue.enqueue).toHaveBeenCalledWith(
+      { type: "backfill", safe, stream: "multisig" },
+      expect.objectContaining({
+        idempotencyKey: expect.stringContaining("history:0"),
+      }),
+    );
   });
 
   it("caps and spaces automatically scheduled analyses", async () => {
@@ -261,7 +273,7 @@ describe("runBackfillPage", () => {
       ports,
     );
 
-    expect(queue.enqueue).toHaveBeenCalledTimes(AUTO_ANALYSIS_LIMIT);
+    expect(queue.enqueue).toHaveBeenCalledTimes(AUTO_ANALYSIS_LIMIT + 1);
     for (let index = 0; index < AUTO_ANALYSIS_LIMIT; index += 1) {
       expect(queue.enqueue).toHaveBeenNthCalledWith(
         index + 1,

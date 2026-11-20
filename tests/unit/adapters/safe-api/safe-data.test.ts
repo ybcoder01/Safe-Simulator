@@ -1,15 +1,53 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { Address, ChainId, SafeRef } from "../../../../src/core/domain";
+import type {
+  Address,
+  ChainId,
+  SafeRef,
+} from "../../../../src/core/domain";
 import {
   balanceRequestConfig,
   normalizeDecodedData,
   normalizeDiscoveredSafes,
+  normalizeQueueTransaction,
+  queueServiceConfig,
+  SafeApiAdapter,
   SAFE_API_MAX_ATTEMPTS,
   SAFE_API_RETRY_BASE_MS,
   transactionServiceConfig,
   withSafeApiRetry,
 } from "../../../../src/adapters/safe-api/safe-data";
+
+const queueSafe: SafeRef = {
+  chainId: 50,
+  address: "0x1111111111111111111111111111111111111111" as Address,
+};
+
+const queueItem = {
+  safeTxHash: `0x${"a".repeat(64)}`,
+  chainId: "50",
+  safe: queueSafe.address,
+  nonce: "7",
+  to: "0x2222222222222222222222222222222222222222",
+  value: "1",
+  data: null,
+  operation: 0,
+  safeTxGas: "0",
+  baseGas: "0",
+  gasPrice: "0",
+  gasToken: null,
+  refundReceiver: null,
+  failed: false,
+  txHash: null,
+  created: "2026-11-20T00:00:00Z",
+  confirmations: [
+    {
+      owner: "0x3333333333333333333333333333333333333333",
+      signature: "0x01",
+      created: "2026-11-20T00:01:00Z",
+    },
+  ],
+};
 
 describe("withSafeApiRetry", () => {
   it("honors Retry-After and succeeds after a rate limit", async () => {
@@ -83,6 +121,73 @@ describe("transactionServiceConfig", () => {
     expect(() => transactionServiceConfig(999, { NODE_ENV: "test" })).toThrow(
       "SAFE_TX_SERVICE_URL_999 is required for this chain.",
     );
+  });
+});
+
+describe("queueServiceConfig", () => {
+  it("uses the hosted Queue Service and bearer authentication", () => {
+    expect(
+      queueServiceConfig({ NODE_ENV: "test", SAFE_API_KEY: "test-key" }),
+    ).toEqual({
+      apiKey: "test-key",
+      serviceBaseUrl: "https://api.safe.global/queue",
+    });
+  });
+
+  it("normalizes an overridden Queue Service URL", () => {
+    expect(
+      queueServiceConfig({
+        NODE_ENV: "test",
+        SAFE_QUEUE_SERVICE_URL: "https://queue.example/api/",
+      }),
+    ).toEqual({ serviceBaseUrl: "https://queue.example" });
+  });
+});
+
+describe("Safe Queue Service", () => {
+  it("normalizes Queue proposal fields and confirmation timestamps", () => {
+    expect(normalizeQueueTransaction(queueSafe, queueItem)).toMatchObject({
+      safe: queueSafe,
+      nonce: 7n,
+      to: queueItem.to,
+      data: "0x",
+      status: "pending",
+      executedTxHash: null,
+      confirmations: [
+        {
+          owner: queueItem.confirmations[0]?.owner,
+          signature: "0x01",
+          signedAt: 1_795_132_860,
+        },
+      ],
+    });
+  });
+
+  it("uses the executable Queue endpoint for pending ingestion", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({ count: 1, next: null, results: [queueItem] }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+    try {
+      await expect(
+        new SafeApiAdapter().listPendingMultisigTransactions(
+          queueSafe,
+          null,
+          500,
+        ),
+      ).resolves.toMatchObject({ total: 1, nextCursor: null });
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining(
+          "/api/v1/multisig-transactions/queue?safes=0x1111111111111111111111111111111111111111:50",
+        ),
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      );
+      expect(fetchMock.mock.calls[0]?.[0]).toContain("limit=100");
+    } finally {
+      fetchMock.mockRestore();
+    }
   });
 });
 

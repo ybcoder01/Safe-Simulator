@@ -40,6 +40,18 @@ export interface SafeDataPort {
     cursor: string | null,
     limit: number,
   ): Promise<Page<SafeTransaction>>;
+  /** Returns executable pending proposals from Safe Queue Service. */
+  listPendingMultisigTransactions(
+    safe: SafeRef,
+    cursor: string | null,
+    limit: number,
+  ): Promise<Page<SafeTransaction>>;
+  /** Returns the off-chain proposal feed used to observe signature and execution state changes. */
+  listQueuedMultisigTransactions(
+    safe: SafeRef,
+    cursor: string | null,
+    limit: number,
+  ): Promise<Page<SafeTransaction>>;
   /** Returns the complete service-authored Safe execution payload for signature-valid simulation. */
   getMultisigTransaction(
     safe: SafeRef,

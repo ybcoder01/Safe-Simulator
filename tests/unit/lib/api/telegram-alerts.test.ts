@@ -341,7 +341,7 @@ describe("Telegram transaction alerts", () => {
         },
         queue: { enqueue },
         safeData: {
-          listMultisigTransactions: vi.fn().mockResolvedValue({
+          listQueuedMultisigTransactions: vi.fn().mockResolvedValue({
             items: [transaction(0)],
             nextCursor: null,
             total: 1,
@@ -396,7 +396,7 @@ describe("Telegram transaction alerts", () => {
       },
       queue: { enqueue },
       safeData: {
-        listMultisigTransactions: vi.fn().mockResolvedValue({
+        listQueuedMultisigTransactions: vi.fn().mockResolvedValue({
           items: [transaction()],
           nextCursor: null,
           total: 1,
@@ -418,7 +418,9 @@ describe("Telegram transaction alerts", () => {
     expect(ports.persistence.listTelegramSubscriptions).toHaveBeenCalledOnce();
     expect(ports.persistence.recordTelegramWatchResult).toHaveBeenCalledOnce();
     expect(ports.chain.getSafeSnapshot).toHaveBeenCalledOnce();
-    expect(ports.safeData.listMultisigTransactions).toHaveBeenCalledTimes(2);
+    expect(ports.safeData.listQueuedMultisigTransactions).toHaveBeenCalledTimes(
+      2,
+    );
     expect(enqueue).not.toHaveBeenCalled();
   });
 
