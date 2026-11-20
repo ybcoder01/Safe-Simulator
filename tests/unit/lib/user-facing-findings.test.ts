@@ -265,4 +265,23 @@ describe("resolveUserFacingFindings", () => {
       "protocol-route-attestation-incomplete",
     ]);
   });
+
+  it("preserves the protocol-specific route title and detail", () => {
+    const routeFinding: Finding = {
+      code: "protocol-route-attestation-incomplete",
+      severity: "warning",
+      title: "Part of the Morpho route is still unresolved",
+      detail: "One traced Morpho contract is outside the proven route.",
+      addresses: [unknown],
+    };
+    const result = resolveUserFacingFindings({
+      evidence: evidence([routeFinding]),
+      identifiedAddresses: [target],
+      protocolLabel: "Morpho",
+      targetKnown: true,
+      targetVerified: true,
+    });
+
+    expect(result).toEqual([routeFinding]);
+  });
 });

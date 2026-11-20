@@ -42,6 +42,10 @@ const fathomRateStrategy =
 const usdc = "0xfA2958CB79b0491CC627c1557F441eF849Ca8eb1" as Address;
 const usdcImplementation =
   "0x9DdB959f04b7075AacCd28e2e5c5c113469c534b" as Address;
+const morphoVault = "0x1ac19bEc163b445fbd4B8Ddc616e4002126Efa5A" as Address;
+const morphoAdapterFactory =
+  "0x5C00c99F2235439725417E9f037B7D38FfF35d31" as Address;
+const morphoAdapter = "0x7764A05B0481f1366F8BFeE1DA29e7339Fe47a67" as Address;
 const zero = "0x0000000000000000000000000000000000000000" as Address;
 
 const factoryAbi = parseAbi([
@@ -53,6 +57,9 @@ const siloAbi = parseAbi([
 const configAbi = parseAbi([
   "function getSilos() view returns (address silo0, address silo1)",
   "function getConfig(address silo) view returns ((uint256 daoFee,uint256 deployerFee,address silo,address token,address protectedShareToken,address collateralShareToken,address debtShareToken,address solvencyOracle,address maxLtvOracle,address interestRateModel,uint256 maxLtv,uint256 lt,uint256 liquidationTargetLtv,uint256 liquidationFee,uint256 flashloanFee,address hookReceiver,bool callBeforeQuote) config)",
+]);
+const morphoAdapterFactoryAbi = parseAbi([
+  "function isMorphoMarketV1AdapterV2(address adapter) view returns (bool)",
 ]);
 
 function transaction(to: Address = router): SafeTransaction {
@@ -451,6 +458,88 @@ describe("resolveProtocolRouteAttestation", () => {
       expect.objectContaining({
         code: "protocol-route-attestation-incomplete",
         addresses: [unknown],
+      }),
+    );
+  });
+
+  it("accepts a traced Morpho adapter proven by the official adapter factory", async () => {
+    const call = vi.fn<ChainPort["call"]>(async (_chainId, request) => {
+      expect(request.to).toBe(morphoAdapterFactory);
+      const decoded = decodeFunctionData({
+        abi: morphoAdapterFactoryAbi,
+        data: request.data,
+      });
+      return encodeFunctionResult({
+        abi: morphoAdapterFactoryAbi,
+        functionName: "isMorphoMarketV1AdapterV2",
+        result: decoded.args[0].toLowerCase() === morphoAdapter.toLowerCase(),
+      });
+    });
+    const chain = { call } as unknown as ChainPort;
+
+    const result = await resolveProtocolRouteAttestation(
+      chain,
+      transaction(morphoVault),
+      {
+        internalCalls: [
+          {
+            depth: 1,
+            from: morphoVault,
+            to: morphoAdapter,
+            input: "0x" as Hex,
+            value: "0",
+            operation: "call",
+            reverted: false,
+            error: null,
+          },
+        ],
+      },
+    );
+
+    expect(result).toEqual(
+      expect.objectContaining({ protocol: "morpho", status: "verified" }),
+    );
+    expect(result.findings).toEqual([]);
+    expect(result.addresses).toContainEqual({
+      address: morphoAdapter,
+      label: "Morpho Market V1 Adapter V2 created by the official factory",
+    });
+  });
+
+  it("keeps a Morpho adapter unresolved when the official factory does not recognize it", async () => {
+    const call = vi.fn<ChainPort["call"]>(async () =>
+      encodeFunctionResult({
+        abi: morphoAdapterFactoryAbi,
+        functionName: "isMorphoMarketV1AdapterV2",
+        result: false,
+      }),
+    );
+    const chain = { call } as unknown as ChainPort;
+
+    const result = await resolveProtocolRouteAttestation(
+      chain,
+      transaction(morphoVault),
+      {
+        internalCalls: [
+          {
+            depth: 1,
+            from: morphoVault,
+            to: morphoAdapter,
+            input: "0x" as Hex,
+            value: "0",
+            operation: "call",
+            reverted: false,
+            error: null,
+          },
+        ],
+      },
+    );
+
+    expect(result.status).toBe("review");
+    expect(result.findings).toContainEqual(
+      expect.objectContaining({
+        code: "protocol-route-attestation-incomplete",
+        addresses: [morphoAdapter],
       }),
     );
   });

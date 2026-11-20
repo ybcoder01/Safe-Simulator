@@ -65,9 +65,9 @@ const GUIDANCE_BY_CODE = new Map<string, FindingGuidance>([
   [
     "protocol-route-attestation-incomplete",
     {
-      label: "Check the remaining Silo contracts",
+      label: "Check the remaining project contracts",
       action:
-        "The Silo router and market are confirmed. The listed helper contracts are not yet matched to Silo's official records. Confirm them against Silo's deployment list before relying on this result.",
+        "The documented project entrypoint is recognized, but the listed internal contracts are not yet linked to its official or independently proven route. Confirm them against the project's official deployment records before relying on this result.",
     },
   ],
   [

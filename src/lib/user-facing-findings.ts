@@ -290,8 +290,8 @@ export function resolveUserFacingFindings(
       finding(
         routeAttestation.code,
         routeAttestation.severity,
-        "Part of the Silo route is still unresolved",
-        "The official Silo router and factory-created market were confirmed, but at least one traced contract is outside the market relationships Safe Inspector could prove on-chain.",
+        routeAttestation.title,
+        routeAttestation.detail,
         routeAttestation.addresses,
       ),
     );

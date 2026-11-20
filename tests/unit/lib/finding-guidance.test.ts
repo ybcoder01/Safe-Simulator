@@ -73,4 +73,13 @@ describe("finding guidance", () => {
       findingGuidance(finding("expected-safe-proxy-delegation", "info")),
     ).toMatchObject({ label: "Normal Safe wallet behavior" });
   });
+
+  it("uses protocol-neutral guidance for an incomplete documented route", () => {
+    const guidance = findingGuidance(
+      finding("protocol-route-attestation-incomplete", "warning"),
+    );
+
+    expect(guidance.label).toBe("Check the remaining project contracts");
+    expect(guidance.action).not.toMatch(/Silo/);
+  });
 });

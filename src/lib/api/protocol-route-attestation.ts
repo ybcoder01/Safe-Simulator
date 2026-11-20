@@ -23,6 +23,9 @@ const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const factoryAbi = parseAbi([
   "function isSilo(address silo) view returns (bool)",
 ]);
+const morphoAdapterFactoryAbi = parseAbi([
+  "function isMorphoMarketV1AdapterV2(address adapter) view returns (bool)",
+]);
 const siloAbi = parseAbi([
   "function config() view returns (address siloConfig)",
 ]);
@@ -123,6 +126,82 @@ async function callContract(
     transaction.safe.chainId,
     { to: address, data },
     transaction.blockNumber ?? undefined,
+  );
+}
+
+/**
+ * Morpho's XDC deployment publishes the adapter factory rather than every
+ * adapter instance it creates. Ask that pinned factory whether a traced
+ * contract is one of its adapters instead of treating the instance as an
+ * undocumented helper.
+ */
+async function attestMorphoFactoryAdapters(
+  chain: ChainPort,
+  transaction: SafeTransaction,
+  execution: Pick<ExecutionInsight, "internalCalls">,
+  documented: readonly AttestedProtocolAddress[],
+): Promise<readonly AttestedProtocolAddress[]> {
+  const factory = contractRegistryEntriesForChain(50).find(
+    (entry) =>
+      entry.protocol === "morpho" &&
+      entry.role === "adapter-factory" &&
+      entry.lifecycle === "active",
+  );
+  if (!factory) return [];
+
+  const documentedKeys = new Set(
+    documented.map((item) => addressKey(item.address)),
+  );
+  const candidates = [
+    ...new Map(
+      execution.internalCalls
+        .map((call) => call.to)
+        .filter(isAddress)
+        .map((address) => getAddress(address) as Address)
+        .filter(
+          (address) =>
+            addressKey(address) !== addressKey(transaction.safe.address) &&
+            addressKey(address) !== ZERO_ADDRESS &&
+            !isPrecompile(address) &&
+            !documentedKeys.has(addressKey(address)),
+        )
+        .map((address) => [addressKey(address), address]),
+    ).values(),
+  ].slice(0, MAX_CANDIDATE_CONTRACTS);
+
+  const checks = await Promise.all(
+    candidates.map(async (address) => {
+      try {
+        const result = await callContract(
+          chain,
+          transaction,
+          factory.address,
+          encodeFunctionData({
+            abi: morphoAdapterFactoryAbi,
+            functionName: "isMorphoMarketV1AdapterV2",
+            args: [address],
+          }),
+        );
+        const recognized = decodeFunctionResult({
+          abi: morphoAdapterFactoryAbi,
+          functionName: "isMorphoMarketV1AdapterV2",
+          data: result,
+        });
+        return recognized
+          ? {
+              address,
+              label:
+                "Morpho Market V1 Adapter V2 created by the official factory",
+            }
+          : null;
+      } catch {
+        return null;
+      }
+    }),
+  );
+
+  return checks.filter(
+    (item): item is AttestedProtocolAddress => item !== null,
   );
 }
 
@@ -720,12 +799,22 @@ async function attestDocumentedProtocolRoute(
       .map((entry) => ({ address: entry.address, label: entry.label })),
     ...documentedTokens,
   ];
+  const factoryAttested =
+    targetProtocol === "morpho"
+      ? await attestMorphoFactoryAdapters(
+          chain,
+          transaction,
+          execution,
+          documented,
+        )
+      : [];
+  const routeRoots = [...documented, ...factoryAttested];
   const documentedKeys = new Set(
-    documented.map((item) => addressKey(item.address)),
+    routeRoots.map((item) => addressKey(item.address)),
   );
 
   const proxyAttested = expandAttestedProxyGraph(
-    documented,
+    routeRoots,
     resolvedProxyBoundaries,
     label,
   );
