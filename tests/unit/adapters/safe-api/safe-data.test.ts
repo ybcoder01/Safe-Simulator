@@ -40,6 +40,7 @@ const queueItem = {
   failed: false,
   txHash: null,
   created: "2026-11-20T00:00:00Z",
+  modified: "2026-11-20T00:02:00Z",
   confirmations: [
     {
       owner: "0x3333333333333333333333333333333333333333",

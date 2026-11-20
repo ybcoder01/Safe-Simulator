@@ -93,21 +93,60 @@ function transactionState(transaction: SafeTransaction): string {
   });
 }
 
-function watchState(transactions: readonly SafeTransaction[]): string {
-  return createHash("sha256")
-    .update(
-      JSON.stringify(
-        transactions
-          .map((transaction) => ({
-            safeTxHash: transaction.safeTxHash.toLowerCase(),
-            state: transactionState(transaction),
-          }))
-          .sort((left, right) =>
-            left.safeTxHash.localeCompare(right.safeTxHash),
-          ),
-      ),
+interface TelegramWatchSnapshot {
+  readonly digest: string;
+  readonly states: Readonly<Record<string, string>>;
+}
+
+function watchSnapshot(
+  transactions: readonly SafeTransaction[],
+): TelegramWatchSnapshot {
+  const entries = transactions
+    .map(
+      (transaction) =>
+        [
+          transaction.safeTxHash.toLowerCase(),
+          transactionState(transaction),
+        ] as const,
     )
-    .digest("hex");
+    .sort(([left], [right]) => left.localeCompare(right));
+  return {
+    digest: createHash("sha256").update(JSON.stringify(entries)).digest("hex"),
+    states: Object.fromEntries(entries),
+  };
+}
+
+function watchDigest(value: unknown): string | null {
+  if (typeof value === "string") return value;
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as { digest?: unknown }).digest === "string"
+  ) {
+    return (value as TelegramWatchSnapshot).digest;
+  }
+  return null;
+}
+
+function changedWatchHashes(
+  previous: unknown,
+  current: TelegramWatchSnapshot,
+): ReadonlySet<string> {
+  if (
+    typeof previous !== "object" ||
+    previous === null ||
+    typeof (previous as { states?: unknown }).states !== "object"
+  ) {
+    // A legacy digest cannot identify the changed transaction. Reconcile the
+    // bounded page once; delivery claims suppress duplicates.
+    return new Set(Object.keys(current.states));
+  }
+  const previousStates = (previous as TelegramWatchSnapshot).states;
+  return new Set(
+    Object.entries(current.states)
+      .filter(([hash, state]) => previousStates[hash] !== state)
+      .map(([hash]) => hash),
+  );
 }
 
 async function readCache<T>(cache: CachePort, key: string): Promise<T | null> {
@@ -162,6 +201,7 @@ export async function runTelegramWatchJob(
   job: WatchJob,
   ports: WatchPorts,
   prefetchedPage?: Page<SafeTransaction>,
+  observedChanges?: ReadonlySet<string>,
 ) {
   const subscriptions = await ports.persistence.listTelegramSubscriptions(
     job.safe,
@@ -184,7 +224,9 @@ export async function runTelegramWatchJob(
       ),
     );
     const changedTransactions = page.items.filter((item, index) =>
-      changed(previous[index] ?? null, item),
+      observedChanges
+        ? observedChanges.has(item.safeTxHash.toLowerCase())
+        : changed(previous[index] ?? null, item),
     );
     await ports.persistence.upsertTransactions(page.items);
 
@@ -224,7 +266,7 @@ export async function runTelegramWatchJob(
       writeCache(
         ports.cache,
         telegramWatchStateKey(job.safe),
-        watchState(page.items),
+        watchSnapshot(page.items),
         TELEGRAM_WATCH_STATE_TTL_SECONDS,
       ),
       recordCachedWatchHealth(job.safe, ports, null),
@@ -273,18 +315,19 @@ export async function runTelegramSweepJob(job: SweepJob, ports: SweepPorts) {
         null,
         WATCH_PAGE_SIZE,
       );
-      const currentState = watchState(transactionPage.items);
-      const previousState = await readCache<string>(
+      const currentState = watchSnapshot(transactionPage.items);
+      const previousState = await readCache<unknown>(
         ports.cache,
         telegramWatchStateKey(safe),
       );
-      if (previousState === currentState) {
+      if (watchDigest(previousState) === currentState.digest) {
         await recordCachedWatchHealth(safe, ports, null);
       } else {
         await runTelegramWatchJob(
           { type: "telegram-watch", safe },
           ports,
           transactionPage,
+          changedWatchHashes(previousState, currentState),
         );
       }
       checked += 1;

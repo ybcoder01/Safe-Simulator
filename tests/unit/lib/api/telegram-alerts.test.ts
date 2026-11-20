@@ -421,7 +421,49 @@ describe("Telegram transaction alerts", () => {
     expect(ports.safeData.listQueuedMultisigTransactions).toHaveBeenCalledTimes(
       2,
     );
-    expect(enqueue).not.toHaveBeenCalled();
+    expect(enqueue).toHaveBeenCalledTimes(2);
+  });
+
+  it("alerts on an observed Queue change even when capture already persisted it", async () => {
+    const enqueue = vi.fn().mockResolvedValue({ jobId: "job" });
+    const current = transaction();
+    const result = await runTelegramWatchJob(
+      { type: "telegram-watch", safe },
+      {
+        cache: memoryCache(),
+        chain: { getSafeSnapshot: vi.fn().mockResolvedValue(currentSnapshot) },
+        persistence: {
+          listTelegramSubscriptions: vi.fn().mockResolvedValue([
+            {
+              id: "sub",
+              profileId: "p",
+              safe,
+              chatId: "1",
+              enabled: true,
+              createdAt: 50,
+            },
+          ]),
+          findTransaction: vi.fn().mockResolvedValue(current),
+          recordTelegramWatchResult: vi.fn().mockResolvedValue(undefined),
+          upsertSafe: vi.fn().mockResolvedValue(undefined),
+          upsertTransactions: vi.fn().mockResolvedValue(undefined),
+        },
+        queue: { enqueue },
+        safeData: {
+          listQueuedMultisigTransactions: vi.fn().mockResolvedValue({
+            items: [current],
+            nextCursor: null,
+            total: 1,
+          }),
+        },
+        now: () => 300,
+      },
+      undefined,
+      new Set([current.safeTxHash.toLowerCase()]),
+    );
+
+    expect(result).toEqual({ status: "watching", changes: 1 });
+    expect(enqueue).toHaveBeenCalledTimes(2);
   });
 
   it("saves a signed receipt before sending a verification-only alert", async () => {

@@ -185,6 +185,7 @@ interface QueueMultisigTransaction {
   readonly failed: boolean;
   readonly txHash: string | null;
   readonly created: string;
+  readonly modified: string;
   readonly confirmations: readonly QueueConfirmation[];
 }
 
@@ -236,7 +237,7 @@ export function normalizeQueueTransaction(
     status: item.txHash ? (item.failed ? "failed" : "executed") : "pending",
     confirmations: queueConfirmations(item.confirmations),
     proposedAt: asUnixTime(item.created),
-    executedAt: null,
+    executedAt: item.txHash ? asUnixTime(item.modified) : null,
     executedTxHash: item.txHash as Hex | null,
     blockNumber: null,
     blockHash: null,
