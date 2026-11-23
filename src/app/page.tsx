@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { DisclaimerDialog } from "@/components/home/disclaimer-dialog";
 import liveExample from "@/lib/public-live-example.json";
 
 const liveExamplePath = `/safe/${liveExample.chainId}/${liveExample.safe}/tx/${liveExample.safeTxHash}`;
@@ -58,6 +59,7 @@ const transactionRows = [
 export default function HomePage() {
   return (
     <main>
+      <DisclaimerDialog />
       <nav className="nav shell" aria-label="Primary navigation">
         <Link className="brand" href="/" aria-label="Safe Inspector home">
           <span className="brand-mark" aria-hidden="true">
