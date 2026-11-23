@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 
-const ACKNOWLEDGEMENT_KEY = "safe-inspector:disclaimer:v2";
+const ACKNOWLEDGEMENT_KEY = "safe-inspector:disclaimer:v3";
 
 export function DisclaimerDialog() {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -42,18 +42,18 @@ export function DisclaimerDialog() {
         <h2 id="homepage-disclaimer-title">Important disclaimer</h2>
         <p id="homepage-disclaimer-copy">
           Safe Inspector is a pre-signature transaction analysis tool for dApps
-          on the XDC Network. Its analysis is based on the transaction data,
-          contract information, simulations, third-party sources, and other
-          evidence available at the time of analysis. Results may be incomplete,
-          outdated, or incorrect and are not guaranteed to be 100% accurate.
-          AI-generated explanations are provided for convenience and should not
-          be treated as financial, legal, or security advice. Safe Inspector
-          does not hold, request, or access your private keys and cannot sign or
-          execute transactions. Signing, final confirmation, and transaction
-          execution take place through Safe Global. Always compare the final
-          transaction details shown in Safe Global with the action you intended
-          before signing. You remain responsible for your signing decisions and
-          any resulting loss or damage.
+          on the XDC Network. It reviews transaction data, contract information,
+          simulations, third-party sources, and other available evidence. Safe
+          Inspector’s analysis reflects the data and evidence available at the
+          time of review and is designed to support your verification before
+          signing. AI-generated explanations are provided for convenience and
+          should not be treated as financial, legal, or security advice. Safe
+          Inspector does not hold, request, or access your private keys and
+          cannot sign or execute transactions. Signing, final confirmation, and
+          transaction execution take place through Safe Global. Because on-chain
+          conditions can change, always confirm the final transaction details in
+          Safe Global. You remain responsible for your signing decisions and any
+          resulting loss or damage.
         </p>
         <button className="button" onClick={acknowledge} type="button">
           I understand
