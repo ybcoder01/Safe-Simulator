@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 
-const ACKNOWLEDGEMENT_KEY = "safe-inspector:disclaimer:v1";
+const ACKNOWLEDGEMENT_KEY = "safe-inspector:disclaimer:v2";
 
 export function DisclaimerDialog() {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -42,15 +42,18 @@ export function DisclaimerDialog() {
         <h2 id="homepage-disclaimer-title">Important disclaimer</h2>
         <p id="homepage-disclaimer-copy">
           Safe Inspector is a pre-signature transaction analysis tool for dApps
-          on the XDC Network. Its findings are based on the transaction data,
+          on the XDC Network. Its analysis is based on the transaction data,
           contract information, simulations, third-party sources, and other
           evidence available at the time of analysis. Results may be incomplete,
           outdated, or incorrect and are not guaranteed to be 100% accurate.
           AI-generated explanations are provided for convenience and should not
-          be treated as financial, legal, or security advice. Always verify the
-          transaction details independently before signing. You remain
-          responsible for your signing decisions and any resulting loss or
-          damage.
+          be treated as financial, legal, or security advice. Safe Inspector
+          does not hold, request, or access your private keys and cannot sign or
+          execute transactions. Signing, final confirmation, and transaction
+          execution take place through Safe Global. Always compare the final
+          transaction details shown in Safe Global with the action you intended
+          before signing. You remain responsible for your signing decisions and
+          any resulting loss or damage.
         </p>
         <button className="button" onClick={acknowledge} type="button">
           I understand
