@@ -13,6 +13,7 @@ import type {
   SafeSnapshot,
   SafeTransaction,
 } from "@/core/domain";
+import { verifySafeTransactionHash } from "@/lib/api/transaction-integrity";
 
 const safeExecutionAbi = [
   {
@@ -85,6 +86,17 @@ export function buildSafeExecutionRequest(
       ok: false,
       reason:
         "The live Safe Transaction Service payload does not match the stored transaction.",
+    };
+  }
+  const hashVerification = verifySafeTransactionHash(
+    payload,
+    transaction.safeTxHash,
+  );
+  if (hashVerification.status !== "verified") {
+    return {
+      ok: false,
+      reason:
+        "The Safe transaction hash does not match the independently recomputed payload hash.",
     };
   }
   if (

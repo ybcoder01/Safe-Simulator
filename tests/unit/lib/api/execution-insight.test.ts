@@ -22,6 +22,7 @@ import {
   type PendingExecutionSources,
 } from "../../../../src/lib/api/execution-insight";
 import { safeExecutionAbi } from "../../../../src/lib/api/safe-execution";
+import { computeSafeTransactionHash } from "../../../../src/lib/api/transaction-integrity";
 
 const safe = "0x1111111111111111111111111111111111111111" as Address;
 const target = "0x2222222222222222222222222222222222222222" as Address;
@@ -40,8 +41,27 @@ function addressTopic(address: Address): Hex {
 function word(value: bigint): Hex {
   return ("0x" + value.toString(16).padStart(64, "0")) as Hex;
 }
-const safeTxHash =
+const placeholderHash =
   "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" as Hex;
+function pendingHash(overrides: Partial<SafeExecutionPayload> = {}): Hex {
+  return computeSafeTransactionHash({
+    safe: { chainId: 50, address: safe },
+    safeTxHash: placeholderHash,
+    nonce: 1n,
+    to: target,
+    value: 0n,
+    data: "0x12345678",
+    operation: "call",
+    safeTxGas: 0n,
+    baseGas: 0n,
+    gasPrice: 0n,
+    gasToken: null,
+    refundReceiver: null,
+    confirmations: [],
+    ...overrides,
+  });
+}
+const safeTxHash = pendingHash();
 const executedTxHash =
   "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" as Hex;
 const blockHash =
@@ -335,6 +355,7 @@ describe("resolveExecutionInsight", () => {
     const port = simulation();
     const pending = transaction({
       status: "pending",
+      safeTxHash: pendingHash({ operation: "delegatecall" }),
       operation: "delegatecall",
       executedAt: null,
       executedTxHash: null,

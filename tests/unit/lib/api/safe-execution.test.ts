@@ -13,14 +13,30 @@ import {
   buildSafeExecutionRequest,
   safeExecutionAbi,
 } from "../../../../src/lib/api/safe-execution";
+import { computeSafeTransactionHash } from "../../../../src/lib/api/transaction-integrity";
 
 const safe = "0x1111111111111111111111111111111111111111" as Address;
 const target = "0x2222222222222222222222222222222222222222" as Address;
 const ownerA = "0x000000000000000000000000000000000000000a" as Address;
 const ownerB = "0x000000000000000000000000000000000000000b" as Address;
 const ownerC = "0x000000000000000000000000000000000000000c" as Address;
-const safeTxHash =
+const placeholderHash =
   "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" as Hex;
+const safeTxHash = computeSafeTransactionHash({
+  safe: { chainId: 50, address: safe },
+  safeTxHash: placeholderHash,
+  nonce: 7n,
+  to: target,
+  value: 3n,
+  data: "0x12345678",
+  operation: "delegatecall",
+  safeTxGas: 100n,
+  baseGas: 200n,
+  gasPrice: 300n,
+  gasToken: null,
+  refundReceiver: null,
+  confirmations: [],
+});
 
 function signature(byte: string, v = "1b"): Hex {
   return `0x${byte.repeat(64)}${v}` as Hex;
@@ -170,6 +186,25 @@ describe("buildSafeExecutionRequest", () => {
     expect(result).toMatchObject({
       ok: false,
       reason: expect.stringContaining("does not match"),
+    });
+  });
+
+  it("rejects changed gas or refund fields that alter the signed hash", () => {
+    const result = buildSafeExecutionRequest(
+      transaction(),
+      payload(
+        [
+          confirmation(ownerA, signature("11")),
+          confirmation(ownerB, signature("22")),
+        ],
+        { gasPrice: 301n },
+      ),
+      snapshot(),
+    );
+
+    expect(result).toMatchObject({
+      ok: false,
+      reason: expect.stringContaining("independently recomputed"),
     });
   });
 

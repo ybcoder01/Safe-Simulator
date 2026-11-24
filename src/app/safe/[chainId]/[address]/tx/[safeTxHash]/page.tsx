@@ -84,6 +84,12 @@ import {
   transactionReviewQueueFilterSchema,
 } from "@/lib/api/safe-details";
 import { resolveTransactionViews } from "@/lib/api/transaction-list";
+import { resolveOptionalLivePayload } from "@/lib/api/optional-live-payload";
+import {
+  findCompetingProposals,
+  transactionReviewFreshness,
+  verifySafeTransactionHash,
+} from "@/lib/api/transaction-integrity";
 
 interface PageProps {
   readonly params: Promise<{
@@ -113,6 +119,10 @@ function humanTokenAmount(
 
 function shorten(value: string) {
   return `${value.slice(0, 10)}…${value.slice(-8)}`;
+}
+
+function integrityValue(value: string) {
+  return value.length > 42 ? shorten(value) : value;
 }
 
 function formatDate(timestamp: number | null) {
@@ -169,6 +179,10 @@ export default async function TransactionDetailPage({
   const transactionHistoryPromise = persistence
     .listTransactions(safe.data, null, 250)
     .catch(() => null);
+  const livePayloadPromise =
+    persisted.status === "pending"
+      ? resolveOptionalLivePayload(safeData, safe.data, hash.data)
+      : Promise.resolve(null);
   const transferHistoryPromise = persistence
     .listTransfers(safe.data, null, 250)
     .catch(() => null);
@@ -208,6 +222,7 @@ export default async function TransactionDetailPage({
     alertReceipts,
     addressBookReviews,
     tokenMetadata,
+    livePayload,
   ] = await Promise.all([
     neutralAnalysisPromise,
     addressBookPromise,
@@ -217,6 +232,7 @@ export default async function TransactionDetailPage({
     alertReceiptsPromise,
     addressBookReviewsPromise,
     tokenMetadataPromise,
+    livePayloadPromise,
   ]);
   const {
     contract: insight,
@@ -283,6 +299,18 @@ export default async function TransactionDetailPage({
   const lifecycleStatus = transactionLifecycleStatus(
     transaction,
     currentSafe.nonce.toString(),
+  );
+  const hashVerification = verifySafeTransactionHash(
+    livePayload,
+    persisted.safeTxHash,
+  );
+  const competingProposals = findCompetingProposals(
+    persisted,
+    transactionHistoryPage?.items ?? [],
+  );
+  const reviewFreshness = transactionReviewFreshness(
+    analysis.persisted.createdAt,
+    unixNow(),
   );
   const reviewPosition = reviewQueue.findIndex(
     (item) => item.safeTxHash.toLowerCase() === hash.data.toLowerCase(),
@@ -643,6 +671,115 @@ export default async function TransactionDetailPage({
               transaction consumed this nonce. Create a new proposal if you
               still intend to perform this action.
             </p>
+          </section>
+        ) : null}
+
+        {persisted.status === "pending" ? (
+          <section
+            className={`transaction-integrity-panel integrity-${hashVerification.status}`}
+            aria-labelledby="transaction-integrity-title"
+          >
+            <div className="transaction-integrity-heading">
+              <div>
+                <p className="eyebrow">Signed payload integrity</p>
+                <h2 id="transaction-integrity-title">
+                  Transaction identity and review freshness
+                </h2>
+              </div>
+              <span
+                className={`integrity-status integrity-${hashVerification.status}`}
+              >
+                {hashVerification.status === "verified"
+                  ? "Hash verified"
+                  : hashVerification.status === "mismatch"
+                    ? "Hash mismatch"
+                    : "Hash unavailable"}
+              </span>
+            </div>
+
+            {hashVerification.status === "verified" ? (
+              <p>
+                Safe Inspector independently recomputed the Safe transaction
+                hash from the target, value, calldata, operation, gas, refund,
+                and nonce fields. It matches the hash owners are signing.
+              </p>
+            ) : hashVerification.status === "mismatch" ? (
+              <p className="integrity-critical">
+                Do not sign or execute this proposal. The transaction fields
+                produce a different Safe transaction hash than the supplied
+                hash.
+              </p>
+            ) : (
+              <p>
+                The complete live Safe payload was unavailable, so its signed
+                hash could not be independently recomputed. Refresh before
+                signing.
+              </p>
+            )}
+
+            <dl className="transaction-integrity-grid">
+              <div>
+                <dt>Analysis checked</dt>
+                <dd>{formatDate(reviewFreshness.analyzedAt)}</dd>
+              </div>
+              <div>
+                <dt>Review state</dt>
+                <dd>
+                  {reviewFreshness.status === "fresh"
+                    ? `Fresh until ${formatDate(reviewFreshness.expiresAt)}`
+                    : "Expired — refresh before signing"}
+                </dd>
+              </div>
+              <div>
+                <dt>Same-nonce alternatives</dt>
+                <dd>
+                  {competingProposals.length === 0
+                    ? "None found in synchronized history"
+                    : `${competingProposals.length} competing proposal${competingProposals.length === 1 ? "" : "s"} found`}
+                </dd>
+              </div>
+            </dl>
+
+            {competingProposals.length > 0 ? (
+              <div className="competing-proposals" role="alert">
+                <strong>
+                  Another proposal uses nonce {transaction.nonce}. Only one
+                  proposal at this nonce can execute.
+                </strong>
+                {competingProposals.map((proposal) => (
+                  <article key={proposal.safeTxHash}>
+                    <div>
+                      <Link href={`${safePath}/tx/${proposal.safeTxHash}`}>
+                        {shorten(proposal.safeTxHash)}
+                      </Link>
+                      <span>{proposal.status}</span>
+                    </div>
+                    {proposal.differences.length > 0 ? (
+                      <ul>
+                        {proposal.differences.map((item) => (
+                          <li key={item.field}>
+                            <b>{item.label}:</b>{" "}
+                            <code>{integrityValue(item.current)}</code> →{" "}
+                            <code>{integrityValue(item.competing)}</code>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p>
+                        Core action fields match. Review the full gas and refund
+                        fields because the signed hashes still differ.
+                      </p>
+                    )}
+                  </article>
+                ))}
+              </div>
+            ) : null}
+
+            <small>
+              Refresh and review again after a new signature, a competing
+              proposal, or any delay before execution. This check does not
+              execute or block the Safe transaction.
+            </small>
           </section>
         ) : null}
 
