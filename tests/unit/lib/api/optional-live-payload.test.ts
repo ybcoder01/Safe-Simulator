@@ -6,10 +6,12 @@ import type {
   Hex,
   SafeExecutionPayload,
   SafeRef,
+  SafeTransaction,
 } from "@/core/domain";
 import {
   mergeConfirmationSnapshots,
   resolveOptionalLivePayload,
+  resolveOptionalLiveTransactionState,
 } from "@/lib/api/optional-live-payload";
 
 const safe = {
@@ -58,6 +60,44 @@ describe("resolveOptionalLivePayload", () => {
     await expect(
       resolveOptionalLivePayload(
         { getMultisigTransaction },
+        safe,
+        safeTxHash,
+        50,
+      ),
+    ).resolves.toBeNull();
+  });
+});
+
+describe("resolveOptionalLiveTransactionState", () => {
+  it("returns the executed lifecycle record used to replace stale pending state", async () => {
+    const transaction = {
+      safe,
+      safeTxHash,
+      status: "executed",
+      executedTxHash: `0x${"b".repeat(64)}`,
+    } as SafeTransaction;
+    const getMultisigTransactionState = vi
+      .fn()
+      .mockResolvedValue(transaction);
+
+    await expect(
+      resolveOptionalLiveTransactionState(
+        { getMultisigTransactionState },
+        safe,
+        safeTxHash,
+        50,
+      ),
+    ).resolves.toBe(transaction);
+  });
+
+  it("keeps lifecycle refresh best-effort when the service is unavailable", async () => {
+    const getMultisigTransactionState = vi
+      .fn()
+      .mockRejectedValue(new Error("Safe service unavailable"));
+
+    await expect(
+      resolveOptionalLiveTransactionState(
+        { getMultisigTransactionState },
         safe,
         safeTxHash,
         50,
