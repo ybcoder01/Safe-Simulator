@@ -257,7 +257,12 @@ try {
       message.method === "Runtime.consoleAPICalled" &&
       message.params.type === "error"
     ) {
-      pageFailures.push("console.error");
+      const detail = message.params.args
+        .map((argument) => argument.value ?? argument.description ?? "")
+        .filter(Boolean)
+        .join(" ")
+        .slice(0, 500);
+      pageFailures.push(detail ? `console.error: ${detail}` : "console.error");
     }
     if (message.method === "Runtime.exceptionThrown") {
       pageFailures.push(
@@ -348,7 +353,7 @@ try {
     await new Promise((resolve) => setTimeout(resolve, 500));
     if (page.allowConsoleErrors) {
       pageFailures = pageFailures.filter(
-        (failure) => failure !== "console.error",
+        (failure) => !failure.startsWith("console.error"),
       );
     }
     assert.deepEqual(
