@@ -145,6 +145,9 @@ function mapAnalysis(value: unknown): AnalysisResult {
     ),
     createdAt: result.createdAt as number,
     immutable: result.immutable as boolean,
+    reviewContext:
+      (result.reviewContext as AnalysisResult["reviewContext"] | undefined) ??
+      null,
   };
 }
 
