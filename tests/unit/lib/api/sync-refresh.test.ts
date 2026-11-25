@@ -357,6 +357,7 @@ describe("on-demand synchronization refresh", () => {
         safeData: {
           discoverSafesByOwner: vi.fn(),
           getMultisigTransaction: vi.fn(),
+          getMultisigTransactionState: vi.fn(),
           listPendingMultisigTransactions: vi.fn().mockResolvedValue(emptyPage),
           listQueuedMultisigTransactions: vi.fn().mockResolvedValue(emptyPage),
           listMultisigTransactions: vi.fn().mockResolvedValue(emptyPage),
