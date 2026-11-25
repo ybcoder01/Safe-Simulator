@@ -195,6 +195,18 @@ function ports(
   };
   const chain = {
     getCode: vi.fn().mockResolvedValue("0x6000" as Hex),
+    getSafeSnapshot: vi.fn().mockResolvedValue({
+      chainId: 50,
+      address: safeAddress,
+      owners: [],
+      threshold: 1,
+      nonce: 1n,
+      version: "1.4.1",
+      guard: null,
+      modules: [],
+      implementation: null,
+      observedAt: 99,
+    }),
     ...chainOverrides,
   };
   return {
@@ -256,15 +268,18 @@ describe("resolveNeutralTransactionAnalysis", () => {
     expect(result.persisted.engineVersion).toBe(
       TRANSACTION_ANALYSIS_ENGINE_VERSION,
     );
-    expect(state.persistence.saveAnalysis).toHaveBeenCalledWith({
-      safeTxHash,
-      engineVersion: TRANSACTION_ANALYSIS_ENGINE_VERSION,
-      verdict: "known",
-      findings: baselineVerdict.findings,
-      simulation,
-      createdAt: 99,
-      immutable: true,
-    });
+    expect(state.persistence.saveAnalysis).toHaveBeenCalledWith(
+      expect.objectContaining({
+        safeTxHash,
+        engineVersion: TRANSACTION_ANALYSIS_ENGINE_VERSION,
+        verdict: "known",
+        findings: baselineVerdict.findings,
+        simulation,
+        createdAt: 99,
+        immutable: true,
+        reviewContext: expect.objectContaining({ capturedAt: 99 }),
+      }),
+    );
   });
 
   it("anchors delegate target bytecode to the executed block", async () => {
