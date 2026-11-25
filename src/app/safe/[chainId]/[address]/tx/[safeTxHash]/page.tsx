@@ -88,6 +88,7 @@ import {
   mergeConfirmationSnapshots,
   resolveOptionalLivePayload,
   resolveOptionalLiveTransactionState,
+  resolveOptionalOnchainExecution,
 } from "@/lib/api/optional-live-payload";
 import {
   findCompetingProposals,
@@ -191,6 +192,10 @@ export default async function TransactionDetailPage({
     persisted.status === "pending"
       ? resolveOptionalLiveTransactionState(safeData, safe.data, hash.data)
       : Promise.resolve(null);
+  const onchainExecutionPromise =
+    persisted.status === "pending"
+      ? resolveOptionalOnchainExecution(chain, safe.data, hash.data)
+      : Promise.resolve(null);
   const transferHistoryPromise = persistence
     .listTransfers(safe.data, null, 250)
     .catch(() => null);
@@ -206,9 +211,18 @@ export default async function TransactionDetailPage({
   const currentTransactionPromise = Promise.all([
     livePayloadPromise,
     liveTransactionPromise,
-  ]).then(([livePayload, liveTransaction]) => ({
+    onchainExecutionPromise,
+  ]).then(([livePayload, liveTransaction, onchainExecution]) => ({
     ...persisted,
-    ...(liveTransaction && liveTransaction.status !== "pending"
+    ...(onchainExecution
+      ? {
+          status: onchainExecution.status,
+          executedAt: onchainExecution.executedAt,
+          executedTxHash: onchainExecution.transactionHash,
+          blockNumber: onchainExecution.blockNumber,
+          blockHash: onchainExecution.blockHash,
+        }
+      : liveTransaction && liveTransaction.status !== "pending"
       ? {
           status: liveTransaction.status,
           executedAt: liveTransaction.executedAt,
