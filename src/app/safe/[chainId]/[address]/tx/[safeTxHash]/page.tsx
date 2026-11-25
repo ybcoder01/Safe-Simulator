@@ -416,7 +416,8 @@ export default async function TransactionDetailPage({
     : null;
   const nativeSentAmount =
     persisted.value > 0n &&
-    (persisted.status === "pending" || persisted.status === "executed")
+    (currentTransaction.status === "pending" ||
+      currentTransaction.status === "executed")
       ? groupDigits(formatTokenAmount(persisted.value.toString(), 18))
       : null;
   const nativeSymbol = nativeAssetSymbol(safe.data.chainId);
@@ -598,7 +599,7 @@ export default async function TransactionDetailPage({
   const brief = buildTransactionBrief({
     signal: reviewPresentation.signal,
     signalDetail: reviewPresentation.detail,
-    status: persisted.status,
+    status: currentTransaction.status,
     safeAddress: persisted.safe.address,
     movements: briefMovements,
     nativeSent: nativeSentAmount
@@ -621,7 +622,7 @@ export default async function TransactionDetailPage({
     treasuryChecks,
   });
   const currentStage = currentStageFromTransaction(
-    persisted,
+    currentTransaction,
     currentSafe.threshold,
   );
   const summaryEndpoint = `/api/v1/safes/${safe.data.chainId}/${safe.data.address}/tx/${hash.data}/summary`;
@@ -835,7 +836,7 @@ export default async function TransactionDetailPage({
           addressBook={addressBook}
           brief={brief}
           chainId={safe.data.chainId}
-          executed={persisted.status === "executed"}
+          executed={currentTransaction.status === "executed"}
           flow={briefFlow}
           knownLabels={briefLabels}
           safeAddress={persisted.safe.address}
@@ -1126,7 +1127,7 @@ export default async function TransactionDetailPage({
                 </span>
               </div>
               <EvidenceFindings
-                executed={persisted.status === "executed"}
+                executed={currentTransaction.status === "executed"}
                 findings={userFacingFindings}
               />
             </section>
@@ -1173,7 +1174,7 @@ export default async function TransactionDetailPage({
         <TransactionReviewWorkflow
           chainId={safe.data.chainId}
           evidenceVersion={`${TRANSACTION_ANALYSIS_ENGINE_VERSION}+${EXECUTION_EVIDENCE_ENGINE_VERSION}@${execution.blockNumber ?? "latest"}`}
-          executed={persisted.status === "executed"}
+          executed={currentTransaction.status === "executed"}
           findings={userFacingFindings}
           hasAddressBook={Boolean(profileId)}
           safeAddress={safe.data.address}
