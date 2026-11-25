@@ -12,6 +12,7 @@ import {
   mergeConfirmationSnapshots,
   resolveOptionalLivePayload,
   resolveOptionalLiveTransactionState,
+  resolveOptionalOnchainExecution,
 } from "@/lib/api/optional-live-payload";
 
 const safe = {
@@ -103,6 +104,29 @@ describe("resolveOptionalLiveTransactionState", () => {
         50,
       ),
     ).resolves.toBeNull();
+  });
+});
+
+describe("resolveOptionalOnchainExecution", () => {
+  it("returns an execution event for the exact Safe transaction hash", async () => {
+    const execution = {
+      status: "executed" as const,
+      transactionHash: `0x${"b".repeat(64)}` as Hex,
+      blockNumber: 100n,
+      blockHash: `0x${"c".repeat(64)}` as Hex,
+      executedAt: 1_700_000_000,
+    };
+    const findSafeExecution = vi.fn().mockResolvedValue(execution);
+
+    await expect(
+      resolveOptionalOnchainExecution(
+        { findSafeExecution },
+        safe,
+        safeTxHash,
+        50,
+      ),
+    ).resolves.toBe(execution);
+    expect(findSafeExecution).toHaveBeenCalledWith(safe, safeTxHash);
   });
 });
 
