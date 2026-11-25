@@ -117,6 +117,7 @@ function makePorts(
   const safeData = {
     discoverSafesByOwner: vi.fn(),
     getMultisigTransaction: vi.fn(),
+    getMultisigTransactionState: vi.fn(),
     listPendingMultisigTransactions: vi.fn().mockResolvedValue({
       items: options.items ?? [transaction],
       nextCursor: options.nextCursor ?? null,
