@@ -519,7 +519,7 @@ export function evaluateEvidenceVerdict(
       severity: "info",
       title: "Expected Safe proxy delegation observed",
       detail:
-        "A call from the Safe proxy reached a chain-matched singleton in the pinned Safe deployment registry. Other delegate calls remain critical.",
+        "A call from the Safe proxy reached a chain-matched singleton in the pinned Safe deployment registry. Any delegate calls outside this proven relationship are evaluated separately.",
       addresses: uniqueAddresses(
         expectedSafeProxyDelegations.map((call) => call.to),
       ),
@@ -535,7 +535,7 @@ export function evaluateEvidenceVerdict(
       severity: "info",
       title: "Expected target proxy delegation observed",
       detail:
-        "The trace followed an adjacent proxy-to-implementation pair from the independently resolved implementation chain. Other delegate calls remain critical.",
+        "The trace followed an adjacent proxy-to-implementation pair from the independently resolved implementation chain. Any delegate calls outside this proven relationship are evaluated separately.",
       addresses: uniqueAddresses(
         expectedTargetProxyDelegations.map((call) => call.to),
       ),
@@ -553,7 +553,7 @@ export function evaluateEvidenceVerdict(
       severity: "info",
       title: "Expected internal proxy delegation observed",
       detail:
-        "The trace followed a direct proxy-to-implementation pair independently resolved at the analysis anchor. Other delegate calls remain critical.",
+        "The trace followed a direct proxy-to-implementation pair independently resolved at the analysis anchor. Any delegate calls outside this proven relationship are evaluated separately.",
       addresses: uniqueAddresses(
         expectedInternalProxyDelegations.map((call) => call.to),
       ),
@@ -569,7 +569,7 @@ export function evaluateEvidenceVerdict(
       severity: "info",
       title: "Expected protocol library delegation observed",
       detail:
-        "An active protocol contract delegated to an internally documented library from the same protocol. Other delegate calls remain critical.",
+        "An active protocol contract delegated to an internally documented library from the same protocol. Any delegate calls outside this proven relationship are evaluated separately.",
       addresses: uniqueAddresses(
         expectedProtocolLibraryDelegations.map((call) => call.to),
       ),

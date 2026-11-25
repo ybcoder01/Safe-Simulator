@@ -110,6 +110,89 @@
   gap: 0.75rem;
 }
 
+.integrityCard {
+  display: grid;
+  gap: 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: rgba(9, 28, 22, 0.48);
+  padding: clamp(1rem, 3vw, 1.5rem);
+}
+
+.integrityVerified {
+  border-color: rgba(93, 237, 173, 0.48);
+  background: rgba(18, 63, 47, 0.36);
+}
+
+.integrityMismatch {
+  border-color: rgba(255, 120, 105, 0.62);
+  background: rgba(91, 35, 31, 0.28);
+}
+
+.integrityHeading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.integrityHeading > div {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.integrityHeading span {
+  color: var(--accent);
+  font: 0.72rem var(--font-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.integrityHeading h3,
+.integrityCard p {
+  margin: 0;
+}
+
+.integrityHeading h3 {
+  font-size: clamp(1.05rem, 2.4vw, 1.35rem);
+}
+
+.integrityHeading strong {
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 0.35rem 0.6rem;
+  color: var(--muted);
+  font: 0.68rem var(--font-mono);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.integrityVerified .integrityHeading strong {
+  color: var(--accent);
+}
+
+.integrityMismatch .integrityHeading strong,
+.integrityAlert {
+  color: #ff9d91;
+}
+
+.integrityCard p {
+  max-width: 82ch;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.signatureProgress {
+  font-size: 0.8rem;
+}
+
+.integrityLink {
+  justify-self: start;
+  color: var(--accent);
+  font-weight: 700;
+}
+
 .summaryCard {
   display: grid;
   gap: 1rem;
@@ -313,8 +396,17 @@
   }
 
   .summaryHeading,
+  .integrityHeading,
   .technicalDetails > summary {
     align-items: flex-start;
+  }
+
+  .integrityHeading {
+    display: grid;
+  }
+
+  .integrityHeading strong {
+    justify-self: start;
   }
 
   .technicalDetails > summary {

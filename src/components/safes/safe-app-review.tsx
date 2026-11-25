@@ -19,6 +19,11 @@ import styles from "./safe-app-review.module.css";
 import type { ManualSimulationView } from "@/lib/api/manual-simulation";
 import { findingReviewSummary } from "@/lib/finding-guidance";
 import {
+  executionPayloadFromSafeAppsDetails,
+  executionPayloadMatchesReviewedIntent,
+  verifySafeTransactionHash,
+} from "@/lib/api/transaction-integrity";
+import {
   normalizeWalletConnectPairingUri,
   walletConnectPairingFailureMessage,
 } from "@/lib/walletconnect-pairing";
@@ -77,6 +82,21 @@ interface ConnectedDapp {
   readonly icon?: string;
 }
 
+type ProposalIntegrityState =
+  | { readonly status: "verifying"; readonly safeTxHash: string }
+  | {
+      readonly status: "verified";
+      readonly safeTxHash: string;
+      readonly signaturesCollected: number;
+      readonly signaturesRequired: number;
+    }
+  | {
+      readonly status: "mismatch";
+      readonly safeTxHash: string;
+      readonly reason: string;
+    }
+  | { readonly status: "unavailable"; readonly safeTxHash: string };
+
 const SAFE_CONTEXT_TIMEOUT_MS = 8_000;
 const WALLETCONNECT_HANDSHAKE_TIMEOUT_MS = 20_000;
 const REOWN_PROJECT_ID = process.env.NEXT_PUBLIC_REOWN_PROJECT_ID;
@@ -105,6 +125,74 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
 
 function nativeSymbol(chainId: number) {
   return chainId === 1 ? "ETH" : chainId === 50 ? "XDC" : "native token";
+}
+
+async function verifyHandedOffProposal(
+  sdk: SafeAppsSDK,
+  safe: SafeContext,
+  request: ManualSimulationView["request"],
+  safeTxHash: string,
+): Promise<ProposalIntegrityState> {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    try {
+      const details = await sdk.txs.getBySafeTxHash(safeTxHash);
+      const execution = details.detailedExecutionInfo;
+      const payload = executionPayloadFromSafeAppsDetails(
+        details,
+        safe.chainId,
+      );
+      if (!payload) {
+        return { status: "unavailable", safeTxHash };
+      }
+
+      const hash = verifySafeTransactionHash(
+        payload,
+        safeTxHash as `0x${string}`,
+      );
+      if (hash.status !== "verified") {
+        return {
+          status: "mismatch",
+          safeTxHash,
+          reason:
+            "The proposal fields do not reproduce the Safe transaction hash.",
+        };
+      }
+      if (
+        !executionPayloadMatchesReviewedIntent(payload, {
+          safe: request.safe,
+          to: request.to,
+          value: request.value,
+          data: request.data,
+          operation: "call",
+        })
+      ) {
+        return {
+          status: "mismatch",
+          safeTxHash,
+          reason:
+            "The proposal Safe created does not match the target, value, calldata, or operation Inspector reviewed.",
+        };
+      }
+      return {
+        status: "verified",
+        safeTxHash,
+        signaturesCollected:
+          execution && "confirmations" in execution
+            ? execution.confirmations.length
+            : 0,
+        signaturesRequired:
+          execution && "confirmationsRequired" in execution
+            ? execution.confirmationsRequired
+            : safe.threshold,
+      };
+    } catch {
+      if (attempt < 4) {
+        await new Promise((resolve) => window.setTimeout(resolve, 1_000));
+      }
+    }
+  }
+
+  return { status: "unavailable", safeTxHash };
 }
 
 function getWalletKit() {
@@ -268,6 +356,8 @@ export function SafeAppReview() {
   const [reviewing, setReviewing] = useState(false);
   const [proposing, setProposing] = useState(false);
   const [proposalHash, setProposalHash] = useState<string | null>(null);
+  const [proposalIntegrity, setProposalIntegrity] =
+    useState<ProposalIntegrityState | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const resetSummary = useCallback(() => {
@@ -376,6 +466,7 @@ export function SafeAppReview() {
       resetSummary();
       setAcknowledged(false);
       setProposalHash(null);
+      setProposalIntegrity(null);
       setError(null);
 
       try {
@@ -577,6 +668,7 @@ export function SafeAppReview() {
           resetSummary();
           setAcknowledged(false);
           setProposalHash(null);
+          setProposalIntegrity(null);
           setPairingUri("");
           setDisconnecting(false);
         };
@@ -618,6 +710,7 @@ export function SafeAppReview() {
     resetSummary();
     setAcknowledged(false);
     setProposalHash(null);
+    setProposalIntegrity(null);
     setError(null);
   }
 
@@ -702,6 +795,7 @@ export function SafeAppReview() {
       resetSummary();
       setAcknowledged(false);
       setProposalHash(null);
+      setProposalIntegrity(null);
       setPairingUri("");
     } catch (cause) {
       setError(
@@ -752,7 +846,12 @@ export function SafeAppReview() {
   }
 
   async function propose() {
-    if (!result || !sdkRef.current || result.verdict.verdict === "flagged") {
+    if (
+      !result ||
+      !safe ||
+      !sdkRef.current ||
+      result.verdict.verdict === "flagged"
+    ) {
       return;
     }
     if (result.verdict.verdict === "unverified" && !acknowledged) {
@@ -773,13 +872,36 @@ export function SafeAppReview() {
         ],
       });
       setProposalHash(response.safeTxHash);
+      setProposalIntegrity({
+        status: "verifying",
+        safeTxHash: response.safeTxHash,
+      });
+
+      const integrity = await verifyHandedOffProposal(
+        sdkRef.current,
+        safe,
+        result.request,
+        response.safeTxHash,
+      );
+      setProposalIntegrity(integrity);
+      if (integrity.status === "mismatch") {
+        setError(
+          "Do not sign this proposal. Its Safe transaction identity does not match the transaction Inspector reviewed.",
+        );
+      }
 
       const request = pendingRequestRef.current;
       const kit = walletKitRef.current;
       if (request && kit) {
         await kit.respondSessionRequest({
           topic: request.topic,
-          response: jsonRpcResult(request.id, response.safeTxHash),
+          response:
+            integrity.status === "mismatch"
+              ? jsonRpcError(
+                  request.id,
+                  "Safe transaction identity did not match the Inspector review.",
+                )
+              : jsonRpcResult(request.id, response.safeTxHash),
         });
         pendingRequestRef.current = null;
         setPendingRequest(null);
@@ -981,6 +1103,81 @@ export function SafeAppReview() {
               </div>
             </div>
           ) : null}
+
+          <section
+            className={`${styles.integrityCard} ${
+              proposalIntegrity?.status === "mismatch"
+                ? styles.integrityMismatch
+                : proposalIntegrity?.status === "verified"
+                  ? styles.integrityVerified
+                  : ""
+            }`}
+            aria-live="polite"
+          >
+            <div className={styles.integrityHeading}>
+              <div>
+                <span>Transaction identity</span>
+                <h3>Independent Safe hash verification</h3>
+              </div>
+              <strong>
+                {!proposalIntegrity
+                  ? "Awaiting Safe hash"
+                  : proposalIntegrity.status === "verifying"
+                    ? "Verifying…"
+                    : proposalIntegrity.status === "verified"
+                      ? "Hash verified"
+                      : proposalIntegrity.status === "mismatch"
+                        ? "Hash mismatch"
+                        : "Hash unavailable"}
+              </strong>
+            </div>
+
+            {!proposalIntegrity ? (
+              <p>
+                Safe has not created the proposal yet. After the draft is handed
+                to Safe, Inspector will independently recompute its EIP-712 hash
+                and compare the exact target, value, calldata, and operation
+                with this review.
+              </p>
+            ) : proposalIntegrity.status === "verifying" ? (
+              <p>
+                Safe created the proposal. Inspector is waiting for its full
+                payload before confirming the hash.
+              </p>
+            ) : proposalIntegrity.status === "verified" ? (
+              <>
+                <p>
+                  The proposal hash was independently recomputed and the
+                  proposal exactly matches the transaction Inspector reviewed.
+                </p>
+                <p className={styles.signatureProgress}>
+                  {proposalIntegrity.signaturesCollected} of{" "}
+                  {proposalIntegrity.signaturesRequired} owner signatures
+                  collected. Signature count does not affect hash verification.
+                </p>
+              </>
+            ) : proposalIntegrity.status === "mismatch" ? (
+              <p className={styles.integrityAlert}>
+                {proposalIntegrity.reason} Do not add another signature.
+              </p>
+            ) : (
+              <p>
+                Safe has not exposed the complete proposal payload yet, so
+                Inspector cannot claim that the hash is verified. Open the
+                pending transaction report and refresh before another owner
+                signs.
+              </p>
+            )}
+
+            {proposalHash ? (
+              <Link
+                className={styles.integrityLink}
+                href={`/safe/${safe.chainId}/${safe.address}/tx/${proposalHash}`}
+              >
+                Open the pending transaction report
+              </Link>
+            ) : null}
+          </section>
 
           <section className={styles.summaryCard} aria-busy={summaryLoading}>
             <div className={styles.summaryHeading}>

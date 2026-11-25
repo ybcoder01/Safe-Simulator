@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import type { GatewayTransactionDetails } from "@safe-global/safe-apps-sdk";
+
 import type {
   Address,
   Hex,
@@ -8,6 +10,8 @@ import type {
 } from "../../../../src/core/domain";
 import {
   computeSafeTransactionHash,
+  executionPayloadFromSafeAppsDetails,
+  executionPayloadMatchesReviewedIntent,
   findCompetingProposals,
   transactionReviewFreshness,
   verifySafeTransactionHash,
@@ -73,6 +77,67 @@ describe("transaction integrity", () => {
       suppliedHash,
       computedHash: knownHash,
     });
+  });
+
+  it("normalizes the Safe Apps proposal and matches the reviewed intent", () => {
+    const details = {
+      safeAddress: safe,
+      txId: `multisig_${safe}_${knownHash}`,
+      txStatus: "AWAITING_CONFIRMATIONS",
+      txInfo: { type: "CUSTOM" },
+      txData: {
+        hexData: payload.data,
+        to: { value: target },
+        value: "0",
+        operation: 0,
+        trustedDelegateCallTarget: false,
+      },
+      detailedExecutionInfo: {
+        type: "MULTISIG",
+        submittedAt: 1,
+        nonce: 48,
+        safeTxGas: "0",
+        baseGas: "0",
+        gasPrice: "0",
+        gasToken: "0x0000000000000000000000000000000000000000",
+        refundReceiver: {
+          value: "0x0000000000000000000000000000000000000000",
+        },
+        safeTxHash: knownHash,
+        signers: [{ value: safe }],
+        confirmationsRequired: 2,
+        confirmations: [
+          { signer: { value: safe }, submittedAt: 1, signature: "0x01" },
+        ],
+        trusted: false,
+        proposer: { value: safe },
+        proposedByDelegate: null,
+      },
+    } as unknown as GatewayTransactionDetails;
+
+    const normalized = executionPayloadFromSafeAppsDetails(details, 50);
+    if (!normalized) throw new Error("Expected a normalized Safe payload.");
+    expect(verifySafeTransactionHash(normalized, knownHash)).toMatchObject({
+      status: "verified",
+    });
+    expect(
+      executionPayloadMatchesReviewedIntent(normalized, {
+        safe,
+        to: target,
+        value: "0",
+        data: payload.data,
+        operation: "call",
+      }),
+    ).toBe(true);
+    expect(
+      executionPayloadMatchesReviewedIntent(normalized, {
+        safe,
+        to: "0x2222222222222222222222222222222222222222",
+        value: "0",
+        data: payload.data,
+        operation: "call",
+      }),
+    ).toBe(false);
   });
 
   it("shows field-level differences for competing proposals at one nonce", () => {

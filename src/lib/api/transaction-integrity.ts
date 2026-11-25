@@ -1,6 +1,13 @@
-import { hashTypedData, zeroAddress } from "viem";
+import { getAddress, hashTypedData, isAddress, isHex, zeroAddress } from "viem";
 
-import type { Hex, SafeExecutionPayload, SafeTransaction } from "@/core/domain";
+import type { GatewayTransactionDetails } from "@safe-global/safe-apps-sdk";
+
+import type {
+  Address,
+  Hex,
+  SafeExecutionPayload,
+  SafeTransaction,
+} from "@/core/domain";
 
 const safeTransactionTypes = {
   SafeTx: [
@@ -79,6 +86,80 @@ export function verifySafeTransactionHash(
     suppliedHash,
     computedHash,
   };
+}
+
+/**
+ * Normalizes the Safe Apps gateway response into the exact EIP-712 payload
+ * needed for independent hash verification. Missing or malformed fields fail
+ * closed instead of being replaced with guessed values.
+ */
+export function executionPayloadFromSafeAppsDetails(
+  details: GatewayTransactionDetails,
+  chainId: number,
+): SafeExecutionPayload | null {
+  const execution = details.detailedExecutionInfo;
+  const transaction = details.txData;
+  if (
+    !transaction ||
+    !execution ||
+    !("safeTxHash" in execution) ||
+    !isAddress(details.safeAddress) ||
+    !isAddress(transaction.to.value) ||
+    !isHex(execution.safeTxHash) ||
+    !isAddress(execution.gasToken) ||
+    !execution.refundReceiver ||
+    !isAddress(execution.refundReceiver.value)
+  ) {
+    return null;
+  }
+
+  const data = transaction.hexData ?? "0x";
+  if (!isHex(data)) return null;
+
+  try {
+    return {
+      safe: {
+        chainId,
+        address: getAddress(details.safeAddress) as Address,
+      },
+      safeTxHash: execution.safeTxHash as Hex,
+      nonce: BigInt(execution.nonce),
+      to: getAddress(transaction.to.value) as Address,
+      value: BigInt(transaction.value ?? "0"),
+      data: data as Hex,
+      operation: transaction.operation === 1 ? "delegatecall" : "call",
+      safeTxGas: BigInt(execution.safeTxGas),
+      baseGas: BigInt(execution.baseGas),
+      gasPrice: BigInt(execution.gasPrice),
+      gasToken: getAddress(execution.gasToken) as Address,
+      refundReceiver: getAddress(execution.refundReceiver.value) as Address,
+      confirmations: [],
+    };
+  } catch {
+    return null;
+  }
+}
+
+export interface ReviewedTransactionIntent {
+  readonly safe: Address;
+  readonly to: Address;
+  readonly value: string;
+  readonly data: Hex;
+  readonly operation: "call" | "delegatecall";
+}
+
+/** Confirms that the proposal Safe created is the exact intent Inspector reviewed. */
+export function executionPayloadMatchesReviewedIntent(
+  payload: SafeExecutionPayload,
+  intent: ReviewedTransactionIntent,
+): boolean {
+  return (
+    payload.safe.address.toLowerCase() === intent.safe.toLowerCase() &&
+    payload.to.toLowerCase() === intent.to.toLowerCase() &&
+    payload.value === BigInt(intent.value) &&
+    payload.data.toLowerCase() === intent.data.toLowerCase() &&
+    payload.operation === intent.operation
+  );
 }
 
 export interface CompetingProposalDifference {

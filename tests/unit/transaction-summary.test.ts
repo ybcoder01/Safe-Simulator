@@ -34,6 +34,19 @@ const approvalAmountEvidence = {
   ],
 } as const;
 
+const clearDeterministicEvidence = {
+  deterministicVerdict: {
+    verdict: "known",
+    findings: [
+      {
+        code: "partial-analysis-coverage",
+        severity: "info",
+        title: "Analysis coverage is bounded",
+      },
+    ],
+  },
+} as const;
+
 function providerResponse(
   summary: Readonly<Record<string, unknown>>,
 ): Response {
@@ -177,6 +190,9 @@ describe("transaction summary privacy and provider boundary", () => {
         expect(body.messages[0]?.content).toContain(
           "safe-service and signature-database decodes are unverified hints",
         );
+        expect(body.messages[0]?.content).toContain(
+          "known or trusted means appears-consistent",
+        );
         expect(init?.signal).toBeInstanceOf(AbortSignal);
 
         return new Response(
@@ -313,7 +329,44 @@ describe("transaction summary privacy and provider boundary", () => {
   });
 
   it("uses a new prompt version for the consolidated signer verdict", () => {
-    expect(TRANSACTION_SUMMARY_PROMPT_VERSION).toBe("transaction-summary-v10");
+    expect(TRANSACTION_SUMMARY_PROMPT_VERSION).toBe("transaction-summary-v11");
+  });
+
+  it("rejects a manual-review stance when deterministic evidence is clear", async () => {
+    const fetcher = vi.fn(async () => providerResponse(validSummary));
+
+    await expect(
+      requestTransactionSummary(clearDeterministicEvidence, {
+        apiKey: "test-key",
+        model: "openai/gpt-5.4-mini",
+        fetcher,
+      }),
+    ).rejects.toMatchObject({
+      code: "invalid_response",
+      stage: "verdict_consistency",
+    } satisfies Partial<TransactionSummaryProviderError>);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects invented unresolved-address claims for an informational verdict", async () => {
+    const fetcher = vi.fn(async () =>
+      providerResponse({
+        ...validSummary,
+        stance: "appears-consistent",
+        plainLanguage:
+          "The Fathom call is identified, but one traced address is still unverified.",
+      }),
+    );
+
+    await expect(
+      requestTransactionSummary(clearDeterministicEvidence, {
+        apiKey: "test-key",
+        model: "openai/gpt-5.4-mini",
+        fetcher,
+      }),
+    ).rejects.toMatchObject({
+      stage: "verdict_consistency",
+    } satisfies Partial<TransactionSummaryProviderError>);
   });
 
   it("rejects raw base units mislabeled as whole-token units", async () => {
