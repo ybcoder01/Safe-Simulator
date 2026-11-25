@@ -3,6 +3,7 @@ import type {
   Hex,
   SafeExecutionPayload,
   SafeRef,
+  SafeTransaction,
 } from "@/core/domain";
 import type { SafeDataPort } from "@/core/ports";
 
@@ -44,6 +45,27 @@ export async function resolveOptionalLivePayload(
   try {
     return await Promise.race([
       safeData.getMultisigTransaction(safe, safeTxHash).catch(() => null),
+      new Promise<null>((resolve) => {
+        timeout = setTimeout(() => resolve(null), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
+
+export async function resolveOptionalLiveTransactionState(
+  safeData: Pick<SafeDataPort, "getMultisigTransactionState">,
+  safe: SafeRef,
+  safeTxHash: Hex,
+  timeoutMs = OPTIONAL_LIVE_PAYLOAD_TIMEOUT_MS,
+): Promise<SafeTransaction | null> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      safeData
+        .getMultisigTransactionState(safe, safeTxHash)
+        .catch(() => null),
       new Promise<null>((resolve) => {
         timeout = setTimeout(() => resolve(null), timeoutMs);
       }),
