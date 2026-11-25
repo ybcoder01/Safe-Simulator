@@ -2,6 +2,7 @@ import {
   createPublicClient,
   fallback,
   http,
+  parseAbiItem,
   zeroAddress,
   type Address as ViemAddress,
   type Hex as ViemHex,
@@ -25,6 +26,14 @@ const EIP_1967_IMPLEMENTATION_SLOT =
   "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc" as const;
 const SAFE_MODULE_SENTINEL =
   "0x0000000000000000000000000000000000000001" as const;
+const EXECUTION_SUCCESS_EVENT = parseAbiItem(
+  "event ExecutionSuccess(bytes32 indexed txHash, uint256 payment)",
+);
+const EXECUTION_FAILURE_EVENT = parseAbiItem(
+  "event ExecutionFailure(bytes32 indexed txHash, uint256 payment)",
+);
+const SAFE_EXECUTION_LOOKBACK_BLOCKS = 50_000n;
+const SAFE_EXECUTION_LOG_CHUNK_BLOCKS = 5_000n;
 
 export class ViemChainAdapter implements ChainPort {
   private readonly clients = new Map<ChainId, PublicClient>();
@@ -157,6 +166,60 @@ export class ViemChainAdapter implements ChainPort {
   async getBlockHash(chainId: ChainId, blockNumber: bigint): Promise<Hex> {
     const block = await this.getClient(chainId).getBlock({ blockNumber });
     return block.hash;
+  }
+
+  async findSafeExecution(safe: SafeRef, safeTxHash: Hex) {
+    const client = this.getClient(safe.chainId);
+    const latest = await client.getBlockNumber();
+    const earliest =
+      latest > SAFE_EXECUTION_LOOKBACK_BLOCKS
+        ? latest - SAFE_EXECUTION_LOOKBACK_BLOCKS
+        : 0n;
+
+    for (
+      let toBlock = latest;
+      toBlock >= earliest;
+      toBlock -= SAFE_EXECUTION_LOG_CHUNK_BLOCKS
+    ) {
+      const fromBlock =
+        toBlock - earliest >= SAFE_EXECUTION_LOG_CHUNK_BLOCKS
+          ? toBlock - SAFE_EXECUTION_LOG_CHUNK_BLOCKS + 1n
+          : earliest;
+      const query = async (
+        event:
+          | typeof EXECUTION_SUCCESS_EVENT
+          | typeof EXECUTION_FAILURE_EVENT,
+        status: "executed" | "failed",
+      ) => {
+        const logs = await client.getLogs({
+          address: safe.address as ViemAddress,
+          event: event as typeof EXECUTION_SUCCESS_EVENT,
+          args: { txHash: safeTxHash as ViemHex },
+          fromBlock,
+          toBlock,
+          strict: true,
+        });
+        const log = logs.at(-1);
+        if (!log?.transactionHash || !log.blockNumber || !log.blockHash) {
+          return null;
+        }
+        const block = await client.getBlock({ blockNumber: log.blockNumber });
+        return {
+          status,
+          transactionHash: log.transactionHash as Hex,
+          blockNumber: log.blockNumber,
+          blockHash: log.blockHash as Hex,
+          executedAt: Number(block.timestamp),
+        } as const;
+      };
+
+      const success = await query(EXECUTION_SUCCESS_EVENT, "executed");
+      if (success) return success;
+      const failure = await query(EXECUTION_FAILURE_EVENT, "failed");
+      if (failure) return failure;
+      if (fromBlock === earliest) break;
+    }
+    return null;
   }
 
   async getTransactionBlock(
