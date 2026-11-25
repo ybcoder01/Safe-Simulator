@@ -2950,6 +2950,31 @@ select {
   border-radius: 12px;
   background: rgba(246, 200, 111, 0.055);
 }
+
+.review-drift {
+  margin-top: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  padding: 1rem;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+}
+
+.review-drift-changed {
+  border-color: var(--amber);
+}
+
+.review-drift > p,
+.review-drift ul {
+  margin: 0.55rem 0 0;
+}
+
+.review-drift-critical {
+  color: var(--danger);
+}
+
+.review-drift-warning {
+  color: var(--amber);
+}
 .competing-proposals > strong {
   color: var(--amber);
 }
