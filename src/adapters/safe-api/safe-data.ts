@@ -546,6 +546,71 @@ export class SafeApiAdapter implements SafeDataPort {
     };
   }
 
+  async getMultisigTransactionState(
+    safe: SafeRef,
+    safeTxHash: Hex,
+  ): Promise<SafeTransaction | null> {
+    const transactionServiceResult = await Promise.allSettled([
+      withSafeApiRetry(() =>
+        this.getClient(safe.chainId).getTransaction(safeTxHash),
+      ),
+    ]);
+    const result = transactionServiceResult[0];
+    const item =
+      result?.status === "fulfilled" &&
+      asAddress(result.value.safe) === asAddress(safe.address)
+        ? result.value
+        : null;
+    const serviceTransaction: SafeTransaction | null = item
+      ? {
+          safe,
+          safeTxHash: item.safeTxHash as Hex,
+          nonce: BigInt(item.nonce),
+          to: asAddress(item.to),
+          value: BigInt(item.value),
+          data: asHex(item.data),
+          operation: operation(item.operation),
+          status: item.isExecuted
+            ? item.isSuccessful === false
+              ? "failed"
+              : "executed"
+            : "pending",
+          confirmations: (item.confirmations ?? []).map<Confirmation>(
+            (confirmation) => ({
+              owner: asAddress(confirmation.owner),
+              signature: confirmation.signature as Hex,
+              signedAt: asUnixTime(confirmation.submissionDate),
+            }),
+          ),
+          proposedAt: asUnixTime(item.submissionDate),
+          executedAt: item.executionDate
+            ? asUnixTime(item.executionDate)
+            : null,
+          executedTxHash: item.transactionHash as Hex | null,
+          blockNumber:
+            item.blockNumber == null ? null : BigInt(item.blockNumber),
+          blockHash: null,
+        }
+      : null;
+
+    if (serviceTransaction) return serviceTransaction;
+
+    try {
+      const queueItem = await this.queueRequest<QueueMultisigTransaction>(
+        `/api/v1/multisig-transactions/${safeTxHash}`,
+      );
+      if (
+        asAddress(queueItem.safe) !== asAddress(safe.address) ||
+        Number(queueItem.chainId) !== safe.chainId
+      ) {
+        return null;
+      }
+      return normalizeQueueTransaction(safe, queueItem);
+    } catch {
+      return null;
+    }
+  }
+
   async listModuleTransactions(
     safe: SafeRef,
     cursor: string | null,
