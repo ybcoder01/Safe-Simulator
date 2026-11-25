@@ -64,7 +64,8 @@ const pages = [
     path: liveExamplePath,
     expected: [
       "SUPPLY TO LENDING MARKET",
-      "Fathom executed route accounted for",
+      "Went through. Looks normal",
+      "Your Safe received 0.050001 fmUSDC and sent 0.05 USDC.",
     ],
   },
 ];
