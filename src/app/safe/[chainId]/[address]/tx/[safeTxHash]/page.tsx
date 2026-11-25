@@ -84,7 +84,10 @@ import {
   transactionReviewQueueFilterSchema,
 } from "@/lib/api/safe-details";
 import { resolveTransactionViews } from "@/lib/api/transaction-list";
-import { resolveOptionalLivePayload } from "@/lib/api/optional-live-payload";
+import {
+  mergeConfirmationSnapshots,
+  resolveOptionalLivePayload,
+} from "@/lib/api/optional-live-payload";
 import {
   findCompetingProposals,
   transactionReviewFreshness,
@@ -195,7 +198,6 @@ export default async function TransactionDetailPage({
     ? persistence.listAddressBookReviews(profileId, safe.data)
     : Promise.resolve([]);
 
-  const transaction = toTransactionView(persisted);
   const neutralAnalysisPromise = resolveNeutralTransactionAnalysis(persisted, {
     abi,
     cache,
@@ -243,6 +245,15 @@ export default async function TransactionDetailPage({
     internalProxyBoundaries,
     routeAttestation,
   } = analysis;
+  const currentConfirmations = mergeConfirmationSnapshots(
+    persisted.confirmations,
+    livePayload?.confirmations,
+  );
+  const currentTransaction = {
+    ...persisted,
+    confirmations: currentConfirmations,
+  };
+  const transaction = toTransactionView(currentTransaction);
   const decoded = insight.decoded;
   const nestedCalls =
     decoded?.parameters.flatMap((parameter) => parameter.nestedCalls) ?? [];
@@ -281,7 +292,7 @@ export default async function TransactionDetailPage({
   const alertTimeline =
     authenticAlertReceipts.length > 0
       ? buildStageTimeline({
-          transaction: persisted,
+          transaction: currentTransaction,
           threshold:
             authenticAlertReceipts[0]?.payload.threshold ??
             currentSafe.threshold,
