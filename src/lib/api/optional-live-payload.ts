@@ -5,7 +5,7 @@ import type {
   SafeRef,
   SafeTransaction,
 } from "@/core/domain";
-import type { SafeDataPort } from "@/core/ports";
+import type { ChainPort, SafeDataPort } from "@/core/ports";
 
 export const OPTIONAL_LIVE_PAYLOAD_TIMEOUT_MS = 1_500;
 export const OPTIONAL_LIVE_TRANSACTION_TIMEOUT_MS = 5_000;
@@ -67,6 +67,26 @@ export async function resolveOptionalLiveTransactionState(
       safeData
         .getMultisigTransactionState(safe, safeTxHash)
         .catch(() => null),
+      new Promise<null>((resolve) => {
+        timeout = setTimeout(() => resolve(null), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
+
+export async function resolveOptionalOnchainExecution(
+  chain: Pick<ChainPort, "findSafeExecution">,
+  safe: SafeRef,
+  safeTxHash: Hex,
+  timeoutMs = OPTIONAL_LIVE_TRANSACTION_TIMEOUT_MS,
+) {
+  if (!chain.findSafeExecution) return null;
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      chain.findSafeExecution(safe, safeTxHash).catch(() => null),
       new Promise<null>((resolve) => {
         timeout = setTimeout(() => resolve(null), timeoutMs);
       }),
