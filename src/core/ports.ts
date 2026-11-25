@@ -57,6 +57,11 @@ export interface SafeDataPort {
     safe: SafeRef,
     safeTxHash: Hex,
   ): Promise<SafeExecutionPayload | null>;
+  /** Returns the latest proposal lifecycle snapshot, including on-chain execution state. */
+  getMultisigTransactionState(
+    safe: SafeRef,
+    safeTxHash: Hex,
+  ): Promise<SafeTransaction | null>;
   listModuleTransactions(
     safe: SafeRef,
     cursor: string | null,
