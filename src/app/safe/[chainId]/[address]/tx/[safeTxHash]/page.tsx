@@ -87,6 +87,7 @@ import { resolveTransactionViews } from "@/lib/api/transaction-list";
 import {
   mergeConfirmationSnapshots,
   resolveOptionalLivePayload,
+  resolveOptionalLiveTransactionState,
 } from "@/lib/api/optional-live-payload";
 import {
   findCompetingProposals,
@@ -186,6 +187,10 @@ export default async function TransactionDetailPage({
     persisted.status === "pending"
       ? resolveOptionalLivePayload(safeData, safe.data, hash.data)
       : Promise.resolve(null);
+  const liveTransactionPromise =
+    persisted.status === "pending"
+      ? resolveOptionalLiveTransactionState(safeData, safe.data, hash.data)
+      : Promise.resolve(null);
   const transferHistoryPromise = persistence
     .listTransfers(safe.data, null, 250)
     .catch(() => null);
@@ -198,7 +203,30 @@ export default async function TransactionDetailPage({
     ? persistence.listAddressBookReviews(profileId, safe.data)
     : Promise.resolve([]);
 
-  const neutralAnalysisPromise = resolveNeutralTransactionAnalysis(persisted, {
+  const currentTransactionPromise = Promise.all([
+    livePayloadPromise,
+    liveTransactionPromise,
+  ]).then(([livePayload, liveTransaction]) => ({
+    ...persisted,
+    ...(liveTransaction && liveTransaction.status !== "pending"
+      ? {
+          status: liveTransaction.status,
+          executedAt: liveTransaction.executedAt,
+          executedTxHash: liveTransaction.executedTxHash,
+          blockNumber: liveTransaction.blockNumber,
+          blockHash: liveTransaction.blockHash,
+        }
+      : {}),
+    confirmations: mergeConfirmationSnapshots(
+      persisted.confirmations,
+      [
+        ...(livePayload?.confirmations ?? []),
+        ...(liveTransaction?.confirmations ?? []),
+      ],
+    ),
+  }));
+  const neutralAnalysisPromise = currentTransactionPromise.then((current) =>
+    resolveNeutralTransactionAnalysis(current, {
     abi,
     cache,
     chain,
@@ -206,7 +234,8 @@ export default async function TransactionDetailPage({
     safeData,
     simulation: getSimulationPort(),
     now: unixNow,
-  });
+    }),
+  );
   const tokenMetadataPromise = neutralAnalysisPromise.then(({ execution }) =>
     resolveExecutionTokenMetadata(
       chain,
@@ -225,6 +254,7 @@ export default async function TransactionDetailPage({
     addressBookReviews,
     tokenMetadata,
     livePayload,
+    currentTransaction,
   ] = await Promise.all([
     neutralAnalysisPromise,
     addressBookPromise,
@@ -235,6 +265,7 @@ export default async function TransactionDetailPage({
     addressBookReviewsPromise,
     tokenMetadataPromise,
     livePayloadPromise,
+    currentTransactionPromise,
   ]);
   const {
     contract: insight,
@@ -245,14 +276,6 @@ export default async function TransactionDetailPage({
     internalProxyBoundaries,
     routeAttestation,
   } = analysis;
-  const currentConfirmations = mergeConfirmationSnapshots(
-    persisted.confirmations,
-    livePayload?.confirmations,
-  );
-  const currentTransaction = {
-    ...persisted,
-    confirmations: currentConfirmations,
-  };
   const transaction = toTransactionView(currentTransaction);
   const decoded = insight.decoded;
   const nestedCalls =
