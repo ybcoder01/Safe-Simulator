@@ -114,6 +114,17 @@ export interface ChainPort {
     chainId: ChainId,
     transactionHash: Hex,
   ): Promise<{ blockNumber: bigint; blockHash: Hex }>;
+  /** Finds the Safe execution event for an exact Safe transaction hash. */
+  findSafeExecution?(
+    safe: SafeRef,
+    safeTxHash: Hex,
+  ): Promise<{
+    readonly status: "executed" | "failed";
+    readonly transactionHash: Hex;
+    readonly blockNumber: bigint;
+    readonly blockHash: Hex;
+    readonly executedAt: number;
+  } | null>;
 }
 
 export interface SimulationPort {
