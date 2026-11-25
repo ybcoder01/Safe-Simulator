@@ -40,6 +40,7 @@ import {
   resolveStorageChangeAnalysis,
   type StorageChangeAnalysis,
 } from "@/lib/api/storage-changes";
+import { buildAnalysisReviewContext } from "@/lib/api/review-drift";
 import { keccak256 } from "viem";
 
 export { TRANSACTION_ANALYSIS_ENGINE_VERSION };
@@ -63,6 +64,7 @@ export interface NeutralTransactionAnalysis {
   readonly internalProxyBoundaries: readonly InternalProxyBoundary[];
   readonly routeAttestation: ProtocolRouteAttestation;
   readonly baselineVerdict: ReturnType<typeof resolveEvidenceVerdict>;
+  readonly reviewContext: NonNullable<AnalysisResult["reviewContext"]>;
   readonly persisted: AnalysisResult;
 }
 
@@ -170,6 +172,10 @@ export async function resolveNeutralTransactionAnalysis(
   transaction: SafeTransaction,
   ports: NeutralTransactionAnalysisPorts,
 ): Promise<NeutralTransactionAnalysis> {
+  const checkedAt = ports.now();
+  const existingAnalysisPromise = ports.persistence
+    .findAnalysis(transaction.safeTxHash, TRANSACTION_ANALYSIS_ENGINE_VERSION)
+    .catch(() => null);
   const cacheKey = neutralAnalysisCacheKey(transaction);
   if (cacheKey && transaction.blockHash) {
     try {
@@ -190,16 +196,18 @@ export async function resolveNeutralTransactionAnalysis(
     }
   }
 
-  const [contract, execution, targetRuntimeCode] = await Promise.all([
-    resolveContractInsight(ports.safeData, ports.abi, transaction),
-    resolveExecutionInsight(
-      ports.simulation,
-      transaction,
-      { cache: ports.cache, persistence: ports.persistence },
-      { chain: ports.chain, safeData: ports.safeData },
-    ),
-    resolveTargetRuntimeCodeEvidence(transaction, ports.chain),
-  ]);
+  const [contract, execution, targetRuntimeCode, safeSnapshot] =
+    await Promise.all([
+      resolveContractInsight(ports.safeData, ports.abi, transaction),
+      resolveExecutionInsight(
+        ports.simulation,
+        transaction,
+        { cache: ports.cache, persistence: ports.persistence },
+        { chain: ports.chain, safeData: ports.safeData },
+      ),
+      resolveTargetRuntimeCodeEvidence(transaction, ports.chain),
+      ports.chain.getSafeSnapshot(transaction.safe).catch(() => null),
+    ]);
   const [approvalRisk, storageAnalysis, internalProxyBoundaries] =
     await Promise.all([
       resolveApprovalRisk(ports.chain, transaction, contract, execution),
@@ -244,17 +252,31 @@ export async function resolveNeutralTransactionAnalysis(
     execution,
     ports.persistence,
   );
-  const persisted: AnalysisResult = {
+  const reviewContext = buildAnalysisReviewContext({
+    capturedAt: checkedAt,
+    transaction,
+    safe: safeSnapshot,
+    contract,
+    execution,
+    targetRuntimeCode,
+  });
+  const currentResult: AnalysisResult = {
     safeTxHash: transaction.safeTxHash,
     engineVersion: TRANSACTION_ANALYSIS_ENGINE_VERSION,
     verdict: baselineVerdict.verdict,
     findings: baselineVerdict.findings,
     simulation,
-    createdAt: ports.now(),
+    createdAt: checkedAt,
     immutable: execution.mode === "executed-replay" && simulation !== null,
+    reviewContext,
   };
-
-  await ports.persistence.saveAnalysis(persisted);
+  const existingAnalysis = await existingAnalysisPromise;
+  const persisted = existingAnalysis?.reviewContext
+    ? existingAnalysis
+    : currentResult;
+  if (!existingAnalysis?.reviewContext) {
+    await ports.persistence.saveAnalysis(currentResult);
+  }
 
   const neutral = {
     contract,
@@ -265,6 +287,7 @@ export async function resolveNeutralTransactionAnalysis(
     internalProxyBoundaries,
     routeAttestation,
     baselineVerdict,
+    reviewContext,
   };
   if (cacheKey && transaction.blockHash) {
     try {
