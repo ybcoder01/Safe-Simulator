@@ -72,7 +72,7 @@ const pages = [
     // COOP header intentionally remains `same-origin`; no Base Account or
     // wallet control is exposed here (asserted below).
     allowedConsoleErrors: [
-      /^Base Account SDK requires the Cross-Origin-Opener-Policy header/,
+      /^(?:Base Account|Coinbase Wallet) SDK requires the Cross-Origin-Opener-Policy header/,
     ],
   },
 ];
