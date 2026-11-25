@@ -1,7 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { Hex, SafeExecutionPayload, SafeRef } from "@/core/domain";
-import { resolveOptionalLivePayload } from "@/lib/api/optional-live-payload";
+import type {
+  Address,
+  Confirmation,
+  Hex,
+  SafeExecutionPayload,
+  SafeRef,
+} from "@/core/domain";
+import {
+  mergeConfirmationSnapshots,
+  resolveOptionalLivePayload,
+} from "@/lib/api/optional-live-payload";
 
 const safe = {
   chainId: 50,
@@ -54,5 +63,46 @@ describe("resolveOptionalLivePayload", () => {
         50,
       ),
     ).resolves.toBeNull();
+  });
+});
+
+describe("mergeConfirmationSnapshots", () => {
+  const confirmation = (owner: string, signature: string): Confirmation => ({
+    owner: owner as Address,
+    signature: signature as Hex,
+    signedAt: 1_700_000_000,
+  });
+
+  it("adds a newly observed live signer to the stored snapshot", () => {
+    const first = confirmation(`0x${"1".repeat(40)}`, `0x${"a".repeat(130)}`);
+    const second = confirmation(`0x${"2".repeat(40)}`, `0x${"b".repeat(130)}`);
+
+    expect(mergeConfirmationSnapshots([first], [first, second])).toEqual([
+      first,
+      second,
+    ]);
+  });
+
+  it("does not regress when a live service snapshot is temporarily stale", () => {
+    const first = confirmation(`0x${"1".repeat(40)}`, `0x${"a".repeat(130)}`);
+    const second = confirmation(`0x${"2".repeat(40)}`, `0x${"b".repeat(130)}`);
+
+    expect(mergeConfirmationSnapshots([first, second], [first])).toEqual([
+      first,
+      second,
+    ]);
+  });
+
+  it("deduplicates the same owner and prefers its live confirmation", () => {
+    const stored = confirmation(
+      `0x${"1".repeat(40)}`,
+      `0x${"a".repeat(130)}`,
+    );
+    const live = confirmation(
+      `0x${"1".repeat(40)}`,
+      `0x${"b".repeat(130)}`,
+    );
+
+    expect(mergeConfirmationSnapshots([stored], [live])).toEqual([live]);
   });
 });
