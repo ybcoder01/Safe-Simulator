@@ -67,6 +67,7 @@ import { buildTransactionBrief } from "@/lib/transaction-brief";
 import { resolveTransactionActionLabel } from "@/lib/transaction-action-label";
 import { resolveNeutralTransactionAnalysis } from "@/lib/api/transaction-analysis";
 import { resolveExecutionTokenMetadata } from "@/lib/api/token-metadata";
+import { compareAnalysisReviewContexts } from "@/lib/api/review-drift";
 import { explorerTransactionUrl } from "@/lib/explorer-links";
 import { PROTOCOL_LABELS } from "@/lib/protocol-directory";
 import { resolveTransactionReviewPresentation } from "@/lib/transaction-review-presentation";
@@ -223,31 +224,28 @@ export default async function TransactionDetailPage({
           blockHash: onchainExecution.blockHash,
         }
       : liveTransaction && liveTransaction.status !== "pending"
-      ? {
-          status: liveTransaction.status,
-          executedAt: liveTransaction.executedAt,
-          executedTxHash: liveTransaction.executedTxHash,
-          blockNumber: liveTransaction.blockNumber,
-          blockHash: liveTransaction.blockHash,
-        }
-      : {}),
-    confirmations: mergeConfirmationSnapshots(
-      persisted.confirmations,
-      [
-        ...(livePayload?.confirmations ?? []),
-        ...(liveTransaction?.confirmations ?? []),
-      ],
-    ),
+        ? {
+            status: liveTransaction.status,
+            executedAt: liveTransaction.executedAt,
+            executedTxHash: liveTransaction.executedTxHash,
+            blockNumber: liveTransaction.blockNumber,
+            blockHash: liveTransaction.blockHash,
+          }
+        : {}),
+    confirmations: mergeConfirmationSnapshots(persisted.confirmations, [
+      ...(livePayload?.confirmations ?? []),
+      ...(liveTransaction?.confirmations ?? []),
+    ]),
   }));
   const neutralAnalysisPromise = currentTransactionPromise.then((current) =>
     resolveNeutralTransactionAnalysis(current, {
-    abi,
-    cache,
-    chain,
-    persistence,
-    safeData,
-    simulation: getSimulationPort(),
-    now: unixNow,
+      abi,
+      cache,
+      chain,
+      persistence,
+      safeData,
+      simulation: getSimulationPort(),
+      now: unixNow,
     }),
   );
   const tokenMetadataPromise = neutralAnalysisPromise.then(({ execution }) =>
@@ -289,6 +287,7 @@ export default async function TransactionDetailPage({
     targetRuntimeCode,
     internalProxyBoundaries,
     routeAttestation,
+    reviewContext,
   } = analysis;
   const transaction = toTransactionView(currentTransaction);
   const decoded = insight.decoded;
@@ -357,8 +356,12 @@ export default async function TransactionDetailPage({
     transactionHistoryPage?.items ?? [],
   );
   const reviewFreshness = transactionReviewFreshness(
-    analysis.persisted.createdAt,
+    reviewContext.capturedAt,
     unixNow(),
+  );
+  const reviewDrift = compareAnalysisReviewContexts(
+    analysis.persisted.reviewContext ?? null,
+    reviewContext,
   );
   const reviewPosition = reviewQueue.findIndex(
     (item) => item.safeTxHash.toLowerCase() === hash.data.toLowerCase(),
@@ -788,6 +791,44 @@ export default async function TransactionDetailPage({
                 </dd>
               </div>
             </dl>
+
+            {currentTransaction.status === "pending" ? (
+              <div
+                className={`review-drift review-drift-${reviewDrift.status}`}
+                role={
+                  reviewDrift.changes.some(
+                    (change) => change.severity !== "info",
+                  )
+                    ? "alert"
+                    : "status"
+                }
+              >
+                <strong>
+                  {reviewDrift.status === "unchanged"
+                    ? "No environmental change since the original review"
+                    : reviewDrift.status === "changed"
+                      ? "The execution environment changed after the original review"
+                      : "Original review baseline unavailable"}
+                </strong>
+                <p>
+                  {reviewDrift.baselineAt
+                    ? `Compared with the review recorded ${formatDate(reviewDrift.baselineAt)}.`
+                    : "This analysis version has not recorded a comparison baseline yet."}
+                </p>
+                {reviewDrift.changes.length > 0 ? (
+                  <ul>
+                    {reviewDrift.changes.map((change) => (
+                      <li
+                        className={`review-drift-${change.severity}`}
+                        key={change.key}
+                      >
+                        <b>{change.title}:</b> {change.detail}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+            ) : null}
 
             {competingProposals.length > 0 ? (
               <div className="competing-proposals" role="alert">
