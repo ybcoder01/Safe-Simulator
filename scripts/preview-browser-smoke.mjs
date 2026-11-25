@@ -67,6 +67,13 @@ const pages = [
       "Went through. Looks normal",
       "Your Safe received 0.050001 fmUSDC and sent 0.05 USDC.",
     ],
+    // Privy loads the optional Base Account provider globally. On this
+    // read-only route it logs a compatibility warning because our hardened
+    // COOP header intentionally remains `same-origin`; no Base Account or
+    // wallet control is exposed here (asserted below).
+    allowedConsoleErrors: [
+      /^Base Account SDK requires the Cross-Origin-Opener-Policy header/,
+    ],
   },
 ];
 
@@ -355,6 +362,13 @@ try {
       pageFailures = pageFailures.filter(
         (failure) => !failure.startsWith("console.error"),
       );
+    } else if (page.allowedConsoleErrors) {
+      pageFailures = pageFailures.filter((failure) => {
+        const detail = failure.replace(/^console\.error:\s*/, "");
+        return !page.allowedConsoleErrors.some((pattern) =>
+          pattern.test(detail),
+        );
+      });
     }
     assert.deepEqual(
       pageFailures,
