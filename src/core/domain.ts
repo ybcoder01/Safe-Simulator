@@ -266,6 +266,23 @@ export interface AnalysisResult {
   readonly simulation: SimulationOutput | null;
   readonly createdAt: UnixTime;
   readonly immutable: boolean;
+  readonly reviewContext?: AnalysisReviewContext | null;
+}
+
+export interface AnalysisReviewContext {
+  readonly capturedAt: UnixTime;
+  readonly targetCodeHash: Hex | null;
+  readonly implementationChain: readonly Address[];
+  readonly confirmationOwners: readonly Address[];
+  readonly simulationFingerprint: Hex | null;
+  readonly safe: {
+    readonly owners: readonly Address[];
+    readonly threshold: number;
+    readonly nonce: string;
+    readonly guard: Address | null;
+    readonly modules: readonly Address[];
+    readonly implementation: Address | null;
+  } | null;
 }
 
 export type TransactionSummaryStatus = "pending" | "complete" | "failed";
